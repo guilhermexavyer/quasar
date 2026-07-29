@@ -462,8 +462,9 @@ const COLUMNS: ColDef[] = [
         .resizer-handle:hover::after { background-color: #94a3b8; }
         th, td { min-width: 0 !important; box-sizing: border-box; }
         th { white-space: nowrap; overflow: hidden; }
-        th .header-content { display: flex; align-items: center; gap: 4px; white-space: nowrap; overflow: hidden; }
-        th .header-content > span { overflow: hidden; text-overflow: ellipsis; }
+        th .header-content { display: flex; align-items: center; justify-content: space-between; gap: 4px; white-space: nowrap; overflow: hidden; width: 100%; }
+        th .header-content > span { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
+        th .header-content > svg { flex-shrink: 0; margin-left: auto; }
         /* max-width:0 permite que a coluna encolha abaixo do conteúdo das células */
         td { max-width: 0; overflow: hidden; }
         .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }

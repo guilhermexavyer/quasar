@@ -15,3 +15,6 @@
  GET / 200 in 884ms (next.js: 90ms, application-code: 794ms)
 [browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
 Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+✓ Compiled in 863ms
+ GET / 200 in 978ms (next.js: 561ms, application-code: 417ms)
+ GET / 200 in 179ms (next.js: 70ms, application-code: 110ms)
