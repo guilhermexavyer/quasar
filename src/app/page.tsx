@@ -177,6 +177,9 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5]);
   const [dragCol, setDragCol] = useState<number | null>(null);
+  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const [pageInput, setPageInput] = useState<string>('1');
   const minWidthsRef = useRef<number[]>([]);
   const dragStartXRef = useRef(0);
   const didDragRef = useRef(false);
@@ -219,10 +222,10 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
 
   function measureAllMinWidths() {
     const table = tableRef.current;
-    if (!table) return;
+    if (!table) return [];
 
     const ths = table.querySelectorAll<HTMLElement>("thead tr th");
-    if (ths.length === 0) return;
+    if (ths.length === 0) return [];
 
     const widths = new Array(COLUMNS.length).fill(0);
     ths.forEach((th, domIdx) => {
@@ -231,6 +234,58 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
     });
 
     minWidthsRef.current = widths;
+    return widths;
+  }
+
+  function measureColumnContentWidth(table: HTMLTableElement, domIdx: number): number {
+    const cells = table.querySelectorAll<HTMLElement>(
+      `tbody tr td:nth-child(${domIdx + 1})`
+    );
+    let maxWidth = 0;
+
+    cells.forEach((cell) => {
+      const clone = cell.cloneNode(true) as HTMLElement;
+      clone.style.position = "absolute";
+      clone.style.left = "0";
+      clone.style.top = "0";
+      clone.style.visibility = "hidden";
+      clone.style.pointerEvents = "none";
+      clone.style.display = "inline-block";
+      clone.style.whiteSpace = "nowrap";
+      clone.style.width = "auto";
+      clone.style.maxWidth = "none";
+      clone.style.minWidth = "0";
+      clone.style.overflow = "visible";
+      clone.style.textOverflow = "clip";
+
+      document.body.appendChild(clone);
+      const width = clone.getBoundingClientRect().width;
+      document.body.removeChild(clone);
+
+      if (width > maxWidth) maxWidth = width;
+    });
+
+    return Math.ceil(maxWidth);
+  }
+
+  function setDefaultColumnWidths() {
+    const table = tableRef.current;
+    if (!table) return;
+
+    if (minWidthsRef.current.length === 0) {
+      measureAllMinWidths();
+    }
+
+    const ths = freezeTableColumns(table);
+    ths.forEach((th, domIdx) => {
+      const logicalIdx = columnOrder[domIdx];
+      const minW = minWidthsRef.current[logicalIdx] || 0;
+      const contentW = measureColumnContentWidth(table, domIdx);
+      const finalWidth = Math.max(minW, contentW);
+      applyColumnWidth(table, ths, domIdx, finalWidth);
+    });
+
+    setFrozenWidth(table.style.width);
   }
 
 
@@ -344,12 +399,34 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
     });
   }, [alunos, sortColumn, sortAsc]);
 
+  const totalRecords = sortedAlunos.length;
+  const pageCount = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalRecords / pageSize));
+  const currentPageSafe = Math.min(currentPage, pageCount);
+  const firstRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? 1 : (currentPageSafe - 1) * pageSize + 1);
+  const lastRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? totalRecords : Math.min(totalRecords, currentPageSafe * pageSize));
+  const paginatedAlunos = pageSize === 'all'
+    ? sortedAlunos
+    : sortedAlunos.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
+
+  useEffect(() => {
+    setCurrentPage(1);
+    setPageInput('1');
+  }, [pageSize, totalRecords]);
+
+  useEffect(() => {
+    if (currentPage > pageCount) {
+      setCurrentPage(pageCount);
+      setPageInput(String(pageCount));
+    }
+  }, [pageCount, currentPage]);
+
   /* ── Mede a largura mínima de cada coluna com base APENAS no cabeçalho ── */
   useLayoutEffect(() => {
     const table = tableRef.current;
     if (!table) return;
     measureAllMinWidths();
-  }, [columnOrder, loading]);
+    setDefaultColumnWidths();
+  }, [columnOrder, loading, alunos.length]);
 
   /* ── Ícone de ordenação para o cabeçalho (in-flow para entrar na medição) ── */
   function SortIcon({ column }: { column: number }) {
@@ -522,7 +599,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
         td { max-width: 0; overflow: hidden; }
         .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
       `}</style>
-    <div className="space-y-6 animate-fade-in">
+    <div className="flex-1 flex flex-col min-h-0 space-y-6 animate-fade-in">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold">Pessoas Físicas</h1>
@@ -544,9 +621,9 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
       )}
 
       {/* Lista */}
-      <div className="bg-white">
+      <div className="bg-white flex-1 flex flex-col">
         {loading ? (
-          <div className="p-4 space-y-3">
+          <div className="p-4 space-y-3 flex-1">
             {[1, 2, 3].map((i) => (
               <div key={i} className="flex items-center gap-4 animate-pulse px-1 py-1">
                 <div className="h-4 w-48 rounded bg-slate-200" />
@@ -559,7 +636,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
             ))}
           </div>
         ) : alunos.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-16 text-center">
+          <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-[3px] bg-slate-100">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
                 <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
@@ -572,76 +649,126 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
             </p>
           </div>
         ) : (
-          <div className="overflow-x-auto relative">
-            <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "collapse" }}>
-              <thead>
-                <tr className="bg-[#bbb]">
-                  {columnOrder.map((logicalIdx, visualIdx) => {
-                    const col = COLUMNS[logicalIdx];
-                    const isLast = visualIdx === columnOrder.length - 1;
-                    const isDragSource = dragCol === logicalIdx;
-                    return (
-                      <th
-                        key={logicalIdx}
-                        scope="col"
-                        className={`px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle relative border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
-                        style={{ borderRightColor: '#666', borderBottomColor: '#999' }}
-                        onClick={(e) => handleHeaderClick(logicalIdx, e)}
-                        onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}
-                        onDragStart={(e) => e.preventDefault()}
-                      >
-                        <div className="header-content pr-1">
-                          <span>{col.label}</span>
-                          <SortIcon column={logicalIdx} />
-                        </div>
-                        <div className="resizer-handle" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart(logicalIdx, e); }} onDoubleClick={(e) => handleResizeDblClick(logicalIdx, e)} />
-                      </th>
-                    );
-                  })}
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {sortedAlunos.map((aluno) => (
-                  <tr
-                    key={aluno.id}
-                    className="transition hover:bg-slate-50 cursor-[context-menu]"
-                    onContextMenu={(e) => {
-                      e.preventDefault();
-                      setContextMenu({ x: e.clientX, y: e.clientY, aluno });
-                    }}
-                  >
-                    {columnOrder.map((logicalIdx) => {
+          <div className="flex-1 flex flex-col min-h-0">
+            <div className="overflow-x-auto overflow-y-auto relative flex-1 min-h-0">
+              <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "collapse" }}>
+                <thead>
+                  <tr className="bg-[#bbb]">
+                    {columnOrder.map((logicalIdx, visualIdx) => {
                       const col = COLUMNS[logicalIdx];
-                      const value = aluno[col.key];
-                      const displayValue = formatCellValue(col.key, value);
-                      const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
+                      const isLast = visualIdx === columnOrder.length - 1;
+                      const isDragSource = dragCol === logicalIdx;
                       return (
-                        <td key={logicalIdx} className={baseClass} style={{ color: '#333' }}>
-                          <span className="cell-content">{displayValue}</span>
-                        </td>
+                        <th
+                          key={logicalIdx}
+                          scope="col"
+                          className={`px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle relative border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
+                          style={{ borderRightColor: '#666', borderBottomColor: '#999' }}
+                          onClick={(e) => handleHeaderClick(logicalIdx, e)}
+                          onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}
+                          onDragStart={(e) => e.preventDefault()}
+                        >
+                          <div className="header-content pr-1">
+                            <span>{col.label}</span>
+                            <SortIcon column={logicalIdx} />
+                          </div>
+                          <div className="resizer-handle" onMouseDown={(e) => { e.stopPropagation(); handleResizeStart(logicalIdx, e); }} onDoubleClick={(e) => handleResizeDblClick(logicalIdx, e)} />
+                        </th>
                       );
                     })}
                   </tr>
-                ))}
-              </tbody>
-            </table>
-            {/* Linha indicadora de drop (fora da tabela mas dentro do wrapper relative) */}
-            <div
-              ref={dropLineRef}
-              style={{
-                position: 'absolute',
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: '3px',
-                backgroundColor: '#003056',
-                zIndex: 100,
-                pointerEvents: 'none',
-                display: 'none',
-                transform: 'translateX(0)',
-              }}
-            />
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {paginatedAlunos.map((aluno) => (
+                    <tr
+                      key={aluno.id}
+                      className="transition hover:bg-slate-50 cursor-[context-menu]"
+                      onContextMenu={(e) => {
+                        e.preventDefault();
+                        setContextMenu({ x: e.clientX, y: e.clientY, aluno });
+                      }}
+                    >
+                      {columnOrder.map((logicalIdx) => {
+                        const col = COLUMNS[logicalIdx];
+                        const value = aluno[col.key];
+                        const displayValue = formatCellValue(col.key, value);
+                        const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
+                        return (
+                          <td key={logicalIdx} className={baseClass} style={{ color: '#333' }}>
+                            <span className="cell-content">{displayValue}</span>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              {/* Linha indicadora de drop (fora da tabela mas dentro do wrapper relative) */}
+              <div
+                ref={dropLineRef}
+                style={{
+                  position: 'absolute',
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: '3px',
+                  backgroundColor: '#003056',
+                  zIndex: 100,
+                  pointerEvents: 'none',
+                  display: 'none',
+                  transform: 'translateX(0)',
+                }}
+              />
             </div>
+            <div className="border-t border-slate-200 bg-white/95 backdrop-blur-sm px-3 py-3 shadow-[0_-1px_0_0_rgba(148,163,184,0.2)] sticky bottom-0 z-10">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-slate-600">Por página:</label>
+                  <select
+                    value={pageSize}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setPageSize(value === 'all' ? 'all' : Number(value));
+                    }}
+                    className="rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
+                  >
+                    <option value={25}>25</option>
+                    <option value={50}>50</option>
+                    <option value={100}>100</option>
+                    <option value="all">Todos</option>
+                  </select>
+                </div>
+
+                <div className="flex items-center justify-center gap-2">
+                  <label className="text-sm text-slate-600">Página</label>
+                  <input
+                    type="text"
+                    value={pageInput}
+                    onChange={(e) => setPageInput(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        const targetPage = Number(pageInput);
+                        if (!Number.isNaN(targetPage) && targetPage >= 1 && targetPage <= pageCount) {
+                          setCurrentPage(targetPage);
+                        } else {
+                          setPageInput(String(currentPageSafe));
+                        }
+                      }
+                    }}
+                    className="w-16 rounded-[3px] border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
+                  />
+                  <span className="text-sm text-slate-600">de {pageCount}</span>
+                </div>
+
+                <div className="text-sm text-slate-600 text-right">
+                  {firstRecord === 0
+                    ? '0 de ' + totalRecords
+                    : `${firstRecord}–${lastRecord} de ${totalRecords}`}
+                </div>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>
@@ -1042,8 +1169,8 @@ export default function Home() {
       </aside>
 
       {/* Conteúdo principal */}
-      <div style={{ marginLeft: isSidebarOpen ? '191px' : '63px' }}>
-        <div className="w-full px-[15px] py-[15px]">
+      <div style={{ marginLeft: isSidebarOpen ? '191px' : '63px' }} className="min-h-screen flex flex-col overflow-hidden">
+        <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
           {view === "list" ? (
             <ListView
               message={message}
