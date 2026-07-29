@@ -720,45 +720,47 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                 }}
               />
             </div>
-            <div className="border-t border-slate-200 bg-white/95 backdrop-blur-sm px-3 py-3 shadow-[0_-1px_0_0_rgba(148,163,184,0.2)] sticky bottom-0 z-10">
+            <div className="border-t border-slate-200 bg-white/95 backdrop-blur-sm px-0 pt-3 pb-0 shadow-[0_-1px_0_0_rgba(148,163,184,0.2)] sticky bottom-0 z-10">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex items-center gap-2">
-                  <label className="text-sm text-slate-600">Por página:</label>
-                  <select
-                    value={pageSize}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setPageSize(value === 'all' ? 'all' : Number(value));
-                    }}
-                    className="rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
-                  >
-                    <option value={25}>25</option>
-                    <option value={50}>50</option>
-                    <option value={100}>100</option>
-                    <option value="all">Todos</option>
-                  </select>
-                </div>
-
-                <div className="flex items-center justify-center gap-2">
-                  <label className="text-sm text-slate-600">Página</label>
-                  <input
-                    type="text"
-                    value={pageInput}
-                    onChange={(e) => setPageInput(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter') {
-                        e.preventDefault();
-                        const targetPage = Number(pageInput);
-                        if (!Number.isNaN(targetPage) && targetPage >= 1 && targetPage <= pageCount) {
-                          setCurrentPage(targetPage);
-                        } else {
-                          setPageInput(String(currentPageSafe));
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      aria-label="Número da página"
+                      placeholder="1"
+                      value={pageInput}
+                      onChange={(e) => setPageInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          const targetPage = Number(pageInput);
+                          if (!Number.isNaN(targetPage) && targetPage >= 1 && targetPage <= pageCount) {
+                            setCurrentPage(targetPage);
+                          } else {
+                            setPageInput(String(currentPageSafe));
+                          }
                         }
-                      }
-                    }}
-                    className="w-16 rounded-[3px] border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
-                  />
-                  <span className="text-sm text-slate-600">de {pageCount}</span>
+                      }}
+                      className="w-16 rounded-[3px] border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
+                    />
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <select
+                      aria-label="Registros por página"
+                      value={pageSize}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        setPageSize(value === 'all' ? 'all' : Number(value));
+                      }}
+                      className="rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
+                    >
+                      <option value={25}>25</option>
+                      <option value={50}>50</option>
+                      <option value={100}>100</option>
+                      <option value="all">Todos</option>
+                    </select>
+                  </div>
                 </div>
 
                 <div className="text-sm text-slate-600 text-right">

@@ -503,3 +503,4404 @@ https://react.dev/link/hydration-mismatch
                           >
                   ...
  
+ GET / 200 in 153ms (next.js: 18ms, application-code: 136ms)
+ GET / 200 in 166ms (next.js: 13ms, application-code: 154ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 1359ms
+ GET / 200 in 1063ms (next.js: 579ms, application-code: 485ms)
+ GET / 200 in 308ms (next.js: 50ms, application-code: 258ms)
+ GET / 200 in 1112ms (next.js: 27ms, application-code: 1085ms)
+ GET / 200 in 363ms (next.js: 44ms, application-code: 319ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+ GET / 200 in 488ms (next.js: 36ms, application-code: 451ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+✓ Compiled in 554ms
+ GET / 200 in 844ms (next.js: 565ms, application-code: 279ms)
+ GET / 200 in 860ms (next.js: 700ms, application-code: 160ms)
+ GET / 200 in 2.6s (next.js: 37ms, application-code: 2.6s)
+ GET / 200 in 160ms (next.js: 15ms, application-code: 145ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 1521ms
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+○ Compiling /_error ...
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 18.2s (next.js: 15.9s, application-code: 2.3s)
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 190ms (next.js: 77ms, application-code: 113ms)
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 221ms (next.js: 160ms, application-code: 61ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 372ms (next.js: 269ms, application-code: 103ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:775:10)
+    at <unknown> (Error: (./src/app/page.tsx:775:10)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 84ms (next.js: 42ms, application-code: 42ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 90ms (next.js: 47ms, application-code: 43ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 80ms (next.js: 37ms, application-code: 43ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  [90m773 |[0m             </div>
+  [90m774 |[0m           </div>
+[31m[1m>[0m [90m775 |[0m         )}
+  [90m    |[0m          [31m[1m^[0m
+  [90m776 |[0m       </div>
+  [90m777 |[0m     </div>
+  [90m778 |[0m     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:777:6
+Unterminated regexp literal
+  [90m775 |[0m         )}
+  [90m776 |[0m       </div>
+[31m[1m>[0m [90m777 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m778 |[0m     </>
+  [90m779 |[0m   );
+  [90m780 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 105ms (next.js: 49ms, application-code: 56ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:775:10)
+    at <unknown> (Error: (./src/app/page.tsx:775:10)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 200 in 2.1s (next.js: 1081ms, application-code: 978ms)
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:775:10
+Unexpected token. Did you mean `{'}'}` or `&rbrace;`?
+  773 |             </div>
+  774 |           </div>
+> 775 |         )}
+      |          ^
+  776 |       </div>
+  777 |     </div>
+  778 |     </>
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:777:6
+Unterminated regexp literal
+  775 |         )}
+  776 |       </div>
+> 777 |     </div>
+      |      ^^^^^
+  778 |     </>
+  779 |   );
+  780 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 200 in 982ms (next.js: 54ms, application-code: 928ms)
+ GET / 200 in 787ms (next.js: 107ms, application-code: 680ms)
+ GET / 200 in 153ms (next.js: 15ms, application-code: 138ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+✓ Compiled in 489ms
+ GET / 200 in 1009ms (next.js: 711ms, application-code: 298ms)
+ GET / 200 in 1013ms (next.js: 881ms, application-code: 132ms)
+✓ Compiled in 797ms
+ GET / 200 in 579ms (next.js: 412ms, application-code: 167ms)
+ GET / 200 in 541ms (next.js: 211ms, application-code: 330ms)
+✓ Compiled in 759ms
+ GET / 200 in 600ms (next.js: 373ms, application-code: 228ms)
+ GET / 200 in 134ms (next.js: 23ms, application-code: 111ms)
+ GET / 200 in 1030ms (next.js: 23ms, application-code: 1006ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+✓ Compiled in 846ms
+ GET / 200 in 337ms (next.js: 19ms, application-code: 318ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
