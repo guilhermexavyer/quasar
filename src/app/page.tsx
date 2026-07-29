@@ -100,12 +100,65 @@ interface ColDef {
 
 const COLUMNS: ColDef[] = [
   { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
-  { key: 'ds_nome', label: 'Nome', dataClass: 'font-medium text-slate-900' },
+  { key: 'ds_nome', label: 'Nome', dataClass: 'text-black' },
   { key: 'nr_cpf', label: 'CPF' },
   { key: 'dt_nascimento', label: 'Nascimento' },
   { key: 'ds_email', label: 'E-mail' },
   { key: 'nr_telefone', label: 'Telefone' },
 ];
+
+function formatCpf(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function formatDate(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length === 8) {
+    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
+  }
+
+  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
+    const [year, month, day] = value.split('T')[0].split('-');
+    return `${day}/${month}/${year}`;
+  }
+
+  if (/^\d{4}\/\d{2}\/\d{2}/.test(value)) {
+    const [year, month, day] = value.split('T')[0].split('/');
+    return `${day}/${month}/${year}`;
+  }
+
+  return value;
+}
+
+function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function formatCellValue(key: keyof Aluno, value: unknown): string {
+  if (value === null || value === undefined) return '';
+  const stringValue = String(value);
+
+  if (!stringValue) return '';
+
+  switch (key) {
+    case 'nr_cpf':
+      return formatCpf(stringValue);
+    case 'dt_nascimento':
+      return formatDate(stringValue);
+    case 'nr_telefone':
+      return formatPhone(stringValue);
+    default:
+      return stringValue;
+  }
+}
 
 /* ------------------------------------------------------------------ */
 /*  ListView — componente estável, sem remontagem indevida            */
@@ -531,7 +584,7 @@ const COLUMNS: ColDef[] = [
                       <th
                         key={logicalIdx}
                         scope="col"
-                        className={`px-[10px] py-[3px] text-left text-sm font-bold text-slate-900 min-w-0 align-middle relative border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
+                        className={`px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle relative border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
                         style={{ borderRightColor: '#666', borderBottomColor: '#999' }}
                         onClick={(e) => handleHeaderClick(logicalIdx, e)}
                         onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}
@@ -560,10 +613,11 @@ const COLUMNS: ColDef[] = [
                     {columnOrder.map((logicalIdx) => {
                       const col = COLUMNS[logicalIdx];
                       const value = aluno[col.key];
-                      const baseClass = `px-[10px] py-[3px] min-w-0 align-middle ${col.dataClass || 'text-slate-600'}`;
+                      const displayValue = formatCellValue(col.key, value);
+                      const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                       return (
-                        <td key={logicalIdx} className={baseClass}>
-                          <span className="cell-content">{value}</span>
+                        <td key={logicalIdx} className={baseClass} style={{ color: '#333' }}>
+                          <span className="cell-content">{displayValue}</span>
                         </td>
                       );
                     })}
@@ -988,8 +1042,8 @@ export default function Home() {
       </aside>
 
       {/* Conteúdo principal */}
-      <div className="ml-12">
-        <div className="mx-auto max-w-5xl px-4 sm:px-6 lg:px-8 py-6">
+      <div style={{ marginLeft: isSidebarOpen ? '191px' : '63px' }}>
+        <div className="w-full px-[15px] py-[15px]">
           {view === "list" ? (
             <ListView
               message={message}
