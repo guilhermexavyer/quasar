@@ -602,13 +602,12 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
     <div className="flex-1 flex flex-col min-h-0 space-y-6 animate-fade-in">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Pessoas Físicas</h1>
+        <h1 className="text-[20px] font-semibold">Pessoas Físicas</h1>
         <button
           type="button"
           onClick={openNewForm}
-          className="inline-flex items-center gap-2 rounded-[3px] bg-[#003056] px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-[#004a7a] shadow-sm"
+          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#3394B4] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#3394B4] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#3394B4] active:outline-offset-2"
         >
-          {Icons.add}
           Adicionar
         </button>
       </div>
@@ -1171,7 +1170,7 @@ export default function Home() {
       </aside>
 
       {/* Conteúdo principal */}
-      <div style={{ marginLeft: isSidebarOpen ? '191px' : '63px' }} className="min-h-screen flex flex-col overflow-hidden">
+      <div style={{ marginLeft: '3rem' }} className="min-h-screen flex flex-col overflow-hidden">
         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
           {view === "list" ? (
             <ListView
