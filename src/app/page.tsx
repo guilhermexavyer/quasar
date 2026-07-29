@@ -79,6 +79,7 @@ type FormData = Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao
 interface FormViewProps {
   message: string;
   editingId: string | null;
+  sequence?: number | null;
   form: FormData;
   setForm: React.Dispatch<React.SetStateAction<FormData>>;
   submitting: boolean;
@@ -105,6 +106,8 @@ const COLUMNS: ColDef[] = [
   { key: 'dt_nascimento', label: 'Nascimento' },
   { key: 'ds_email', label: 'E-mail' },
   { key: 'nr_telefone', label: 'Telefone' },
+  { key: 'dt_criacao', label: 'Criação' },
+  { key: 'dt_alteracao', label: 'Alteração' },
 ];
 
 function formatCpf(value: string): string {
@@ -116,25 +119,76 @@ function formatCpf(value: string): string {
 }
 
 function formatDate(value: string): string {
-  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (!value) return '';
+
+  // ISO datetime (with time) -> show date + time in local timezone
+  if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(value)) {
+    const d = new Date(value);
+    if (isNaN(d.getTime())) return value;
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const day = pad(d.getDate());
+    const month = pad(d.getMonth() + 1);
+    const year = d.getFullYear();
+    const hours = pad(d.getHours());
+    const minutes = pad(d.getMinutes());
+    const seconds = pad(d.getSeconds());
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds}`;
+  }
+
+  // ISO date without time or YYYY/MM/DD
+  if (/^\d{4}-\d{2}-\d{2}/.test(value) || /^\d{4}\/\d{2}\/\d{2}/.test(value)) {
+    const [year, month, day] = value.split('T')[0].split(/[-\/]/);
+    return `${day}/${month}/${year}`;
+  }
+
+  // Fallback: try to extract DDMMYYYY from digits
+  const digits = value.replace(/\D/g, '');
   if (digits.length === 8) {
-    return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4, 8)}`;
-  }
+    const dayFirst = digits.slice(0, 2);
+    const monthFirst = digits.slice(2, 4);
+    const yearFirst = digits.slice(4, 8);
+    const yearSecond = digits.slice(0, 4);
+    const monthSecond = digits.slice(4, 6);
+    const daySecond = digits.slice(6, 8);
 
-  if (/^\d{4}-\d{2}-\d{2}/.test(value)) {
-    const [year, month, day] = value.split('T')[0].split('-');
-    return `${day}/${month}/${year}`;
-  }
+    const isValidDayMonth = (d: number, m: number) => d >= 1 && d <= 31 && m >= 1 && m <= 12;
+    if (isValidDayMonth(Number(dayFirst), Number(monthFirst))) {
+      return `${dayFirst}/${monthFirst}/${yearFirst}`;
+    }
 
-  if (/^\d{4}\/\d{2}\/\d{2}/.test(value)) {
-    const [year, month, day] = value.split('T')[0].split('/');
-    return `${day}/${month}/${year}`;
+    if (isValidDayMonth(Number(daySecond), Number(monthSecond))) {
+      return `${daySecond}/${monthSecond}/${yearSecond}`;
+    }
   }
 
   return value;
 }
 
 function formatPhone(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+function applyCpfMask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+function applyDateMask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  if (digits.length <= 8) return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+  return digits;
+}
+
+function applyPhoneMask(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
   if (digits.length <= 2) return digits;
   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
@@ -152,6 +206,8 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
     case 'nr_cpf':
       return formatCpf(stringValue);
     case 'dt_nascimento':
+    case 'dt_criacao':
+    case 'dt_alteracao':
       return formatDate(stringValue);
     case 'nr_telefone':
       return formatPhone(stringValue);
@@ -172,10 +228,11 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
   setContextMenu,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5]);
+  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -383,9 +440,19 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
 
   /* ── Lista ordenada ── */
   const sortedAlunos = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return alunos;
+    const sorted = [...alunos];
+    if (sortColumn === null || sortAsc === null) {
+      return sorted.sort((a, b) => {
+        const dateA = a.dt_criacao || "";
+        const dateB = b.dt_criacao || "";
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return a.nr_sequencia - b.nr_sequencia;
+      });
+    }
+
     const key = COLUMNS[sortColumn].key;
-    return [...alunos].sort((a, b) => {
+    return sorted.sort((a, b) => {
       const valA = a[key];
       const valB = b[key];
       if (typeof valA === 'number' && typeof valB === 'number') {
@@ -599,28 +666,21 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
         td { max-width: 0; overflow: hidden; }
         .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
       `}</style>
-    <div className="flex-1 flex flex-col min-h-0 space-y-6 animate-fade-in">
+    <div className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
         <h1 className="text-[20px] font-semibold">Pessoas Físicas</h1>
         <button
           type="button"
           onClick={openNewForm}
-          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#3394B4] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#3394B4] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#3394B4] active:outline-offset-2"
+          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
         >
           Adicionar
         </button>
       </div>
 
-      {/* Mensagem */}
-      {message && (
-        <p className="text-sm text-emerald-600 bg-emerald-50 rounded-[3px] px-4 py-2">
-          {message}
-        </p>
-      )}
-
       {/* Lista */}
-      <div className="bg-white flex-1 flex flex-col">
+      <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
         {loading ? (
           <div className="p-4 space-y-3 flex-1">
             {[1, 2, 3].map((i) => (
@@ -648,9 +708,9 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
             </p>
           </div>
         ) : (
-          <div className="flex-1 flex flex-col min-h-0">
-            <div className="overflow-x-auto overflow-y-auto relative flex-1 min-h-0">
-              <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "collapse" }}>
+          <div className="flex-1 flex flex-col min-h-0 overflow-hidden">
+            <div className="overflow-x-auto overflow-y-auto relative flex-1 min-h-0 h-full">
+              <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                 <thead>
                   <tr className="bg-[#bbb]">
                     {columnOrder.map((logicalIdx, visualIdx) => {
@@ -661,8 +721,8 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                         <th
                           key={logicalIdx}
                           scope="col"
-                          className={`px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle relative border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
-                          style={{ borderRightColor: '#666', borderBottomColor: '#999' }}
+                          className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
+                          style={{ borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999' }}
                           onClick={(e) => handleHeaderClick(logicalIdx, e)}
                           onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}
                           onDragStart={(e) => e.preventDefault()}
@@ -681,9 +741,12 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                   {paginatedAlunos.map((aluno) => (
                     <tr
                       key={aluno.id}
-                      className="transition hover:bg-slate-50 cursor-[context-menu]"
+                      className="cursor-[context-menu] hover:bg-[#eee]"
+                      style={{ backgroundColor: selectedId === aluno.id ? 'rgba(3,102,214,0.10)' : undefined }}
+                      onClick={() => setSelectedId((prev) => (prev === aluno.id ? null : aluno.id))}
                       onContextMenu={(e) => {
                         e.preventDefault();
+                        setSelectedId(aluno.id ?? null);
                         setContextMenu({ x: e.clientX, y: e.clientY, aluno });
                       }}
                     >
@@ -693,7 +756,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                         const displayValue = formatCellValue(col.key, value);
                         const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                         return (
-                          <td key={logicalIdx} className={baseClass} style={{ color: '#333' }}>
+                          <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
                             <span className="cell-content">{displayValue}</span>
                           </td>
                         );
@@ -719,14 +782,13 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                 }}
               />
             </div>
-            <div className="border-t border-slate-200 bg-white/95 backdrop-blur-sm px-0 pt-3 pb-0 shadow-[0_-1px_0_0_rgba(148,163,184,0.2)] sticky bottom-0 z-10">
+            <div className="bg-white/95 backdrop-blur-sm px-0 pt-3 pb-0 sticky bottom-0 z-10">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                   <div className="flex items-center gap-2">
                     <input
                       type="text"
                       aria-label="Número da página"
-                      placeholder="1"
                       value={pageInput}
                       onChange={(e) => setPageInput(e.target.value)}
                       onKeyDown={(e) => {
@@ -740,7 +802,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                           }
                         }
                       }}
-                      className="w-16 rounded-[3px] border border-slate-300 bg-white px-2 py-2 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
+                      className="w-24 rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056]"
                     />
                   </div>
 
@@ -752,11 +814,11 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                         const value = e.target.value;
                         setPageSize(value === 'all' ? 'all' : Number(value));
                       }}
-                      className="rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-[#003056] focus:ring-2 focus:ring-[#003056]/20"
+                      className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 outline-none transition focus:border-[#003056]"
                     >
-                      <option value={25}>25</option>
-                      <option value={50}>50</option>
-                      <option value={100}>100</option>
+                      <option value={25}>25 por página</option>
+                      <option value={50}>50 por página</option>
+                      <option value={100}>100 por página</option>
                       <option value="all">Todos</option>
                     </select>
                   </div>
@@ -784,144 +846,153 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
 function FormView({
   message,
   editingId,
+  sequence,
   form,
   setForm,
   submitting,
   handleSubmit,
   goToList,
 }: FormViewProps) {
+  const formRef = useRef<HTMLFormElement | null>(null);
+
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (submitting) return;
+        const f = formRef.current;
+        if (!f) return;
+        if (typeof (f as any).requestSubmit === 'function') {
+          (f as any).requestSubmit();
+        } else {
+          // fallback: click submit button
+          const btn = f.querySelector('button[type="submit"]') as HTMLButtonElement | null;
+          if (btn) btn.click();
+        }
+      }
+    }
+
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [submitting]);
   return (
-    <div className="space-y-6">
-      {/* Topo com volta */}
+    <div className="flex-1 flex flex-col min-h-0">
+      {/* Topo com fechamento */}
       <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold">
-            {editingId ? "Editar Pessoa Física" : "Nova Pessoa Física"}
-          </h1>
-          <p className="mt-1 text-sm text-slate-500">
-            {editingId
-              ? "Altere os dados do registro selecionado."
-              : "Preencha os dados para cadastrar uma nova pessoa."}
-          </p>
-        </div>
+        <h1 className="text-[20px] font-semibold">Pessoas Físicas</h1>
         <button
           type="button"
           onClick={goToList}
-          className="inline-flex items-center gap-2 rounded-[3px] border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
+          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
         >
-          {Icons.back}
-          Voltar
+          Fechar
         </button>
       </div>
 
-      {/* Mensagem */}
-      {message && (
-        <p
-          className={`text-sm rounded-[3px] px-4 py-2 ${
-            message.includes("sucesso")
-              ? "text-emerald-600 bg-emerald-50"
-              : "text-rose-600 bg-rose-50"
-          }`}
-        >
-          {message}
-        </p>
-      )}
-
       {/* Formulário */}
       <form
+        ref={formRef}
         onSubmit={handleSubmit}
-        className="rounded-[3px] border border-slate-200 bg-white p-6 shadow-sm"
+        className="mt-4 flex-1 flex flex-col min-h-0"
       >
-        <div className="grid gap-5 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+        <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
+          <div className="sm:col-span-1">
+            <label className="block text-sm mb-1" style={{ color: '#666' }}>
+              Sequência
+            </label>
+            <input
+              disabled
+              value={String(sequence ?? '')}
+              className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm transition focus:outline-none"
+            />
+          </div>
+
+          <div className="sm:col-span-11">
+            <label className="block text-sm mb-1" style={{ color: '#666' }}>
               Nome completo
             </label>
             <input
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2.5 text-sm transition focus:border-[#003056] focus:outline-none focus:ring-2 focus:ring-[#003056]/20"
-              placeholder="Nome da pessoa"
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={form.ds_nome}
               onChange={(e) => setForm({ ...form, ds_nome: e.target.value })}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+          <div className="sm:col-span-6">
+            <label className="block text-sm mb-1" style={{ color: '#666' }}>
               CPF
             </label>
             <input
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2.5 text-sm transition focus:border-[#003056] focus:outline-none focus:ring-2 focus:ring-[#003056]/20"
-              placeholder="000.000.000-00"
+              inputMode="numeric"
+              maxLength={14}
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={form.nr_cpf}
-              onChange={(e) => setForm({ ...form, nr_cpf: e.target.value })}
+              onChange={(e) => setForm({ ...form, nr_cpf: applyCpfMask(e.target.value) })}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+          <div className="sm:col-span-6">
+            <label className="block text-sm mb-1" style={{ color: '#666' }}>
               Data de nascimento
             </label>
             <input
-              type="date"
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2.5 text-sm transition focus:border-[#003056] focus:outline-none focus:ring-2 focus:ring-[#003056]/20"
+              type="text"
+              inputMode="numeric"
+              maxLength={10}
+              placeholder="DD/MM/AAAA"
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
               value={form.dt_nascimento}
               onChange={(e) =>
-                setForm({ ...form, dt_nascimento: e.target.value })
+                setForm({ ...form, dt_nascimento: applyDateMask(e.target.value) })
               }
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+          <div className="sm:col-span-6">
+            <label className="block text-sm mb-1" style={{ color: '#666' }}>
               E-mail
             </label>
             <input
               type="email"
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2.5 text-sm transition focus:border-[#003056] focus:outline-none focus:ring-2 focus:ring-[#003056]/20"
-              placeholder="email@exemplo.com"
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={form.ds_email}
               onChange={(e) => setForm({ ...form, ds_email: e.target.value })}
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">
+          <div className="sm:col-span-6">
+            <label className="block text-sm mb-1" style={{ color: '#666' }}>
               Telefone
             </label>
             <input
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-3 py-2.5 text-sm transition focus:border-[#003056] focus:outline-none focus:ring-2 focus:ring-[#003056]/20"
-              placeholder="(11) 99999-9999"
+              inputMode="numeric"
+              maxLength={15}
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={form.nr_telefone}
-              onChange={(e) => setForm({ ...form, nr_telefone: e.target.value })}
+              onChange={(e) => setForm({ ...form, nr_telefone: applyPhoneMask(e.target.value) })}
             />
           </div>
         </div>
 
-        <div className="mt-6 flex items-center gap-3">
-          <button
-            type="submit"
-            disabled={submitting}
-            className="inline-flex items-center gap-2 rounded-[3px] bg-[#003056] px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-[#004a7a] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? (
-              <>
-                <span className="inline-block h-4 w-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-                {editingId ? "Atualizando..." : "Salvando..."}
-              </>
-            ) : (
-              <>
-                {Icons.check}
-                {editingId ? "Atualizar" : "Salvar"}
-              </>
-            )}
-          </button>
-          <button
-            type="button"
-            onClick={goToList}
-            className="rounded-[3px] border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-          >
-            Cancelar
-          </button>
+        <div className="mt-auto pt-4">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={goToList}
+              className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+              style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+            >
+              Cancelar
+            </button>
+            <button
+              type="submit"
+              disabled={submitting}
+              className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+              style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+            >
+              Salvar
+            </button>
+          </div>
         </div>
       </form>
     </div>
@@ -941,6 +1012,8 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [view, setView] = useState<ViewType>("list");
+  const [toastVisible, setToastVisible] = useState(false);
+  const [toastMounted, setToastMounted] = useState(false);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -1046,12 +1119,52 @@ export default function Home() {
     }
   }
 
+  function getMessageStatus(message: string) {
+    if (message.toLowerCase().includes("sucesso")) return "success";
+    if (message.toLowerCase().includes("erro")) return "error";
+    return "warning";
+  }
+
+  const messageStatus = getMessageStatus(message);
+
+  const toastBg = messageStatus === 'success' ? '#2cc958' : messageStatus === 'warning' ? '#f59e0b' : '#ef4444';
+  const toastTextClass = messageStatus === 'warning' ? 'text-slate-950' : 'text-white';
+  const toastBorderColor = messageStatus === 'success' ? '#23A146' : messageStatus === 'warning' ? '#b46a00' : '#9b1230';
+
+  useEffect(() => {
+    if (!message) {
+      setToastVisible(false);
+      return;
+    }
+
+    setToastMounted(true);
+    setToastVisible(true);
+
+    const hideTimer = window.setTimeout(() => {
+      setToastVisible(false);
+    }, 5000);
+
+    return () => window.clearTimeout(hideTimer);
+  }, [message]);
+
+  useEffect(() => {
+    if (!toastMounted) return;
+    if (toastVisible) return;
+
+    const unmountTimer = window.setTimeout(() => {
+      setToastMounted(false);
+      setMessage("");
+    }, 220);
+
+    return () => window.clearTimeout(unmountTimer);
+  }, [toastMounted, toastVisible]);
+
   /* ================================================================ */
   /*  Render principal                                                */
   /* ================================================================ */
 
   return (
-    <div className="relative min-h-screen bg-white text-slate-800">
+    <div className="relative h-screen overflow-hidden bg-white text-slate-800">
       {/* Overlay do sidebar */}
       {isSidebarOpen && (
         <div
@@ -1063,30 +1176,28 @@ export default function Home() {
       {/* Menu de contexto */}
       {contextMenu && (
         <div
-          className="fixed z-50 min-w-[160px] rounded-[3px] border border-slate-200 bg-white py-1 shadow-lg"
+          className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-1 shadow-lg flex flex-col gap-1"
           style={{ left: contextMenu.x, top: contextMenu.y }}
           onClick={(e) => e.stopPropagation()}
         >
           <button
             type="button"
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 transition hover:bg-amber-50 hover:text-amber-600"
+            className="w-full px-2 py-1 text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
             onClick={() => {
               openEditForm(contextMenu.aluno);
               setContextMenu(null);
             }}
           >
-            <span className="flex h-5 w-5 items-center justify-center">{Icons.edit}</span>
-            Editar
+            Ver
           </button>
           <button
             type="button"
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-slate-700 transition hover:bg-rose-50 hover:text-rose-600"
+            className="w-full px-2 py-1 text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
             onClick={() => {
               if (contextMenu.aluno.id) handleDelete(contextMenu.aluno.id);
               setContextMenu(null);
             }}
           >
-            <span className="flex h-5 w-5 items-center justify-center">{Icons.trash}</span>
             Excluir
           </button>
         </div>
@@ -1170,7 +1281,7 @@ export default function Home() {
       </aside>
 
       {/* Conteúdo principal */}
-      <div style={{ marginLeft: '3rem' }} className="min-h-screen flex flex-col overflow-hidden">
+      <div style={{ marginLeft: '3rem' }} className="h-full flex flex-col overflow-hidden">
         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
           {view === "list" ? (
             <ListView
@@ -1186,7 +1297,8 @@ export default function Home() {
             <FormView
               message={message}
               editingId={editingId}
-              form={form}
+                sequence={editingId ? (alunos.find(a => a.id === editingId)?.nr_sequencia ?? null) : null}
+                form={form}
               setForm={setForm}
               submitting={submitting}
               handleSubmit={handleSubmit}
@@ -1195,6 +1307,39 @@ export default function Home() {
           )}
         </div>
       </div>
+
+      {submitting && view === "form" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
+          <div className="w-full max-w-[240px] border border-slate-200 bg-white p-6 text-center shadow-xl shadow-black/20">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#003056]/10 text-[#003056]">
+              <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
+                <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
+                <path d="M22 12a10 10 0 0 1-10 10" />
+              </svg>
+            </div>
+            <p className="text-sm text-slate-900">Carregando...</p>
+          </div>
+        </div>
+      )}
+
+      {toastMounted && (
+        <div
+          className={`fixed bottom-4 right-4 z-50 min-w-[220px] max-w-[320px] px-4 py-3 pr-8 text-sm rounded-none ${
+            toastVisible ? "animate-toast-fade-in" : "animate-toast-fade-out"
+          } ${toastTextClass}`}
+          style={{ backgroundColor: toastBg, borderLeft: `4px solid ${toastBorderColor}` }}
+        >
+          <button
+            type="button"
+            onClick={() => setToastVisible(false)}
+            className="absolute right-2 top-2 cursor-pointer text-sm text-slate-100 hover:text-white"
+            aria-label="Fechar mensagem"
+          >
+            ×
+          </button>
+          <div>{message}</div>
+        </div>
+      )}
     </div>
   );
 }

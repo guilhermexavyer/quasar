@@ -37,3 +37,103 @@ body {
   animation: fadeIn 0.25s ease-out;
 }
 
+@keyframes toastFadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes toastFadeOut {
+  from {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+  }
+}
+
+.animate-toast-fade-in {
+  animation: toastFadeIn 220ms ease-out forwards;
+}
+
+.animate-toast-fade-out {
+  animation: toastFadeOut 220ms ease-out forwards;
+}
+
+input,
+textarea,
+select {
+  border-top: 1px solid #999;
+  border-left: 1px solid #999;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+select {
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  appearance: none;
+  line-height: 1.25rem;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23666' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 0.9rem center;
+  background-size: 0.65rem 0.65rem;
+  padding-right: 2.5rem;
+}
+
+option {
+  cursor: pointer;
+}
+
+input:focus,
+textarea:focus,
+select:focus,
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  border-top-color: #066fc5;
+  border-left-color: #066fc5;
+  border-right-color: #066fc5;
+  border-bottom-color: #066fc5;
+}
+
+/* Disabled form fields background */
+input:disabled,
+textarea:disabled,
+select:disabled {
+  background-color: #ededed;
+  color: #666;
+}
+
+.button-cancel,
+.button-save {
+  outline: 2px solid transparent;
+  outline-offset: 2px;
+}
+
+.button-cancel,
+.button-save {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.button-cancel:focus,
+.button-cancel:active,
+.button-cancel:focus-visible {
+  outline-color: #bdbdbd !important;
+}
+
+.button-save:focus,
+.button-save:active,
+.button-save:focus-visible {
+  outline-color: #003056 !important;
+}
+

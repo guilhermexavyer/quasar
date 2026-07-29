@@ -5055,3 +5055,839 @@ https://react.dev/link/hydration-mismatch
 ✓ Compiled in 2.1s
  GET / 200 in 1363ms (next.js: 1142ms, application-code: 221ms)
  GET / 200 in 102ms (next.js: 14ms, application-code: 87ms)
+✓ Compiled in 449ms
+ GET / 200 in 866ms (next.js: 354ms, application-code: 512ms)
+ GET / 200 in 525ms (next.js: 41ms, application-code: 484ms)
+ GET / 200 in 534ms (next.js: 180ms, application-code: 354ms)
+ GET / 200 in 205ms (next.js: 36ms, application-code: 169ms)
+✓ Compiled in 1439ms
+✓ Compiled in 940ms
+ GET / 200 in 1174ms (next.js: 1071ms, application-code: 102ms)
+ GET / 200 in 85ms (next.js: 13ms, application-code: 73ms)
+✓ Compiled in 1538ms
+ GET / 200 in 3.1s (next.js: 2.4s, application-code: 742ms)
+ GET / 200 in 3.1s (next.js: 2.8s, application-code: 326ms)
+ GET / 200 in 876ms (next.js: 33ms, application-code: 843ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 726ms
+ GET / 200 in 1143ms (next.js: 850ms, application-code: 293ms)
+ GET / 200 in 1159ms (next.js: 1010ms, application-code: 148ms)
+✓ Compiled in 444ms
+✓ Compiled in 1482ms
+ GET / 200 in 1102ms (next.js: 787ms, application-code: 315ms)
+ GET / 200 in 123ms (next.js: 15ms, application-code: 108ms)
+ GET / 200 in 1272ms (next.js: 23ms, application-code: 1249ms)
+ GET / 200 in 375ms (next.js: 78ms, application-code: 297ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+✓ Compiled in 851ms
+ GET / 200 in 895ms (next.js: 147ms, application-code: 748ms)
+[browser] Image with src "/Logo.png" was detected as the Largest Contentful Paint (LCP). Please add the `loading="eager"` property if this image is above the fold.
+Read more: https://nextjs.org/docs/app/api-reference/components/image#loading
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 531ms
+✓ Compiled in 1561ms
+ GET / 200 in 1186ms (next.js: 1034ms, application-code: 151ms)
+ GET / 200 in 1264ms (next.js: 869ms, application-code: 394ms)
+ GET / 200 in 3.0s (next.js: 689ms, application-code: 2.3s)
+ GET / 200 in 595ms (next.js: 122ms, application-code: 473ms)
+✓ Compiled in 433ms
+ GET / 200 in 632ms (next.js: 341ms, application-code: 291ms)
+ GET / 200 in 661ms (next.js: 576ms, application-code: 85ms)
+✓ Compiled in 585ms
+ GET / 200 in 1429ms (next.js: 1153ms, application-code: 276ms)
+ GET / 200 in 282ms (next.js: 119ms, application-code: 163ms)
+✓ Compiled in 584ms
+ GET / 200 in 983ms (next.js: 462ms, application-code: 520ms)
+ GET / 200 in 995ms (next.js: 813ms, application-code: 182ms)
+✓ Compiled in 895ms
+ GET / 200 in 1368ms (next.js: 946ms, application-code: 422ms)
+ GET / 200 in 157ms (next.js: 14ms, application-code: 143ms)
+✓ Compiled in 1098ms
+ GET / 200 in 683ms (next.js: 529ms, application-code: 154ms)
+ GET / 200 in 125ms (next.js: 14ms, application-code: 110ms)
+✓ Compiled in 822ms
+ GET / 200 in 1106ms (next.js: 934ms, application-code: 172ms)
+ GET / 200 in 170ms (next.js: 14ms, application-code: 156ms)
+✓ Compiled in 285ms
+ GET / 200 in 1637ms (next.js: 1331ms, application-code: 306ms)
+ GET / 200 in 100ms (next.js: 14ms, application-code: 86ms)
+ GET / 200 in 720ms (next.js: 16ms, application-code: 704ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 520ms
+ GET / 200 in 711ms (next.js: 425ms, application-code: 286ms)
+ GET / 200 in 715ms (next.js: 582ms, application-code: 133ms)
+✓ Compiled in 498ms
+ GET / 200 in 601ms (next.js: 347ms, application-code: 254ms)
+ GET / 200 in 644ms (next.js: 507ms, application-code: 137ms)
+✓ Compiled in 336ms
+ GET / 200 in 621ms (next.js: 394ms, application-code: 227ms)
+ GET / 200 in 631ms (next.js: 483ms, application-code: 149ms)
+✓ Compiled in 501ms
+ GET / 200 in 1100ms (next.js: 687ms, application-code: 412ms)
+ GET / 200 in 1105ms (next.js: 887ms, application-code: 219ms)
+ GET / 200 in 772ms (next.js: 17ms, application-code: 755ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 992ms
+ GET / 200 in 1026ms (next.js: 685ms, application-code: 341ms)
+ GET / 200 in 1016ms (next.js: 896ms, application-code: 120ms)
+✓ Compiled in 604ms
+ GET / 200 in 1731ms (next.js: 1491ms, application-code: 240ms)
+ GET / 200 in 1773ms (next.js: 1217ms, application-code: 556ms)
+ GET / 200 in 759ms (next.js: 19ms, application-code: 740ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 1088ms
+ GET / 200 in 998ms (next.js: 777ms, application-code: 221ms)
+ GET / 200 in 112ms (next.js: 19ms, application-code: 93ms)
+✓ Compiled in 1183ms
+ GET / 200 in 1904ms (next.js: 1504ms, application-code: 400ms)
+ GET / 200 in 2.0s (next.js: 1733ms, application-code: 300ms)
+✓ Compiled in 509ms
+ GET / 200 in 901ms (next.js: 553ms, application-code: 348ms)
+ GET / 200 in 872ms (next.js: 667ms, application-code: 206ms)
+✓ Compiled in 552ms
+ GET / 200 in 2.2s (next.js: 1528ms, application-code: 625ms)
+ GET / 200 in 451ms (next.js: 83ms, application-code: 368ms)
+✓ Compiled in 973ms
+ GET / 200 in 1498ms (next.js: 1196ms, application-code: 302ms)
+ GET / 200 in 1493ms (next.js: 942ms, application-code: 551ms)
+ GET / 200 in 1375ms (next.js: 19ms, application-code: 1356ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 839ms
+ GET / 200 in 2.0s (next.js: 1331ms, application-code: 712ms)
+ GET / 200 in 380ms (next.js: 148ms, application-code: 232ms)
+ GET / 200 in 817ms (next.js: 24ms, application-code: 793ms)
+✓ Compiled in 964ms
+ GET / 200 in 2.6s (next.js: 1015ms, application-code: 1568ms)
+ GET / 200 in 2.7s (next.js: 1627ms, application-code: 1075ms)
+✓ Compiled in 1822ms
+ GET / 200 in 3.2s (next.js: 1819ms, application-code: 1396ms)
+ GET / 200 in 3.2s (next.js: 2.6s, application-code: 610ms)
+✓ Compiled in 783ms
+ GET / 200 in 1774ms (next.js: 1379ms, application-code: 395ms)
+ GET / 200 in 1777ms (next.js: 1531ms, application-code: 246ms)
+✓ Compiled in 1626ms
+ GET / 200 in 1364ms (next.js: 1100ms, application-code: 263ms)
+ GET / 200 in 104ms (next.js: 15ms, application-code: 89ms)
+✓ Compiled in 980ms
+ GET / 200 in 1085ms (next.js: 818ms, application-code: 267ms)
+ GET / 200 in 131ms (next.js: 23ms, application-code: 109ms)
+ GET / 200 in 1010ms (next.js: 20ms, application-code: 991ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+ GET / 200 in 301ms (next.js: 19ms, application-code: 282ms)
+✓ Compiled in 1306ms
+ GET / 200 in 1418ms (next.js: 1049ms, application-code: 369ms)
+ GET / 200 in 1316ms (next.js: 1122ms, application-code: 194ms)
+✓ Compiled in 1009ms
+ GET / 200 in 1244ms (next.js: 1052ms, application-code: 191ms)
+ GET / 200 in 94ms (next.js: 16ms, application-code: 78ms)
+✓ Compiled in 906ms
+ GET / 200 in 834ms (next.js: 698ms, application-code: 135ms)
+ GET / 200 in 131ms (next.js: 20ms, application-code: 112ms)
+✓ Compiled in 845ms
+ GET / 200 in 1871ms (next.js: 1190ms, application-code: 682ms)
+ GET / 200 in 1884ms (next.js: 1511ms, application-code: 373ms)
+✓ Compiled in 1350ms
+ GET / 200 in 1929ms (next.js: 1196ms, application-code: 734ms)
+ GET / 200 in 1809ms (next.js: 1471ms, application-code: 338ms)
+✓ Compiled in 1694ms
+ GET / 200 in 1202ms (next.js: 755ms, application-code: 446ms)
+ GET / 200 in 1209ms (next.js: 981ms, application-code: 228ms)
+✓ Compiled in 1320ms
+ GET / 200 in 1398ms (next.js: 1079ms, application-code: 319ms)
+ GET / 200 in 1469ms (next.js: 907ms, application-code: 562ms)
+✓ Compiled in 1391ms
+ GET / 200 in 2.6s (next.js: 2.2s, application-code: 413ms)
+ GET / 200 in 191ms (next.js: 14ms, application-code: 177ms)
+ GET / 200 in 1383ms (next.js: 20ms, application-code: 1362ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 643ms
+ GET / 200 in 1505ms (next.js: 1154ms, application-code: 352ms)
+ GET / 200 in 1523ms (next.js: 1349ms, application-code: 175ms)
+✓ Compiled in 580ms
+ GET / 200 in 1331ms (next.js: 873ms, application-code: 457ms)
+ GET / 200 in 1336ms (next.js: 1029ms, application-code: 308ms)
+✓ Compiled in 334ms
+ GET / 200 in 808ms (next.js: 600ms, application-code: 208ms)
+ GET / 200 in 134ms (next.js: 16ms, application-code: 119ms)
+✓ Compiled in 619ms
+ GET / 200 in 1871ms (next.js: 1327ms, application-code: 544ms)
+ GET / 200 in 1786ms (next.js: 1471ms, application-code: 315ms)
+✓ Compiled in 665ms
+ GET / 200 in 2.4s (next.js: 1598ms, application-code: 765ms)
+ GET / 200 in 366ms (next.js: 151ms, application-code: 215ms)
+✓ Compiled in 389ms
+ GET / 200 in 1379ms (next.js: 823ms, application-code: 556ms)
+ GET / 200 in 1381ms (next.js: 1039ms, application-code: 342ms)
+✓ Compiled in 605ms
+ GET / 200 in 1243ms (next.js: 927ms, application-code: 316ms)
+ GET / 200 in 1315ms (next.js: 1079ms, application-code: 236ms)
+✓ Compiled in 1099ms
+ GET / 200 in 982ms (next.js: 780ms, application-code: 203ms)
+ GET / 200 in 93ms (next.js: 20ms, application-code: 74ms)
+✓ Compiled in 1200ms
+ GET / 200 in 1698ms (next.js: 1285ms, application-code: 413ms)
+ GET / 200 in 354ms (next.js: 101ms, application-code: 253ms)
+✓ Compiled in 1107ms
+ GET / 200 in 1287ms (next.js: 900ms, application-code: 386ms)
+ GET / 200 in 1174ms (next.js: 1056ms, application-code: 118ms)
+✓ Compiled in 672ms
+ GET / 200 in 2.4s (next.js: 1705ms, application-code: 727ms)
+ GET / 200 in 2.7s (next.js: 2.1s, application-code: 604ms)
+ GET / 200 in 852ms (next.js: 21ms, application-code: 831ms)
+✓ Compiled in 364ms
+ GET / 200 in 3.8s (next.js: 2.3s, application-code: 1460ms)
+ GET / 200 in 936ms (next.js: 367ms, application-code: 569ms)
+✓ Compiled in 641ms
+ GET / 200 in 5.1s (next.js: 4.0s, application-code: 1117ms)
+ GET / 200 in 5.1s (next.js: 4.6s, application-code: 425ms)
+✓ Compiled in 720ms
+ GET / 200 in 3.2s (next.js: 2.2s, application-code: 947ms)
+ GET / 200 in 3.2s (next.js: 2.6s, application-code: 572ms)
+✓ Compiled in 371ms
+ GET / 200 in 746ms (next.js: 539ms, application-code: 207ms)
+ GET / 200 in 110ms (next.js: 20ms, application-code: 90ms)
+✓ Compiled in 927ms
+ GET / 200 in 2.3s (next.js: 1616ms, application-code: 672ms)
+ GET / 200 in 2.3s (next.js: 1909ms, application-code: 384ms)
+ GET / 200 in 658ms (next.js: 15ms, application-code: 643ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 739ms
+ GET / 200 in 1718ms (next.js: 1482ms, application-code: 236ms)
+ GET / 200 in 133ms (next.js: 16ms, application-code: 117ms)
+✓ Compiled in 433ms
+ GET / 200 in 967ms (next.js: 820ms, application-code: 148ms)
+ GET / 200 in 125ms (next.js: 22ms, application-code: 103ms)
+ GET / 200 in 1035ms (next.js: 19ms, application-code: 1016ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 386ms
+ GET / 200 in 1662ms (next.js: 1108ms, application-code: 554ms)
+ GET / 200 in 436ms (next.js: 181ms, application-code: 255ms)
+✓ Compiled in 651ms
+ GET / 200 in 956ms (next.js: 534ms, application-code: 422ms)
+✓ Compiled in 684ms
+ GET / 200 in 3.8s (next.js: 2.6s, application-code: 1176ms)
+✓ Compiled in 1739ms
+ GET / 200 in 1404ms (next.js: 1006ms, application-code: 398ms)
+ GET / 200 in 2.3s (next.js: 1172ms, application-code: 1102ms)
+ GET / 200 in 2.3s (next.js: 1690ms, application-code: 612ms)
+ GET / 200 in 454ms (next.js: 85ms, application-code: 369ms)
+✓ Compiled in 365ms
+ GET / 200 in 1345ms (next.js: 955ms, application-code: 391ms)
+ GET / 200 in 109ms (next.js: 13ms, application-code: 96ms)
+✓ Compiled in 515ms
+ GET / 200 in 3.6s (next.js: 1767ms, application-code: 1787ms)
+ GET / 200 in 3.5s (next.js: 1949ms, application-code: 1523ms)
+ GET / 200 in 1536ms (next.js: 85ms, application-code: 1451ms)
+✓ Compiled in 1621ms
+ GET / 200 in 1949ms (next.js: 1627ms, application-code: 322ms)
+ GET / 200 in 92ms (next.js: 14ms, application-code: 78ms)
+✓ Compiled in 455ms
+ GET / 200 in 1839ms (next.js: 1158ms, application-code: 680ms)
+ GET / 200 in 1842ms (next.js: 1567ms, application-code: 275ms)
+✓ Compiled in 436ms
+ GET / 200 in 1679ms (next.js: 1421ms, application-code: 258ms)
+ GET / 200 in 92ms (next.js: 13ms, application-code: 79ms)
+✓ Compiled in 504ms
+ GET / 200 in 1558ms (next.js: 1130ms, application-code: 428ms)
+ GET / 200 in 1552ms (next.js: 1323ms, application-code: 228ms)
+✓ Compiled in 1227ms
+ GET / 200 in 654ms (next.js: 19ms, application-code: 635ms)
+✓ Compiled in 446ms
+ GET / 200 in 2.2s (next.js: 1659ms, application-code: 570ms)
+ GET / 200 in 130ms (next.js: 16ms, application-code: 114ms)
+✓ Compiled in 525ms
+ GET / 200 in 1239ms (next.js: 883ms, application-code: 356ms)
+ GET / 200 in 230ms (next.js: 14ms, application-code: 216ms)
+✓ Compiled in 397ms
+ GET / 200 in 957ms (next.js: 800ms, application-code: 157ms)
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 1499ms (next.js: 35ms, application-code: 1465ms)
+✓ Compiled in 566ms
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+[browser] Uncaught ReferenceError: sequence is not defined
+    at FormView (src/app/page.tsx:877:29)
+    at Home (src/app/page.tsx:1272:13)
+  875 |             <input
+  876 |               disabled
+> 877 |               value={String(sequence ?? '')}
+      |                             ^
+  878 |               className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm...
+  879 |               style={{ backgroundColor: '#ccc', color: '#333' }}
+  880 |             />
+✓ Compiled in 978ms
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 2.0s (next.js: 1818ms, application-code: 214ms)
+ GET / 200 in 1341ms (next.js: 56ms, application-code: 1285ms)
+✓ Compiled in 1119ms
+ GET / 200 in 3.4s (next.js: 2.7s, application-code: 628ms)
+ GET / 200 in 3.4s (next.js: 3.2s, application-code: 190ms)
+✓ Compiled in 1155ms
+✓ Compiled in 348ms
+ GET / 200 in 1866ms (next.js: 1517ms, application-code: 349ms)
+ GET / 200 in 223ms (next.js: 69ms, application-code: 154ms)
+✓ Compiled in 449ms
+✓ Compiled in 394ms
+ GET / 200 in 739ms (next.js: 15ms, application-code: 724ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 843ms
+ GET / 200 in 3.1s (next.js: 2.4s, application-code: 684ms)
+ GET / 200 in 3.1s (next.js: 2.7s, application-code: 356ms)
+ GET / 200 in 1001ms (next.js: 20ms, application-code: 981ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 514ms
+ GET / 200 in 3.3s (next.js: 2.8s, application-code: 514ms)
+ GET / 200 in 3.4s (next.js: 3.2s, application-code: 179ms)
+ GET / 200 in 720ms (next.js: 16ms, application-code: 704ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 1584ms
+ GET / 200 in 1376ms (next.js: 1147ms, application-code: 229ms)
+ GET / 200 in 128ms (next.js: 15ms, application-code: 113ms)
+✓ Compiled in 691ms
+ GET / 200 in 2.6s (next.js: 1875ms, application-code: 719ms)
+ GET / 200 in 419ms (next.js: 102ms, application-code: 317ms)
+✓ Compiled in 435ms
+ GET / 200 in 2.4s (next.js: 1496ms, application-code: 856ms)
+ GET / 200 in 2.4s (next.js: 2.0s, application-code: 318ms)
+✓ Compiled in 610ms
+ GET / 200 in 1584ms (next.js: 1216ms, application-code: 368ms)
+ GET / 200 in 105ms (next.js: 13ms, application-code: 92ms)
+ GET / 200 in 723ms (next.js: 15ms, application-code: 708ms)
+✓ Compiled in 543ms
+ GET / 200 in 1243ms (next.js: 980ms, application-code: 263ms)
+ GET / 200 in 94ms (next.js: 13ms, application-code: 81ms)
+✓ Compiled in 691ms
+ GET / 200 in 1403ms (next.js: 694ms, application-code: 709ms)
+ GET / 200 in 1408ms (next.js: 1138ms, application-code: 270ms)
+✓ Compiled in 386ms
+ GET / 200 in 1751ms (next.js: 1337ms, application-code: 414ms)
+ GET / 200 in 1765ms (next.js: 1539ms, application-code: 226ms)
+✓ Compiled in 454ms
+ GET / 200 in 1870ms (next.js: 1465ms, application-code: 405ms)
+ GET / 200 in 204ms (next.js: 55ms, application-code: 149ms)
+✓ Compiled in 1573ms
+ GET / 200 in 1474ms (next.js: 1074ms, application-code: 400ms)
+ GET / 200 in 1608ms (next.js: 1326ms, application-code: 283ms)
+ GET / 200 in 5.8s (next.js: 2.2s, application-code: 3.5s)
+✓ Compiled in 477ms
+ GET / 200 in 1910ms (next.js: 1368ms, application-code: 542ms)
+ GET / 200 in 351ms (next.js: 98ms, application-code: 253ms)
+✓ Compiled in 766ms
+ GET / 200 in 1539ms (next.js: 1173ms, application-code: 366ms)
+ GET / 200 in 404ms (next.js: 14ms, application-code: 389ms)
+✓ Compiled in 895ms
+ GET / 200 in 3.0s (next.js: 1831ms, application-code: 1169ms)
+ GET / 200 in 487ms (next.js: 291ms, application-code: 195ms)
+✓ Compiled in 662ms
+ GET / 200 in 1824ms (next.js: 1384ms, application-code: 440ms)
+ GET / 200 in 1834ms (next.js: 1612ms, application-code: 222ms)
+✓ Compiled in 834ms
+ GET / 200 in 2.7s (next.js: 1804ms, application-code: 848ms)
+ GET / 200 in 2.7s (next.js: 2.2s, application-code: 414ms)
+✓ Compiled in 1315ms
+ GET / 200 in 1264ms (next.js: 832ms, application-code: 432ms)
+ GET / 200 in 99ms (next.js: 12ms, application-code: 87ms)
+✓ Compiled in 449ms
+ GET / 200 in 1035ms (next.js: 683ms, application-code: 351ms)
+ GET / 200 in 224ms (next.js: 27ms, application-code: 197ms)
+✓ Compiled in 288ms
+ GET / 200 in 1526ms (next.js: 1096ms, application-code: 430ms)
+ GET / 200 in 1530ms (next.js: 1315ms, application-code: 215ms)
+✓ Compiled in 466ms
+ GET / 200 in 1390ms (next.js: 1068ms, application-code: 323ms)
+ GET / 200 in 110ms (next.js: 13ms, application-code: 98ms)
+✓ Compiled in 373ms
+ GET / 200 in 1295ms (next.js: 929ms, application-code: 366ms)
+ GET / 200 in 1307ms (next.js: 1167ms, application-code: 140ms)
