@@ -374,11 +374,40 @@ const COLUMNS: ColDef[] = [
 
     if (minWidthsRef.current.length === 0) measureAllMinWidths();
 
-    /* Congela as colunas na largura atual e redefine a coluna para o
-       mínimo determinado exclusivamente pelo cabeçalho. */
+    /* Congela as colunas na largura atual. */
     const ths = freezeTableColumns(table);
+
+    /* Para o autoajuste, considera o maior conteúdo da coluna entre os registros. */
+    const cells = table.querySelectorAll<HTMLElement>(
+      `tbody tr td:nth-child(${domIdx + 1})`
+    );
+
+    let maxWidth = 0;
+    cells.forEach((cell) => {
+      const clone = cell.cloneNode(true) as HTMLElement;
+      clone.style.position = "absolute";
+      clone.style.left = "0";
+      clone.style.top = "0";
+      clone.style.visibility = "hidden";
+      clone.style.pointerEvents = "none";
+      clone.style.display = "inline-block";
+      clone.style.whiteSpace = "nowrap";
+      clone.style.width = "auto";
+      clone.style.maxWidth = "none";
+      clone.style.minWidth = "0";
+      clone.style.overflow = "visible";
+      clone.style.textOverflow = "clip";
+
+      document.body.appendChild(clone);
+      const width = clone.getBoundingClientRect().width;
+      document.body.removeChild(clone);
+
+      if (width > maxWidth) maxWidth = width;
+    });
+
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const totalWidth = applyColumnWidth(table, ths, domIdx, Math.max(minW, 0));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
   }
 
