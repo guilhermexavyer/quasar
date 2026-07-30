@@ -1,4 +1,6 @@
-export interface Aluno {
+export type ToastStatus = "success" | "warning" | "error";
+
+export interface PessoaFisica {
   id?: string;
   nr_sequencia: number;
   ds_nome: string;

@@ -3,12 +3,15 @@
 import Image from "next/image";
 import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
-  criarAluno,
-  excluirAluno,
-  obterAlunos,
-  atualizarAluno,
-} from "@/services/alunosService";
-import type { Aluno } from "@/types/aluno";
+  criarPessoaFisica,
+  excluirPessoaFisica,
+  obterPessoasFisicas,
+  atualizarPessoaFisica,
+} from "@/services/pessoaFisicaService";
+import { fetchAuditByPessoaId, AuditEntry } from "@/services/auditService";
+import type { PessoaFisica } from "@/types/pessoaFisica";
+import ContextMenu from "@/components/ui/ContextMenu";
+import Toast from "@/components/ui/Toast";
 
 /* ------------------------------------------------------------------ */
 /*  Ícones SVG inline                                                 */
@@ -35,6 +38,11 @@ const Icons = {
       <path d="M19 12H5" /><path d="m12 19-7-7 7-7" />
     </svg>
   ),
+  filter: (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
+    </svg>
+  ),
   check: (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M20 6 9 17l-5-5" />
@@ -46,7 +54,7 @@ const Icons = {
 /*  Estado inicial do formulário                                      */
 /* ------------------------------------------------------------------ */
 
-const emptyForm: Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao"> = {
+const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao"> = {
   ds_nome: "",
   nr_cpf: "",
   dt_nascimento: "",
@@ -56,6 +64,18 @@ const emptyForm: Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteraca
 
 type ViewType = "list" | "form";
 
+type FilterFormData = FormData & {
+  nr_sequencia: string;
+  dt_nascimento_inicio: string;
+  dt_nascimento_fim: string;
+};
+const emptyFilterForm: FilterFormData = {
+  ...emptyForm,
+  nr_sequencia: "",
+  dt_nascimento_inicio: "",
+  dt_nascimento_fim: "",
+};
+
 /* ------------------------------------------------------------------ */
 /*  Tipos das props dos subcomponentes                                */
 /* ------------------------------------------------------------------ */
@@ -63,18 +83,19 @@ type ViewType = "list" | "form";
 interface ListViewProps {
   message: string;
   loading: boolean;
-  alunos: Aluno[];
+  pessoasFisicas: PessoaFisica[];
   openNewForm: () => void;
-  openEditForm: (aluno: Aluno) => void;
+  openEditForm: (pessoa: PessoaFisica) => void;
   handleDelete: (id: string) => void;
+  openFilter: () => void;
   setContextMenu: React.Dispatch<React.SetStateAction<{
     x: number;
     y: number;
-    aluno: Aluno;
+    pessoa: PessoaFisica;
   } | null>>;
 }
 
-type FormData = Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
+type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 interface FormViewProps {
   message: string;
@@ -85,6 +106,13 @@ interface FormViewProps {
   submitting: boolean;
   handleSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   goToList: () => void;
+  createdAt: string;
+  updatedAt: string;
+  onOpenAudit?: (pessoaId?: string | null) => void;
+  onPrevRecord: () => void;
+  onNextRecord: () => void;
+  hasPrevRecord: boolean;
+  hasNextRecord: boolean;
 }
 
 /* ------------------------------------------------------------------ */
@@ -92,7 +120,7 @@ interface FormViewProps {
 /* ------------------------------------------------------------------ */
 
 interface ColDef {
-  key: keyof Aluno;
+  key: keyof PessoaFisica;
   label: string;
   headerLabel?: string;
   dataClass?: string;
@@ -109,6 +137,17 @@ const COLUMNS: ColDef[] = [
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
 ];
+
+const FIELD_INFOS = {
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'pessoa_fisica' },
+  ds_nome: { type: 'string', field: 'ds_nome', collection: 'pessoa_fisica' },
+  nr_cpf: { type: 'string', field: 'nr_cpf', collection: 'pessoa_fisica' },
+  dt_nascimento: { type: 'string', field: 'dt_nascimento', collection: 'pessoa_fisica' },
+  ds_email: { type: 'string', field: 'ds_email', collection: 'pessoa_fisica' },
+  nr_telefone: { type: 'string', field: 'nr_telefone', collection: 'pessoa_fisica' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'pessoa_fisica' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'pessoa_fisica' },
+} as const;
 
 function formatCpf(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
@@ -164,6 +203,41 @@ function formatDate(value: string): string {
   return value;
 }
 
+function parseDateInput(value: string): number | null {
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 8) return null;
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4, 8));
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return year * 10000 + month * 100 + day;
+}
+
+function parsePersonDateValue(value: string): number | null {
+  if (!value) return null;
+  const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const year = Number(isoMatch[1]);
+    const month = Number(isoMatch[2]);
+    const day = Number(isoMatch[3]);
+    return year * 10000 + month * 100 + day;
+  }
+
+  const digits = value.replace(/\D/g, '');
+  if (digits.length !== 8) return null;
+  const day = Number(digits.slice(0, 2));
+  const month = Number(digits.slice(2, 4));
+  const year = Number(digits.slice(4, 8));
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return null;
+  }
+  return year * 10000 + month * 100 + day;
+}
+
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 11);
   if (digits.length <= 2) return digits;
@@ -196,7 +270,7 @@ function applyPhoneMask(value: string): string {
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
 }
 
-function formatCellValue(key: keyof Aluno, value: unknown): string {
+function formatCellValue(key: keyof PessoaFisica, value: unknown): string {
   if (value === null || value === undefined) return '';
   const stringValue = String(value);
 
@@ -221,9 +295,10 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
 /* ------------------------------------------------------------------ */  function ListView({
   message,
   loading,
-  alunos,
+  pessoasFisicas,
   openNewForm,
   openEditForm,
+  openFilter,
   handleDelete,
   setContextMenu,
 }: ListViewProps) {
@@ -234,7 +309,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
   const [dragCol, setDragCol] = useState<number | null>(null);
-  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+  const [pageSize, setPageSize] = useState<number | 'all'>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
   const minWidthsRef = useRef<number[]>([]);
@@ -439,8 +514,8 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
   }
 
   /* ── Lista ordenada ── */
-  const sortedAlunos = useMemo(() => {
-    const sorted = [...alunos];
+  const sortedPessoasFisicas = useMemo(() => {
+    const sorted = [...pessoasFisicas];
     if (sortColumn === null || sortAsc === null) {
       return sorted.sort((a, b) => {
         const dateA = a.dt_criacao || "";
@@ -464,16 +539,16 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
       if (strA > strB) return sortAsc ? 1 : -1;
       return 0;
     });
-  }, [alunos, sortColumn, sortAsc]);
+  }, [pessoasFisicas, sortColumn, sortAsc]);
 
-  const totalRecords = sortedAlunos.length;
+  const totalRecords = sortedPessoasFisicas.length;
   const pageCount = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalRecords / pageSize));
   const currentPageSafe = Math.min(currentPage, pageCount);
   const firstRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? 1 : (currentPageSafe - 1) * pageSize + 1);
   const lastRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? totalRecords : Math.min(totalRecords, currentPageSafe * pageSize));
-  const paginatedAlunos = pageSize === 'all'
-    ? sortedAlunos
-    : sortedAlunos.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
+  const paginatedPessoasFisicas = pageSize === 'all'
+    ? sortedPessoasFisicas
+    : sortedPessoasFisicas.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -493,7 +568,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
     if (!table) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, alunos.length]);
+  }, [columnOrder, loading, pessoasFisicas.length]);
 
   /* ── Ícone de ordenação para o cabeçalho (in-flow para entrar na medição) ── */
   function SortIcon({ column }: { column: number }) {
@@ -668,8 +743,18 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
       `}</style>
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-semibold">Pessoas Físicas</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <h1 className="text-[20px] font-semibold text-[#000]">Pessoas Físicas</h1>
+          <button
+            type="button"
+            onClick={openFilter}
+            className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+            aria-label="Abrir filtro"
+          >
+            {Icons.filter}
+          </button>
+        </div>
         <button
           type="button"
           onClick={openNewForm}
@@ -694,7 +779,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
               </div>
             ))}
           </div>
-        ) : alunos.length === 0 ? (
+        ) : pessoasFisicas.length === 0 ? (
           <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
             <div className="flex h-14 w-14 items-center justify-center rounded-[3px] bg-slate-100">
               <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" className="text-slate-400">
@@ -738,21 +823,21 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-200">
-                  {paginatedAlunos.map((aluno) => (
+                  {paginatedPessoasFisicas.map((pessoa) => (
                     <tr
-                      key={aluno.id}
+                      key={pessoa.id}
                       className="cursor-[context-menu] hover:bg-[#eee]"
-                      style={{ backgroundColor: selectedId === aluno.id ? 'rgba(3,102,214,0.10)' : undefined }}
-                      onClick={() => setSelectedId((prev) => (prev === aluno.id ? null : aluno.id))}
+                      style={{ backgroundColor: selectedId === pessoa.id ? 'rgba(3,102,214,0.10)' : undefined }}
+                      onClick={() => setSelectedId((prev) => (prev === pessoa.id ? null : pessoa.id ?? null))}
                       onContextMenu={(e) => {
                         e.preventDefault();
-                        setSelectedId(aluno.id ?? null);
-                        setContextMenu({ x: e.clientX, y: e.clientY, aluno });
+                        setSelectedId(pessoa.id ?? null);
+                        setContextMenu({ x: e.clientX, y: e.clientY, pessoa });
                       }}
                     >
                       {columnOrder.map((logicalIdx) => {
                         const col = COLUMNS[logicalIdx];
-                        const value = aluno[col.key];
+                        const value = pessoa[col.key];
                         const displayValue = formatCellValue(col.key, value);
                         const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                         return (
@@ -784,8 +869,8 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
             </div>
             <div className="bg-white/95 backdrop-blur-sm px-0 pt-3 pb-0 sticky bottom-0 z-10">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <div className="flex items-center gap-2">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                  <div className="flex items-center gap-0">
                     <input
                       type="text"
                       aria-label="Número da página"
@@ -802,11 +887,42 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                           }
                         }
                       }}
-                      className="w-24 rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056]"
+                      className="w-16 rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056]"
                     />
+
+                    <div className="flex h-10 w-8 flex-col items-center justify-between rounded-[3px] bg-white py-1 px-0">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const next = Math.min(pageCount, currentPage + 1);
+                          setCurrentPage(next);
+                          setPageInput(String(next));
+                        }}
+                        className="flex h-5 w-full cursor-pointer items-center justify-center rounded-sm text-slate-600 transition focus:outline-none focus:ring-0"
+                        aria-label="Próxima página"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 4.5 20 20H4Z" />
+                        </svg>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          const prevPage = Math.max(1, currentPage - 1);
+                          setCurrentPage(prevPage);
+                          setPageInput(String(prevPage));
+                        }}
+                        className="flex h-5 w-full cursor-pointer items-center justify-center rounded-sm text-slate-600 transition focus:outline-none focus:ring-0"
+                        aria-label="Página anterior"
+                      >
+                        <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 19.5 4 4h16Z" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-4">
                     <select
                       aria-label="Registros por página"
                       value={pageSize}
@@ -816,6 +932,7 @@ function formatCellValue(key: keyof Aluno, value: unknown): string {
                       }}
                       className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 outline-none transition focus:border-[#003056]"
                     >
+                      <option value={15}>15 por página</option>
                       <option value={25}>25 por página</option>
                       <option value={50}>50 por página</option>
                       <option value={100}>100 por página</option>
@@ -852,8 +969,55 @@ function FormView({
   submitting,
   handleSubmit,
   goToList,
+  createdAt,
+  updatedAt,
+  onOpenAudit,
+  onPrevRecord,
+  onNextRecord,
+  hasPrevRecord,
+  hasNextRecord,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
+  const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
+
+  function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
+    const meta = FIELD_INFOS[fieldKey];
+    return (
+      <label className="block text-sm mb-1" style={{ color: '#666' }}>
+        <div className="relative group inline-flex items-center gap-2">
+          <span>{label}</span>
+          <button
+            type="button"
+            onClick={(event) => {
+              event.stopPropagation();
+              setInfoPopupField((current) => (current === fieldKey ? null : fieldKey));
+            }}
+            aria-label={`Informações do campo ${label}`}
+            className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+          >
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+              <circle cx="12" cy="12" r="10" />
+              <path d="M12 8v4" />
+              <circle cx="12" cy="16" r="0.5" />
+            </svg>
+          </button>
+          {infoPopupField === fieldKey && (
+            <div
+              className="absolute left-full bottom-0 z-10 ml-1 w-[240px] bg-white p-[10px] text-xs border border-[#ccc] shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
+              onClick={(event) => event.stopPropagation()}
+            >
+              <div className="font-semibold text-slate-900 mb-2">Informações do campo</div>
+              <div className="space-y-1">
+                <div><span className="font-semibold">Tipo:</span> {meta.type}</div>
+                <div><span className="font-semibold">Campo:</span> {meta.field}</div>
+                <div><span className="font-semibold">Coleção:</span> {meta.collection}</div>
+              </div>
+            </div>
+          )}
+        </div>
+      </label>
+    );
+  }
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
@@ -875,11 +1039,49 @@ function FormView({
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [submitting]);
+
+  useEffect(() => {
+    if (!infoPopupField) return;
+    function handleClose() {
+      setInfoPopupField(null);
+    }
+    document.addEventListener('click', handleClose);
+    return () => document.removeEventListener('click', handleClose);
+  }, [infoPopupField]);
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {/* Topo com fechamento */}
-      <div className="flex items-center justify-between">
-        <h1 className="text-[20px] font-semibold">Pessoas Físicas</h1>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-5">
+          <h1 className="text-[20px] font-semibold">Pessoas Físicas</h1>
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onPrevRecord}
+              disabled={!hasPrevRecord}
+              className={hasPrevRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
+              style={{ borderBottomColor: '#000' }}
+              aria-label="Registro anterior"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18 9 12l6-6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onNextRecord}
+              disabled={!hasNextRecord}
+              className={hasNextRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
+              style={{ borderBottomColor: '#000' }}
+              aria-label="Próximo registro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
+        </div>
         <button
           type="button"
           onClick={goToList}
@@ -896,10 +1098,8 @@ function FormView({
         className="mt-4 flex-1 flex flex-col min-h-0"
       >
         <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
-          <div className="sm:col-span-1">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Sequência
-            </label>
+          <div className="sm:col-span-1 group">
+            {renderFieldLabel('nr_sequencia', 'Sequência')}
             <input
               disabled
               value={String(sequence ?? '')}
@@ -907,10 +1107,8 @@ function FormView({
             />
           </div>
 
-          <div className="sm:col-span-11">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Nome completo
-            </label>
+          <div className="sm:col-span-11 group">
+            {renderFieldLabel('ds_nome', 'Nome completo')}
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={form.ds_nome}
@@ -918,10 +1116,8 @@ function FormView({
             />
           </div>
 
-          <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              CPF
-            </label>
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('nr_cpf', 'CPF')}
             <input
               inputMode="numeric"
               maxLength={14}
@@ -931,10 +1127,8 @@ function FormView({
             />
           </div>
 
-          <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Data de nascimento
-            </label>
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('dt_nascimento', 'Data de nascimento')}
             <input
               type="text"
               inputMode="numeric"
@@ -948,10 +1142,8 @@ function FormView({
             />
           </div>
 
-          <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              E-mail
-            </label>
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('ds_email', 'E-mail')}
             <input
               type="email"
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -960,10 +1152,8 @@ function FormView({
             />
           </div>
 
-          <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Telefone
-            </label>
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('nr_telefone', 'Telefone')}
             <input
               inputMode="numeric"
               maxLength={15}
@@ -975,23 +1165,57 @@ function FormView({
         </div>
 
         <div className="mt-auto pt-4">
-          <div className="flex items-center justify-end gap-3">
-            <button
-              type="button"
-              onClick={goToList}
-              className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-              style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
-            >
-              Cancelar
-            </button>
-            <button
-              type="submit"
-              disabled={submitting}
-              className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
-              style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-            >
-              Salvar
-            </button>
+          <div className="flex items-center justify-between gap-3">
+            <div className="text-[13px]" style={{ color: '#777' }}>
+              <div className="relative group flex items-center gap-2">
+                <span>Criado por - em {createdAt ? formatDate(createdAt) : '-'}</span>
+                <button
+                  type="button"
+                  aria-hidden="true"
+                  onClick={() => onOpenAudit?.(editingId)}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4" />
+                    <circle cx="12" cy="16" r="0.5" />
+                  </svg>
+                </button>
+              </div>
+              <div className="relative group flex items-center gap-2 mt-1">
+                <span>Alterado por - em {updatedAt ? formatDate(updatedAt) : '-'}</span>
+                <button
+                  type="button"
+                  aria-hidden="true"
+                  onClick={() => onOpenAudit?.(editingId)}
+                  className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                >
+                  <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 8v4" />
+                    <circle cx="12" cy="16" r="0.5" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-3">
+              <button
+                type="button"
+                onClick={goToList}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
           </div>
         </div>
       </form>
@@ -1005,10 +1229,19 @@ function FormView({
 
 export default function Home() {
   const [form, setForm] = useState<FormData>(emptyForm);
-  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [filterForm, setFilterForm] = useState<FilterFormData>(emptyFilterForm);
+  const [appliedFilterForm, setAppliedFilterForm] = useState<FilterFormData>(emptyFilterForm);
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisica[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '' });
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [auditModalOpen, setAuditModalOpen] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
+  const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [detailModalOpen, setDetailModalOpen] = useState(false);
+  const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [view, setView] = useState<ViewType>("list");
@@ -1017,15 +1250,15 @@ export default function Home() {
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    aluno: Aluno;
+    pessoa: PessoaFisica;
   } | null>(null);
 
-  /* ── Carregar alunos ── */
-  const loadAlunos = useCallback(async () => {
+  /* ── Carregar pessoas físicas ── */
+  const loadPessoasFisicas = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await obterAlunos();
-      setAlunos(data);
+      const data = await obterPessoasFisicas();
+      setPessoasFisicas(data);
     } catch {
       setMessage("Erro ao carregar registros.");
     } finally {
@@ -1034,8 +1267,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    loadAlunos();
-  }, [loadAlunos]);
+    loadPessoasFisicas();
+  }, [loadPessoasFisicas]);
 
   /* ── Fechar menu de contexto ao clicar/right-click fora ── */
   useEffect(() => {
@@ -1051,24 +1284,72 @@ export default function Home() {
     };
   }, [contextMenu]);
 
+
   /* ── Abrir formulário para novo registro ── */
   function openNewForm() {
     setForm(emptyForm);
     setEditingId(null);
+    setAuditInfo({ createdAt: '', updatedAt: '' });
     setMessage("");
     setView("form");
   }
 
+  async function openAuditModal(pessoaId?: string | null) {
+    if (!pessoaId) return;
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByPessoaId(pessoaId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function closeAuditModal() {
+    setAuditModalOpen(false);
+    setAuditLogs([]);
+  }
+
+  function openFilterModal() {
+    setFilterModalOpen(true);
+  }
+
+  function closeFilterModal() {
+    setFilterModalOpen(false);
+  }
+
+  function applyFilter() {
+    setAppliedFilterForm(filterForm);
+    setFilterModalOpen(false);
+  }
+
+  function clearFilter() {
+    setFilterForm(emptyFilterForm);
+    setAppliedFilterForm(emptyFilterForm);
+  }
+
+  function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyFilter();
+  }
+
   /* ── Abrir formulário para editar ── */
-  function openEditForm(aluno: Aluno) {
+  function openEditForm(pessoa: PessoaFisica) {
     setForm({
-      ds_nome: aluno.ds_nome,
-      nr_cpf: aluno.nr_cpf,
-      dt_nascimento: aluno.dt_nascimento,
-      ds_email: aluno.ds_email,
-      nr_telefone: aluno.nr_telefone,
+      ds_nome: pessoa.ds_nome,
+      nr_cpf: pessoa.nr_cpf,
+      dt_nascimento: pessoa.dt_nascimento,
+      ds_email: pessoa.ds_email,
+      nr_telefone: pessoa.nr_telefone,
     });
-    setEditingId(aluno.id ?? null);
+    setEditingId(pessoa.id ?? null);
+    setAuditInfo({
+      createdAt: pessoa.dt_criacao ?? '',
+      updatedAt: pessoa.dt_alteracao ?? '',
+    });
     setMessage("");
     setView("form");
   }
@@ -1081,6 +1362,72 @@ export default function Home() {
     setView("list");
   }
 
+  const filteredPessoasFisicas = useMemo(() => {
+    return pessoasFisicas.filter((pessoa) => {
+      if (appliedFilterForm.ds_nome && !pessoa.ds_nome.toLowerCase().includes(appliedFilterForm.ds_nome.toLowerCase())) {
+        return false;
+      }
+      if (appliedFilterForm.nr_sequencia) {
+        if (String(pessoa.nr_sequencia) !== appliedFilterForm.nr_sequencia.trim()) return false;
+      }
+      if (appliedFilterForm.nr_cpf) {
+        const queryCpf = appliedFilterForm.nr_cpf.replace(/\D/g, '');
+        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
+        if (!pessoaCpf.includes(queryCpf)) return false;
+      }
+      if (appliedFilterForm.dt_nascimento_inicio) {
+        const startDate = parseDateInput(appliedFilterForm.dt_nascimento_inicio);
+        const pessoaDate = parsePersonDateValue(pessoa.dt_nascimento);
+        if (!startDate || pessoaDate === null || pessoaDate < startDate) return false;
+      }
+      if (appliedFilterForm.dt_nascimento_fim) {
+        const endDate = parseDateInput(appliedFilterForm.dt_nascimento_fim);
+        const pessoaDate = parsePersonDateValue(pessoa.dt_nascimento);
+        if (!endDate || pessoaDate === null || pessoaDate > endDate) return false;
+      }
+      if (appliedFilterForm.ds_email && !pessoa.ds_email.toLowerCase().includes(appliedFilterForm.ds_email.toLowerCase())) {
+        return false;
+      }
+      if (appliedFilterForm.nr_telefone) {
+        const queryPhone = appliedFilterForm.nr_telefone.replace(/\D/g, '');
+        const pessoaPhone = pessoa.nr_telefone.replace(/\D/g, '');
+        if (!pessoaPhone.includes(queryPhone)) return false;
+      }
+      return true;
+    });
+  }, [pessoasFisicas, appliedFilterForm]);
+
+  const filteredSortedPessoasFisicas = useMemo(() => {
+    const sorted = [...filteredPessoasFisicas];
+    return sorted.sort((a, b) => {
+      const dateA = a.dt_criacao || "";
+      const dateB = b.dt_criacao || "";
+      if (dateA < dateB) return -1;
+      if (dateA > dateB) return 1;
+      return a.nr_sequencia - b.nr_sequencia;
+    });
+  }, [filteredPessoasFisicas]);
+
+  const currentEditIndex = useMemo(() => {
+    if (!editingId) return -1;
+    return filteredSortedPessoasFisicas.findIndex((p) => p.id === editingId);
+  }, [filteredSortedPessoasFisicas, editingId]);
+
+  const hasPrevRecord = currentEditIndex > 0;
+  const hasNextRecord = currentEditIndex >= 0 && currentEditIndex < filteredSortedPessoasFisicas.length - 1;
+
+  function goToPrevRecord() {
+    if (!hasPrevRecord) return;
+    const previous = filteredSortedPessoasFisicas[currentEditIndex - 1];
+    if (previous) openEditForm(previous);
+  }
+
+  function goToNextRecord() {
+    if (!hasNextRecord) return;
+    const next = filteredSortedPessoasFisicas[currentEditIndex + 1];
+    if (next) openEditForm(next);
+  }
+
   /* ── Salvar (criar ou atualizar) ── */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1089,16 +1436,37 @@ export default function Home() {
 
     try {
       if (editingId) {
-        await atualizarAluno(editingId, form);
+        const currentPessoa = pessoasFisicas.find((p) => p.id === editingId);
+        const formKeys: Array<keyof FormData> = [
+          'ds_nome',
+          'nr_cpf',
+          'dt_nascimento',
+          'ds_email',
+          'nr_telefone',
+        ];
+        const hasChanges = currentPessoa
+          ? formKeys.some((key) => String(currentPessoa[key] ?? '') !== String(form[key] ?? ''))
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setForm(emptyForm);
+          setEditingId(null);
+          await loadPessoasFisicas();
+          setView("list");
+          return;
+        }
+
+        await atualizarPessoaFisica(editingId, form);
         setMessage("Atualizado com sucesso!");
       } else {
-        await criarAluno(form);
+        await criarPessoaFisica(form);
         setMessage("Cadastrado com sucesso!");
       }
 
       setForm(emptyForm);
       setEditingId(null);
-      await loadAlunos();
+      await loadPessoasFisicas();
       setView("list");
     } catch {
       setMessage("Erro ao salvar.");
@@ -1111,9 +1479,9 @@ export default function Home() {
   async function handleDelete(id: string) {
     setMessage("");
     try {
-      await excluirAluno(id);
+      await excluirPessoaFisica(id);
       setMessage("Excluído com sucesso!");
-      await loadAlunos();
+      await loadPessoasFisicas();
     } catch {
       setMessage("Erro ao excluir.");
     }
@@ -1142,7 +1510,7 @@ export default function Home() {
 
     const hideTimer = window.setTimeout(() => {
       setToastVisible(false);
-    }, 5000);
+    }, 3000);
 
     return () => window.clearTimeout(hideTimer);
   }, [message]);
@@ -1175,32 +1543,19 @@ export default function Home() {
 
       {/* Menu de contexto */}
       {contextMenu && (
-        <div
-          className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-1 shadow-lg flex flex-col gap-1"
-          style={{ left: contextMenu.x, top: contextMenu.y }}
-          onClick={(e) => e.stopPropagation()}
-        >
-          <button
-            type="button"
-            className="w-full px-2 py-1 text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
-            onClick={() => {
-              openEditForm(contextMenu.aluno);
-              setContextMenu(null);
-            }}
-          >
-            Ver
-          </button>
-          <button
-            type="button"
-            className="w-full px-2 py-1 text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
-            onClick={() => {
-              if (contextMenu.aluno.id) handleDelete(contextMenu.aluno.id);
-              setContextMenu(null);
-            }}
-          >
-            Excluir
-          </button>
-        </div>
+        <ContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          pessoa={contextMenu.pessoa}
+          onView={() => {
+            openEditForm(contextMenu.pessoa);
+            setContextMenu(null);
+          }}
+          onDelete={() => {
+            if (contextMenu.pessoa.id) handleDelete(contextMenu.pessoa.id);
+            setContextMenu(null);
+          }}
+        />
       )}
 
       {/* Sidebar */}
@@ -1287,9 +1642,10 @@ export default function Home() {
             <ListView
               message={message}
               loading={loading}
-              alunos={alunos}
+              pessoasFisicas={filteredPessoasFisicas}
               openNewForm={openNewForm}
               openEditForm={openEditForm}
+              openFilter={openFilterModal}
               handleDelete={handleDelete}
               setContextMenu={setContextMenu}
             />
@@ -1297,16 +1653,318 @@ export default function Home() {
             <FormView
               message={message}
               editingId={editingId}
-                sequence={editingId ? (alunos.find(a => a.id === editingId)?.nr_sequencia ?? null) : null}
-                form={form}
+              sequence={editingId ? (pessoasFisicas.find((a) => a.id === editingId)?.nr_sequencia ?? null) : null}
+              form={form}
               setForm={setForm}
               submitting={submitting}
               handleSubmit={handleSubmit}
               goToList={goToList}
+              createdAt={auditInfo.createdAt}
+              updatedAt={auditInfo.updatedAt}
+              onOpenAudit={openAuditModal}
+              onPrevRecord={goToPrevRecord}
+              onNextRecord={goToNextRecord}
+              hasPrevRecord={hasPrevRecord}
+              hasNextRecord={hasNextRecord}
             />
           )}
         </div>
       </div>
+
+      {filterModalOpen && view === "list" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeFilterModal} />
+          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button
+                type="button"
+                onClick={closeFilterModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar filtro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+              <div className="sm:col-span-3">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Sequência
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={filterForm.nr_sequencia}
+                  onChange={(e) => setFilterForm({ ...filterForm, nr_sequencia: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-9">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Nome completo
+                </label>
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={filterForm.ds_nome}
+                  onChange={(e) => setFilterForm({ ...filterForm, ds_nome: e.target.value })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  CPF
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={14}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={filterForm.nr_cpf}
+                  onChange={(e) => setFilterForm({ ...filterForm, nr_cpf: applyCpfMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data de nascimento (início)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={filterForm.dt_nascimento_inicio}
+                  onChange={(e) => setFilterForm({ ...filterForm, dt_nascimento_inicio: applyDateMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data de nascimento (fim)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={filterForm.dt_nascimento_fim}
+                  onChange={(e) => setFilterForm({ ...filterForm, dt_nascimento_fim: applyDateMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  E-mail
+                </label>
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={filterForm.ds_email}
+                  onChange={(e) => setFilterForm({ ...filterForm, ds_email: e.target.value })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Telefone
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={15}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={filterForm.nr_telefone}
+                  onChange={(e) => setFilterForm({ ...filterForm, nr_telefone: applyPhoneMask(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={clearFilter}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Limpar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Filtrar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {auditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAuditModal} />
+          <div className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Histórico de auditoria</h2>
+              <button
+                type="button"
+                onClick={closeAuditModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                aria-label="Fechar auditoria"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-[15px] overflow-auto">
+              {auditLoading ? (
+                <div className="text-sm text-slate-600">Carregando...</div>
+              ) : auditLogs.length === 0 ? (
+                <div className="text-sm text-slate-600">Nenhum registro de auditoria encontrado.</div>
+              ) : (
+                <div className="grid gap-3">
+                  {auditLogs.map((log, idx) => (
+                    <div
+                      key={log.id}
+                      role="button"
+                      onClick={() => { setSelectedAuditIndex(idx); setDetailModalOpen(true); }}
+                      className="p-3 cursor-pointer"
+                      style={{
+                        borderStyle: 'solid',
+                        borderWidth: '1px',
+                        borderTopColor: '#999',
+                        borderLeftColor: '#999',
+                        borderBottomColor: '#ccc',
+                        borderRightColor: '#ccc',
+                      }}
+                    >
+                      <div className="text-sm font-medium">{log.usuarioNome ?? log.usuarioId ?? '-'}</div>
+                      <div className="text-xs text-slate-600">{log.timestamp ? formatDate(String(log.timestamp)) : ''}</div>
+                      {log.acao && (
+                        <div className="text-xs text-slate-500 mt-2">{log.acao === 'create' ? 'Criação' : log.acao === 'update' ? 'Alteração' : log.acao}</div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {detailModalOpen && selectedAuditIndex !== null && (() => {
+        const after = auditLogs[selectedAuditIndex]?.detalhes ?? {};
+        const before = auditLogs[selectedAuditIndex + 1]?.detalhes ?? null;
+        const fieldsOrder = [
+          'nr_sequencia',
+          'ds_nome',
+          'nr_cpf',
+          'dt_nascimento',
+          'ds_email',
+          'nr_telefone',
+          'dt_criacao',
+          'dt_alteracao',
+        ];
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+            <div className="absolute inset-0" onClick={() => setDetailModalOpen(false)} />
+            <div className="relative w-full max-w-[800px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+              <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+                <h3 className="text-base font-semibold" style={{ color: '#000' }}>Detalhe da auditoria</h3>
+                <button
+                  type="button"
+                  onClick={() => setDetailModalOpen(false)}
+                  className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 6 18" />
+                    <path d="M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="p-[15px] overflow-auto">
+                <div className="grid grid-cols-2 gap-4">
+                  {(() => {
+                    const FIELD_LABELS: Record<string, string> = {
+                      nr_sequencia: 'Sequência',
+                      ds_nome: 'Nome completo',
+                      nr_cpf: 'CPF',
+                      dt_nascimento: 'Data de nascimento',
+                      ds_email: 'E-mail',
+                      nr_telefone: 'Telefone',
+                      dt_criacao: 'Criação',
+                      dt_alteracao: 'Alteração',
+                    };
+
+                    const normalizeAuditValue = (val: any): string | number | null => {
+                      if (val === null || val === undefined || val === '') return null;
+                      if (typeof val === 'object') {
+                        if (typeof val.toDate === 'function') {
+                          return val.toDate().toISOString();
+                        }
+                        if (typeof val.seconds === 'number' && typeof val.nanoseconds === 'number') {
+                          const ms = val.seconds * 1000 + Math.floor(val.nanoseconds / 1000000);
+                          return new Date(ms).toISOString();
+                        }
+                      }
+                      return val;
+                    };
+
+                    const getDisplay = (field: string, val: any) => {
+                      const normalized = normalizeAuditValue(val);
+                      if (normalized === null || normalized === undefined || normalized === '') return '-';
+                      if (field.startsWith('dt_')) return formatDate(String(normalized));
+                      return String(normalized);
+                    };
+
+                    return (
+                      <>
+                        <div>
+                          <div className="text-sm font-medium mb-2" style={{ color: '#000' }}>Antes</div>
+                          <div className="space-y-3 text-sm">
+                            {fieldsOrder.map((field) => (
+                              <div key={field}>
+                                <label className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</label>
+                                <input
+                                  disabled
+                                  value={before ? getDisplay(field, (before as any)[field]) : '-'}
+                                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <div className="text-sm font-medium mb-2" style={{ color: '#000' }}>Depois</div>
+                          <div className="space-y-3 text-sm">
+                            {fieldsOrder.map((field) => (
+                              <div key={field}>
+                                <label className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</label>
+                                <input
+                                  disabled
+                                  value={getDisplay(field, (after as any)[field])}
+                                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm"
+                                />
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </>
+                    );
+                  })()}
+                </div>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
 
       {submitting && view === "form" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
@@ -1323,22 +1981,12 @@ export default function Home() {
       )}
 
       {toastMounted && (
-        <div
-          className={`fixed bottom-4 right-4 z-50 min-w-[220px] max-w-[320px] px-4 py-3 pr-8 text-sm rounded-none ${
-            toastVisible ? "animate-toast-fade-in" : "animate-toast-fade-out"
-          } ${toastTextClass}`}
-          style={{ backgroundColor: toastBg, borderLeft: `4px solid ${toastBorderColor}` }}
-        >
-          <button
-            type="button"
-            onClick={() => setToastVisible(false)}
-            className="absolute right-2 top-2 cursor-pointer text-sm text-slate-100 hover:text-white"
-            aria-label="Fechar mensagem"
-          >
-            ×
-          </button>
-          <div>{message}</div>
-        </div>
+        <Toast
+          visible={toastVisible}
+          message={message}
+          status={messageStatus}
+          onClose={() => setToastVisible(false)}
+        />
       )}
     </div>
   );
