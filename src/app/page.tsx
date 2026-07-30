@@ -72,6 +72,7 @@ const emptyAdminForm: AdminFormData = {
   ds_usuario_alternativo: "",
   ds_senha: "",
   ds_observacao: "",
+  ie_status: 'A',
 };
 
 /* ------------------------------------------------------------------ */
@@ -337,6 +338,7 @@ export default function Home() {
       ds_senha: "",
       ds_observacao: usuario.ds_observacao,
       nr_seq_pessoa_fisica: usuario.nr_seq_pessoa_fisica,
+      ie_status: usuario.ie_status ?? 'A',
     });
     setAdminOriginalSenhaHash(usuario.ds_senha ?? null);
     setAdminEditingId(usuario.id ?? null);
@@ -558,13 +560,16 @@ export default function Home() {
         ? await hashPassword(adminForm.ds_senha)
         : adminOriginalSenhaHash ?? '';
 
-      const usuarioPayload = {
-        nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica,
+      const usuarioPayload: Record<string, any> = {
         ds_usuario: adminForm.ds_usuario,
         ds_usuario_alternativo: adminForm.ds_usuario_alternativo,
         ds_senha: senhaHash,
         ds_observacao: adminForm.ds_observacao,
+        ie_status: adminForm.ie_status,
       };
+      if (adminForm.nr_seq_pessoa_fisica !== undefined && adminForm.nr_seq_pessoa_fisica !== null) {
+        usuarioPayload.nr_seq_pessoa_fisica = adminForm.nr_seq_pessoa_fisica;
+      }
 
       if (adminEditingId) {
         const currentUsuario = usuarios.find((u) => u.id === adminEditingId);
@@ -574,6 +579,7 @@ export default function Home() {
               'ds_usuario',
               'ds_usuario_alternativo',
               'ds_observacao',
+              'ie_status',
             ].some((field) => String((currentUsuario as any)[field] ?? '') !== String((adminForm as any)[field] ?? ''))
             || Boolean(adminForm.ds_senha)
           : true;
@@ -588,10 +594,15 @@ export default function Home() {
           return;
         }
 
-        await atualizarUsuario(adminEditingId, usuarioPayload);
+        const updatePayload = {
+          ...usuarioPayload,
+          nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica ?? null,
+          ie_status: adminForm.ie_status ?? null,
+        };
+        await atualizarUsuario(adminEditingId, updatePayload as any);
         setMessage("Atualizado com sucesso!");
       } else {
-        const id = await criarUsuario(usuarioPayload);
+        const id = await criarUsuario(usuarioPayload as any);
         setMessage("Cadastrado com sucesso!");
       }
 
@@ -934,6 +945,7 @@ export default function Home() {
                 message={message}
                 loading={loading}
                 usuarios={filteredSortedUsuarios}
+                pessoasFisicas={pessoasFisicas}
                 openNewForm={openAdminNewForm}
                 openEditForm={openAdminEditForm}
                 setContextMenu={setContextMenu}
@@ -1170,8 +1182,8 @@ export default function Home() {
                         <div className="flex w-full items-center justify-between">
                           <div className="text-sm font-medium truncate">{log.usuarioNome ?? log.usuarioId ?? ''}</div>
                           <div className="flex items-center gap-[10px] text-xs">
-                            <span className="text-slate-500">{actionLabel}</span>
-                            <span className="text-slate-600 whitespace-nowrap ml-2.5">{log.timestamp ? formatDate(String(log.timestamp)) : ''}</span>
+                            <span className="text-slate-600">{actionLabel}</span>
+                            <span className="text-slate-600 whitespace-nowrap" style={{ marginLeft: 10 }}>{log.timestamp ? formatDate(String(log.timestamp)) : ''}</span>
                           </div>
                         </div>
                       </div>
@@ -1416,7 +1428,7 @@ export default function Home() {
                                 <label className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</label>
                                 <input
                                   disabled
-                                  value={before ? getDisplay(field, (before as any)[field]) : '-'}
+                                  value={before ? getDisplay(field, (before as any)[field]) : ''}
                                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm"
                                 />
                               </div>

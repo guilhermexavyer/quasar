@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
+import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
@@ -10,6 +11,7 @@ interface ListViewProps {
   message: string;
   loading: boolean;
   usuarios: Usuario[];
+  pessoasFisicas: PessoaFisica[];
   openNewForm: () => void;
   openEditForm: (usuario: Usuario) => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
@@ -22,6 +24,7 @@ export default function AdministracaoSistemaListView({
   message,
   loading,
   usuarios,
+  pessoasFisicas,
   openNewForm,
   openEditForm,
   setContextMenu,
@@ -32,7 +35,7 @@ export default function AdministracaoSistemaListView({
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [columnOrder, setColumnOrder] = useState<number[]>(() => ADMIN_COLUMNS.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -486,8 +489,14 @@ export default function AdministracaoSistemaListView({
                       >
                         {columnOrder.map((logicalIdx) => {
                           const col = ADMIN_COLUMNS[logicalIdx];
-                          const value = usuario[col.key];
-                          const displayValue = formatAdminCellValue(col.key, value);
+                          let displayValue = '';
+                          if (col.key === 'nr_seq_pessoa_fisica') {
+                            const seq = (usuario as any).nr_seq_pessoa_fisica as number | undefined | null;
+                            displayValue = seq ? (pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '') : '';
+                          } else {
+                            const value = usuario[col.key as keyof Usuario];
+                            displayValue = formatAdminCellValue(col.key as keyof Usuario, value);
+                          }
                           const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>

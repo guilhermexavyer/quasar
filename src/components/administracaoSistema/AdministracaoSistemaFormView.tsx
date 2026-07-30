@@ -219,7 +219,7 @@ export default function AdministracaoSistemaFormView({
                 <button
                   type="button"
                   onClick={onOpenPessoaFisicaLookup}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black transition hover:text-[#003056]"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
                   aria-label="Localizar pessoa física"
                 >
                   <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -232,6 +232,39 @@ export default function AdministracaoSistemaFormView({
           </div>
 
           <div className="sm:col-span-12 group">
+            {renderFieldLabel('ie_status', 'Status')}
+            <div className="flex items-center gap-4 mb-3">
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="ie_status"
+                  value="A"
+                  checked={form.ie_status === 'A' || !form.ie_status}
+                  onChange={() => setForm({ ...form, ie_status: 'A' })}
+                />
+                <span>Ativo</span>
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="ie_status"
+                  value="B"
+                  checked={form.ie_status === 'B'}
+                  onChange={() => setForm({ ...form, ie_status: 'B' })}
+                />
+                <span>Bloqueado</span>
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm">
+                <input
+                  type="radio"
+                  name="ie_status"
+                  value="I"
+                  checked={form.ie_status === 'I'}
+                  onChange={() => setForm({ ...form, ie_status: 'I' })}
+                />
+                <span>Inativo</span>
+              </label>
+            </div>
             {renderFieldLabel('ds_observacao', 'Observação')}
             <textarea
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
