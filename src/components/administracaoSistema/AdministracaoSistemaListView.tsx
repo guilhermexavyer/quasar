@@ -14,6 +14,7 @@ interface ListViewProps {
   pessoasFisicas: PessoaFisica[];
   openNewForm: () => void;
   openEditForm: (usuario: Usuario) => void;
+  openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
   sortAsc: boolean | null;
@@ -35,6 +36,7 @@ export default function AdministracaoSistemaListView({
   onSortChange,
   manageSelection,
   onManageSelectionChange,
+  openFilter,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -426,6 +428,16 @@ export default function AdministracaoSistemaListView({
             >
               <option value="usuarios">Usuários</option>
             </select>
+            <button
+              type="button"
+              onClick={openFilter}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+              aria-label="Abrir filtro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
+              </svg>
+            </button>
           </div>
           <button
             type="button"

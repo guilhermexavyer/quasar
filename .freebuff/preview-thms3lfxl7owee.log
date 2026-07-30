@@ -26006,3 +26006,100 @@ https://react.dev/link/hydration-mismatch
  GET / 200 in 566ms (next.js: 462ms, application-code: 104ms)
 ✓ Compiled in 131ms
  GET / 200 in 383ms (next.js: 265ms, application-code: 118ms)
+✓ Compiled in 487ms
+ GET / 200 in 501ms (next.js: 332ms, application-code: 169ms)
+✓ Compiled in 726ms
+ GET / 200 in 557ms (next.js: 426ms, application-code: 130ms)
+✓ Compiled in 316ms
+ GET / 200 in 470ms (next.js: 352ms, application-code: 118ms)
+✓ Compiled in 160ms
+ GET / 200 in 472ms (next.js: 386ms, application-code: 86ms)
+✓ Compiled in 568ms
+ GET / 200 in 825ms (next.js: 719ms, application-code: 107ms)
+✓ Compiled in 253ms
+ GET / 200 in 816ms (next.js: 601ms, application-code: 214ms)
+✓ Compiled in 305ms
+ GET / 200 in 502ms (next.js: 358ms, application-code: 144ms)
+✓ Compiled in 1114ms
+ GET / 200 in 470ms (next.js: 343ms, application-code: 127ms)
+✓ Compiled in 299ms
+ GET / 200 in 732ms (next.js: 562ms, application-code: 170ms)
+ GET / 200 in 788ms (next.js: 15ms, application-code: 773ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 530ms
+ GET / 200 in 633ms (next.js: 404ms, application-code: 229ms)
+ GET / 200 in 817ms (next.js: 16ms, application-code: 802ms)
+✓ Compiled in 472ms
+ GET / 200 in 576ms (next.js: 441ms, application-code: 135ms)
+ GET / 200 in 660ms (next.js: 15ms, application-code: 645ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 

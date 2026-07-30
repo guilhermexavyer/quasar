@@ -126,6 +126,26 @@ export default function Home() {
   const [filterForm, setFilterForm] = useState<FilterFormData>(emptyFilterForm);
   const [appliedFilterForm, setAppliedFilterForm] = useState<FilterFormData>(emptyFilterForm);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  type AdminFilterFormData = {
+    nr_sequencia: string;
+    ds_usuario: string;
+    ds_usuario_alternativo: string;
+    nr_seq_pessoa_fisica: string;
+    ie_status: string;
+  };
+  const emptyAdminFilterForm: AdminFilterFormData = {
+    nr_sequencia: '',
+    ds_usuario: '',
+    ds_usuario_alternativo: '',
+    nr_seq_pessoa_fisica: '',
+    ie_status: 'T',
+  };
+  const [adminFilterForm, setAdminFilterForm] = useState<AdminFilterFormData>(emptyAdminFilterForm);
+  const [appliedAdminFilterForm, setAppliedAdminFilterForm] = useState<AdminFilterFormData>(emptyAdminFilterForm);
+  const [adminFilterModalOpen, setAdminFilterModalOpen] = useState(false);
+  const [adminPessoaFisicaLookupOpen, setAdminPessoaFisicaLookupOpen] = useState(false);
+  const [adminPessoaFisicaLookupForm, setAdminPessoaFisicaLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [adminPessoaFisicaLookupFilter, setAdminPessoaFisicaLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisica[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '' });
@@ -270,6 +290,54 @@ export default function Home() {
     setFilterModalOpen(false);
   }
 
+  function openAdminFilterModal() {
+    setAdminFilterForm(appliedAdminFilterForm);
+    setAdminFilterModalOpen(true);
+  }
+
+  function closeAdminFilterModal() {
+    setAdminFilterModalOpen(false);
+  }
+
+  function openAdminPessoaFisicaLookup() {
+    setAdminPessoaFisicaLookupForm({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupFilter({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupOpen(true);
+  }
+
+  function closeAdminPessoaFisicaLookup() {
+    setAdminPessoaFisicaLookupOpen(false);
+  }
+
+  function applyAdminPessoaFisicaLookupFilter() {
+    setAdminPessoaFisicaLookupFilter(adminPessoaFisicaLookupForm);
+  }
+
+  function clearAdminPessoaFisicaLookupFilter() {
+    setAdminPessoaFisicaLookupForm({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupFilter({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  }
+
+  function handleAdminPessoaFisicaSelect(pessoa: PessoaFisica) {
+    setAdminFilterForm({ ...adminFilterForm, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) });
+    closeAdminPessoaFisicaLookup();
+  }
+
+  function applyAdminFilter() {
+    setAppliedAdminFilterForm({ ...adminFilterForm, ie_status: adminFilterForm.ie_status || 'T' });
+    setAdminFilterModalOpen(false);
+  }
+
+  function clearAdminFilter() {
+    setAdminFilterForm(emptyAdminFilterForm);
+    setAppliedAdminFilterForm(emptyAdminFilterForm);
+  }
+
+  function handleAdminFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyAdminFilter();
+  }
+
   function applyFilter() {
     setAppliedFilterForm(filterForm);
     setFilterModalOpen(false);
@@ -404,6 +472,29 @@ export default function Home() {
     });
   }, [pessoasFisicas, appliedFilterForm]);
 
+  const filteredUsuarios = useMemo(() => {
+    return usuarios.filter((usuario) => {
+      if (appliedAdminFilterForm.nr_sequencia) {
+        const q = appliedAdminFilterForm.nr_sequencia.replace(/\D/g, '');
+        if (!q) return false;
+        const seq = Number(q);
+        if (usuario.nr_sequencia !== seq) return false;
+      }
+      if (appliedAdminFilterForm.ds_usuario && !usuario.ds_usuario.toLowerCase().includes(appliedAdminFilterForm.ds_usuario.toLowerCase())) return false;
+      if (appliedAdminFilterForm.ds_usuario_alternativo && !usuario.ds_usuario_alternativo.toLowerCase().includes(appliedAdminFilterForm.ds_usuario_alternativo.toLowerCase())) return false;
+      if (appliedAdminFilterForm.nr_seq_pessoa_fisica) {
+        const q = appliedAdminFilterForm.nr_seq_pessoa_fisica.replace(/\D/g, '');
+        if (!q) return false;
+        const seq = Number(q);
+        if ((usuario.nr_seq_pessoa_fisica ?? null) !== seq) return false;
+      }
+      if (appliedAdminFilterForm.ie_status && appliedAdminFilterForm.ie_status.toUpperCase() !== 'T') {
+        if (String(usuario.ie_status ?? '').toUpperCase() !== appliedAdminFilterForm.ie_status.toUpperCase()) return false;
+      }
+      return true;
+    });
+  }, [usuarios, appliedAdminFilterForm]);
+
   const filteredSortedPessoasFisicas = useMemo(() => {
     const sorted = [...filteredPessoasFisicas];
     if (sortColumn === null || sortAsc === null) {
@@ -432,7 +523,7 @@ export default function Home() {
   }, [filteredPessoasFisicas, sortColumn, sortAsc]);
 
   const filteredSortedUsuarios = useMemo(() => {
-    const sorted = [...usuarios];
+    const sorted = [...filteredUsuarios];
     if (adminSortColumn === null || adminSortAsc === null) {
       return sorted.sort((a, b) => {
         const dateA = a.dt_criacao || "";
@@ -963,12 +1054,13 @@ export default function Home() {
                   pessoasFisicas={pessoasFisicas}
                   openNewForm={openAdminNewForm}
                   openEditForm={openAdminEditForm}
-                  setContextMenu={setContextMenu}
+                setContextMenu={setContextMenu}
                   sortColumn={adminSortColumn}
                   sortAsc={adminSortAsc}
                   onSortChange={handleAdminSortChange}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={setAdminManageSelection}
+                  openFilter={openAdminFilterModal}
                 />
               ) : (
                 <div className="p-6">
@@ -1136,6 +1228,170 @@ export default function Home() {
               <button
                 type="button"
                 onClick={clearFilter}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Limpar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Filtrar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {adminFilterModalOpen && view === "list" && activeSection === "administracao" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAdminFilterModal} />
+          <form onSubmit={handleAdminFilterSubmit} className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button
+                type="button"
+                onClick={closeAdminFilterModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar filtro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+              <div className="sm:col-span-12">
+                <div className="flex flex-col gap-3 sm:flex-row">
+                  <div className="shrink-0" style={{ flex: '0 0 10%' }}>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                      Sequência
+                    </label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={adminFilterForm.nr_sequencia}
+                      onChange={(e) => setAdminFilterForm({ ...adminFilterForm, nr_sequencia: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                      Usuário
+                    </label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={adminFilterForm.ds_usuario}
+                      onChange={(e) => setAdminFilterForm({ ...adminFilterForm, ds_usuario: e.target.value })}
+                    />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                      Usuário alternativo
+                    </label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={adminFilterForm.ds_usuario_alternativo}
+                      onChange={(e) => setAdminFilterForm({ ...adminFilterForm, ds_usuario_alternativo: e.target.value })}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:col-span-12">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Pessoa física
+                </label>
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 72 }}>
+                    <label className="sr-only">Código da pessoa física</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none"
+                      value={adminFilterForm.nr_seq_pessoa_fisica}
+                      onChange={(e) => setAdminFilterForm({ ...adminFilterForm, nr_seq_pessoa_fisica: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <label className="sr-only">Nome da pessoa física</label>
+                    <input
+                      readOnly
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      value={pessoasFisicas.find((p) => String(p.nr_sequencia) === adminFilterForm.nr_seq_pessoa_fisica)?.ds_nome ?? ''}
+                    />
+                    <button
+                      type="button"
+                      onClick={openAdminPessoaFisicaLookup}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
+                      aria-label="Localizar pessoa física"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m21 21-4.3-4.3" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:col-span-12">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Status
+                </label>
+                <div className="flex items-center gap-4 mb-3">
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="admin_ie_status"
+                      value="T"
+                      checked={adminFilterForm.ie_status === 'T'}
+                      onChange={() => setAdminFilterForm({ ...adminFilterForm, ie_status: 'T' })}
+                    />
+                    <span>Todos</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="admin_ie_status"
+                      value="A"
+                      checked={adminFilterForm.ie_status === 'A'}
+                      onChange={() => setAdminFilterForm({ ...adminFilterForm, ie_status: 'A' })}
+                    />
+                    <span>Ativo</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="admin_ie_status"
+                      value="B"
+                      checked={adminFilterForm.ie_status === 'B'}
+                      onChange={() => setAdminFilterForm({ ...adminFilterForm, ie_status: 'B' })}
+                    />
+                    <span>Bloqueado</span>
+                  </label>
+                  <label className="inline-flex items-center gap-2 text-sm">
+                    <input
+                      type="radio"
+                      name="admin_ie_status"
+                      value="I"
+                      checked={adminFilterForm.ie_status === 'I'}
+                      onChange={() => setAdminFilterForm({ ...adminFilterForm, ie_status: 'I' })}
+                    />
+                    <span>Inativo</span>
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={clearAdminFilter}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -1358,6 +1614,114 @@ export default function Home() {
                   <PessoaFisicaLookupTable
                     pessoasFisicas={filteredLookupPessoasFisicas}
                     onSelect={handlePessoaFisicaSelect}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {adminPessoaFisicaLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] border-r border-slate-300 p-[15px] bg-[#fafafa] overflow-auto">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
+                  <button
+                    type="button"
+                    onClick={closeAdminPessoaFisicaLookup}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                    aria-label="Fechar localizar pessoa física"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={adminPessoaFisicaLookupForm.nr_sequencia}
+                      onChange={(e) => setAdminPessoaFisicaLookupForm({ ...adminPessoaFisicaLookupForm, nr_sequencia: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={adminPessoaFisicaLookupForm.ds_nome}
+                      onChange={(e) => setAdminPessoaFisicaLookupForm({ ...adminPessoaFisicaLookupForm, ds_nome: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={14}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={adminPessoaFisicaLookupForm.nr_cpf}
+                      onChange={(e) => setAdminPessoaFisicaLookupForm({ ...adminPessoaFisicaLookupForm, nr_cpf: applyCpfMask(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={clearAdminPessoaFisicaLookupFilter}
+                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyAdminPessoaFisicaLookupFilter}
+                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Filtrar
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {pessoasFisicas.filter((pessoa) => {
+                  if (adminPessoaFisicaLookupFilter.nr_sequencia) {
+                    if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
+                  }
+                  if (adminPessoaFisicaLookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(adminPessoaFisicaLookupFilter.ds_nome.toLowerCase())) return false;
+                  if (adminPessoaFisicaLookupFilter.nr_cpf) {
+                    const queryCpf = adminPessoaFisicaLookupFilter.nr_cpf.replace(/\D/g, '');
+                    const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
+                    if (!pessoaCpf.includes(queryCpf)) return false;
+                  }
+                  return true;
+                }).length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
+                    Nenhuma pessoa física encontrada.
+                  </div>
+                ) : (
+                  <PessoaFisicaLookupTable
+                    pessoasFisicas={pessoasFisicas.filter((pessoa) => {
+                      if (adminPessoaFisicaLookupFilter.nr_sequencia) {
+                        if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
+                      }
+                      if (adminPessoaFisicaLookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(adminPessoaFisicaLookupFilter.ds_nome.toLowerCase())) return false;
+                      if (adminPessoaFisicaLookupFilter.nr_cpf) {
+                        const queryCpf = adminPessoaFisicaLookupFilter.nr_cpf.replace(/\D/g, '');
+                        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
+                        if (!pessoaCpf.includes(queryCpf)) return false;
+                      }
+                      return true;
+                    })}
+                    onSelect={handleAdminPessoaFisicaSelect}
                   />
                 )}
               </div>
