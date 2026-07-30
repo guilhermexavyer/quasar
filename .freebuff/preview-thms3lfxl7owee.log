@@ -19923,3 +19923,4894 @@ Import traces:
  GET / 200 in 2.0s (next.js: 494ms, application-code: 1552ms)
  GET / 200 in 597ms (next.js: 64ms, application-code: 533ms)
  GET / 200 in 593ms (next.js: 192ms, application-code: 401ms)
+ GET / 200 in 372ms (next.js: 45ms, application-code: 327ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+ GET / 200 in 166ms (next.js: 15ms, application-code: 151ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 3.2s
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  [90m224 |[0m }
+  [90m225 |[0m
+[31m[1m>[0m [90m226 |[0m [36mfunction[0m applyCpfMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^[0m
+  [90m227 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m228 |[0m   [36mif[0m (digits.length <= [35m3[0m) [36mreturn[0m digits;
+  [90m229 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m3[0m)[32m}.[0m${digits.slice([35m3[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  [90m232 |[0m }
+  [90m233 |[0m
+[31m[1m>[0m [90m234 |[0m [36mfunction[0m applyDateMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^[0m
+  [90m235 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m8[0m);
+  [90m236 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m237 |[0m   [36mif[0m (digits.length <= [35m4[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m2[0m)[32m}/[0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  [90m240 |[0m }
+  [90m241 |[0m
+[31m[1m>[0m [90m242 |[0m [36mfunction[0m applyPhoneMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m243 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m244 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m245 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`([0m${digits.slice([35m0[0m, [35m2[0m)[32m}) [0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  [90m135 |[0m }
+  [90m136 |[0m
+[31m[1m>[0m [90m137 |[0m [36mfunction[0m formatDate(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^[0m
+  [90m138 |[0m   [36mif[0m (!value) [36mreturn[0m [32m''[0m;
+  [90m139 |[0m
+  [90m140 |[0m   [90m// ISO datetime (with time) -> show date + time in local timezone[0m
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  [90m181 |[0m }
+  [90m182 |[0m
+[31m[1m>[0m [90m183 |[0m [36mfunction[0m parseDateInput(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m184 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m);
+  [90m185 |[0m   [36mif[0m (digits.length !== [35m8[0m) [36mreturn[0m [36mnull[0m;
+  [90m186 |[0m   [36mconst[0m day = [33mNumber[0m(digits.slice([35m0[0m, [35m2[0m));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  [90m194 |[0m }
+  [90m195 |[0m
+[31m[1m>[0m [90m196 |[0m [36mfunction[0m parsePersonDateValue(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m197 |[0m   [36mif[0m (!value) [36mreturn[0m [36mnull[0m;
+  [90m198 |[0m   [36mconst[0m isoMatch = value.match([35m/^(\d{4})-(\d{2})-(\d{2})/[0m);
+  [90m199 |[0m   [36mif[0m (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  [90m224 |[0m }
+  [90m225 |[0m
+[31m[1m>[0m [90m226 |[0m [36mfunction[0m applyCpfMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^[0m
+  [90m227 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m228 |[0m   [36mif[0m (digits.length <= [35m3[0m) [36mreturn[0m digits;
+  [90m229 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m3[0m)[32m}.[0m${digits.slice([35m3[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  [90m232 |[0m }
+  [90m233 |[0m
+[31m[1m>[0m [90m234 |[0m [36mfunction[0m applyDateMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^[0m
+  [90m235 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m8[0m);
+  [90m236 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m237 |[0m   [36mif[0m (digits.length <= [35m4[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m2[0m)[32m}/[0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  [90m240 |[0m }
+  [90m241 |[0m
+[31m[1m>[0m [90m242 |[0m [36mfunction[0m applyPhoneMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m243 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m244 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m245 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`([0m${digits.slice([35m0[0m, [35m2[0m)[32m}) [0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  [90m135 |[0m }
+  [90m136 |[0m
+[31m[1m>[0m [90m137 |[0m [36mfunction[0m formatDate(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^[0m
+  [90m138 |[0m   [36mif[0m (!value) [36mreturn[0m [32m''[0m;
+  [90m139 |[0m
+  [90m140 |[0m   [90m// ISO datetime (with time) -> show date + time in local timezone[0m
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  [90m181 |[0m }
+  [90m182 |[0m
+[31m[1m>[0m [90m183 |[0m [36mfunction[0m parseDateInput(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m184 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m);
+  [90m185 |[0m   [36mif[0m (digits.length !== [35m8[0m) [36mreturn[0m [36mnull[0m;
+  [90m186 |[0m   [36mconst[0m day = [33mNumber[0m(digits.slice([35m0[0m, [35m2[0m));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  [90m194 |[0m }
+  [90m195 |[0m
+[31m[1m>[0m [90m196 |[0m [36mfunction[0m parsePersonDateValue(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m197 |[0m   [36mif[0m (!value) [36mreturn[0m [36mnull[0m;
+  [90m198 |[0m   [36mconst[0m isoMatch = value.match([35m/^(\d{4})-(\d{2})-(\d{2})/[0m);
+  [90m199 |[0m   [36mif[0m (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 1643ms (next.js: 1214ms, application-code: 429ms)
+ GET / 500 in 1640ms (next.js: 1368ms, application-code: 272ms)
+⨯ ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  [90m224 |[0m }
+  [90m225 |[0m
+[31m[1m>[0m [90m226 |[0m [36mfunction[0m applyCpfMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^[0m
+  [90m227 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m228 |[0m   [36mif[0m (digits.length <= [35m3[0m) [36mreturn[0m digits;
+  [90m229 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m3[0m)[32m}.[0m${digits.slice([35m3[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  [90m232 |[0m }
+  [90m233 |[0m
+[31m[1m>[0m [90m234 |[0m [36mfunction[0m applyDateMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^[0m
+  [90m235 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m8[0m);
+  [90m236 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m237 |[0m   [36mif[0m (digits.length <= [35m4[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m2[0m)[32m}/[0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  [90m240 |[0m }
+  [90m241 |[0m
+[31m[1m>[0m [90m242 |[0m [36mfunction[0m applyPhoneMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m243 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m244 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m245 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`([0m${digits.slice([35m0[0m, [35m2[0m)[32m}) [0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  [90m135 |[0m }
+  [90m136 |[0m
+[31m[1m>[0m [90m137 |[0m [36mfunction[0m formatDate(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^[0m
+  [90m138 |[0m   [36mif[0m (!value) [36mreturn[0m [32m''[0m;
+  [90m139 |[0m
+  [90m140 |[0m   [90m// ISO datetime (with time) -> show date + time in local timezone[0m
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  [90m181 |[0m }
+  [90m182 |[0m
+[31m[1m>[0m [90m183 |[0m [36mfunction[0m parseDateInput(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m184 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m);
+  [90m185 |[0m   [36mif[0m (digits.length !== [35m8[0m) [36mreturn[0m [36mnull[0m;
+  [90m186 |[0m   [36mconst[0m day = [33mNumber[0m(digits.slice([35m0[0m, [35m2[0m));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  [90m194 |[0m }
+  [90m195 |[0m
+[31m[1m>[0m [90m196 |[0m [36mfunction[0m parsePersonDateValue(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m197 |[0m   [36mif[0m (!value) [36mreturn[0m [36mnull[0m;
+  [90m198 |[0m   [36mconst[0m isoMatch = value.match([35m/^(\d{4})-(\d{2})-(\d{2})/[0m);
+  [90m199 |[0m   [36mif[0m (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  [90m224 |[0m }
+  [90m225 |[0m
+[31m[1m>[0m [90m226 |[0m [36mfunction[0m applyCpfMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^[0m
+  [90m227 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m228 |[0m   [36mif[0m (digits.length <= [35m3[0m) [36mreturn[0m digits;
+  [90m229 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m3[0m)[32m}.[0m${digits.slice([35m3[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  [90m232 |[0m }
+  [90m233 |[0m
+[31m[1m>[0m [90m234 |[0m [36mfunction[0m applyDateMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^[0m
+  [90m235 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m8[0m);
+  [90m236 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m237 |[0m   [36mif[0m (digits.length <= [35m4[0m) [36mreturn[0m [32m`[0m${digits.slice([35m0[0m, [35m2[0m)[32m}/[0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  [90m240 |[0m }
+  [90m241 |[0m
+[31m[1m>[0m [90m242 |[0m [36mfunction[0m applyPhoneMask(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m243 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m).slice([35m0[0m, [35m11[0m);
+  [90m244 |[0m   [36mif[0m (digits.length <= [35m2[0m) [36mreturn[0m digits;
+  [90m245 |[0m   [36mif[0m (digits.length <= [35m6[0m) [36mreturn[0m [32m`([0m${digits.slice([35m0[0m, [35m2[0m)[32m}) [0m${digits.slice([35m2[0m)[32m}`[0m;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  [90m135 |[0m }
+  [90m136 |[0m
+[31m[1m>[0m [90m137 |[0m [36mfunction[0m formatDate(value: string): string {
+  [90m    |[0m          [31m[1m^^^^^^^^^^[0m
+  [90m138 |[0m   [36mif[0m (!value) [36mreturn[0m [32m''[0m;
+  [90m139 |[0m
+  [90m140 |[0m   [90m// ISO datetime (with time) -> show date + time in local timezone[0m
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  [90m181 |[0m }
+  [90m182 |[0m
+[31m[1m>[0m [90m183 |[0m [36mfunction[0m parseDateInput(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^[0m
+  [90m184 |[0m   [36mconst[0m digits = value.replace([35m/\D/g[0m, [32m''[0m);
+  [90m185 |[0m   [36mif[0m (digits.length !== [35m8[0m) [36mreturn[0m [36mnull[0m;
+  [90m186 |[0m   [36mconst[0m day = [33mNumber[0m(digits.slice([35m0[0m, [35m2[0m));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+
+./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  [90m194 |[0m }
+  [90m195 |[0m
+[31m[1m>[0m [90m196 |[0m [36mfunction[0m parsePersonDateValue(value: string): number | [36mnull[0m {
+  [90m    |[0m          [31m[1m^^^^^^^^^^^^^^^^^^^^[0m
+  [90m197 |[0m   [36mif[0m (!value) [36mreturn[0m [36mnull[0m;
+  [90m198 |[0m   [36mconst[0m isoMatch = value.match([35m/^(\d{4})-(\d{2})-(\d{2})/[0m);
+  [90m199 |[0m   [36mif[0m (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 261ms (next.js: 86ms, application-code: 175ms)
+ GET / 500 in 264ms (next.js: 171ms, application-code: 93ms)
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:226:10)
+    at <unknown> (Error: (./src/app/page.tsx:226:10)
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:226:10)
+    at <unknown> (Error: (./src/app/page.tsx:226:10)
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:226:10
+the name `applyCpfMask` is defined multiple times
+  224 | }
+  225 |
+> 226 | function applyCpfMask(value: string): string {
+      |          ^^^^^^^^^^^^
+  227 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  228 |   if (digits.length <= 3) return digits;
+  229 |   if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:234:10
+the name `applyDateMask` is defined multiple times
+  232 | }
+  233 |
+> 234 | function applyDateMask(value: string): string {
+      |          ^^^^^^^^^^^^^
+  235 |   const digits = value.replace(/\D/g, '').slice(0, 8);
+  236 |   if (digits.length <= 2) return digits;
+  237 |   if (digits.length <= 4) return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:242:10
+the name `applyPhoneMask` is defined multiple times
+  240 | }
+  241 |
+> 242 | function applyPhoneMask(value: string): string {
+      |          ^^^^^^^^^^^^^^
+  243 |   const digits = value.replace(/\D/g, '').slice(0, 11);
+  244 |   if (digits.length <= 2) return digits;
+  245 |   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:137:10
+the name `formatDate` is defined multiple times
+  135 | }
+  136 |
+> 137 | function formatDate(value: string): string {
+      |          ^^^^^^^^^^
+  138 |   if (!value) return '';
+  139 |
+  140 |   // ISO datetime (with time) -> show date + time in local timezone
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:183:10
+the name `parseDateInput` is defined multiple times
+  181 | }
+  182 |
+> 183 | function parseDateInput(value: string): number | null {
+      |          ^^^^^^^^^^^^^^
+  184 |   const digits = value.replace(/\D/g, '');
+  185 |   if (digits.length !== 8) return null;
+  186 |   const day = Number(digits.slice(0, 2));
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:196:10
+the name `parsePersonDateValue` is defined multiple times
+  194 | }
+  195 |
+> 196 | function parsePersonDateValue(value: string): number | null {
+      |          ^^^^^^^^^^^^^^^^^^^^
+  197 |   if (!value) return null;
+  198 |   const isoMatch = value.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  199 |   if (isoMatch) {
+
+Ecmascript file had an error
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:109:1
+Expression expected
+  [90m107 |[0m   sortAsc,
+  [90m108 |[0m   onSortChange,
+[31m[1m>[0m [90m109 |[0m }: [33mListViewProps[0m) {
+  [90m    |[0m [31m[1m^[0m
+  [90m110 |[0m   [36mconst[0m tableRef = useRef<[33mHTMLTableElement[0m>([36mnull[0m);
+  [90m111 |[0m   [36mconst[0m [selectedId, setSelectedId] = useState<string | [36mnull[0m>([36mnull[0m);
+  [90m112 |[0m   [36mconst[0m [frozenWidth, setFrozenWidth] = useState<string | [36mnull[0m>([36mnull[0m);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/app/page.tsx:109:1
+Expression expected
+  [90m107 |[0m   sortAsc,
+  [90m108 |[0m   onSortChange,
+[31m[1m>[0m [90m109 |[0m }: [33mListViewProps[0m) {
+  [90m    |[0m [31m[1m^[0m
+  [90m110 |[0m   [36mconst[0m tableRef = useRef<[33mHTMLTableElement[0m>([36mnull[0m);
+  [90m111 |[0m   [36mconst[0m [selectedId, setSelectedId] = useState<string | [36mnull[0m>([36mnull[0m);
+  [90m112 |[0m   [36mconst[0m [frozenWidth, setFrozenWidth] = useState<string | [36mnull[0m>([36mnull[0m);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 964ms (next.js: 780ms, application-code: 184ms)
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 951ms (next.js: 846ms, application-code: 105ms)
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:109:1)
+    at <unknown> (Error: (./src/app/page.tsx:109:1)
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:109:1)
+    at <unknown> (Error: (./src/app/page.tsx:109:1)
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:109:1
+Expression expected
+  [90m107 |[0m   sortAsc,
+  [90m108 |[0m   onSortChange,
+[31m[1m>[0m [90m109 |[0m }: [33mListViewProps[0m) {
+  [90m    |[0m [31m[1m^[0m
+  [90m110 |[0m   [36mconst[0m tableRef = useRef<[33mHTMLTableElement[0m>([36mnull[0m);
+  [90m111 |[0m   [36mconst[0m [selectedId, setSelectedId] = useState<string | [36mnull[0m>([36mnull[0m);
+  [90m112 |[0m   [36mconst[0m [frozenWidth, setFrozenWidth] = useState<string | [36mnull[0m>([36mnull[0m);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 82ms (next.js: 35ms, application-code: 46ms)
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:109:1)
+    at <unknown> (Error: (./src/app/page.tsx:109:1)
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:109:1
+Expression expected
+  107 |   sortAsc,
+  108 |   onSortChange,
+> 109 | }: ListViewProps) {
+      | ^
+  110 |   const tableRef = useRef<HTMLTableElement>(null);
+  111 |   const [selectedId, setSelectedId] = useState<string | null>(null);
+  112 |   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  [90m302 |[0m         )}
+  [90m303 |[0m       </div>
+[31m[1m>[0m [90m304 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m305 |[0m     </>
+  [90m306 |[0m   );
+  [90m307 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  [90m302 |[0m         )}
+  [90m303 |[0m       </div>
+[31m[1m>[0m [90m304 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m305 |[0m     </>
+  [90m306 |[0m   );
+  [90m307 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 447ms (next.js: 337ms, application-code: 111ms)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 715ms (next.js: 596ms, application-code: 119ms)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:304:6)
+    at <unknown> (Error: (./src/app/page.tsx:304:6)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:304:6)
+    at <unknown> (Error: (./src/app/page.tsx:304:6)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  [90m302 |[0m         )}
+  [90m303 |[0m       </div>
+[31m[1m>[0m [90m304 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m305 |[0m     </>
+  [90m306 |[0m   );
+  [90m307 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 70ms (next.js: 38ms, application-code: 32ms)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:304:6)
+    at <unknown> (Error: (./src/app/page.tsx:304:6)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  [90m302 |[0m         )}
+  [90m303 |[0m       </div>
+[31m[1m>[0m [90m304 |[0m     </div>
+  [90m    |[0m      [31m[1m^^^^^[0m
+  [90m305 |[0m     </>
+  [90m306 |[0m   );
+  [90m307 |[0m }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 81ms (next.js: 37ms, application-code: 44ms)
+[browser] Uncaught Error: ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:304:6)
+    at <unknown> (Error: (./src/app/page.tsx:304:6)
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:304:6
+Unterminated regexp literal
+  302 |         )}
+  303 |       </div>
+> 304 |     </div>
+      |      ^^^^^
+  305 |     </>
+  306 |   );
+  307 | }
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:95:1
+Expression expected
+  [90m93 |[0m }
+  [90m94 |[0m
+[31m[1m>[0m [90m95 |[0m }
+  [90m   |[0m [31m[1m^[0m
+  [90m96 |[0m
+  [90m97 |[0m [90m/* ------------------------------------------------------------------ */[0m
+  [90m98 |[0m [90m/*  Componente principal                                              */[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/app/page.tsx:95:1
+Expression expected
+  [90m93 |[0m }
+  [90m94 |[0m
+[31m[1m>[0m [90m95 |[0m }
+  [90m   |[0m [31m[1m^[0m
+  [90m96 |[0m
+  [90m97 |[0m [90m/* ------------------------------------------------------------------ */[0m
+  [90m98 |[0m [90m/*  Componente principal                                              */[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 287ms (next.js: 149ms, application-code: 138ms)
+ GET / 500 in 286ms (next.js: 230ms, application-code: 56ms)
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:95:1)
+    at <unknown> (Error: (./src/app/page.tsx:95:1)
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:95:1)
+    at <unknown> (Error: (./src/app/page.tsx:95:1)
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/app/page.tsx:95:1
+Expression expected
+  [90m93 |[0m }
+  [90m94 |[0m
+[31m[1m>[0m [90m95 |[0m }
+  [90m   |[0m [31m[1m^[0m
+  [90m96 |[0m
+  [90m97 |[0m [90m/* ------------------------------------------------------------------ */[0m
+  [90m98 |[0m [90m/*  Componente principal                                              */[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+ GET / 500 in 56ms (next.js: 30ms, application-code: 27ms)
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/app/page.tsx:95:1)
+    at <unknown> (Error: (./src/app/page.tsx:95:1)
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/app/page.tsx:95:1
+Expression expected
+  93 | }
+  94 |
+> 95 | }
+     | ^
+  96 |
+  97 | /* ------------------------------------------------------------------ */
+  98 | /*  Componente principal                                              */
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ReferenceError: ListView is not defined
+    at Home (src\app\page.tsx:543:14)
+  541 |         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
+  542 |           {view === "list" ? (
+> 543 |             <ListView
+      |              ^
+  544 |               message={message}
+  545 |               loading={loading}
+  546 |               pessoasFisicas={filteredSortedPessoasFisicas} {
+  digest: '301351984'
+}
+⨯ ReferenceError: ListView is not defined
+    at Home (src\app\page.tsx:543:14)
+  541 |         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
+  542 |           {view === "list" ? (
+> 543 |             <ListView
+      |              ^
+  544 |               message={message}
+  545 |               loading={loading}
+  546 |               pessoasFisicas={filteredSortedPessoasFisicas} {
+  digest: '301351984'
+}
+ GET / 500 in 5.5s (next.js: 2.2s, application-code: 3.2s)
+ GET / 500 in 5.7s (next.js: 2.4s, application-code: 3.3s)
+⨯ ReferenceError: ListView is not defined
+    at Home (src\app\page.tsx:543:14)
+  541 |         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
+  542 |           {view === "list" ? (
+> 543 |             <ListView
+      |              ^
+  544 |               message={message}
+  545 |               loading={loading}
+  546 |               pessoasFisicas={filteredSortedPessoasFisicas} {
+  digest: '301351984'
+}
+⨯ ReferenceError: ListView is not defined
+    at Home (src\app\page.tsx:543:14)
+  541 |         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
+  542 |           {view === "list" ? (
+> 543 |             <ListView
+      |              ^
+  544 |               message={message}
+  545 |               loading={loading}
+  546 |               pessoasFisicas={filteredSortedPessoasFisicas} {
+  digest: '301351984'
+}
+ GET / 500 in 1430ms (next.js: 217ms, application-code: 1213ms)
+ GET / 500 in 1429ms (next.js: 284ms, application-code: 1146ms)
+[browser] Uncaught ReferenceError: ListView is not defined
+    at Home (src/app/page.tsx:543:14)
+  541 |         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
+  542 |           {view === "list" ? (
+> 543 |             <ListView
+      |              ^
+  544 |               message={message}
+  545 |               loading={loading}
+  546 |               pessoasFisicas={filteredSortedPessoasFisicas}
+[browser] Uncaught ReferenceError: ListView is not defined
+    at Home (src/app/page.tsx:543:14)
+  541 |         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
+  542 |           {view === "list" ? (
+> 543 |             <ListView
+      |              ^
+  544 |               message={message}
+  545 |               loading={loading}
+  546 |               pessoasFisicas={filteredSortedPessoasFisicas}
+✓ Compiled in 2.5s
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+⚠ Fast Refresh had to perform a full reload due to a runtime error.
+ GET / 200 in 4.2s (next.js: 1869ms, application-code: 2.4s)
+ GET / 200 in 4.2s (next.js: 3.4s, application-code: 830ms)
+[browser] A tree hydrated but some attributes of the server rendered HTML didn't match the client properties. This won't be patched up. This can happen if a SSR-ed Client Component used:
+
+- A server/client branch `if (typeof window !== 'undefined')`.
+- Variable input such as `Date.now()` or `Math.random()` which changes each time it's called.
+- Date formatting in a user's locale which doesn't match the server.
+- External changing data without sending a snapshot of it along with the HTML.
+- Invalid HTML tag nesting.
+
+It can also happen if the client has a browser extension installed which messes with the HTML before React loaded.
+
+https://react.dev/link/hydration-mismatch
+
+  ...
+    <HotReload globalError={[...]} webSocket={WebSocket} staticIndicatorState={{pathname:null, ...}}>
+      <AppDevOverlayErrorBoundary globalError={[...]}>
+        <ReplaySsrOnlyErrors>
+        <DevRootHTTPAccessFallbackBoundary>
+          <HTTPAccessFallbackBoundary notFound={<NotAllowedRootHTTPFallbackError>}>
+            <HTTPAccessFallbackErrorBoundary pathname="/" notFound={<NotAllowedRootHTTPFallbackError>} ...>
+              <RedirectBoundary>
+                <RedirectErrorBoundary router={{...}}>
+                  <Head>
+                  <__next_root_layout_boundary__>
+                    <SegmentViewNode type="layout" pagePath="layout.tsx">
+                      <SegmentTrieNode>
+                      <link>
+                      <script>
+                      <script>
+                      <RootLayout>
+                        <html lang="en" className="ubuntu_c77...">
+                          <body
+                            className="min-h-full flex flex-col"
+-                           cz-shortcut-listen="true"
+                          >
+                  ...
+ 
+✓ Compiled in 196ms
+ GET / 200 in 1131ms (next.js: 964ms, application-code: 167ms)
+ GET / 200 in 302ms (next.js: 206ms, application-code: 97ms)
+✓ Compiled in 294ms
+ GET / 200 in 530ms (next.js: 360ms, application-code: 170ms)
+ GET / 200 in 571ms (next.js: 477ms, application-code: 94ms)
+✓ Compiled in 189ms
+ GET / 200 in 392ms (next.js: 229ms, application-code: 162ms)
+ GET / 200 in 389ms (next.js: 326ms, application-code: 63ms)
+✓ Compiled in 191ms
+ GET / 200 in 689ms (next.js: 532ms, application-code: 157ms)
+ GET / 200 in 83ms (next.js: 13ms, application-code: 70ms)
+✓ Compiled in 167ms
+ GET / 200 in 639ms (next.js: 409ms, application-code: 230ms)
+ GET / 200 in 645ms (next.js: 547ms, application-code: 98ms)
+✓ Compiled in 666ms
+ GET / 200 in 1005ms (next.js: 702ms, application-code: 303ms)
+ GET / 200 in 174ms (next.js: 99ms, application-code: 75ms)
+✓ Compiled in 876ms
+ GET / 200 in 377ms (next.js: 235ms, application-code: 142ms)
+ GET / 200 in 79ms (next.js: 12ms, application-code: 66ms)
+✓ Compiled in 262ms
+ GET / 200 in 540ms (next.js: 364ms, application-code: 176ms)
+ GET / 200 in 483ms (next.js: 381ms, application-code: 103ms)
+✓ Compiled in 224ms
+ GET / 200 in 340ms (next.js: 194ms, application-code: 146ms)
+ GET / 200 in 70ms (next.js: 12ms, application-code: 58ms)
+✓ Compiled in 196ms
+ GET / 200 in 632ms (next.js: 472ms, application-code: 160ms)
+ GET / 200 in 546ms (next.js: 467ms, application-code: 79ms)
+✓ Compiled in 240ms
+ GET / 200 in 788ms (next.js: 636ms, application-code: 151ms)
+ GET / 200 in 770ms (next.js: 692ms, application-code: 78ms)
+✓ Compiled in 767ms
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  [90m621 |[0m   );
+  [90m622 |[0m }
+[31m[1m>[0m [90m623 |[0m
+  [90m    |[0m [31m[1m^[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  [90m621 |[0m   );
+  [90m622 |[0m }
+[31m[1m>[0m [90m623 |[0m
+  [90m    |[0m [31m[1m^[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 547ms (next.js: 448ms, application-code: 98ms)
+ GET / 500 in 537ms (next.js: 484ms, application-code: 53ms)
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+⨯ ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  [90m621 |[0m   );
+  [90m622 |[0m }
+[31m[1m>[0m [90m623 |[0m
+  [90m    |[0m [31m[1m^[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+⨯ ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  [90m621 |[0m   );
+  [90m622 |[0m }
+[31m[1m>[0m [90m623 |[0m
+  [90m    |[0m [31m[1m^[0m
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+ GET / 500 in 177ms (next.js: 59ms, application-code: 118ms)
+ GET / 500 in 184ms (next.js: 109ms, application-code: 75ms)
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1)
+    at <unknown> (Error: (./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1)
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] Uncaught Error: ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component]
+
+
+    at <unknown> (Error: ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1)
+    at <unknown> (Error: (./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1)
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+[browser] ./src/components/pessoaFisica/PessoaFisicaListView.tsx:623:1
+Expected '}', got '<eof>'
+  621 |   );
+  622 | }
+> 623 |
+      | ^
+
+Parsing ecmascript source code failed
+
+Import traces:
+  Client Component Browser:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component Browser]
+    ./src/app/page.tsx [Client Component Browser]
+    ./src/app/page.tsx [Server Component]
+
+  Client Component SSR:
+    ./src/components/pessoaFisica/PessoaFisicaListView.tsx [Client Component SSR]
+    ./src/app/page.tsx [Client Component SSR]
+    ./src/app/page.tsx [Server Component] 
+✓ Compiled in 372ms
+ GET / 200 in 3.5s (next.js: 741ms, application-code: 2.7s)
+ GET / 200 in 863ms (next.js: 341ms, application-code: 522ms)
+ GET / 200 in 254ms (next.js: 20ms, application-code: 233ms)
