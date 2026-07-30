@@ -3,31 +3,27 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
-import type { PessoaFisica } from "@/types/pessoaFisica";
-import { COLUMNS, formatCellValue } from "@/lib/pessoaFisicaUtils";
+import type { Usuario } from "@/types/usuario";
+import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 
 interface ListViewProps {
   message: string;
   loading: boolean;
-  pessoasFisicas: PessoaFisica[];
+  usuarios: Usuario[];
   openNewForm: () => void;
-  openEditForm: (pessoa: PessoaFisica) => void;
-  handleDelete: (id: string) => void;
-  openFilter: () => void;
+  openEditForm: (usuario: Usuario) => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
   sortAsc: boolean | null;
   onSortChange: (logicalIndex: number) => void;
 }
 
-export default function PessoaFisicaListView({
+export default function AdministracaoSistemaListView({
   message,
   loading,
-  pessoasFisicas,
+  usuarios,
   openNewForm,
   openEditForm,
-  openFilter,
-  handleDelete,
   setContextMenu,
   sortColumn,
   sortAsc,
@@ -36,7 +32,7 @@ export default function PessoaFisicaListView({
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
+  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -86,7 +82,7 @@ export default function PessoaFisicaListView({
     const ths = table.querySelectorAll<HTMLElement>("thead tr th");
     if (ths.length === 0) return [];
 
-    const widths = new Array(COLUMNS.length).fill(0);
+    const widths = new Array(ADMIN_COLUMNS.length).fill(0);
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       widths[logicalIdx] = measureHeaderMinWidth(th);
@@ -223,14 +219,14 @@ export default function PessoaFisicaListView({
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  const totalRecords = pessoasFisicas.length;
+  const totalRecords = usuarios.length;
   const pageCount = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalRecords / pageSize));
   const currentPageSafe = Math.min(currentPage, pageCount);
   const firstRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? 1 : (currentPageSafe - 1) * pageSize + 1);
   const lastRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? totalRecords : Math.min(totalRecords, currentPageSafe * pageSize));
-  const paginatedPessoasFisicas = pageSize === 'all'
-    ? pessoasFisicas
-    : pessoasFisicas.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
+  const paginatedUsuarios = pageSize === 'all'
+    ? usuarios
+    : usuarios.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -249,7 +245,7 @@ export default function PessoaFisicaListView({
     if (!table) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, pessoasFisicas.length]);
+  }, [columnOrder, loading, usuarios.length]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {
@@ -414,17 +410,7 @@ export default function PessoaFisicaListView({
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-[20px] font-semibold text-[#000]">Pessoas Físicas</h1>
-            <button
-              type="button"
-              onClick={openFilter}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
-              aria-label="Abrir filtro"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
-              </svg>
-            </button>
+            <h1 className="text-[20px] font-semibold text-[#000]">Administração do Sistema</h1>
           </div>
           <button
             type="button"
@@ -449,11 +435,11 @@ export default function PessoaFisicaListView({
                 </div>
               ))}
             </div>
-          ) : pessoasFisicas.length === 0 ? (
+          ) : usuarios.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
               <p className="mt-1 text-sm text-slate-500">
-                Clique em "Adicionar" para cadastrar uma pessoa física.
+                Clique em "Adicionar" para cadastrar um usuário.
               </p>
             </div>
           ) : (
@@ -463,8 +449,7 @@ export default function PessoaFisicaListView({
                   <thead>
                     <tr className="bg-[#bbb]">
                       {columnOrder.map((logicalIdx, visualIdx) => {
-                        const col = COLUMNS[logicalIdx];
-                        const isLast = visualIdx === columnOrder.length - 1;
+                        const col = ADMIN_COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (
                           <th
@@ -487,22 +472,22 @@ export default function PessoaFisicaListView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {paginatedPessoasFisicas.map((pessoa) => (
+                    {paginatedUsuarios.map((usuario) => (
                       <tr
-                        key={pessoa.id}
+                        key={usuario.id}
                         className="cursor-[context-menu] hover:bg-[#eee]"
-                        style={{ backgroundColor: selectedId === pessoa.id ? 'rgba(3,102,214,0.10)' : undefined }}
-                        onClick={() => setSelectedId((prev) => (prev === pessoa.id ? null : pessoa.id ?? null))}
+                        style={{ backgroundColor: selectedId === usuario.id ? 'rgba(3,102,214,0.10)' : undefined }}
+                        onClick={() => setSelectedId((prev) => (prev === usuario.id ? null : usuario.id ?? null))}
                         onContextMenu={(e) => {
                           e.preventDefault();
-                          setSelectedId(pessoa.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'pessoaFisica', item: pessoa });
+                          setSelectedId(usuario.id ?? null);
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracao', item: usuario });
                         }}
                       >
                         {columnOrder.map((logicalIdx) => {
-                          const col = COLUMNS[logicalIdx];
-                          const value = pessoa[col.key];
-                          const displayValue = formatCellValue(col.key, value);
+                          const col = ADMIN_COLUMNS[logicalIdx];
+                          const value = usuario[col.key];
+                          const displayValue = formatAdminCellValue(col.key, value);
                           const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>

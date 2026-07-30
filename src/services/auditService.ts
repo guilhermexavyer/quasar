@@ -10,10 +10,10 @@ export interface AuditEntry {
   detalhes?: any;
 }
 
-export async function fetchAuditByPessoaId(pessoaId: string): Promise<AuditEntry[]> {
-  if (!pessoaId) return [];
+export async function fetchAuditByDocumentId(collectionName: string, documentId: string): Promise<AuditEntry[]> {
+  if (!documentId) return [];
   try {
-    const colRef = collection(db, "pessoa_fisica", pessoaId, "auditoria");
+    const colRef = collection(db, collectionName, documentId, "auditoria");
     const q = query(colRef, orderBy("timestamp", "desc"));
     const snap = await getDocs(q);
     return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as AuditEntry[];
@@ -21,4 +21,12 @@ export async function fetchAuditByPessoaId(pessoaId: string): Promise<AuditEntry
     console.error("Erro ao buscar auditoria:", e);
     return [];
   }
+}
+
+export async function fetchAuditByPessoaId(pessoaId: string): Promise<AuditEntry[]> {
+  return fetchAuditByDocumentId("pessoa_fisica", pessoaId);
+}
+
+export async function fetchAuditByUsuarioId(usuarioId: string): Promise<AuditEntry[]> {
+  return fetchAuditByDocumentId("usuario", usuarioId);
 }

@@ -1,16 +1,17 @@
 "use client";
 
-import type { PessoaFisica } from "@/types/pessoaFisica";
+import type { ContextMenuState } from "@/types/contextMenu";
 
-type ContextMenuProps = {
+interface ContextMenuProps {
   x: number;
   y: number;
-  pessoa: PessoaFisica;
+  state: ContextMenuState;
   onView: () => void;
+  onChangePassword: () => void;
   onDelete: () => void;
-};
+}
 
-export default function ContextMenu({ x, y, onView, onDelete }: ContextMenuProps) {
+export default function ContextMenu({ x, y, state, onView, onChangePassword, onDelete }: ContextMenuProps) {
   return (
     <div
       className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
@@ -25,6 +26,16 @@ export default function ContextMenu({ x, y, onView, onDelete }: ContextMenuProps
       >
         Ver
       </button>
+      {state.section === 'administracao' && (
+        <button
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={onChangePassword}
+        >
+          Alterar senha
+        </button>
+      )}
       <button
         type="button"
         className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"

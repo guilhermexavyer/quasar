@@ -8,7 +8,13 @@ import {
   obterPessoasFisicas,
   atualizarPessoaFisica,
 } from "@/services/pessoaFisicaService";
-import { fetchAuditByPessoaId, AuditEntry } from "@/services/auditService";
+import {
+  criarUsuario,
+  excluirUsuario,
+  obterUsuarios,
+  atualizarUsuario,
+} from "@/services/usuarioService";
+import { fetchAuditByPessoaId, fetchAuditByUsuarioId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import {
   applyCpfMask,
@@ -20,10 +26,16 @@ import {
   COLUMNS,
   formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
+import { ADMIN_COLUMNS } from "@/lib/usuarioUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import Toast from "@/components/ui/Toast";
 import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView";
 import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView";
+import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
+import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
+import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
+import type { Usuario } from "@/types/usuario";
+import type { ContextMenuState } from "@/types/contextMenu";
 
 /* ------------------------------------------------------------------ */
 /*  Estado inicial do formulário                                      */
@@ -38,17 +50,28 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
 };
 
 type ViewType = "list" | "form";
+type SectionType = "pessoaFisica" | "administracao";
 
 type FilterFormData = FormData & {
   nr_sequencia: string;
   dt_nascimento_inicio: string;
   dt_nascimento_fim: string;
 };
+
+export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
+
 const emptyFilterForm: FilterFormData = {
   ...emptyForm,
   nr_sequencia: "",
   dt_nascimento_inicio: "",
   dt_nascimento_fim: "",
+};
+
+const emptyAdminForm: AdminFormData = {
+  ds_usuario: "",
+  ds_usuario_alternativo: "",
+  ds_senha: "",
+  ds_observacao: "",
 };
 
 /* ------------------------------------------------------------------ */
@@ -110,22 +133,34 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'usuario'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
   const [view, setView] = useState<ViewType>("list");
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMounted, setToastMounted] = useState(false);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
-  const [contextMenu, setContextMenu] = useState<{
-    x: number;
-    y: number;
-    pessoa: PessoaFisica;
-  } | null>(null);
+  const [adminSortColumn, setAdminSortColumn] = useState<number | null>(null);
+  const [adminSortAsc, setAdminSortAsc] = useState<boolean | null>(null);
+  const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [adminForm, setAdminForm] = useState<AdminFormData>(emptyAdminForm);
+  const [adminEditingId, setAdminEditingId] = useState<string | null>(null);
+  const [adminSubmitting, setAdminSubmitting] = useState(false);
+  const [adminAuditInfo, setAdminAuditInfo] = useState({ createdAt: '', updatedAt: '' });
+  const [adminOriginalSenhaHash, setAdminOriginalSenhaHash] = useState<string | null>(null);
+  const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
+  const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
+  const [lookupForm, setLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [passwordChangeValue, setPasswordChangeValue] = useState("");
+  const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
+  const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
 
-  /* ── Carregar pessoas físicas ── */
+  /* ── Carregar pessoas físicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
     setLoading(true);
     try {
@@ -138,9 +173,22 @@ export default function Home() {
     }
   }, []);
 
+  const loadUsuarios = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterUsuarios();
+      setUsuarios(data);
+    } catch {
+      setMessage("Erro ao carregar usuários.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   useEffect(() => {
     loadPessoasFisicas();
-  }, [loadPessoasFisicas]);
+    loadUsuarios();
+  }, [loadPessoasFisicas, loadUsuarios]);
 
   /* ── Fechar menu de contexto ao clicar/right-click fora ── */
   useEffect(() => {
@@ -164,14 +212,41 @@ export default function Home() {
     setAuditInfo({ createdAt: '', updatedAt: '' });
     setMessage("");
     setView("form");
+    setActiveSection("pessoaFisica");
+  }
+
+  function openAdminNewForm() {
+    setAdminForm({ ...emptyAdminForm, nr_seq_pessoa_fisica: undefined });
+    setAdminEditingId(null);
+    setAdminOriginalSenhaHash(null);
+    setAdminAuditInfo({ createdAt: '', updatedAt: '' });
+    setMessage("");
+    setView("form");
+    setActiveSection("administracao");
   }
 
   async function openAuditModal(pessoaId?: string | null) {
     if (!pessoaId) return;
+    setAuditDocumentType('pessoa_fisica');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
       const logs = await fetchAuditByPessoaId(pessoaId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openAdminAuditModal(usuarioId?: string | null) {
+    if (!usuarioId) return;
+    setAuditDocumentType('usuario');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByUsuarioId(usuarioId);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -222,6 +297,20 @@ export default function Home() {
     }
   }
 
+  function handleAdminSortChange(logicalIndex: number) {
+    if (adminSortColumn === logicalIndex) {
+      if (adminSortAsc) {
+        setAdminSortAsc(false);
+      } else {
+        setAdminSortColumn(null);
+        setAdminSortAsc(null);
+      }
+    } else {
+      setAdminSortColumn(logicalIndex);
+      setAdminSortAsc(true);
+    }
+  }
+
   /* ── Abrir formulário para editar ── */
   function openEditForm(pessoa: PessoaFisica) {
     setForm({
@@ -238,6 +327,26 @@ export default function Home() {
     });
     setMessage("");
     setView("form");
+    setActiveSection("pessoaFisica");
+  }
+
+  function openAdminEditForm(usuario: Usuario) {
+    setAdminForm({
+      ds_usuario: usuario.ds_usuario,
+      ds_usuario_alternativo: usuario.ds_usuario_alternativo,
+      ds_senha: "",
+      ds_observacao: usuario.ds_observacao,
+      nr_seq_pessoa_fisica: usuario.nr_seq_pessoa_fisica,
+    });
+    setAdminOriginalSenhaHash(usuario.ds_senha ?? null);
+    setAdminEditingId(usuario.id ?? null);
+    setAdminAuditInfo({
+      createdAt: usuario.dt_criacao ?? '',
+      updatedAt: usuario.dt_alteracao ?? '',
+    });
+    setMessage("");
+    setView("form");
+    setActiveSection("administracao");
   }
 
   /* ── Voltar para lista ── */
@@ -246,6 +355,15 @@ export default function Home() {
     setEditingId(null);
     setMessage("");
     setView("list");
+    setActiveSection("pessoaFisica");
+  }
+
+  function goToAdminList() {
+    setAdminForm(emptyAdminForm);
+    setAdminEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("administracao");
   }
 
   const filteredPessoasFisicas = useMemo(() => {
@@ -310,13 +428,47 @@ export default function Home() {
     });
   }, [filteredPessoasFisicas, sortColumn, sortAsc]);
 
+  const filteredSortedUsuarios = useMemo(() => {
+    const sorted = [...usuarios];
+    if (adminSortColumn === null || adminSortAsc === null) {
+      return sorted.sort((a, b) => {
+        const dateA = a.dt_criacao || "";
+        const dateB = b.dt_criacao || "";
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return a.nr_sequencia - b.nr_sequencia;
+      });
+    }
+
+    const key = ADMIN_COLUMNS[adminSortColumn].key;
+    return sorted.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return adminSortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return adminSortAsc ? -1 : 1;
+      if (strA > strB) return adminSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [usuarios, adminSortColumn, adminSortAsc]);
+
   const currentEditIndex = useMemo(() => {
     if (!editingId) return -1;
     return filteredSortedPessoasFisicas.findIndex((p) => p.id === editingId);
   }, [filteredSortedPessoasFisicas, editingId]);
 
+  const currentAdminEditIndex = useMemo(() => {
+    if (!adminEditingId) return -1;
+    return filteredSortedUsuarios.findIndex((u) => u.id === adminEditingId);
+  }, [filteredSortedUsuarios, adminEditingId]);
+
   const hasPrevRecord = currentEditIndex > 0;
   const hasNextRecord = currentEditIndex >= 0 && currentEditIndex < filteredSortedPessoasFisicas.length - 1;
+  const hasPrevAdminRecord = currentAdminEditIndex > 0;
+  const hasNextAdminRecord = currentAdminEditIndex >= 0 && currentAdminEditIndex < filteredSortedUsuarios.length - 1;
 
   function goToPrevRecord() {
     if (!hasPrevRecord) return;
@@ -328,6 +480,18 @@ export default function Home() {
     if (!hasNextRecord) return;
     const next = filteredSortedPessoasFisicas[currentEditIndex + 1];
     if (next) openEditForm(next);
+  }
+
+  function goToPrevAdminRecord() {
+    if (!hasPrevAdminRecord) return;
+    const previous = filteredSortedUsuarios[currentAdminEditIndex - 1];
+    if (previous) openAdminEditForm(previous);
+  }
+
+  function goToNextAdminRecord() {
+    if (!hasNextAdminRecord) return;
+    const next = filteredSortedUsuarios[currentAdminEditIndex + 1];
+    if (next) openAdminEditForm(next);
   }
 
   /* ── Salvar (criar ou atualizar) ── */
@@ -377,7 +541,148 @@ export default function Home() {
     }
   }
 
-  /* ── Excluir ── */
+  async function hashPassword(password: string): Promise<string> {
+    const encoder = new TextEncoder();
+    const data = encoder.encode(password);
+    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+    return Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    setAdminSubmitting(true);
+
+    try {
+      const senhaHash = adminForm.ds_senha
+        ? await hashPassword(adminForm.ds_senha)
+        : adminOriginalSenhaHash ?? '';
+
+      const usuarioPayload = {
+        nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica,
+        ds_usuario: adminForm.ds_usuario,
+        ds_usuario_alternativo: adminForm.ds_usuario_alternativo,
+        ds_senha: senhaHash,
+        ds_observacao: adminForm.ds_observacao,
+      };
+
+      if (adminEditingId) {
+        const currentUsuario = usuarios.find((u) => u.id === adminEditingId);
+        const hasChanges = currentUsuario
+          ? [
+              'nr_seq_pessoa_fisica',
+              'ds_usuario',
+              'ds_usuario_alternativo',
+              'ds_observacao',
+            ].some((field) => String((currentUsuario as any)[field] ?? '') !== String((adminForm as any)[field] ?? ''))
+            || Boolean(adminForm.ds_senha)
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setAdminForm(emptyAdminForm);
+          setAdminEditingId(null);
+          setAdminOriginalSenhaHash(null);
+          await loadUsuarios();
+          setView("list");
+          return;
+        }
+
+        await atualizarUsuario(adminEditingId, usuarioPayload);
+        setMessage("Atualizado com sucesso!");
+      } else {
+        const id = await criarUsuario(usuarioPayload);
+        setMessage("Cadastrado com sucesso!");
+      }
+
+      await loadUsuarios();
+      setAdminForm(emptyAdminForm);
+      setAdminEditingId(null);
+      setAdminOriginalSenhaHash(null);
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setAdminSubmitting(false);
+    }
+  }
+
+  function openChangePasswordModal(usuario: Usuario) {
+    setPasswordChangeUserId(usuario.id ?? null);
+    setPasswordChangeValue("");
+    setChangePasswordModalOpen(true);
+  }
+
+  function closeChangePasswordModal() {
+    setChangePasswordModalOpen(false);
+    setPasswordChangeValue("");
+    setPasswordChangeUserId(null);
+  }
+
+  function openPessoaFisicaLookup() {
+    setLookupForm(lookupFilter);
+    setPessoaFisicaLookupOpen(true);
+  }
+
+  function closePessoaFisicaLookup() {
+    setPessoaFisicaLookupOpen(false);
+  }
+
+  function handlePessoaFisicaSelect(pessoa: PessoaFisica) {
+    setAdminForm({ ...adminForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
+    closePessoaFisicaLookup();
+  }
+
+  function applyLookupFilter() {
+    setLookupFilter(lookupForm);
+  }
+
+  function clearLookupFilter() {
+    const empty = { ds_nome: '', nr_sequencia: '', nr_cpf: '' };
+    setLookupForm(empty);
+    setLookupFilter(empty);
+  }
+
+  const selectedPessoaFisicaName = useMemo(() => {
+    if (!adminForm.nr_seq_pessoa_fisica) return "";
+    return pessoasFisicas.find((p) => p.nr_sequencia === adminForm.nr_seq_pessoa_fisica)?.ds_nome ?? "";
+  }, [adminForm.nr_seq_pessoa_fisica, pessoasFisicas]);
+
+  const filteredLookupPessoasFisicas = useMemo(() => {
+    return pessoasFisicas.filter((pessoa) => {
+      if (lookupFilter.nr_sequencia) {
+        if (String(pessoa.nr_sequencia) !== lookupFilter.nr_sequencia.trim()) return false;
+      }
+      if (lookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(lookupFilter.ds_nome.toLowerCase())) {
+        return false;
+      }
+      if (lookupFilter.nr_cpf) {
+        const queryCpf = lookupFilter.nr_cpf.replace(/\D/g, '');
+        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
+        if (!pessoaCpf.includes(queryCpf)) return false;
+      }
+      return true;
+    });
+  }, [pessoasFisicas, lookupFilter]);
+
+  async function handleChangePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!passwordChangeUserId) return;
+    setMessage("");
+    setAdminSubmitting(true);
+
+    try {
+      const senhaHash = await hashPassword(passwordChangeValue);
+      await atualizarUsuario(passwordChangeUserId, { ds_senha: senhaHash });
+      await loadUsuarios();
+      closeChangePasswordModal();
+      setMessage("Senha alterada com sucesso!");
+    } catch {
+      setMessage("Erro ao alterar senha.");
+    } finally {
+      setAdminSubmitting(false);
+    }
+  }
   async function handleDelete(id: string) {
     setMessage("");
     try {
@@ -386,6 +691,17 @@ export default function Home() {
       await loadPessoasFisicas();
     } catch {
       setMessage("Erro ao excluir.");
+    }
+  }
+
+  async function handleAdminDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirUsuario(id);
+      setMessage("Excluído com sucesso!");
+      await loadUsuarios();
+    } catch {
+      setMessage("Erro ao excluir usuário.");
     }
   }
 
@@ -448,13 +764,29 @@ export default function Home() {
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          pessoa={contextMenu.pessoa}
+          state={contextMenu}
           onView={() => {
-            openEditForm(contextMenu.pessoa);
+            if (contextMenu.section === 'pessoaFisica') {
+              openEditForm(contextMenu.item as PessoaFisica);
+            } else {
+              openAdminEditForm(contextMenu.item as Usuario);
+            }
+            setContextMenu(null);
+          }}
+          onChangePassword={() => {
+            if (contextMenu.section === 'administracao') {
+              openChangePasswordModal(contextMenu.item as Usuario);
+            }
             setContextMenu(null);
           }}
           onDelete={() => {
-            if (contextMenu.pessoa.id) handleDelete(contextMenu.pessoa.id);
+            if (contextMenu.section === 'pessoaFisica') {
+              const pessoaId = (contextMenu.item as PessoaFisica).id;
+              if (pessoaId) handleDelete(pessoaId);
+            } else {
+              const usuarioId = (contextMenu.item as Usuario).id;
+              if (usuarioId) handleAdminDelete(usuarioId);
+            }
             setContextMenu(null);
           }}
         />
@@ -505,7 +837,12 @@ export default function Home() {
             type="button"
             className={`flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
               isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
-            }`}
+            } ${activeSection === 'pessoaFisica' ? 'bg-[#004a7a]' : ''}`}
+            onClick={() => {
+              setActiveSection('pessoaFisica');
+              setView('list');
+              setContextMenu(null);
+            }}
           >
             <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
               <svg
@@ -534,6 +871,43 @@ export default function Home() {
               </span>
             </span>
           </button>
+          <button
+            type="button"
+            className={`flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+              isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
+            } ${activeSection === 'administracao' ? 'bg-[#004a7a]' : ''}`}
+            onClick={() => {
+              setActiveSection('administracao');
+              setView('list');
+              setContextMenu(null);
+            }}
+          >
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            </span>
+            <span
+              className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
+                isSidebarOpen
+                  ? "max-w-[140px] opacity-100"
+                  : "max-w-0 opacity-0"
+              }`}
+            >
+              <span className="text-sm leading-none text-white">
+                Administração do Sistema
+              </span>
+            </span>
+          </button>
         </nav>
       </aside>
 
@@ -541,20 +915,34 @@ export default function Home() {
       <div style={{ marginLeft: '3rem' }} className="h-full flex flex-col overflow-hidden">
         <div className="w-full flex-1 flex flex-col min-h-0 px-[15px] py-[15px]">
           {view === "list" ? (
-            <PessoaFisicaListView
-              message={message}
-              loading={loading}
-              pessoasFisicas={filteredSortedPessoasFisicas}
-              openNewForm={openNewForm}
-              openEditForm={openEditForm}
-              openFilter={openFilterModal}
-              handleDelete={handleDelete}
-              setContextMenu={setContextMenu}
-              sortColumn={sortColumn}
-              sortAsc={sortAsc}
-              onSortChange={handleSortChange}
-            />
-          ) : (
+            activeSection === "pessoaFisica" ? (
+              <PessoaFisicaListView
+                message={message}
+                loading={loading}
+                pessoasFisicas={filteredSortedPessoasFisicas}
+                openNewForm={openNewForm}
+                openEditForm={openEditForm}
+                openFilter={openFilterModal}
+                handleDelete={handleDelete}
+                setContextMenu={setContextMenu}
+                sortColumn={sortColumn}
+                sortAsc={sortAsc}
+                onSortChange={handleSortChange}
+              />
+            ) : (
+              <AdministracaoSistemaListView
+                message={message}
+                loading={loading}
+                usuarios={filteredSortedUsuarios}
+                openNewForm={openAdminNewForm}
+                openEditForm={openAdminEditForm}
+                setContextMenu={setContextMenu}
+                sortColumn={adminSortColumn}
+                sortAsc={adminSortAsc}
+                onSortChange={handleAdminSortChange}
+              />
+            )
+          ) : activeSection === "pessoaFisica" ? (
             <PessoaFisicaFormView
               message={message}
               editingId={editingId}
@@ -572,11 +960,31 @@ export default function Home() {
               hasPrevRecord={hasPrevRecord}
               hasNextRecord={hasNextRecord}
             />
+          ) : (
+            <AdministracaoSistemaFormView
+              message={message}
+              editingId={adminEditingId}
+              sequence={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.nr_sequencia ?? null) : null}
+              form={adminForm}
+              setForm={setAdminForm}
+              submitting={adminSubmitting}
+              handleSubmit={handleAdminSubmit}
+              goToList={goToAdminList}
+              createdAt={adminAuditInfo.createdAt}
+              updatedAt={adminAuditInfo.updatedAt}
+              onPrevRecord={goToPrevAdminRecord}
+              onNextRecord={goToNextAdminRecord}
+              hasPrevRecord={hasPrevAdminRecord}
+              hasNextRecord={hasNextAdminRecord}
+              pessoaFisicaName={selectedPessoaFisicaName}
+              onOpenPessoaFisicaLookup={openPessoaFisicaLookup}
+              onOpenAudit={openAdminAuditModal}
+            />
           )}
         </div>
       </div>
 
-      {filterModalOpen && view === "list" && (
+      {filterModalOpen && view === "list" && activeSection === "pessoaFisica" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeFilterModal} />
           <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20">
@@ -734,30 +1142,188 @@ export default function Home() {
                 <div className="text-sm text-slate-600">Nenhum registro de auditoria encontrado.</div>
               ) : (
                 <div className="grid gap-3">
-                  {auditLogs.map((log, idx) => (
-                    <div
-                      key={log.id}
-                      role="button"
-                      onClick={() => { setSelectedAuditIndex(idx); setDetailModalOpen(true); }}
-                      className="p-3 cursor-pointer"
-                      style={{
-                        borderStyle: 'solid',
-                        borderWidth: '1px',
-                        borderTopColor: '#999',
-                        borderLeftColor: '#999',
-                        borderBottomColor: '#ccc',
-                        borderRightColor: '#ccc',
-                      }}
-                    >
-                      <div className="text-sm font-medium">{log.usuarioNome ?? log.usuarioId ?? '-'}</div>
-                      <div className="text-xs text-slate-600">{log.timestamp ? formatDate(String(log.timestamp)) : ''}</div>
-                      {log.acao && (
-                        <div className="text-xs text-slate-500 mt-2">{log.acao === 'create' ? 'Criação' : log.acao === 'update' ? 'Alteração' : log.acao}</div>
-                      )}
-                    </div>
-                  ))}
+                  {auditLogs.map((log, idx) => {
+                    const action = String(log.acao ?? '').toLowerCase();
+                    const isPasswordCard = action === 'password';
+                    const actionLabel = action === 'create'
+                      ? 'Criação'
+                      : action === 'password'
+                      ? 'Alteração de senha'
+                      : 'Alteração';
+
+                    return (
+                      <div
+                        key={log.id}
+                        role={isPasswordCard ? 'presentation' : 'button'}
+                        onClick={isPasswordCard ? undefined : () => { setSelectedAuditIndex(idx); setDetailModalOpen(true); }}
+                        className={`flex rounded-[5px] border ${isPasswordCard ? 'cursor-default' : 'cursor-pointer'} bg-white`}
+                        style={{
+                          padding: '10px',
+                          borderStyle: 'solid',
+                          borderWidth: '1px',
+                          borderTopColor: '#999',
+                          borderLeftColor: '#999',
+                          borderBottomColor: '#ccc',
+                          borderRightColor: '#ccc',
+                        }}
+                      >
+                        <div className="flex w-full items-center justify-between">
+                          <div className="text-sm font-medium truncate">{log.usuarioNome ?? log.usuarioId ?? ''}</div>
+                          <div className="flex items-center gap-[10px] text-xs">
+                            <span className="text-slate-500">{actionLabel}</span>
+                            <span className="text-slate-600 whitespace-nowrap ml-2.5">{log.timestamp ? formatDate(String(log.timestamp)) : ''}</span>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {changePasswordModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeChangePasswordModal} />
+          <form
+            onSubmit={handleChangePasswordSubmit}
+            className="relative w-full max-w-[420px] bg-white p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar senha</h2>
+              <button
+                type="button"
+                onClick={closeChangePasswordModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar alterar senha"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Senha
+                </label>
+                <input
+                  type="password"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={passwordChangeValue}
+                  onChange={(e) => setPasswordChangeValue(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeChangePasswordModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={adminSubmitting || !passwordChangeValue}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {pessoaFisicaLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] border-r border-slate-300 p-[15px] bg-[#fafafa] overflow-auto">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
+                  <button
+                    type="button"
+                    onClick={closePessoaFisicaLookup}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                    aria-label="Fechar localizar pessoa física"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={lookupForm.nr_sequencia}
+                      onChange={(e) => setLookupForm({ ...lookupForm, nr_sequencia: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={lookupForm.ds_nome}
+                      onChange={(e) => setLookupForm({ ...lookupForm, ds_nome: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={14}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={lookupForm.nr_cpf}
+                      onChange={(e) => setLookupForm({ ...lookupForm, nr_cpf: applyCpfMask(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                <div className="mt-4 flex items-center justify-end gap-2">
+                  <button
+                    type="button"
+                    onClick={clearLookupFilter}
+                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyLookupFilter}
+                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Filtrar
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {filteredLookupPessoasFisicas.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
+                    Nenhuma pessoa física encontrada.
+                  </div>
+                ) : (
+                  <PessoaFisicaLookupTable
+                    pessoasFisicas={filteredLookupPessoasFisicas}
+                    onSelect={handlePessoaFisicaSelect}
+                  />
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -766,16 +1332,27 @@ export default function Home() {
       {detailModalOpen && selectedAuditIndex !== null && (() => {
         const after = auditLogs[selectedAuditIndex]?.detalhes ?? {};
         const before = auditLogs[selectedAuditIndex + 1]?.detalhes ?? null;
-        const fieldsOrder = [
-          'nr_sequencia',
-          'ds_nome',
-          'nr_cpf',
-          'dt_nascimento',
-          'ds_email',
-          'nr_telefone',
-          'dt_criacao',
-          'dt_alteracao',
-        ];
+        const isUsuario = auditDocumentType === 'usuario';
+        const fieldsOrder = isUsuario
+          ? [
+              'nr_sequencia',
+              'nr_seq_pessoa_fisica',
+              'ds_usuario',
+              'ds_usuario_alternativo',
+              'ds_observacao',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
+          : [
+              'nr_sequencia',
+              'ds_nome',
+              'nr_cpf',
+              'dt_nascimento',
+              'ds_email',
+              'nr_telefone',
+              'dt_criacao',
+              'dt_alteracao',
+            ];
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
             <div className="absolute inset-0" onClick={() => setDetailModalOpen(false)} />
@@ -799,10 +1376,10 @@ export default function Home() {
                   {(() => {
                     const FIELD_LABELS: Record<string, string> = {
                       nr_sequencia: 'Sequência',
-                      ds_nome: 'Nome completo',
-                      nr_cpf: 'CPF',
-                      dt_nascimento: 'Data de nascimento',
-                      ds_email: 'E-mail',
+                      nr_seq_pessoa_fisica: 'Pessoa física',
+                      ds_usuario: 'Usuário',
+                      ds_usuario_alternativo: 'Usuário alternativo',
+
                       nr_telefone: 'Telefone',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
@@ -824,7 +1401,7 @@ export default function Home() {
 
                     const getDisplay = (field: string, val: any) => {
                       const normalized = normalizeAuditValue(val);
-                      if (normalized === null || normalized === undefined || normalized === '') return '-';
+                      if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
                       return String(normalized);
                     };
@@ -871,7 +1448,7 @@ export default function Home() {
         );
       })()}
 
-      {submitting && view === "form" && (
+      {(submitting || adminSubmitting) && view === "form" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
           <div className="w-full max-w-[240px] border border-slate-200 bg-white p-6 text-center shadow-xl shadow-black/20">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#003056]/10 text-[#003056]">

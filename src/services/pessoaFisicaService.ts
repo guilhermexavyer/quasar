@@ -43,10 +43,11 @@ async function obterProximoSequencia(): Promise<number> {
 
 export async function obterPessoasFisicas(): Promise<PessoaFisica[]> {
   const snapshot = await getDocs(pessoaFisicaColecao);
-  return snapshot.docs.map((doc) => ({
-    id: doc.id,
-    ...doc.data(),
-  })) as PessoaFisica[];
+  return snapshot.docs.map((doc) => {
+    const data = doc.data();
+    const { id, ...rest } = data as Record<string, any>;
+    return { id: doc.id, ...rest } as PessoaFisica;
+  });
 }
 
 export async function criarPessoaFisica(

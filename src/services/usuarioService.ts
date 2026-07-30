@@ -1,0 +1,135 @@
+import {
+  collection,
+  addDoc,
+  getDocs,
+  getDoc,
+  doc,
+  updateDoc,
+  deleteDoc,
+  runTransaction,
+} from "firebase/firestore";
+import { db } from "@/lib/firebase";
+import type { Usuario } from "@/types/usuario";
+
+const usuarioColecao = collection(db, "usuario");
+const contadorUsuarioDoc = doc(db, "_counters", "usuario_sequence");
+
+async function obterProximoUsuarioSequencia(): Promise<number> {
+  try {
+    const resultado = await runTransaction(db, async (transacao) => {
+      const docSnap = await transacao.get(contadorUsuarioDoc);
+      let proximo = 1;
+      if (docSnap.exists()) {
+        proximo = (docSnap.data().current ?? 0) + 1;
+      }
+      transacao.set(contadorUsuarioDoc, { current: proximo }, { merge: true });
+      return proximo;
+    });
+    return resultado;
+  } catch {
+    try {
+      await runTransaction(db, async (transacao) => {
+        const docSnap = await transacao.get(contadorUsuarioDoc);
+        if (!docSnap.exists()) {
+          transacao.set(contadorUsuarioDoc, { current: 1 });
+        }
+      });
+      return 1;
+    } catch {
+      return Date.now();
+    }
+  }
+}
+
+export async function obterUsuarios(): Promise<Usuario[]> {
+  const snapshot = await getDocs(usuarioColecao);
+  return snapshot.docs.map((docSnap) => {
+    const data = docSnap.data();
+    const { id, ...rest } = data as Record<string, any>;
+    return { id: docSnap.id, ...rest } as Usuario;
+  });
+}
+
+export async function criarUsuario(
+  usuario: Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">
+): Promise<string> {
+  const agora = new Date().toISOString();
+  const nr_sequencia = await obterProximoUsuarioSequencia();
+
+  const docRef = await addDoc(usuarioColecao, {
+    ...usuario,
+    nr_sequencia,
+    dt_criacao: agora,
+    dt_alteracao: agora,
+  });
+
+  try {
+    const auditCol = collection(db, "usuario", docRef.id, "auditoria");
+    await addDoc(auditCol, {
+      usuarioId: null,
+      usuarioNome: '-',
+      acao: 'create',
+      timestamp: agora,
+      detalhes: {
+        ...usuario,
+        nr_sequencia,
+        dt_criacao: agora,
+        dt_alteracao: agora,
+      },
+    });
+  } catch (e) {
+    console.error('Erro ao registrar auditoria de criação de usuário', e);
+  }
+
+  return docRef.id;
+}
+
+export async function atualizarUsuario(
+  id: string,
+  usuario: Partial<Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao">>
+): Promise<void> {
+  const docRef = doc(db, "usuario", id);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    return;
+  }
+
+  const currentData = snap.data() as Record<string, any>;
+  const agora = new Date().toISOString();
+  await updateDoc(docRef, {
+    ...usuario,
+    dt_alteracao: agora,
+  });
+
+  try {
+    const updatedData = {
+      ...currentData,
+      ...usuario,
+      dt_alteracao: agora,
+    };
+
+    const changedKeys = Object.keys(usuario).filter((key) => {
+      const currentValue = currentData[key];
+      const newValue = (usuario as any)[key];
+      return String(currentValue ?? '') !== String(newValue ?? '');
+    });
+
+    const auditCol = collection(db, "usuario", id, "auditoria");
+    const isPasswordOnlyUpdate = changedKeys.length === 1 && changedKeys[0] === 'ds_senha';
+
+    await addDoc(auditCol, {
+      usuarioId: null,
+      usuarioNome: '-',
+      acao: isPasswordOnlyUpdate ? 'password' : 'update',
+      timestamp: agora,
+      detalhes: updatedData,
+    });
+  } catch (e) {
+    console.error('Erro ao registrar auditoria de atualização de usuário', e);
+  }
+}
+
+export async function excluirUsuario(id: string): Promise<void> {
+  const docRef = doc(db, "usuario", id);
+  await deleteDoc(docRef);
+}
