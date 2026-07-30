@@ -93,6 +93,9 @@ interface ListViewProps {
     y: number;
     pessoa: PessoaFisica;
   } | null>>;
+  sortColumn: number | null;
+  sortAsc: boolean | null;
+  onSortChange: (logicalIndex: number) => void;
 }
 
 type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -301,11 +304,12 @@ function formatCellValue(key: keyof PessoaFisica, value: unknown): string {
   openFilter,
   handleDelete,
   setContextMenu,
+  sortColumn,
+  sortAsc,
+  onSortChange,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [sortColumn, setSortColumn] = useState<number | null>(null);
-  const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6, 7]);
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -423,17 +427,7 @@ function formatCellValue(key: keyof PessoaFisica, value: unknown): string {
 
   /* ── Alternar ordenação ao clicar no cabeçalho ── */
   function handleSortClick(logicalIndex: number) {
-    if (sortColumn === logicalIndex) {
-      if (sortAsc) {
-        setSortAsc(false);
-      } else {
-        setSortColumn(null);
-        setSortAsc(null);
-      }
-    } else {
-      setSortColumn(logicalIndex);
-      setSortAsc(true);
-    }
+    onSortChange(logicalIndex);
   }
 
   /* ── Evita ordenar durante drag ou clique no resizer ── */
@@ -1247,6 +1241,8 @@ export default function Home() {
   const [view, setView] = useState<ViewType>("list");
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMounted, setToastMounted] = useState(false);
+  const [sortColumn, setSortColumn] = useState<number | null>(null);
+  const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
@@ -1336,6 +1332,20 @@ export default function Home() {
     applyFilter();
   }
 
+  function handleSortChange(logicalIndex: number) {
+    if (sortColumn === logicalIndex) {
+      if (sortAsc) {
+        setSortAsc(false);
+      } else {
+        setSortColumn(null);
+        setSortAsc(null);
+      }
+    } else {
+      setSortColumn(logicalIndex);
+      setSortAsc(true);
+    }
+  }
+
   /* ── Abrir formulário para editar ── */
   function openEditForm(pessoa: PessoaFisica) {
     setForm({
@@ -1399,14 +1409,30 @@ export default function Home() {
 
   const filteredSortedPessoasFisicas = useMemo(() => {
     const sorted = [...filteredPessoasFisicas];
+    if (sortColumn === null || sortAsc === null) {
+      return sorted.sort((a, b) => {
+        const dateA = a.dt_criacao || "";
+        const dateB = b.dt_criacao || "";
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return a.nr_sequencia - b.nr_sequencia;
+      });
+    }
+
+    const key = COLUMNS[sortColumn].key;
     return sorted.sort((a, b) => {
-      const dateA = a.dt_criacao || "";
-      const dateB = b.dt_criacao || "";
-      if (dateA < dateB) return -1;
-      if (dateA > dateB) return 1;
-      return a.nr_sequencia - b.nr_sequencia;
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return sortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return sortAsc ? -1 : 1;
+      if (strA > strB) return sortAsc ? 1 : -1;
+      return 0;
     });
-  }, [filteredPessoasFisicas]);
+  }, [filteredPessoasFisicas, sortColumn, sortAsc]);
 
   const currentEditIndex = useMemo(() => {
     if (!editingId) return -1;
@@ -1642,12 +1668,15 @@ export default function Home() {
             <ListView
               message={message}
               loading={loading}
-              pessoasFisicas={filteredPessoasFisicas}
+              pessoasFisicas={filteredSortedPessoasFisicas}
               openNewForm={openNewForm}
               openEditForm={openEditForm}
               openFilter={openFilterModal}
               handleDelete={handleDelete}
               setContextMenu={setContextMenu}
+              sortColumn={sortColumn}
+              sortAsc={sortAsc}
+              onSortChange={handleSortChange}
             />
           ) : (
             <FormView
