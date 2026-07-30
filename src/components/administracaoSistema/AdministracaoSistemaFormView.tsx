@@ -24,6 +24,8 @@ interface FormViewProps {
   pessoaFisicaName: string;
   onOpenPessoaFisicaLookup: () => void;
   onOpenAudit?: (usuarioId?: string | null) => void;
+  manageSelection: string;
+  onManageSelectionChange: (v: string) => void;
 }
 
 export default function AdministracaoSistemaFormView({
@@ -44,6 +46,8 @@ export default function AdministracaoSistemaFormView({
   pessoaFisicaName,
   onOpenPessoaFisicaLookup,
   onOpenAudit,
+  manageSelection,
+  onManageSelectionChange,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof ADMIN_FIELD_INFOS | null>(null);
@@ -120,7 +124,15 @@ export default function AdministracaoSistemaFormView({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-5">
-          <h1 className="text-[20px] font-semibold">Administração do Sistema</h1>
+          <select
+            aria-label="Função de administração"
+            value={manageSelection}
+            onChange={(e) => onManageSelectionChange(e.target.value)}
+            className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-[#000] outline-none cursor-pointer"
+            style={{ appearance: 'none', WebkitAppearance: 'none' }}
+          >
+            <option value="usuarios">Usuários</option>
+          </select>
           <div className="flex items-center gap-1">
             <button
               type="button"

@@ -18,6 +18,8 @@ interface ListViewProps {
   sortColumn: number | null;
   sortAsc: boolean | null;
   onSortChange: (logicalIndex: number) => void;
+  manageSelection: string;
+  onManageSelectionChange: (v: string) => void;
 }
 
 export default function AdministracaoSistemaListView({
@@ -31,6 +33,8 @@ export default function AdministracaoSistemaListView({
   sortColumn,
   sortAsc,
   onSortChange,
+  manageSelection,
+  onManageSelectionChange,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -413,7 +417,15 @@ export default function AdministracaoSistemaListView({
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-[20px] font-semibold text-[#000]">Administração do Sistema</h1>
+            <select
+              aria-label="Função de administração"
+              value={manageSelection}
+              onChange={(e) => onManageSelectionChange(e.target.value)}
+              className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-[#000] outline-none cursor-pointer"
+              style={{ appearance: 'none', WebkitAppearance: 'none' }}
+            >
+              <option value="usuarios">Usuários</option>
+            </select>
           </div>
           <button
             type="button"

@@ -141,6 +141,7 @@ export default function Home() {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
   const [view, setView] = useState<ViewType>("list");
+  const [adminManageSelection, setAdminManageSelection] = useState<string>('usuarios');
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMounted, setToastMounted] = useState(false);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
@@ -907,17 +908,30 @@ export default function Home() {
                 <path d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </span>
-            <span
+            <div
               className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
                 isSidebarOpen
                   ? "max-w-[140px] opacity-100"
                   : "max-w-0 opacity-0"
               }`}
             >
-              <span className="text-sm leading-none text-white">
-                Administração do Sistema
-              </span>
-            </span>
+              <select
+                aria-label="Função de administração"
+                value={adminManageSelection}
+                onChange={(e) => {
+                  const v = e.target.value;
+                  setAdminManageSelection(v);
+                  setActiveSection('administracao');
+                  setView('list');
+                }}
+                onClick={(e) => e.stopPropagation()}
+                onMouseDown={(e) => e.stopPropagation()}
+                className="rounded-[3px] border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none cursor-pointer"
+                style={{ appearance: 'none', WebkitAppearance: 'none' }}
+              >
+                <option value="usuarios">Usuários</option>
+              </select>
+            </div>
           </button>
         </nav>
       </aside>
@@ -941,18 +955,27 @@ export default function Home() {
                 onSortChange={handleSortChange}
               />
             ) : (
-              <AdministracaoSistemaListView
-                message={message}
-                loading={loading}
-                usuarios={filteredSortedUsuarios}
-                pessoasFisicas={pessoasFisicas}
-                openNewForm={openAdminNewForm}
-                openEditForm={openAdminEditForm}
-                setContextMenu={setContextMenu}
-                sortColumn={adminSortColumn}
-                sortAsc={adminSortAsc}
-                onSortChange={handleAdminSortChange}
-              />
+              adminManageSelection === 'usuarios' ? (
+                <AdministracaoSistemaListView
+                  message={message}
+                  loading={loading}
+                  usuarios={filteredSortedUsuarios}
+                  pessoasFisicas={pessoasFisicas}
+                  openNewForm={openAdminNewForm}
+                  openEditForm={openAdminEditForm}
+                  setContextMenu={setContextMenu}
+                  sortColumn={adminSortColumn}
+                  sortAsc={adminSortAsc}
+                  onSortChange={handleAdminSortChange}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={setAdminManageSelection}
+                />
+              ) : (
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold">Área de Administração</h2>
+                  <p className="mt-2 text-sm text-slate-600">Selecione uma função para gerenciar nesta seção.</p>
+                </div>
+              )
             )
           ) : activeSection === "pessoaFisica" ? (
             <PessoaFisicaFormView
@@ -991,6 +1014,8 @@ export default function Home() {
               pessoaFisicaName={selectedPessoaFisicaName}
               onOpenPessoaFisicaLookup={openPessoaFisicaLookup}
               onOpenAudit={openAdminAuditModal}
+              manageSelection={adminManageSelection}
+              onManageSelectionChange={setAdminManageSelection}
             />
           )}
         </div>
