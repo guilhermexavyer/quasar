@@ -51,6 +51,9 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
   nr_telefone: "",
 };
 
+/* Chave da sessão persistida no localStorage */
+const SESSION_KEY = "quasar_session";
+
 type ViewType = "list" | "form";
 type SectionType = "pessoaFisica" | "administracaoSistema";
 
@@ -164,6 +167,7 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [sessionRestoring, setSessionRestoring] = useState(true);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isUserMenuClosing, setIsUserMenuClosing] = useState(false);
@@ -239,6 +243,71 @@ export default function Home() {
     loadPessoasFisicas();
     loadUsuarios();
   }, [loadPessoasFisicas, loadUsuarios]);
+
+  /* ── Persistir sessão: sobrevive à recarga; só quebra no Sair ── */
+  useEffect(() => {
+    if (!isAuthenticated || !currentUser?.id) return;
+    try {
+      window.localStorage.setItem(
+        SESSION_KEY,
+        JSON.stringify({
+          userId: currentUser.id,
+          activeSection,
+          adminManageSelection,
+        })
+      );
+    } catch {
+      /* storage indisponível — sessão não persiste */
+    }
+  }, [isAuthenticated, currentUser, activeSection, adminManageSelection]);
+
+  /* ── Restaurar sessão ao montar ── */
+  useEffect(() => {
+    let cancelled = false;
+
+    async function restaurarSessao() {
+      try {
+        const raw = window.localStorage.getItem(SESSION_KEY);
+        if (!raw) return;
+
+        const session = JSON.parse(raw) as {
+          userId?: string;
+          activeSection?: SectionType;
+          adminManageSelection?: string;
+        };
+
+        if (!session?.userId) return;
+
+        const usuariosCadastrados = await obterUsuarios();
+        if (cancelled) return;
+
+        const usuarioSalvo = usuariosCadastrados.find((u) => u.id === session.userId);
+        if (!usuarioSalvo) {
+          window.localStorage.removeItem(SESSION_KEY);
+          return;
+        }
+
+        setCurrentUser(usuarioSalvo);
+        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica") {
+          setActiveSection(session.activeSection);
+        }
+        if (typeof session.adminManageSelection === "string" && session.adminManageSelection.trim() !== "") {
+          setAdminManageSelection(session.adminManageSelection);
+        }
+        setView("list");
+        setIsAuthenticated(true);
+      } catch {
+        /* sessão corrompida — cai para a tela de login */
+      } finally {
+        if (!cancelled) setSessionRestoring(false);
+      }
+    }
+
+    restaurarSessao();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   /* ── Fechar menu de contexto ao clicar/right-click fora ── */
   useEffect(() => {
@@ -1102,6 +1171,11 @@ export default function Home() {
   }
 
   function handleLogout() {
+    try {
+      window.localStorage.removeItem(SESSION_KEY);
+    } catch {
+      /* ignora */
+    }
     setIsAuthenticated(false);
     setIsLoginLoading(false);
     setIsUserMenuOpen(false);
@@ -1115,6 +1189,14 @@ export default function Home() {
   /* ================================================================ */
   /*  Render principal                                                */
   /* ================================================================ */
+
+  if (sessionRestoring) {
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-white">
+        <LoadingModal open={true} message="Restaurando sessão..." />
+      </div>
+    );
+  }
 
   if (!isAuthenticated) {
     return (
