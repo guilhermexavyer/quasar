@@ -26,7 +26,7 @@ export default function ContextMenu({ x, y, state, onView, onChangePassword, onD
       >
         Ver
       </button>
-      {state.section === 'administracao' && (
+      {state.section === 'administracaoSistema' && (
         <button
           type="button"
           className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"

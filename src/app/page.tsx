@@ -52,7 +52,7 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
 };
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracao";
+type SectionType = "pessoaFisica" | "administracaoSistema";
 
 type FilterFormData = FormData & {
   nr_sequencia: string;
@@ -151,7 +151,8 @@ export default function Home() {
   const [adminPessoaFisicaLookupApplied, setAdminPessoaFisicaLookupApplied] = useState(false);
   const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisica[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '' });
+  const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditPessoaIdRef = useRef<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
@@ -165,8 +166,10 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [isUserMenuClosing, setIsUserMenuClosing] = useState(false);
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
+  const [loginWarning, setLoginWarning] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
   const [view, setView] = useState<ViewType>("list");
   const [adminManageSelection, setAdminManageSelection] = useState<string>('usuarios');
@@ -180,7 +183,8 @@ export default function Home() {
   const [adminForm, setAdminForm] = useState<AdminFormData>(emptyAdminForm);
   const [adminEditingId, setAdminEditingId] = useState<string | null>(null);
   const [adminSubmitting, setAdminSubmitting] = useState(false);
-  const [adminAuditInfo, setAdminAuditInfo] = useState({ createdAt: '', updatedAt: '' });
+  const [adminAuditInfo, setAdminAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditUsuarioIdRef = useRef<string | null>(null);
   const [adminOriginalSenhaHash, setAdminOriginalSenhaHash] = useState<string | null>(null);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
   const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
@@ -197,6 +201,14 @@ export default function Home() {
     const matchingPerson = pessoasFisicas.find((pessoa) => pessoa.nr_sequencia === currentUser.nr_seq_pessoa_fisica);
     return matchingPerson?.ds_nome?.trim() || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "Usuário";
   }, [currentUser, pessoasFisicas]);
+
+  const auditAutor = useMemo(() => {
+    if (!currentUser) return undefined;
+    return {
+      usuarioId: currentUser.id ?? null,
+      usuarioNome: currentUserPersonName || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "-",
+    };
+  }, [currentUser, currentUserPersonName]);
 
   /* ── Carregar pessoas físicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
@@ -247,7 +259,7 @@ export default function Home() {
   function openNewForm() {
     setForm(emptyForm);
     setEditingId(null);
-    setAuditInfo({ createdAt: '', updatedAt: '' });
+    setAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setView("form");
     setActiveSection("pessoaFisica");
@@ -257,10 +269,10 @@ export default function Home() {
     setAdminForm({ ...emptyAdminForm, nr_seq_pessoa_fisica: undefined });
     setAdminEditingId(null);
     setAdminOriginalSenhaHash(null);
-    setAdminAuditInfo({ createdAt: '', updatedAt: '' });
+    setAdminAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setView("form");
-    setActiveSection("administracao");
+    setActiveSection("administracaoSistema");
   }
 
   async function openAuditModal(pessoaId?: string | null) {
@@ -400,6 +412,45 @@ export default function Home() {
     }
   }
 
+  /* ── Carregar autor da auditoria (para o rodapé do formulário) ── */
+  async function carregarAutorAuditoriaPessoa(id: string) {
+    try {
+      const logs = await fetchAuditByPessoaId(id);
+      if (auditPessoaIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => {
+        const acao = String(l.acao ?? '').toLowerCase();
+        return acao === 'update' || acao === 'password';
+      });
+      setAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? '',
+        updatedBy: lastChangeLog?.usuarioNome ?? '',
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  async function carregarAutorAuditoriaUsuario(id: string) {
+    try {
+      const logs = await fetchAuditByUsuarioId(id);
+      if (auditUsuarioIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => {
+        const acao = String(l.acao ?? '').toLowerCase();
+        return acao === 'update' || acao === 'password';
+      });
+      setAdminAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? '',
+        updatedBy: lastChangeLog?.usuarioNome ?? '',
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
   /* ── Abrir formulário para editar ── */
   function openEditForm(pessoa: PessoaFisica) {
     setForm({
@@ -413,10 +464,16 @@ export default function Home() {
     setAuditInfo({
       createdAt: pessoa.dt_criacao ?? '',
       updatedAt: pessoa.dt_alteracao ?? '',
+      createdBy: '',
+      updatedBy: '',
     });
+    auditPessoaIdRef.current = pessoa.id ?? null;
     setMessage("");
     setView("form");
     setActiveSection("pessoaFisica");
+    if (pessoa.id) {
+      carregarAutorAuditoriaPessoa(pessoa.id);
+    }
   }
 
   function openAdminEditForm(usuario: Usuario) {
@@ -434,10 +491,16 @@ export default function Home() {
     setAdminAuditInfo({
       createdAt: usuario.dt_criacao ?? '',
       updatedAt: usuario.dt_alteracao ?? '',
+      createdBy: '',
+      updatedBy: '',
     });
+    auditUsuarioIdRef.current = usuario.id ?? null;
     setMessage("");
     setView("form");
-    setActiveSection("administracao");
+    setActiveSection("administracaoSistema");
+    if (usuario.id) {
+      carregarAutorAuditoriaUsuario(usuario.id);
+    }
   }
 
   /* ── Voltar para lista ── */
@@ -454,7 +517,7 @@ export default function Home() {
     setAdminEditingId(null);
     setMessage("");
     setView("list");
-    setActiveSection("administracao");
+    setActiveSection("administracaoSistema");
   }
 
   const filteredPessoasFisicas = useMemo(() => {
@@ -637,10 +700,10 @@ export default function Home() {
           return;
         }
 
-        await atualizarPessoaFisica(editingId, form);
+        await atualizarPessoaFisica(editingId, form, auditAutor);
         setMessage("Atualizado com sucesso!");
       } else {
-        await criarPessoaFisica(form);
+        await criarPessoaFisica(form, auditAutor);
         setMessage("Cadastrado com sucesso!");
       }
 
@@ -667,20 +730,81 @@ export default function Home() {
     return (hash >>> 0).toString(16).padStart(8, '0');
   }
 
-  async function hashPassword(password: string): Promise<string> {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(password);
+  function rotr32(value: number, shift: number): number {
+    return (value >>> shift) | (value << (32 - shift));
+  }
 
-    if (typeof globalThis.crypto !== 'undefined' && 'subtle' in globalThis.crypto) {
-      try {
-        const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
-        return Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
-      } catch {
-        // fallback para ambientes sem suporte completo ao Web Crypto
+  function sha256Hex(input: string): string {
+    // SHA-256 puro em JavaScript: sempre o mesmo resultado, independente de
+    // crypto.subtle existir (localhost = contexto seguro) ou não (HTTP rede local).
+    const bytes: number[] = Array.from(new TextEncoder().encode(input));
+
+    const bitLength = bytes.length * 8;
+    bytes.push(0x80);
+    while (bytes.length % 64 !== 56) bytes.push(0);
+    const highLength = Math.floor(bitLength / 0x100000000);
+    const lowLength = bitLength >>> 0;
+    bytes.push(
+      (highLength >>> 24) & 0xff, (highLength >>> 16) & 0xff,
+      (highLength >>> 8) & 0xff, highLength & 0xff,
+      (lowLength >>> 24) & 0xff, (lowLength >>> 16) & 0xff,
+      (lowLength >>> 8) & 0xff, lowLength & 0xff,
+    );
+
+    const K = [
+      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
+      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
+      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
+      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
+      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
+      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
+      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
+      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
+    ];
+
+    let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
+    let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
+
+    const w: number[] = new Array(64);
+
+    for (let i = 0; i < bytes.length; i += 64) {
+      for (let j = 0; j < 16; j++) {
+        w[j] =
+          (bytes[i + j * 4] << 24) |
+          (bytes[i + j * 4 + 1] << 16) |
+          (bytes[i + j * 4 + 2] << 8) |
+          bytes[i + j * 4 + 3];
       }
+      for (let j = 16; j < 64; j++) {
+        const s0 = rotr32(w[j - 15], 7) ^ rotr32(w[j - 15], 18) ^ (w[j - 15] >>> 3);
+        const s1 = rotr32(w[j - 2], 17) ^ rotr32(w[j - 2], 19) ^ (w[j - 2] >>> 10);
+        w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
+      }
+
+      let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
+      for (let j = 0; j < 64; j++) {
+        const S1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
+        const ch = (e & f) ^ (~e & g);
+        const temp1 = (h + S1 + ch + K[j] + w[j]) | 0;
+        const S0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
+        const maj = (a & b) ^ (a & c) ^ (b & c);
+        const temp2 = (S0 + maj) | 0;
+        h = g; g = f; f = e; e = (d + temp1) | 0;
+        d = c; c = b; b = a; a = (temp1 + temp2) | 0;
+      }
+
+      h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
+      h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
     }
 
-    return createFallbackHash(password);
+    const toHex = (value: number) => (value >>> 0).toString(16).padStart(8, '0');
+    return toHex(h0) + toHex(h1) + toHex(h2) + toHex(h3) + toHex(h4) + toHex(h5) + toHex(h6) + toHex(h7);
+  }
+
+  async function hashPassword(password: string): Promise<string> {
+    // Sempre SHA-256: a implementação pura em JS garante o mesmo hash em
+    // qualquer contexto (localhost ou HTTP de rede local).
+    return sha256Hex(password);
   }
 
   async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -734,10 +858,24 @@ export default function Home() {
           nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica ?? null,
           ie_status: adminForm.ie_status ?? null,
         };
-        await atualizarUsuario(adminEditingId, updatePayload as any);
+        await atualizarUsuario(adminEditingId, updatePayload as any, auditAutor);
         setMessage("Atualizado com sucesso!");
       } else {
-        const id = await criarUsuario(usuarioPayload as any);
+        const novoUsuario = (adminForm.ds_usuario ?? "").trim().toLowerCase();
+        const novoAlternativo = (adminForm.ds_usuario_alternativo ?? "").trim().toLowerCase();
+        const jaExiste = usuarios.some((u) => {
+          const uPrincipal = (u.ds_usuario ?? "").trim().toLowerCase();
+          const uAlternativo = (u.ds_usuario_alternativo ?? "").trim().toLowerCase();
+          return (
+            (novoUsuario !== "" && (novoUsuario === uPrincipal || novoUsuario === uAlternativo)) ||
+            (novoAlternativo !== "" && (novoAlternativo === uPrincipal || novoAlternativo === uAlternativo))
+          );
+        });
+        if (jaExiste) {
+          setMessage("Usuário já existente.");
+          return;
+        }
+        const id = await criarUsuario(usuarioPayload as any, auditAutor);
         setMessage("Cadastrado com sucesso!");
       }
 
@@ -822,7 +960,7 @@ export default function Home() {
 
     try {
       const senhaHash = await hashPassword(passwordChangeValue);
-      await atualizarUsuario(passwordChangeUserId, { ds_senha: senhaHash });
+      await atualizarUsuario(passwordChangeUserId, { ds_senha: senhaHash }, auditAutor);
       await loadUsuarios();
       closeChangePasswordModal();
       setMessage("Senha alterada com sucesso!");
@@ -904,21 +1042,44 @@ export default function Home() {
       return;
     }
 
+    console.log("[Login] origin", window.location.origin);
+    console.log("[Login] apiKey", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
     setLoginError(null);
+    setLoginWarning(null);
     setIsLoginLoading(true);
 
     try {
       const usuariosCadastrados = await obterUsuarios();
+      console.log("[Login] usuários carregados", usuariosCadastrados.length, usuariosCadastrados.map((u) => u.ds_usuario));
       const hashedPassword = await hashPassword(normalizedPassword);
+      const legacyHash = createFallbackHash(normalizedPassword);
       const usuarioValido = usuariosCadastrados.find((usuario) => {
         const storedUser = (usuario.ds_usuario ?? "").trim().toLowerCase();
+        const storedUserAlt = (usuario.ds_usuario_alternativo ?? "").trim().toLowerCase();
         const storedPassword = (usuario.ds_senha ?? "").trim();
         const storedPasswordNormalized = storedPassword.toLowerCase();
-        return storedUser === normalizedUsername.toLowerCase()
-          && (storedPasswordNormalized === normalizedPassword.toLowerCase() || storedPasswordNormalized === hashedPassword.toLowerCase());
+        const usernameMatches =
+          storedUser === normalizedUsername.toLowerCase() ||
+          storedUserAlt === normalizedUsername.toLowerCase();
+
+        return usernameMatches
+          && (storedPasswordNormalized === normalizedPassword.toLowerCase()
+            || storedPasswordNormalized === hashedPassword.toLowerCase()
+            || storedPasswordNormalized === legacyHash.toLowerCase());
       });
 
       if (usuarioValido) {
+        const usuarioStatus = String(usuarioValido.ie_status ?? 'A').toUpperCase();
+        if (usuarioStatus === 'B' || usuarioStatus === 'I') {
+          console.warn("[Login] usuário bloqueado/inativo", {
+            normalizedUsername,
+            usuarioStatus,
+          });
+          setLoginWarning(usuarioStatus === 'B' ? "Usuário bloqueado." : "Usuário inativo.");
+          setIsLoginLoading(false);
+          return;
+        }
+
         window.setTimeout(() => {
           setCurrentUser(usuarioValido);
           setIsAuthenticated(true);
@@ -927,9 +1088,14 @@ export default function Home() {
         return;
       }
 
+      console.warn("[Login] usuário/senha inválidos", {
+        normalizedUsername,
+        hashedPassword,
+      });
       setLoginError("Usuário ou senha incorretos");
-    } catch {
-      setLoginError("Usuário ou senha incorretos");
+    } catch (error) {
+      console.error("[Login] erro ao carregar usuários", error);
+      setLoginError("Erro ao autenticar. Veja o console para detalhes.");
     }
 
     setIsLoginLoading(false);
@@ -939,8 +1105,10 @@ export default function Home() {
     setIsAuthenticated(false);
     setIsLoginLoading(false);
     setIsUserMenuOpen(false);
+    setIsUserMenuClosing(false);
     setCurrentUser(null);
     setLoginError(null);
+    setLoginWarning(null);
     setMessage("");
   }
 
@@ -955,6 +1123,8 @@ export default function Home() {
           onLogin={handleLogin}
           errorMessage={loginError}
           onClearError={() => setLoginError(null)}
+          warningMessage={loginWarning}
+          onClearWarning={() => setLoginWarning(null)}
           isLoading={isLoginLoading}
         />
 
@@ -988,7 +1158,7 @@ export default function Home() {
             setContextMenu(null);
           }}
           onChangePassword={() => {
-            if (contextMenu.section === 'administracao') {
+            if (contextMenu.section === 'administracaoSistema') {
               openChangePasswordModal(contextMenu.item as Usuario);
             }
             setContextMenu(null);
@@ -1049,7 +1219,7 @@ export default function Home() {
         <nav className="mt-2 flex flex-col gap-0.5 px-1">
           <button
             type="button"
-            className={`flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
               isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
             } ${activeSection === 'pessoaFisica' ? 'bg-[#004a7a]' : ''}`}
             onClick={() => {
@@ -1069,8 +1239,10 @@ export default function Home() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
-                <circle cx="12" cy="7" r="4" />
+                <circle cx="12" cy="7" r="3" />
+                <circle cx="6.5" cy="9.5" r="2" />
+                <circle cx="17.5" cy="9.5" r="2" />
+                <path d="M4 19a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4" />
               </svg>
             </span>
             <span
@@ -1084,14 +1256,20 @@ export default function Home() {
                 Pessoas Físicas
               </span>
             </span>
+            {!isSidebarOpen && (
+              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap group-hover:block">
+                Pessoas Físicas
+                <span className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
+              </span>
+            )}
           </button>
           <button
             type="button"
-            className={`flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
               isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
-            } ${activeSection === 'administracao' ? 'bg-[#004a7a]' : ''}`}
+            } ${activeSection === 'administracaoSistema' ? 'bg-[#004a7a]' : ''}`}
             onClick={() => {
-              setActiveSection('administracao');
+              setActiveSection('administracaoSistema');
               setView('list');
               setContextMenu(null);
             }}
@@ -1107,7 +1285,17 @@ export default function Home() {
                 strokeLinecap="round"
                 strokeLinejoin="round"
               >
-                <path d="M4 6h16M4 12h16M4 18h16" />
+                <rect x="5" y="6" width="14" height="12" rx="2" />
+                <path d="M8 4v2" />
+                <path d="M16 4v2" />
+                <path d="M12 4v2" />
+                <path d="M8 20v-2" />
+                <path d="M16 20v-2" />
+                <path d="M4 10h2" />
+                <path d="M4 14h2" />
+                <path d="M20 10h2" />
+                <path d="M20 14h2" />
+                <path d="M7 12h10" />
               </svg>
             </span>
             <span
@@ -1121,6 +1309,12 @@ export default function Home() {
                 Administração do Sistema
               </span>
             </span>
+            {!isSidebarOpen && (
+              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap group-hover:block">
+                Administração do Sistema
+                <span className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
+              </span>
+            )}
           </button>
         </nav>
 
@@ -1128,7 +1322,18 @@ export default function Home() {
           <div className="relative">
             <button
               type="button"
-              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              onClick={() => {
+                if (isUserMenuOpen) {
+                  setIsUserMenuClosing(true);
+                  window.setTimeout(() => {
+                    setIsUserMenuOpen(false);
+                    setIsUserMenuClosing(false);
+                  }, 220);
+                } else {
+                  setIsUserMenuClosing(false);
+                  setIsUserMenuOpen(true);
+                }
+              }}
               className={`flex w-full items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
                 isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
               } ${isUserMenuOpen ? "bg-[#004a7a]" : ""}`}
@@ -1148,31 +1353,39 @@ export default function Home() {
               </span>
             </button>
 
-            {isUserMenuOpen && (
+            {(isUserMenuOpen || isUserMenuClosing) && (
               <>
                 <div
-                  className="fixed inset-0 z-40"
-                  onClick={() => setIsUserMenuOpen(false)}
+                  className="fixed inset-0 z-40 bg-black/40"
+                  onClick={() => {
+                    setIsUserMenuOpen(false);
+                    setIsUserMenuClosing(false);
+                  }}
                 />
-                <div className="fixed bottom-4 left-4 z-50 w-[280px] rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-black/20">
-                  <div className="mb-3 border-b border-slate-200 pb-3">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
-                      Usuário logado
-                    </p>
-                    <p className="mt-1 text-sm font-semibold text-slate-900">
-                      {currentUserPersonName}
-                    </p>
-                    <p className="text-sm text-slate-600">
-                      {currentUser?.ds_usuario_alternativo || currentUser?.ds_usuario || "Usuário"}
-                    </p>
-                    {currentUser?.ds_email ? (
-                      <p className="mt-1 text-sm text-slate-500">{currentUser.ds_email}</p>
-                    ) : null}
+                <div
+                  className="fixed bottom-4 left-4 z-50 origin-bottom-left max-w-[320px] w-auto inline-block rounded-[3px] bg-[#003056] p-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                  style={{ animation: isUserMenuClosing ? "popupClose 220ms cubic-bezier(0.16, 1, 0.3, 1) both" : "popupOpen 220ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
+                >
+                  <div className="mb-3 flex flex-col items-center gap-3 pb-3">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                        <circle cx="12" cy="7" r="4" />
+                      </svg>
+                    </div>
+                    <div className="min-w-0 text-center">
+                      <p className="text-[13px] font-semibold text-white">
+                        {currentUserPersonName}
+                      </p>
+                      <p className="text-sm text-white/70">
+                        {currentUser?.ds_usuario_alternativo || currentUser?.ds_usuario || "Usuário"}
+                      </p>
+                    </div>
                   </div>
                   <button
                     type="button"
                     onClick={handleLogout}
-                    className="flex w-full items-center justify-center rounded-[3px] bg-[#003056] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#004a7a]"
+                    className="w-full cursor-pointer rounded-[6px] border-0 border-b border-white/30 bg-[#1A4567] px-[9px] py-[7px] text-sm font-semibold text-white transition hover:bg-[#173d5c]"
                   >
                     Sair
                   </button>
@@ -1237,6 +1450,8 @@ export default function Home() {
               goToList={goToList}
               createdAt={auditInfo.createdAt}
               updatedAt={auditInfo.updatedAt}
+              createdBy={auditInfo.createdBy}
+              updatedBy={auditInfo.updatedBy}
               onOpenAudit={openAuditModal}
               onPrevRecord={goToPrevRecord}
               onNextRecord={goToNextRecord}
@@ -1255,6 +1470,8 @@ export default function Home() {
               goToList={goToAdminList}
               createdAt={adminAuditInfo.createdAt}
               updatedAt={adminAuditInfo.updatedAt}
+              createdBy={adminAuditInfo.createdBy}
+              updatedBy={adminAuditInfo.updatedBy}
               onPrevRecord={goToPrevAdminRecord}
               onNextRecord={goToNextAdminRecord}
               hasPrevRecord={hasPrevAdminRecord}
@@ -1401,7 +1618,7 @@ export default function Home() {
         </div>
       )}
 
-      {adminFilterModalOpen && view === "list" && activeSection === "administracao" && (
+      {adminFilterModalOpen && view === "list" && activeSection === "administracaoSistema" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminFilterModal} />
           <form onSubmit={handleAdminFilterSubmit} className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20">
@@ -1605,7 +1822,7 @@ export default function Home() {
                         key={log.id}
                         role={isPasswordCard ? 'presentation' : 'button'}
                         onClick={isPasswordCard ? undefined : () => { setSelectedAuditIndex(idx); setDetailModalOpen(true); }}
-                        className={`flex rounded-[5px] border ${isPasswordCard ? 'cursor-default' : 'cursor-pointer'} bg-white`}
+                        className={`flex border ${isPasswordCard ? 'cursor-default' : 'cursor-pointer'} bg-white`}
                         style={{
                           padding: '10px',
                           borderStyle: 'solid',
@@ -1617,7 +1834,7 @@ export default function Home() {
                         }}
                       >
                         <div className="flex w-full items-center justify-between">
-                          <div className="text-sm font-medium truncate">{log.usuarioNome ?? log.usuarioId ?? ''}</div>
+                          <div className="text-sm font-medium truncate" style={{ color: '#000' }}>{log.usuarioNome ?? log.usuarioId ?? ''}</div>
                           <div className="flex items-center gap-[10px] text-xs">
                             <span className="text-slate-600">{actionLabel}</span>
                             <span className="text-slate-600 whitespace-nowrap" style={{ marginLeft: 10 }}>{log.timestamp ? formatDate(String(log.timestamp)) : ''}</span>

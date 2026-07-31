@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { PessoaFisica } from "@/types/pessoaFisica";
+import type { AuditAutor } from "@/services/auditService";
 
 const pessoaFisicaColecao = collection(db, "pessoa_fisica");
 const contadorDoc = doc(db, "_counters", "pessoa_fisica_sequence");
@@ -51,7 +52,8 @@ export async function obterPessoasFisicas(): Promise<PessoaFisica[]> {
 }
 
 export async function criarPessoaFisica(
-  pessoa: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">
+  pessoa: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">,
+  autor?: AuditAutor
 ): Promise<string> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequencia();
@@ -68,8 +70,8 @@ export async function criarPessoaFisica(
     const snap = await getDoc(docRef);
     const full = snap.exists() ? snap.data() : { ...pessoa, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
     await addDoc(auditCol, {
-      usuarioId: null,
-      usuarioNome: '-',
+      usuarioId: autor?.usuarioId ?? null,
+      usuarioNome: autor?.usuarioNome ?? '-',
       acao: 'create',
       timestamp: agora,
       detalhes: full,
@@ -83,7 +85,8 @@ export async function criarPessoaFisica(
 
 export async function atualizarPessoaFisica(
   id: string,
-  pessoa: Partial<Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao">>
+  pessoa: Partial<Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao">>,
+  autor?: AuditAutor
 ): Promise<void> {
   const docRef = doc(db, "pessoa_fisica", id);
   const snap = await getDoc(docRef);
@@ -111,8 +114,8 @@ export async function atualizarPessoaFisica(
     const auditCol = collection(db, "pessoa_fisica", id, "auditoria");
     const full = { ...currentData, ...pessoa, dt_alteracao: agora };
     await addDoc(auditCol, {
-      usuarioId: null,
-      usuarioNome: '-',
+      usuarioId: autor?.usuarioId ?? null,
+      usuarioNome: autor?.usuarioNome ?? '-',
       acao: 'update',
       timestamp: agora,
       detalhes: full,

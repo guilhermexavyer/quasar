@@ -1,7 +1,7 @@
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { Usuario } from "@/types/usuario";
 
-export type SectionType = "pessoaFisica" | "administracao";
+export type SectionType = "pessoaFisica" | "administracaoSistema";
 
 export interface ContextMenuState {
   x: number;

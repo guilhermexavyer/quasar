@@ -508,7 +508,7 @@ export default function AdministracaoSistemaListView({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(usuario.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracao', item: usuario });
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracaoSistema', item: usuario });
                         }}
                       >
                         {columnOrder.map((logicalIdx) => {

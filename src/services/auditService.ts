@@ -1,6 +1,11 @@
 import { collection, getDocs, query, orderBy } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 
+export interface AuditAutor {
+  usuarioId?: string | null;
+  usuarioNome?: string;
+}
+
 export interface AuditEntry {
   id: string;
   usuarioId?: string;

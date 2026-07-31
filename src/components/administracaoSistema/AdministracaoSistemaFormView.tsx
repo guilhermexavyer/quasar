@@ -17,6 +17,8 @@ interface FormViewProps {
   goToList: () => void;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
   onPrevRecord: () => void;
   onNextRecord: () => void;
   hasPrevRecord: boolean;
@@ -39,6 +41,8 @@ export default function AdministracaoSistemaFormView({
   goToList,
   createdAt,
   updatedAt,
+  createdBy,
+  updatedBy,
   onPrevRecord,
   onNextRecord,
   hasPrevRecord,
@@ -191,7 +195,8 @@ export default function AdministracaoSistemaFormView({
           <div className="sm:col-span-5 group">
             {renderFieldLabel('ds_usuario', 'Usuário')}
             <input
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+              disabled={!!editingId}
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
               value={form.ds_usuario}
               onChange={(e) => setForm({ ...form, ds_usuario: e.target.value })}
             />
@@ -309,7 +314,7 @@ export default function AdministracaoSistemaFormView({
           <div className="flex items-center justify-between gap-3">
             <div className="text-[13px]" style={{ color: '#777' }}>
               <div className="relative group flex items-center gap-2">
-                <span>Criado por - em {createdAt ? formatAdminCellValue('dt_criacao', createdAt) : '-'}</span>
+                <span>Criado por {createdBy || '-'} em {createdAt ? formatAdminCellValue('dt_criacao', createdAt) : '-'}</span>
                 <button
                   type="button"
                   onClick={() => onOpenAudit?.(editingId)}
@@ -324,7 +329,7 @@ export default function AdministracaoSistemaFormView({
                 </button>
               </div>
               <div className="relative group flex items-center gap-2 mt-1">
-                <span>Alterado por - em {updatedAt ? formatAdminCellValue('dt_alteracao', updatedAt) : '-'}</span>
+                <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatAdminCellValue('dt_alteracao', updatedAt) : '-'}</span>
                 <button
                   type="button"
                   onClick={() => onOpenAudit?.(editingId)}

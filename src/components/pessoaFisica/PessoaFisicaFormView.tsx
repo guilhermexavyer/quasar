@@ -17,6 +17,8 @@ interface FormViewProps {
   goToList: () => void;
   createdAt: string;
   updatedAt: string;
+  createdBy: string;
+  updatedBy: string;
   onOpenAudit?: (pessoaId?: string | null) => void;
   onPrevRecord: () => void;
   onNextRecord: () => void;
@@ -35,6 +37,8 @@ export default function PessoaFisicaFormView({
   goToList,
   createdAt,
   updatedAt,
+  createdBy,
+  updatedBy,
   onOpenAudit,
   onPrevRecord,
   onNextRecord,
@@ -229,7 +233,7 @@ export default function PessoaFisicaFormView({
           <div className="flex items-center justify-between gap-3">
             <div className="text-[13px]" style={{ color: '#777' }}>
               <div className="relative group flex items-center gap-2">
-                <span>Criado por - em {createdAt ? formatDate(createdAt) : '-'}</span>
+                <span>Criado por {createdBy || '-'} em {createdAt ? formatDate(createdAt) : '-'}</span>
                 <button
                   type="button"
                   aria-hidden="true"
@@ -244,7 +248,7 @@ export default function PessoaFisicaFormView({
                 </button>
               </div>
               <div className="relative group flex items-center gap-2 mt-1">
-                <span>Alterado por - em {updatedAt ? formatDate(updatedAt) : '-'}</span>
+                <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatDate(updatedAt) : '-'}</span>
                 <button
                   type="button"
                   aria-hidden="true"

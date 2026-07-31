@@ -7,14 +7,18 @@ interface LoginScreenProps {
   onLogin: (username: string, password: string) => Promise<void> | void;
   errorMessage?: string | null;
   onClearError?: () => void;
+  warningMessage?: string | null;
+  onClearWarning?: () => void;
   isLoading?: boolean;
 }
 
-export default function LoginScreen({ onLogin, errorMessage, onClearError, isLoading = false }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, errorMessage, onClearError, warningMessage, onClearWarning, isLoading = false }: LoginScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isErrorVisible, setIsErrorVisible] = useState(false);
   const [shouldRenderError, setShouldRenderError] = useState(false);
+  const [isWarningVisible, setIsWarningVisible] = useState(false);
+  const [shouldRenderWarning, setShouldRenderWarning] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -44,6 +48,30 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, isLoa
       window.clearTimeout(clearTimer);
     };
   }, [errorMessage, onClearError]);
+
+  useEffect(() => {
+    if (!warningMessage) {
+      setShouldRenderWarning(false);
+      setIsWarningVisible(false);
+      return;
+    }
+
+    setShouldRenderWarning(true);
+    setIsWarningVisible(true);
+
+    const hideTimer = window.setTimeout(() => {
+      setIsWarningVisible(false);
+    }, 3000);
+
+    const clearTimer = window.setTimeout(() => {
+      onClearWarning?.();
+    }, 3520);
+
+    return () => {
+      window.clearTimeout(hideTimer);
+      window.clearTimeout(clearTimer);
+    };
+  }, [warningMessage, onClearWarning]);
 
   return (
     <>
@@ -125,6 +153,29 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, isLoa
                 ×
               </button>
               <div>{errorMessage}</div>
+            </div>
+          ) : null}
+
+          {shouldRenderWarning ? (
+            <div
+              className={`fixed bottom-4 left-4 z-50 min-w-[220px] max-w-[320px] rounded-none px-4 py-3 pr-8 text-sm text-white ${isWarningVisible ? "animate-toast-fade-in" : "animate-toast-fade-out"}`}
+              style={{ backgroundColor: "#f59e0b", borderLeft: "4px solid #b46a00" }}
+              role="status"
+              aria-live="polite"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  setIsWarningVisible(false);
+                  setShouldRenderWarning(false);
+                  onClearWarning?.();
+                }}
+                className="absolute right-2 top-2 cursor-pointer text-sm text-slate-100 hover:text-white"
+                aria-label="Fechar mensagem"
+              >
+                ×
+              </button>
+              <div>{warningMessage}</div>
             </div>
           ) : null}
         </div>

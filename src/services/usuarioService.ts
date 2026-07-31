@@ -10,6 +10,7 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import type { Usuario } from "@/types/usuario";
+import type { AuditAutor } from "@/services/auditService";
 
 const usuarioColecao = collection(db, "usuario");
 const contadorUsuarioDoc = doc(db, "_counters", "usuario_sequence");
@@ -51,7 +52,8 @@ export async function obterUsuarios(): Promise<Usuario[]> {
 }
 
 export async function criarUsuario(
-  usuario: Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">
+  usuario: Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">,
+  autor?: AuditAutor
 ): Promise<string> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoUsuarioSequencia();
@@ -66,8 +68,8 @@ export async function criarUsuario(
   try {
     const auditCol = collection(db, "usuario", docRef.id, "auditoria");
     await addDoc(auditCol, {
-      usuarioId: null,
-      usuarioNome: '-',
+      usuarioId: autor?.usuarioId ?? null,
+      usuarioNome: autor?.usuarioNome ?? '-',
       acao: 'create',
       timestamp: agora,
       detalhes: {
@@ -86,7 +88,8 @@ export async function criarUsuario(
 
 export async function atualizarUsuario(
   id: string,
-  usuario: Partial<Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao">>
+  usuario: Partial<Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao">>,
+  autor?: AuditAutor
 ): Promise<void> {
   const docRef = doc(db, "usuario", id);
   const snap = await getDoc(docRef);
@@ -118,8 +121,8 @@ export async function atualizarUsuario(
     const isPasswordOnlyUpdate = changedKeys.length === 1 && changedKeys[0] === 'ds_senha';
 
     await addDoc(auditCol, {
-      usuarioId: null,
-      usuarioNome: '-',
+      usuarioId: autor?.usuarioId ?? null,
+      usuarioNome: autor?.usuarioNome ?? '-',
       acao: isPasswordOnlyUpdate ? 'password' : 'update',
       timestamp: agora,
       detalhes: updatedData,
