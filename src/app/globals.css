@@ -1,5 +1,13 @@
 @import "tailwindcss";
 
+/*
+  Exclui o diretório .freebuff/ (bancos de dados binários do app) da detecção
+  automática de fontes do Tailwind. Esses arquivos contêm textos de conversas
+  antigas (ex.: "[&>div...]:hover:bg-slate-300") que geravam CSS inválido:
+  ".\\[\\&\\>div\\.\\.\\.\\]\\:hover\\:bg-slate-300 > div...:hover".
+*/
+@source not "../../.freebuff/**";
+
 :root {
   --background: #ffffff;
   --foreground: #171717;

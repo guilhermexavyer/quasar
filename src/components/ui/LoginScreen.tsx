@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 interface LoginScreenProps {
   onLogin: (username: string, password: string) => Promise<void> | void;
@@ -15,6 +15,8 @@ interface LoginScreenProps {
 export default function LoginScreen({ onLogin, errorMessage, onClearError, warningMessage, onClearWarning, isLoading = false }: LoginScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const usernameRef = useRef<HTMLInputElement>(null);
+  const passwordRef = useRef<HTMLInputElement>(null);
   const [isErrorVisible, setIsErrorVisible] = useState(false);
   const [shouldRenderError, setShouldRenderError] = useState(false);
   const [isWarningVisible, setIsWarningVisible] = useState(false);
@@ -24,6 +26,18 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, warni
     event.preventDefault();
     await onLogin(username, password);
   }
+
+  // O gerenciador de senhas do navegador pode preencher os campos direto no DOM
+  // sem disparar onChange. Sem isso, o React apagaria o valor no próximo
+  // render. Este efeito sincroniza qualquer preenchimento automático no estado.
+  useEffect(() => {
+    function syncAutofill() {
+      setUsername((prev) => prev || usernameRef.current?.value || "");
+      setPassword((prev) => prev || passwordRef.current?.value || "");
+    }
+    const timers = [250, 750, 1500].map((ms) => window.setTimeout(syncAutofill, ms));
+    return () => timers.forEach((t) => window.clearTimeout(t));
+  }, []);
 
   useEffect(() => {
     if (!errorMessage) {
@@ -104,6 +118,10 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, warni
             `}</style>
             <input
               type="text"
+              id="username"
+              name="username"
+              autoComplete="username"
+              ref={usernameRef}
               value={username}
               onChange={(event) => setUsername(event.target.value)}
               className="w-[74%] rounded-[6px] border-0 bg-white px-[9px] py-[7px] text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-white/20"
@@ -112,6 +130,10 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, warni
 
             <input
               type="password"
+              id="password"
+              name="password"
+              autoComplete="current-password"
+              ref={passwordRef}
               value={password}
               onChange={(event) => setPassword(event.target.value)}
               className="w-[74%] rounded-[6px] border-0 bg-white px-[9px] py-[7px] text-sm text-slate-900 outline-none transition focus:ring-2 focus:ring-white/20"
