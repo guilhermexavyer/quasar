@@ -30,6 +30,7 @@ import { ADMIN_COLUMNS } from "@/lib/usuarioUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import Toast from "@/components/ui/Toast";
 import LoginScreen from "@/components/ui/LoginScreen";
+import LoadingModal from "@/components/ui/LoadingModal";
 import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView";
 import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
@@ -162,6 +163,9 @@ export default function Home() {
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoginLoading, setIsLoginLoading] = useState(false);
+  const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
+  const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
   const [view, setView] = useState<ViewType>("list");
@@ -186,6 +190,13 @@ export default function Home() {
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+
+  const currentUserPersonName = useMemo(() => {
+    if (!currentUser) return "";
+
+    const matchingPerson = pessoasFisicas.find((pessoa) => pessoa.nr_sequencia === currentUser.nr_seq_pessoa_fisica);
+    return matchingPerson?.ds_nome?.trim() || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "Usuário";
+  }, [currentUser, pessoasFisicas]);
 
   /* ── Carregar pessoas físicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
@@ -893,6 +904,9 @@ export default function Home() {
       return;
     }
 
+    setLoginError(null);
+    setIsLoginLoading(true);
+
     try {
       const usuariosCadastrados = await obterUsuarios();
       const hashedPassword = await hashPassword(normalizedPassword);
@@ -905,8 +919,11 @@ export default function Home() {
       });
 
       if (usuarioValido) {
-        setIsAuthenticated(true);
-        setLoginError(null);
+        window.setTimeout(() => {
+          setCurrentUser(usuarioValido);
+          setIsAuthenticated(true);
+          setIsLoginLoading(false);
+        }, 250);
         return;
       }
 
@@ -914,10 +931,15 @@ export default function Home() {
     } catch {
       setLoginError("Usuário ou senha incorretos");
     }
+
+    setIsLoginLoading(false);
   }
 
   function handleLogout() {
     setIsAuthenticated(false);
+    setIsLoginLoading(false);
+    setIsUserMenuOpen(false);
+    setCurrentUser(null);
     setLoginError(null);
     setMessage("");
   }
@@ -927,11 +949,22 @@ export default function Home() {
   /* ================================================================ */
 
   if (!isAuthenticated) {
-    return <LoginScreen onLogin={handleLogin} errorMessage={loginError} onClearError={() => setLoginError(null)} />;
+    return (
+      <div className="relative min-h-screen overflow-hidden bg-white">
+        <LoginScreen
+          onLogin={handleLogin}
+          errorMessage={loginError}
+          onClearError={() => setLoginError(null)}
+          isLoading={isLoginLoading}
+        />
+
+        {isLoginLoading && <LoadingModal open={true} message="Validando login..." />}
+      </div>
+    );
   }
 
   return (
-    <div className="relative h-screen overflow-hidden bg-white text-slate-800">
+    <div className="relative h-screen overflow-hidden bg-white text-slate-800 animate-fade-in">
       {/* Overlay do sidebar */}
       {isSidebarOpen && (
         <div
@@ -1091,27 +1124,62 @@ export default function Home() {
           </button>
         </nav>
 
-        <div className="mt-auto border-t border-[#004a7a] p-2">
-          <button
-            type="button"
-            onClick={handleLogout}
-            className={`flex w-full items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
-              isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
-            }`}
-          >
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-                <path d="m16 17 5-5-5-5" />
-                <path d="M21 12H9" />
-              </svg>
-            </span>
-            <span className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
-              isSidebarOpen ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
-            }`}>
-              <span className="text-sm leading-none text-white">Logout</span>
-            </span>
-          </button>
+        <div className="mt-auto border-t border-[#004a7a] px-1 py-2">
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setIsUserMenuOpen((prev) => !prev)}
+              className={`flex w-full items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+                isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
+              } ${isUserMenuOpen ? "bg-[#004a7a]" : ""}`}
+            >
+              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                  <circle cx="12" cy="7" r="4" />
+                </svg>
+              </span>
+              <span className={`ml-0 h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
+                isSidebarOpen ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
+              }`}>
+                <span className="text-sm leading-none text-white">
+                  {currentUser?.ds_usuario_alternativo || currentUser?.ds_usuario || "Usuário"}
+                </span>
+              </span>
+            </button>
+
+            {isUserMenuOpen && (
+              <>
+                <div
+                  className="fixed inset-0 z-40"
+                  onClick={() => setIsUserMenuOpen(false)}
+                />
+                <div className="fixed bottom-4 left-4 z-50 w-[280px] rounded-lg border border-slate-200 bg-white p-4 shadow-xl shadow-black/20">
+                  <div className="mb-3 border-b border-slate-200 pb-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-[0.2em] text-slate-500">
+                      Usuário logado
+                    </p>
+                    <p className="mt-1 text-sm font-semibold text-slate-900">
+                      {currentUserPersonName}
+                    </p>
+                    <p className="text-sm text-slate-600">
+                      {currentUser?.ds_usuario_alternativo || currentUser?.ds_usuario || "Usuário"}
+                    </p>
+                    {currentUser?.ds_email ? (
+                      <p className="mt-1 text-sm text-slate-500">{currentUser.ds_email}</p>
+                    ) : null}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={handleLogout}
+                    className="flex w-full items-center justify-center rounded-[3px] bg-[#003056] px-3 py-2 text-sm font-medium text-white transition hover:bg-[#004a7a]"
+                  >
+                    Sair
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
       </aside>
 

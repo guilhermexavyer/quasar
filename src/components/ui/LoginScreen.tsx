@@ -7,9 +7,10 @@ interface LoginScreenProps {
   onLogin: (username: string, password: string) => Promise<void> | void;
   errorMessage?: string | null;
   onClearError?: () => void;
+  isLoading?: boolean;
 }
 
-export default function LoginScreen({ onLogin, errorMessage, onClearError }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, errorMessage, onClearError, isLoading = false }: LoginScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [isErrorVisible, setIsErrorVisible] = useState(false);
@@ -45,7 +46,11 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError }: Log
   }, [errorMessage, onClearError]);
 
   return (
-    <div className="min-h-screen bg-[#003056] px-4 py-8 text-white">
+    <>
+      <div
+        className={`fixed inset-0 overflow-hidden px-4 py-8 text-white transition-opacity duration-300 ease-out ${isLoading ? "opacity-70" : "opacity-100"}`}
+        style={{ backgroundColor: "#003056" }}
+      >
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
         <div className="w-full max-w-[440px] p-7 text-white">
           <div className="flex flex-col items-center">
@@ -125,5 +130,6 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError }: Log
         </div>
       </div>
     </div>
+    </>
   );
 }
