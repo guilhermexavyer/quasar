@@ -8,10 +8,10 @@ import {
   obterPessoasFisicas,
   atualizarPessoaFisica,
 } from "@/services/pessoaFisicaService";
+import { obterUsuarios } from "@/services/usuarioService";
 import {
   criarUsuario,
   excluirUsuario,
-  obterUsuarios,
   atualizarUsuario,
 } from "@/services/usuarioService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, AuditEntry } from "@/services/auditService";
@@ -29,6 +29,7 @@ import {
 import { ADMIN_COLUMNS } from "@/lib/usuarioUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import Toast from "@/components/ui/Toast";
+import LoginScreen from "@/components/ui/LoginScreen";
 import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView";
 import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
@@ -146,6 +147,7 @@ export default function Home() {
   const [adminPessoaFisicaLookupOpen, setAdminPessoaFisicaLookupOpen] = useState(false);
   const [adminPessoaFisicaLookupForm, setAdminPessoaFisicaLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [adminPessoaFisicaLookupFilter, setAdminPessoaFisicaLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [adminPessoaFisicaLookupApplied, setAdminPessoaFisicaLookupApplied] = useState(false);
   const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisica[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '' });
@@ -159,6 +161,8 @@ export default function Home() {
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
   const [view, setView] = useState<ViewType>("list");
   const [adminManageSelection, setAdminManageSelection] = useState<string>('usuarios');
@@ -178,6 +182,7 @@ export default function Home() {
   const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
   const [lookupForm, setLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [lookupApplied, setLookupApplied] = useState(false);
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
@@ -302,6 +307,7 @@ export default function Home() {
   function openAdminPessoaFisicaLookup() {
     setAdminPessoaFisicaLookupForm({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
     setAdminPessoaFisicaLookupFilter({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupApplied(false);
     setAdminPessoaFisicaLookupOpen(true);
   }
 
@@ -311,11 +317,13 @@ export default function Home() {
 
   function applyAdminPessoaFisicaLookupFilter() {
     setAdminPessoaFisicaLookupFilter(adminPessoaFisicaLookupForm);
+    setAdminPessoaFisicaLookupApplied(true);
   }
 
   function clearAdminPessoaFisicaLookupFilter() {
     setAdminPessoaFisicaLookupForm({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
     setAdminPessoaFisicaLookupFilter({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupApplied(false);
   }
 
   function handleAdminPessoaFisicaSelect(pessoa: PessoaFisica) {
@@ -404,6 +412,7 @@ export default function Home() {
     setAdminForm({
       ds_usuario: usuario.ds_usuario,
       ds_usuario_alternativo: usuario.ds_usuario_alternativo,
+      ds_email: usuario.ds_email ?? '',
       ds_senha: "",
       ds_observacao: usuario.ds_observacao,
       nr_seq_pessoa_fisica: usuario.nr_seq_pessoa_fisica,
@@ -635,11 +644,32 @@ export default function Home() {
     }
   }
 
+  function createFallbackHash(input: string): string {
+    const bytes = new TextEncoder().encode(input);
+    let hash = 0;
+
+    for (let index = 0; index < bytes.length; index += 1) {
+      hash = (hash << 5) - hash + bytes[index];
+      hash |= 0;
+    }
+
+    return (hash >>> 0).toString(16).padStart(8, '0');
+  }
+
   async function hashPassword(password: string): Promise<string> {
     const encoder = new TextEncoder();
     const data = encoder.encode(password);
-    const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-    return Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+
+    if (typeof globalThis.crypto !== 'undefined' && 'subtle' in globalThis.crypto) {
+      try {
+        const hashBuffer = await globalThis.crypto.subtle.digest('SHA-256', data);
+        return Array.from(new Uint8Array(hashBuffer)).map((byte) => byte.toString(16).padStart(2, '0')).join('');
+      } catch {
+        // fallback para ambientes sem suporte completo ao Web Crypto
+      }
+    }
+
+    return createFallbackHash(password);
   }
 
   async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -655,6 +685,7 @@ export default function Home() {
       const usuarioPayload: Record<string, any> = {
         ds_usuario: adminForm.ds_usuario,
         ds_usuario_alternativo: adminForm.ds_usuario_alternativo,
+        ds_email: adminForm.ds_email ?? '',
         ds_senha: senhaHash,
         ds_observacao: adminForm.ds_observacao,
         ie_status: adminForm.ie_status,
@@ -670,6 +701,7 @@ export default function Home() {
               'nr_seq_pessoa_fisica',
               'ds_usuario',
               'ds_usuario_alternativo',
+              'ds_email',
               'ds_observacao',
               'ie_status',
             ].some((field) => String((currentUsuario as any)[field] ?? '') !== String((adminForm as any)[field] ?? ''))
@@ -724,6 +756,7 @@ export default function Home() {
 
   function openPessoaFisicaLookup() {
     setLookupForm(lookupFilter);
+    setLookupApplied(false);
     setPessoaFisicaLookupOpen(true);
   }
 
@@ -738,12 +771,14 @@ export default function Home() {
 
   function applyLookupFilter() {
     setLookupFilter(lookupForm);
+    setLookupApplied(true);
   }
 
   function clearLookupFilter() {
     const empty = { ds_nome: '', nr_sequencia: '', nr_cpf: '' };
     setLookupForm(empty);
     setLookupFilter(empty);
+    setLookupApplied(false);
   }
 
   const selectedPessoaFisicaName = useMemo(() => {
@@ -780,7 +815,8 @@ export default function Home() {
       await loadUsuarios();
       closeChangePasswordModal();
       setMessage("Senha alterada com sucesso!");
-    } catch {
+    } catch (error) {
+      console.error("Erro ao alterar senha:", error);
       setMessage("Erro ao alterar senha.");
     } finally {
       setAdminSubmitting(false);
@@ -848,9 +884,51 @@ export default function Home() {
     return () => window.clearTimeout(unmountTimer);
   }, [toastMounted, toastVisible]);
 
+  async function handleLogin(username: string, password: string) {
+    const normalizedUsername = username.trim();
+    const normalizedPassword = password.trim();
+
+    if (!normalizedUsername || !normalizedPassword) {
+      setLoginError("Usuário ou senha incorretos");
+      return;
+    }
+
+    try {
+      const usuariosCadastrados = await obterUsuarios();
+      const hashedPassword = await hashPassword(normalizedPassword);
+      const usuarioValido = usuariosCadastrados.find((usuario) => {
+        const storedUser = (usuario.ds_usuario ?? "").trim().toLowerCase();
+        const storedPassword = (usuario.ds_senha ?? "").trim();
+        const storedPasswordNormalized = storedPassword.toLowerCase();
+        return storedUser === normalizedUsername.toLowerCase()
+          && (storedPasswordNormalized === normalizedPassword.toLowerCase() || storedPasswordNormalized === hashedPassword.toLowerCase());
+      });
+
+      if (usuarioValido) {
+        setIsAuthenticated(true);
+        setLoginError(null);
+        return;
+      }
+
+      setLoginError("Usuário ou senha incorretos");
+    } catch {
+      setLoginError("Usuário ou senha incorretos");
+    }
+  }
+
+  function handleLogout() {
+    setIsAuthenticated(false);
+    setLoginError(null);
+    setMessage("");
+  }
+
   /* ================================================================ */
   /*  Render principal                                                */
   /* ================================================================ */
+
+  if (!isAuthenticated) {
+    return <LoginScreen onLogin={handleLogin} errorMessage={loginError} onClearError={() => setLoginError(null)} />;
+  }
 
   return (
     <div className="relative h-screen overflow-hidden bg-white text-slate-800">
@@ -1012,6 +1090,29 @@ export default function Home() {
             </span>
           </button>
         </nav>
+
+        <div className="mt-auto border-t border-[#004a7a] p-2">
+          <button
+            type="button"
+            onClick={handleLogout}
+            className={`flex w-full items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+              isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
+            }`}
+          >
+            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                <path d="m16 17 5-5-5-5" />
+                <path d="M21 12H9" />
+              </svg>
+            </span>
+            <span className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
+              isSidebarOpen ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
+            }`}>
+              <span className="text-sm leading-none text-white">Logout</span>
+            </span>
+          </button>
+        </div>
       </aside>
 
       {/* Conteúdo principal */}
@@ -1331,7 +1432,7 @@ export default function Home() {
                   Status
                 </label>
                 <div className="flex items-center gap-4 mb-3">
-                  <label className="inline-flex items-center gap-2 text-sm">
+                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="radio"
                       name="admin_ie_status"
@@ -1341,7 +1442,7 @@ export default function Home() {
                     />
                     <span>Todos</span>
                   </label>
-                  <label className="inline-flex items-center gap-2 text-sm">
+                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="radio"
                       name="admin_ie_status"
@@ -1351,7 +1452,7 @@ export default function Home() {
                     />
                     <span>Ativo</span>
                   </label>
-                  <label className="inline-flex items-center gap-2 text-sm">
+                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="radio"
                       name="admin_ie_status"
@@ -1361,7 +1462,7 @@ export default function Home() {
                     />
                     <span>Bloqueado</span>
                   </label>
-                  <label className="inline-flex items-center gap-2 text-sm">
+                  <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                     <input
                       type="radio"
                       name="admin_ie_status"
@@ -1593,9 +1694,9 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                {filteredLookupPessoasFisicas.length === 0 ? (
+                {!lookupApplied || filteredLookupPessoasFisicas.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Nenhuma pessoa física encontrada.
+                    Nenhum registro encontrado.
                   </div>
                 ) : (
                   <PessoaFisicaLookupTable
@@ -1679,7 +1780,7 @@ export default function Home() {
                 </div>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
-                {pessoasFisicas.filter((pessoa) => {
+                {!adminPessoaFisicaLookupApplied || pessoasFisicas.filter((pessoa) => {
                   if (adminPessoaFisicaLookupFilter.nr_sequencia) {
                     if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
                   }
@@ -1692,7 +1793,7 @@ export default function Home() {
                   return true;
                 }).length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Nenhuma pessoa física encontrada.
+                    Nenhum registro encontrado.
                   </div>
                 ) : (
                   <PessoaFisicaLookupTable

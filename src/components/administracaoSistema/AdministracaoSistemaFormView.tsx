@@ -53,10 +53,14 @@ export default function AdministracaoSistemaFormView({
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof ADMIN_FIELD_INFOS | null>(null);
 
   function renderFieldLabel(fieldKey: keyof typeof ADMIN_FIELD_INFOS, label: string) {
-    const meta = ADMIN_FIELD_INFOS[fieldKey];
+    const meta = ADMIN_FIELD_INFOS[fieldKey] ?? {
+      type: 'string',
+      field: String(fieldKey),
+      collection: 'usuario',
+    };
     return (
-      <label className="block text-sm mb-1" style={{ color: '#666' }}>
-        <div className="relative group inline-flex items-center gap-2">
+      <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
+        <div className="group inline-flex items-center gap-2 w-full">
           <span>{label}</span>
           <button
             type="button"
@@ -87,7 +91,7 @@ export default function AdministracaoSistemaFormView({
             </div>
           )}
         </div>
-      </label>
+      </div>
     );
   }
 
@@ -243,47 +247,61 @@ export default function AdministracaoSistemaFormView({
             </div>
           </div>
 
-          <div className="sm:col-span-12 group">
-            {renderFieldLabel('ie_status', 'Status')}
-            <div className="flex items-center gap-4 mb-3">
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="ie_status"
-                  value="A"
-                  checked={form.ie_status === 'A' || !form.ie_status}
-                  onChange={() => setForm({ ...form, ie_status: 'A' })}
-                />
-                <span>Ativo</span>
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="ie_status"
-                  value="B"
-                  checked={form.ie_status === 'B'}
-                  onChange={() => setForm({ ...form, ie_status: 'B' })}
-                />
-                <span>Bloqueado</span>
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input
-                  type="radio"
-                  name="ie_status"
-                  value="I"
-                  checked={form.ie_status === 'I'}
-                  onChange={() => setForm({ ...form, ie_status: 'I' })}
-                />
-                <span>Inativo</span>
-              </label>
-            </div>
-            {renderFieldLabel('ds_observacao', 'Observação')}
-            <textarea
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
-              rows={3}
-              value={form.ds_observacao}
-              onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('ds_email', 'E-mail')}
+            <input
+              type="email"
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+              value={form.ds_email ?? ""}
+              onChange={(e) => setForm({ ...form, ds_email: e.target.value })}
             />
+          </div>
+
+          <div className="sm:col-span-12">
+            <div className="group w-full">
+              {renderFieldLabel('ie_status', 'Status')}
+              <div className="flex items-center gap-4 mb-3">
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ie_status"
+                    value="A"
+                    checked={form.ie_status === 'A' || !form.ie_status}
+                    onChange={() => setForm({ ...form, ie_status: 'A' })}
+                  />
+                  <span>Ativo</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ie_status"
+                    value="B"
+                    checked={form.ie_status === 'B'}
+                    onChange={() => setForm({ ...form, ie_status: 'B' })}
+                  />
+                  <span>Bloqueado</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ie_status"
+                    value="I"
+                    checked={form.ie_status === 'I'}
+                    onChange={() => setForm({ ...form, ie_status: 'I' })}
+                  />
+                  <span>Inativo</span>
+                </label>
+              </div>
+            </div>
+            <div className="group w-full mt-2">
+              {renderFieldLabel('ds_observacao', 'Observação')}
+              <textarea
+                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                rows={3}
+                value={form.ds_observacao}
+                onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
+              />
+            </div>
           </div>
         </div>
 
