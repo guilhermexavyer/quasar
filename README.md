@@ -9,13 +9,13 @@ Uma aplicação Next.js para gerenciar registros de pessoas físicas com listage
 3. Instale as dependências:
 
 ```bash
-npm install
+npm.cmd install
 ```
 
 4. Inicie o servidor de desenvolvimento:
 
 ```bash
-npm run dev
+npm.cmd run dev
 ```
 
 5. Abra o navegador em:

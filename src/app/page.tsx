@@ -547,7 +547,7 @@ export default function Home() {
       if (strA > strB) return adminSortAsc ? 1 : -1;
       return 0;
     });
-  }, [usuarios, adminSortColumn, adminSortAsc]);
+  }, [filteredUsuarios, adminSortColumn, adminSortAsc]);
 
   const currentEditIndex = useMemo(() => {
     if (!editingId) return -1;
@@ -898,7 +898,7 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 bottom-0 z-40 flex flex-col border-r border-[#004a7a] bg-[#003056] shadow-xl shadow-black/20 transition-all duration-300 ease-out ${
-          isSidebarOpen ? "w-44" : "w-12"
+          isSidebarOpen ? "w-[220px]" : "w-12"
         }`}
       >
         <div
@@ -965,7 +965,7 @@ export default function Home() {
             <span
               className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
                 isSidebarOpen
-                  ? "max-w-[120px] opacity-100"
+                  ? "max-w-[180px] opacity-100"
                   : "max-w-0 opacity-0"
               }`}
             >
@@ -999,30 +999,17 @@ export default function Home() {
                 <path d="M4 6h16M4 12h16M4 18h16" />
               </svg>
             </span>
-            <div
+            <span
               className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
                 isSidebarOpen
-                  ? "max-w-[140px] opacity-100"
+                  ? "max-w-[220px] opacity-100"
                   : "max-w-0 opacity-0"
               }`}
             >
-              <select
-                aria-label="Função de administração"
-                value={adminManageSelection}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setAdminManageSelection(v);
-                  setActiveSection('administracao');
-                  setView('list');
-                }}
-                onClick={(e) => e.stopPropagation()}
-                onMouseDown={(e) => e.stopPropagation()}
-                className="rounded-[3px] border border-transparent bg-transparent px-2 py-1 text-sm font-semibold text-white outline-none cursor-pointer"
-                style={{ appearance: 'none', WebkitAppearance: 'none' }}
-              >
-                <option value="usuarios">Usuários</option>
-              </select>
-            </div>
+              <span className="text-sm leading-none text-white">
+                Administração do Sistema
+              </span>
+            </span>
           </button>
         </nav>
       </aside>
