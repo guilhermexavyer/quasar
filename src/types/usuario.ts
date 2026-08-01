@@ -8,6 +8,9 @@ export interface Usuario {
   ds_email?: string;
   ds_senha: string;
   ds_observacao: string;
+  ie_tema?: string;
+  ds_config_colunas_pf?: string;
+  ds_config_colunas_admin?: string;
   dt_criacao: string;
   dt_alteracao: string;
 }

@@ -13,6 +13,8 @@ import {
   criarUsuario,
   excluirUsuario,
   atualizarUsuario,
+  atualizarPreferenciaTema,
+  atualizarPreferenciasUsuario,
 } from "@/services/usuarioService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
@@ -26,7 +28,12 @@ import {
   COLUMNS,
   formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
-import { ADMIN_COLUMNS } from "@/lib/usuarioUtils";
+import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
+import {
+  parseColunasConfig,
+  serializeColunasConfig,
+  type ColunasConfig,
+} from "@/lib/colunasUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import Toast from "@/components/ui/Toast";
 import LoginScreen from "@/components/ui/LoginScreen";
@@ -53,6 +60,13 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
 
 /* Chave da sessão persistida no localStorage */
 const SESSION_KEY = "quasar_session";
+
+/* Chave base da preferência de tema no localStorage (uma por usuário) */
+const DARK_MODE_KEY = "quasar_dark_mode";
+
+function getDarkModeKey(userId?: string | null): string {
+  return userId ? `${DARK_MODE_KEY}_${userId}` : DARK_MODE_KEY;
+}
 
 type ViewType = "list" | "form";
 type SectionType = "pessoaFisica" | "administracaoSistema";
@@ -198,6 +212,7 @@ export default function Home() {
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
+  const [darkMode, setDarkMode] = useState<boolean>(false);
 
   const currentUserPersonName = useMemo(() => {
     if (!currentUser) return "";
@@ -205,6 +220,15 @@ export default function Home() {
     const matchingPerson = pessoasFisicas.find((pessoa) => pessoa.nr_sequencia === currentUser.nr_seq_pessoa_fisica);
     return matchingPerson?.ds_nome?.trim() || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "Usuário";
   }, [currentUser, pessoasFisicas]);
+
+  const pfColunasConfig = useMemo(
+    () => parseColunasConfig(currentUser?.ds_config_colunas_pf),
+    [currentUser?.ds_config_colunas_pf]
+  );
+  const adminColunasConfig = useMemo(
+    () => parseColunasConfig(currentUser?.ds_config_colunas_admin),
+    [currentUser?.ds_config_colunas_admin]
+  );
 
   const auditAutor = useMemo(() => {
     if (!currentUser) return undefined;
@@ -260,6 +284,28 @@ export default function Home() {
       /* storage indisponível — sessão não persiste */
     }
   }, [isAuthenticated, currentUser, activeSection, adminManageSelection]);
+
+  /* ── Aplicar preferência de tema do usuário logado ── */
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    const userKey = getDarkModeKey(currentUser.id);
+    if (currentUser.ie_tema) {
+      setDarkMode(currentUser.ie_tema === 'E');
+      try {
+        window.localStorage.setItem(userKey, currentUser.ie_tema === 'E' ? "1" : "0");
+      } catch {
+        /* storage indisponível */
+      }
+      return;
+    }
+    /* Fallback: preferência local do próprio usuário (nunca a de outro) */
+    try {
+      const saved = window.localStorage.getItem(userKey);
+      setDarkMode(saved === "1");
+    } catch {
+      /* storage indisponível — mantém claro */
+    }
+  }, [currentUser]);
 
   /* ── Restaurar sessão ao montar ── */
   useEffect(() => {
@@ -1186,13 +1232,57 @@ export default function Home() {
     setMessage("");
   }
 
+  function toggleDarkMode() {
+    const next = !darkMode;
+    setDarkMode(next);
+    try {
+      window.localStorage.setItem(getDarkModeKey(currentUser?.id), next ? "1" : "0");
+    } catch {
+      /* storage indisponível */
+    }
+    if (currentUser?.id) {
+      const ie_tema = next ? 'E' : 'C';
+      atualizarPreferenciaTema(currentUser.id, ie_tema)
+        .then(() => {
+          setCurrentUser((u) => (u ? { ...u, ie_tema } : u));
+        })
+        .catch((err) => {
+          console.error('Erro ao salvar preferência de tema no banco', err);
+        });
+    }
+  }
+
+  function handlePfColumnsChange(config: ColunasConfig) {
+    if (!currentUser?.id) return;
+    const serialized = serializeColunasConfig(config.order, config.widths);
+    atualizarPreferenciasUsuario(currentUser.id, { ds_config_colunas_pf: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, ds_config_colunas_pf: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Pessoas Físicas)', err);
+      });
+  }
+
+  function handleAdminColumnsChange(config: ColunasConfig) {
+    if (!currentUser?.id) return;
+    const serialized = serializeColunasConfig(config.order, config.widths);
+    atualizarPreferenciasUsuario(currentUser.id, { ds_config_colunas_admin: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, ds_config_colunas_admin: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Usuários)', err);
+      });
+  }
+
   /* ================================================================ */
   /*  Render principal                                                */
   /* ================================================================ */
 
   if (sessionRestoring) {
     return (
-      <div className="relative min-h-screen overflow-hidden bg-white">
+      <div className={`relative min-h-screen overflow-hidden ${darkMode ? "dark bg-[#18181b]" : "bg-white"}`}>
         <LoadingModal open={true} message="Restaurando sessão..." />
       </div>
     );
@@ -1216,7 +1306,7 @@ export default function Home() {
   }
 
   return (
-    <div className="relative h-screen overflow-hidden bg-white text-slate-800 animate-fade-in">
+    <div className={`relative h-screen overflow-hidden animate-fade-in ${darkMode ? "dark bg-[#18181b] text-slate-200" : "bg-white text-slate-800"}`}>
       {/* Overlay do sidebar */}
       {isSidebarOpen && (
         <div
@@ -1466,6 +1556,40 @@ export default function Home() {
                   </div>
                   <button
                     type="button"
+                    onClick={toggleDarkMode}
+                    className="mb-2 flex w-full cursor-pointer items-center justify-between rounded-[6px] bg-[#1A4567] px-[9px] py-[7px] text-sm font-semibold text-white transition hover:bg-[#173d5c]"
+                    aria-pressed={darkMode}
+                  >
+                    <span className="flex items-center gap-2">
+                      {darkMode ? (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="4" />
+                          <path d="M12 2v2" />
+                          <path d="M12 20v2" />
+                          <path d="m4.93 4.93 1.41 1.41" />
+                          <path d="m17.66 17.66 1.41 1.41" />
+                          <path d="M2 12h2" />
+                          <path d="M20 12h2" />
+                          <path d="m6.34 17.66-1.41 1.41" />
+                          <path d="m19.07 4.93-1.41 1.41" />
+                        </svg>
+                      ) : (
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                        </svg>
+                      )}
+                      <span>{darkMode ? "Modo claro" : "Modo escuro"}</span>
+                    </span>
+                    <span
+                      className={`flex h-5 w-9 shrink-0 items-center rounded-full p-[2px] transition-colors duration-200 ${
+                        darkMode ? "justify-end bg-[#2cc958]" : "justify-start bg-white/30"
+                      }`}
+                    >
+                      <span className="h-4 w-4 rounded-full bg-white shadow" />
+                    </span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={handleLogout}
                     className="w-full cursor-pointer rounded-[6px] border-0 border-b border-white/30 bg-[#1A4567] px-[9px] py-[7px] text-sm font-semibold text-white transition hover:bg-[#173d5c]"
                   >
@@ -1495,6 +1619,8 @@ export default function Home() {
                 sortColumn={sortColumn}
                 sortAsc={sortAsc}
                 onSortChange={handleSortChange}
+                initialColumns={pfColunasConfig}
+                onColumnsChange={handlePfColumnsChange}
               />
             ) : (
               adminManageSelection === 'usuarios' ? (
@@ -1512,6 +1638,8 @@ export default function Home() {
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={setAdminManageSelection}
                   openFilter={openAdminFilterModal}
+                  initialColumns={adminColunasConfig}
+                  onColumnsChange={handleAdminColumnsChange}
                 />
               ) : (
                 <div className="p-6">
@@ -1571,7 +1699,7 @@ export default function Home() {
       {filterModalOpen && view === "list" && activeSection === "pessoaFisica" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeFilterModal} />
-          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -1703,7 +1831,7 @@ export default function Home() {
       {adminFilterModalOpen && view === "list" && activeSection === "administracaoSistema" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminFilterModal} />
-          <form onSubmit={handleAdminFilterSubmit} className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleAdminFilterSubmit} className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -1867,7 +1995,7 @@ export default function Home() {
       {auditModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAuditModal} />
-          <div className="relative w-full max-w-[560px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+          <div className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
             <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Histórico de auditoria</h2>
               <button
@@ -1937,7 +2065,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeChangePasswordModal} />
           <form
             onSubmit={handleChangePasswordSubmit}
-            className="relative w-full max-w-[420px] bg-white p-0 shadow-xl shadow-black/20"
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar senha</h2>
@@ -2195,6 +2323,7 @@ export default function Home() {
               'nr_seq_pessoa_fisica',
               'ds_usuario',
               'ds_usuario_alternativo',
+              'ie_status',
               'ds_observacao',
               'dt_criacao',
               'dt_alteracao',
@@ -2212,7 +2341,7 @@ export default function Home() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
             <div className="absolute inset-0" onClick={() => setDetailModalOpen(false)} />
-            <div className="relative w-full max-w-[800px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="relative w-full max-w-[800px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
               <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
                 <h3 className="text-base font-semibold" style={{ color: '#000' }}>Detalhe da auditoria</h3>
                 <button
@@ -2235,7 +2364,13 @@ export default function Home() {
                       nr_seq_pessoa_fisica: 'Pessoa física',
                       ds_usuario: 'Usuário',
                       ds_usuario_alternativo: 'Usuário alternativo',
+                      ie_status: 'Status',
+                      ds_observacao: 'Observação',
 
+                      ds_nome: 'Nome completo',
+                      nr_cpf: 'CPF',
+                      dt_nascimento: 'Data de nascimento',
+                      ds_email: 'E-mail',
                       nr_telefone: 'Telefone',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
@@ -2259,6 +2394,7 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
+                      if (field === 'ie_status') return formatAdminCellValue('ie_status', normalized);
                       return String(normalized);
                     };
 

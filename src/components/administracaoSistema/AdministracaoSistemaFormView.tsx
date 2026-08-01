@@ -312,7 +312,7 @@ export default function AdministracaoSistemaFormView({
 
         <div className="mt-auto pt-4">
           <div className="flex items-center justify-between gap-3">
-            <div className="text-[13px]" style={{ color: '#777' }}>
+            <div className="text-[13px] text-slate-500">
               <div className="relative group flex items-center gap-2">
                 <span>Criado por {createdBy || '-'} em {createdAt ? formatAdminCellValue('dt_criacao', createdAt) : '-'}</span>
                 <button

@@ -132,6 +132,22 @@ export async function atualizarUsuario(
   }
 }
 
+export async function atualizarPreferenciaTema(id: string, ie_tema: string): Promise<void> {
+  await atualizarPreferenciasUsuario(id, { ie_tema });
+}
+
+export async function atualizarPreferenciasUsuario(
+  id: string,
+  preferencias: Record<string, string>
+): Promise<void> {
+  const docRef = doc(db, "usuario", id);
+  const snap = await getDoc(docRef);
+  if (!snap.exists()) {
+    return;
+  }
+  await updateDoc(docRef, preferencias);
+}
+
 export async function excluirUsuario(id: string): Promise<void> {
   const docRef = doc(db, "usuario", id);
   await deleteDoc(docRef);

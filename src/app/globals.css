@@ -173,3 +173,150 @@ select:disabled {
   outline-color: #003056 !important;
 }
 
+/* ============================================================
+   DARK MODE — área de conteúdo
+   A classe .dark é aplicada somente à área autenticada.
+   O menu lateral e a tela de login mantêm as cores originais.
+   ============================================================ */
+
+.dark {
+  color-scheme: dark;
+}
+
+/* Superfícies */
+.dark .bg-white { background-color: #27272a !important; }
+.dark .bg-white.modal-dark { background-color: #18181b !important; }
+.dark .modal-dark input.bg-white,
+.dark .modal-dark textarea.bg-white,
+.dark .modal-dark select.bg-white { background-color: #27272a !important; }
+.dark .bg-white\/95 { background-color: #18181b !important; }
+.dark .bg-\[\#bbb\] { background-color: #3f3f46 !important; }
+.dark .bg-\[\#ccc\] { background-color: #27272a !important; }
+.dark .bg-\[\#ddd\] { background-color: #3f3f46 !important; }
+.dark .bg-\[\#fafafa\] { background-color: #1f1f24 !important; }
+.dark .bg-slate-100 { background-color: #27272a !important; }
+.dark .bg-slate-200 { background-color: #2e2e33 !important; }
+.dark .hover\:bg-\[\#eee\]:hover { background-color: #2e2e33 !important; }
+.dark .hover\:bg-slate-300:hover { background-color: #52525b !important; }
+.dark .bg-\[\#003056\]\/10 { background-color: rgba(255, 255, 255, 0.10) !important; }
+
+/* Texto */
+.dark .text-slate-900 { color: #e4e4e7 !important; }
+.dark .text-slate-800 { color: #d4d4d8 !important; }
+.dark .text-slate-700 { color: #a1a1aa !important; }
+.dark .text-slate-600 { color: #a1a1aa !important; }
+.dark .text-slate-500 { color: #a1a1aa !important; }
+.dark .text-black { color: #e4e4e7 !important; }
+.dark .text-\[\#000\] { color: #e4e4e7 !important; }
+.dark .text-\[\#222\] { color: #e4e4e7 !important; }
+.dark .text-\[\#066fc5\] { color: #e4e4e7 !important; }
+.dark .text-\[\#001a30\] { color: #e4e4e7 !important; }
+.dark .text-\[\#003056\] { color: #e4e4e7 !important; }
+.dark .text-\[\#aaa\] { color: #71717a !important; }
+.dark .text-\[\#777\] { color: #a1a1aa !important; }
+.dark .hover\:text-\[\#777\]:hover { color: #a1a1aa !important; }
+
+/* Bordas e divisores */
+.dark .border-slate-300 { border-color: #52525b !important; }
+.dark .border-slate-200 { border-color: #3f3f46 !important; }
+.dark .border-\[\#666\] { border-color: #3f3f46 !important; }
+.dark .border-\[\#ccc\] { border-color: #3f3f46 !important; }
+.dark .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: #3f3f46 !important; }
+
+/* Linha selecionada nas tabelas */
+.row-selected { background-color: rgba(0, 0, 0, 0.08) !important; }
+.dark .row-selected { background-color: rgba(255, 255, 255, 0.10) !important; }
+
+/* Tabelas */
+.dark .bg-white.flex-1.flex.flex-col.min-h-0.overflow-hidden {
+  background-color: #18181b !important;
+}
+.dark th {
+  background-color: #3f3f46 !important;
+  color: #e4e4e7 !important;
+  border-right-color: #3f3f46 !important;
+  border-bottom-color: #3f3f46 !important;
+  box-shadow: inset 0 -1px 0 #3f3f46 !important;
+}
+.dark th.border-\[\#666\] {
+  border-right-color: #52525b !important;
+}
+.dark td {
+  color: #d4d4d8 !important;
+  border-bottom-color: rgba(255, 255, 255, 0.08) !important;
+}
+.dark .flex.border {
+  border-top-color: #3f3f46 !important;
+  border-left-color: #3f3f46 !important;
+  border-bottom-color: #52525b !important;
+  border-right-color: #52525b !important;
+}
+
+/* Formulários */
+.dark input,
+.dark textarea,
+.dark select {
+  background-color: #18181b;
+  color: #e4e4e7;
+  border-top-color: #2c2c31;
+  border-left-color: #2c2c31;
+  border-right-color: #38383e;
+  border-bottom-color: #38383e;
+  border-width: 1px;
+}
+.dark input.bg-white,
+.dark textarea.bg-white,
+.dark select.bg-white {
+  background-color: #18181b !important;
+}
+.dark input.border-slate-300,
+.dark textarea.border-slate-300,
+.dark select.border-slate-300 {
+  border-top-color: #2c2c31 !important;
+  border-left-color: #2c2c31 !important;
+  border-right-color: #38383e !important;
+  border-bottom-color: #38383e !important;
+}
+.dark input:disabled,
+.dark textarea:disabled,
+.dark select:disabled {
+  background-color: #27272a !important;
+  color: #71717a !important;
+}
+.dark input::placeholder,
+.dark textarea::placeholder {
+  color: #71717a !important;
+}
+.dark select {
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 6'%3E%3Cpath d='M1 1l4 4 4-4' fill='none' stroke='%23a1a1aa' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E");
+}
+.dark option {
+  background-color: #18181b;
+  color: #e4e4e7;
+}
+.dark label { color: #a1a1aa !important; }
+.dark .text-sm.mb-1 { color: #a1a1aa !important; }
+.dark .text-sm.font-medium { color: #e4e4e7 !important; }
+.dark h2,
+.dark h3 { color: #e4e4e7 !important; }
+
+/* Botões */
+.dark .button-cancel {
+  background-color: #3f3f46 !important;
+  color: #e4e4e7 !important;
+  border-bottom-color: #27272a !important;
+}
+.dark .button-cancel:focus,
+.dark .button-cancel:active,
+.dark .button-cancel:focus-visible {
+  outline-color: #3f3f46 !important;
+}
+
+/* Foco — tom neutro, sem azul */
+.dark .focus-visible\:outline-\[\#066fc5\]:focus-visible {
+  outline-color: #d4d4d8 !important;
+}
+.dark .active\:outline-\[\#066fc5\]:active {
+  outline-color: #d4d4d8 !important;
+}
+

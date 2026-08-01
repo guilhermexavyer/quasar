@@ -6,6 +6,7 @@ import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
+import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
 
 interface ListViewProps {
   message: string;
@@ -21,6 +22,8 @@ interface ListViewProps {
   onSortChange: (logicalIndex: number) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  initialColumns?: ColunasConfig | null;
+  onColumnsChange?: (config: ColunasConfig) => void;
 }
 
 export default function AdministracaoSistemaListView({
@@ -37,11 +40,17 @@ export default function AdministracaoSistemaListView({
   manageSelection,
   onManageSelectionChange,
   openFilter,
+  initialColumns,
+  onColumnsChange,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const [columnOrder, setColumnOrder] = useState<number[]>(() => ADMIN_COLUMNS.map((_, i) => i));
+  const [columnOrder, setColumnOrder] = useState<number[]>(() =>
+    initialColumns && isValidOrder(initialColumns.order, ADMIN_COLUMNS.length)
+      ? [...initialColumns.order]
+      : ADMIN_COLUMNS.map((_, i) => i)
+  );
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(15);
   const [currentPage, setCurrentPage] = useState<number>(1);
@@ -50,6 +59,11 @@ export default function AdministracaoSistemaListView({
   const dragStartXRef = useRef(0);
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
+  const currentWidthsRef = useRef<number[]>(
+    initialColumns?.widths && initialColumns.widths.length === ADMIN_COLUMNS.length
+      ? [...initialColumns.widths]
+      : []
+  );
 
   function measureHeaderMinWidth(th: HTMLElement): number {
     const clone = th.cloneNode(true) as HTMLElement;
@@ -144,9 +158,11 @@ export default function AdministracaoSistemaListView({
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
+      const savedW = currentWidthsRef.current[logicalIdx];
       const contentW = measureColumnContentWidth(table, domIdx);
-      const finalWidth = Math.max(minW, contentW);
+      const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);
+      currentWidthsRef.current[logicalIdx] = finalWidth;
     });
 
     setFrozenWidth(table.style.width);
@@ -218,6 +234,15 @@ export default function AdministracaoSistemaListView({
         const adjustedDrop = currentDropIdx > curPos ? currentDropIdx - 1 : currentDropIdx;
         newOrder.splice(adjustedDrop, 0, logicalIndex);
         setColumnOrder(newOrder);
+        if (tableRef.current) {
+          const ths = tableRef.current.querySelectorAll<HTMLElement>("thead tr th");
+          const byLogical = new Array<number>(ADMIN_COLUMNS.length).fill(0);
+          ths.forEach((thEl, domIdx) => {
+            byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
+          });
+          currentWidthsRef.current = byLogical;
+          onColumnsChange?.({ order: newOrder, widths: byLogical });
+        }
       }
 
       setDragCol(null);
@@ -393,6 +418,12 @@ export default function AdministracaoSistemaListView({
       document.body.style.userSelect = "";
       if (table) {
         setFrozenWidth(table.style.width);
+        const byLogical = new Array<number>(ADMIN_COLUMNS.length).fill(0);
+        ths.forEach((thEl, domIdx) => {
+          byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
+        });
+        currentWidthsRef.current = byLogical;
+        onColumnsChange?.({ order: columnOrder, widths: byLogical });
       }
     }
 
@@ -502,8 +533,7 @@ export default function AdministracaoSistemaListView({
                     {paginatedUsuarios.map((usuario) => (
                       <tr
                         key={usuario.id}
-                        className="cursor-[context-menu] hover:bg-[#eee]"
-                        style={{ backgroundColor: selectedId === usuario.id ? 'rgba(3,102,214,0.10)' : undefined }}
+                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === usuario.id ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === usuario.id ? null : usuario.id ?? null))}
                         onContextMenu={(e) => {
                           e.preventDefault();
@@ -540,7 +570,7 @@ export default function AdministracaoSistemaListView({
                     top: 0,
                     bottom: 0,
                     width: '3px',
-                    backgroundColor: '#003056',
+                    backgroundColor: '#9ca3af',
                     zIndex: 100,
                     pointerEvents: 'none',
                     display: 'none',
@@ -571,7 +601,7 @@ export default function AdministracaoSistemaListView({
                         className="w-16 rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-center text-sm text-slate-900 outline-none transition focus:border-[#003056]"
                       />
 
-                      <div className="flex h-10 w-8 flex-col items-center justify-between rounded-[3px] bg-white py-1 px-0">
+                      <div className="flex h-10 w-8 flex-col items-center justify-between rounded-[3px] bg-transparent py-1 px-0">
                         <button
                           type="button"
                           onClick={() => {

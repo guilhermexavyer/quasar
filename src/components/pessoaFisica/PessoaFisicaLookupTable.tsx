@@ -441,8 +441,7 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect }: Pe
                 {paginatedPessoasFisicas.map((pessoa) => (
                   <tr
                     key={pessoa.id}
-                    className="cursor-pointer hover:bg-[#eee]"
-                    style={{ backgroundColor: selectedId === pessoa.id ? 'rgba(3,102,214,0.10)' : undefined }}
+                    className={`cursor-pointer hover:bg-[#eee] ${selectedId === pessoa.id ? 'row-selected' : ''}`}
                     onDoubleClick={() => {
                       setSelectedId(pessoa.id ?? null);
                       onSelect(pessoa);
@@ -470,7 +469,7 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect }: Pe
                 top: 0,
                 bottom: 0,
                 width: '3px',
-                backgroundColor: '#003056',
+                backgroundColor: '#9ca3af',
                 zIndex: 100,
                 pointerEvents: 'none',
                 display: 'none',
