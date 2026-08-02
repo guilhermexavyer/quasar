@@ -98,6 +98,89 @@ const emptyAdminForm: AdminFormData = {
 };
 
 /* ------------------------------------------------------------------ */
+/*  Funções do menu lateral (ordenáveis por arrastar)                */
+/* ------------------------------------------------------------------ */
+
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema"];
+
+function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
+  const result = [...new Set(parsed)];
+  for (const section of DEFAULT_SECTION_ORDER) {
+    if (!result.includes(section)) result.push(section);
+  }
+  return result;
+}
+
+function parseMenuOrder(raw?: string | null): SectionType[] | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return null;
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema") as SectionType[];
+    if (valid.length === 0) return null;
+    return valid;
+  } catch {
+    return null;
+  }
+}
+
+function serializeMenuOrder(order: SectionType[]): string {
+  return JSON.stringify(order);
+}
+
+const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon: React.ReactNode }> = {
+  pessoaFisica: {
+    label: "Pessoas Físicas",
+    labelMaxW: "max-w-[180px]",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <circle cx="12" cy="7" r="3" />
+        <circle cx="6.5" cy="9.5" r="2" />
+        <circle cx="17.5" cy="9.5" r="2" />
+        <path d="M4 19a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4" />
+      </svg>
+    ),
+  },
+  administracaoSistema: {
+    label: "Administração do Sistema",
+    labelMaxW: "max-w-[220px]",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="5" y="6" width="14" height="12" rx="2" />
+        <path d="M8 4v2" />
+        <path d="M16 4v2" />
+        <path d="M12 4v2" />
+        <path d="M8 20v-2" />
+        <path d="M16 20v-2" />
+        <path d="M4 10h2" />
+        <path d="M4 14h2" />
+        <path d="M20 10h2" />
+        <path d="M20 14h2" />
+        <path d="M7 12h10" />
+      </svg>
+    ),
+  },
+};
+
+/* ------------------------------------------------------------------ */
 /*  Tipos das props dos subcomponentes                                */
 /* ------------------------------------------------------------------ */
 
@@ -216,6 +299,10 @@ export default function Home() {
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [menuOrder, setMenuOrder] = useState<SectionType[]>(DEFAULT_SECTION_ORDER);
+  const [dragSection, setDragSection] = useState<SectionType | null>(null);
+  const [dragOverSection, setDragOverSection] = useState<SectionType | null>(null);
+  const draggedRef = useRef(false);
 
   const currentUserPersonName = useMemo(() => {
     if (!currentUser) return "";
@@ -308,6 +395,13 @@ export default function Home() {
     } catch {
       /* storage indisponível — mantém claro */
     }
+  }, [currentUser]);
+
+  /* ── Aplicar ordem das funções do menu do usuário logado ── */
+  useEffect(() => {
+    if (!currentUser) return;
+    const parsed = parseMenuOrder(currentUser.ds_config_ordem_menu);
+    setMenuOrder(parsed ? normalizeMenuOrder(parsed) : DEFAULT_SECTION_ORDER);
   }, [currentUser]);
 
   /* ── Restaurar sessão ao montar ── */
@@ -1279,6 +1373,51 @@ export default function Home() {
       });
   }
 
+  /* ── Ordenar funções do menu lateral (apenas com o menu aberto) ── */
+  function handleSectionDragStart(section: SectionType) {
+    if (!isSidebarOpen) return;
+    draggedRef.current = true;
+    setDragSection(section);
+  }
+
+  function handleSectionDragOver(section: SectionType) {
+    if (!isSidebarOpen || !dragSection) return;
+    setDragOverSection(section);
+  }
+
+  function handleSectionDrop(target: SectionType) {
+    const from = dragSection;
+    setDragSection(null);
+    setDragOverSection(null);
+    if (!isSidebarOpen || !from || from === target) return;
+
+    const next = [...menuOrder];
+    const fromIndex = next.indexOf(from);
+    const toIndex = next.indexOf(target);
+    next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, from);
+    setMenuOrder(next);
+    persistMenuOrder(next);
+  }
+
+  function handleSectionDragEnd() {
+    draggedRef.current = false;
+    setDragSection(null);
+    setDragOverSection(null);
+  }
+
+  function persistMenuOrder(order: SectionType[]) {
+    if (!currentUser?.id) return;
+    const serialized = serializeMenuOrder(order);
+    atualizarPreferenciasUsuario(currentUser.id, { ds_config_ordem_menu: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, ds_config_ordem_menu: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar ordem do menu', err);
+      });
+  }
+
   /* ================================================================ */
   /*  Render principal                                                */
   /* ================================================================ */
@@ -1392,105 +1531,79 @@ export default function Home() {
         </div>
 
         <nav className="mt-2 flex flex-col gap-0.5 px-1">
-          <button
-            type="button"
-            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] cursor-pointer outline-none ${
-              isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
-            } ${activeSection === 'pessoaFisica' ? 'bg-[#004a7a]' : ''}`}
-            onClick={() => {
-              setActiveSection('pessoaFisica');
-              setView('list');
-              setContextMenu(null);
-            }}
-          >
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
+          {menuOrder.map((section) => {
+            const def = SECTION_DEFS[section];
+            const isActive = activeSection === section;
+            const isDragging = dragSection === section;
+            const isDropTarget = dragOverSection === section && dragSection !== null && dragSection !== section;
+            return (
+              <button
+                key={section}
+                type="button"
+                draggable={isSidebarOpen}
+                onDragStart={(e) => {
+                  e.dataTransfer.effectAllowed = "move";
+                  e.dataTransfer.setData("text/plain", section);
+                  handleSectionDragStart(section);
+                }}
+                onDragOver={(e) => {
+                  if (!isSidebarOpen || !dragSection) return;
+                  e.preventDefault();
+                  e.dataTransfer.dropEffect = "move";
+                  handleSectionDragOver(section);
+                }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  draggedRef.current = false;
+                  handleSectionDrop(section);
+                }}
+                onDragEnd={handleSectionDragEnd}
+                className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] outline-none ${
+                  isSidebarOpen ? "justify-start gap-2.5 cursor-grab active:cursor-grabbing" : "justify-center gap-0 cursor-pointer"
+                } ${isActive ? 'bg-[#004a7a]' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-inset ring-[#2cc958]' : ''}`}
+                onClick={() => {
+                  if (draggedRef.current) return;
+                  setActiveSection(section);
+                  setView('list');
+                  setContextMenu(null);
+                }}
+                aria-label={def.label}
               >
-                <circle cx="12" cy="7" r="3" />
-                <circle cx="6.5" cy="9.5" r="2" />
-                <circle cx="17.5" cy="9.5" r="2" />
-                <path d="M4 19a4 4 0 0 1 4-4h8a4 4 0 0 1 4 4" />
-              </svg>
-            </span>
-            <span
-              className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
-                isSidebarOpen
-                  ? "max-w-[180px] opacity-100"
-                  : "max-w-0 opacity-0"
-              }`}
-            >
-              <span className="text-sm leading-none text-white">
-                Pessoas Físicas
-              </span>
-            </span>
-            {!isSidebarOpen && (
-              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap group-hover:block">
-                Pessoas Físicas
-                <span className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
-              </span>
-            )}
-          </button>
-          <button
-            type="button"
-            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] cursor-pointer outline-none ${
-              isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
-            } ${activeSection === 'administracaoSistema' ? 'bg-[#004a7a]' : ''}`}
-            onClick={() => {
-              setActiveSection('administracaoSistema');
-              setView('list');
-              setContextMenu(null);
-            }}
-          >
-            <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
-              <svg
-                width="14"
-                height="14"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="1.8"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              >
-                <rect x="5" y="6" width="14" height="12" rx="2" />
-                <path d="M8 4v2" />
-                <path d="M16 4v2" />
-                <path d="M12 4v2" />
-                <path d="M8 20v-2" />
-                <path d="M16 20v-2" />
-                <path d="M4 10h2" />
-                <path d="M4 14h2" />
-                <path d="M20 10h2" />
-                <path d="M20 14h2" />
-                <path d="M7 12h10" />
-              </svg>
-            </span>
-            <span
-              className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
-                isSidebarOpen
-                  ? "max-w-[220px] opacity-100"
-                  : "max-w-0 opacity-0"
-              }`}
-            >
-              <span className="text-sm leading-none text-white">
-                Administração do Sistema
-              </span>
-            </span>
-            {!isSidebarOpen && (
-              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap group-hover:block">
-                Administração do Sistema
-                <span className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
-              </span>
-            )}
-          </button>
+                <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
+                  {def.icon}
+                </span>
+                <span
+                  className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
+                    isSidebarOpen
+                      ? `${def.labelMaxW} opacity-100`
+                      : "max-w-0 opacity-0"
+                  }`}
+                >
+                  <span className="text-sm leading-none text-white">
+                    {def.label}
+                  </span>
+                </span>
+                {isSidebarOpen && (
+                  <span className="ml-auto flex h-4 w-4 shrink-0 items-center justify-center text-white/40 transition group-hover:text-white/70">
+                    <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor">
+                      <circle cx="9" cy="12" r="1.4" />
+                      <circle cx="15" cy="12" r="1.4" />
+                      <circle cx="9" cy="6" r="1.4" />
+                      <circle cx="15" cy="6" r="1.4" />
+                      <circle cx="9" cy="18" r="1.4" />
+                      <circle cx="15" cy="18" r="1.4" />
+                    </svg>
+                  </span>
+                )}
+                {!isSidebarOpen && (
+                  <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap group-hover:block">
+                    {def.label}
+                    <span className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </nav>
 
         <div className="mt-auto border-t border-[#004a7a] px-1 py-2">
@@ -1549,10 +1662,10 @@ export default function Home() {
                       className="flex cursor-pointer items-center rounded-[2px] bg-transparent text-white transition outline-none"
                       aria-pressed={darkMode}
                     >
-                      <span className="flex h-6 w-11 shrink-0 items-center rounded-full bg-white/30 p-[2px] transition-colors duration-300">
+                      <span className="flex h-6 w-11 shrink-0 items-center rounded-full bg-[#2cc958] p-[2px] transition-colors duration-300">
                         <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-full bg-white shadow transition-transform duration-300 ease-out ${
-                            darkMode ? "translate-x-5" : "translate-x-0"
+                          className={`flex h-5 w-5 items-center justify-center rounded-full shadow transition-transform duration-300 ease-out ${
+                            darkMode ? "bg-white translate-x-5" : "bg-[#003056] translate-x-0"
                           }`}
                         >
                           {darkMode ? (
@@ -1578,7 +1691,7 @@ export default function Home() {
                     <button
                       type="button"
                       onClick={handleLogout}
-                      className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[2px] bg-transparent text-white transition outline-none"
+                      className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[2px] bg-transparent text-white hover:text-[#2cc958] outline-none"
                       aria-label="Sair"
                     >
                       <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">

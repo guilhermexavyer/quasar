@@ -47,6 +47,7 @@ export default function PessoaFisicaFormView({
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
+  const infoPopupRef = useRef<HTMLDivElement | null>(null);
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
     const meta = FIELD_INFOS[fieldKey];
@@ -71,6 +72,7 @@ export default function PessoaFisicaFormView({
           </button>
           {infoPopupField === fieldKey && (
             <div
+              ref={infoPopupRef}
               className="absolute left-full bottom-0 z-10 ml-1 w-[240px] bg-white p-[10px] text-xs border border-[#ccc] shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
               onClick={(event) => event.stopPropagation()}
             >
@@ -109,7 +111,11 @@ export default function PessoaFisicaFormView({
 
   useEffect(() => {
     if (!infoPopupField) return;
-    function handleClose() {
+    function handleClose(event: MouseEvent) {
+      // Cliques dentro da pop-up não a fecham — permite selecionar/copiar o texto.
+      if (infoPopupRef.current && infoPopupRef.current.contains(event.target as Node)) {
+        return;
+      }
       setInfoPopupField(null);
     }
     document.addEventListener('click', handleClose);

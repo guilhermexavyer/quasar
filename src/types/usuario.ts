@@ -11,6 +11,7 @@ export interface Usuario {
   ie_tema?: string;
   ds_config_colunas_pf?: string;
   ds_config_colunas_admin?: string;
+  ds_config_ordem_menu?: string;
   dt_criacao: string;
   dt_alteracao: string;
 }
