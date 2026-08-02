@@ -35,3 +35,4 @@ export async function fetchAuditByPessoaId(pessoaId: string): Promise<AuditEntry
 export async function fetchAuditByUsuarioId(usuarioId: string): Promise<AuditEntry[]> {
   return fetchAuditByDocumentId("usuario", usuarioId);
 }
+

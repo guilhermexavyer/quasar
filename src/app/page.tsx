@@ -16,7 +16,31 @@ import {
   atualizarPreferenciaTema,
   atualizarPreferenciasUsuario,
 } from "@/services/usuarioService";
-import { fetchAuditByPessoaId, fetchAuditByUsuarioId, AuditEntry } from "@/services/auditService";
+import {
+  criarSexo,
+  excluirSexo,
+  obterSexos,
+  atualizarSexo,
+} from "@/services/sexoService";
+import {
+  criarEstadoCivil,
+  excluirEstadoCivil,
+  obterEstadoCivis,
+  atualizarEstadoCivil,
+} from "@/services/estadoCivilService";
+import {
+  criarCorRaca,
+  excluirCorRaca,
+  obterCoresRacas,
+  atualizarCorRaca,
+} from "@/services/corRacaService";
+import {
+  criarProfissao,
+  excluirProfissao,
+  obterProfissoes,
+  atualizarProfissao,
+} from "@/services/profissaoService";
+import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import {
   applyCpfMask,
@@ -43,6 +67,18 @@ import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
+import CadastroGeralListView from "@/components/cadastrosGerais/CadastroGeralListView";
+import CadastroGeralFormView, { type CadastroGeralFormData } from "@/components/cadastrosGerais/CadastroGeralFormView";
+import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/components/cadastrosGerais/CadastroGeralFilterModal";
+import type { Sexo } from "@/types/sexo";
+import type { EstadoCivil } from "@/types/estadoCivil";
+import type { CorRaca } from "@/types/corRaca";
+import type { Profissao } from "@/types/profissao";
+import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
+import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
+import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
+import { PROFISSAO_COLUMNS, PROFISSAO_FIELD_INFOS } from "@/lib/profissaoUtils";
+import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { ContextMenuState } from "@/types/contextMenu";
 
@@ -72,7 +108,7 @@ function getDarkModeKey(userId?: string | null): string {
 }
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracaoSistema";
+type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais";
 
 type FilterFormData = FormData & {
   nr_sequencia: string;
@@ -97,11 +133,25 @@ const emptyAdminForm: AdminFormData = {
   ie_status: 'A',
 };
 
+const emptyCgForm: CadastroGeralFormData = {
+  descricao: "",
+  ie_status: 'A',
+};
+
+const CG_SELECT_OPTIONS = [
+  { value: 'sexo', label: 'Sexo' },
+  { value: 'estadoCivil', label: 'Estado civil' },
+  { value: 'corRaca', label: 'Cor/Raça' },
+  { value: 'profissao', label: 'Profissão' },
+];
+
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao;
+
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema"];
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais"];
 
 function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
   const result = [...new Set(parsed)];
@@ -116,7 +166,7 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema") as SectionType[];
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais") as SectionType[];
     if (valid.length === 0) return null;
     return valid;
   } catch {
@@ -175,6 +225,27 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
         <path d="M20 10h2" />
         <path d="M20 14h2" />
         <path d="M7 12h10" />
+      </svg>
+    ),
+  },
+  cadastrosGerais: {
+    label: "Cadastros Gerais",
+    labelMaxW: "max-w-[180px]",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <rect x="3" y="4" width="18" height="16" rx="2" />
+        <path d="M8 9h8" />
+        <path d="M8 13h8" />
+        <path d="M8 17h5" />
       </svg>
     ),
   },
@@ -261,7 +332,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'usuario'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'usuario' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -283,7 +354,22 @@ export default function Home() {
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const [adminSortColumn, setAdminSortColumn] = useState<number | null>(null);
   const [adminSortAsc, setAdminSortAsc] = useState<boolean | null>(null);
+  const [cgSortColumn, setCgSortColumn] = useState<number | null>(null);
+  const [cgSortAsc, setCgSortAsc] = useState<boolean | null>(null);
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
+  const [sexos, setSexos] = useState<Sexo[]>([]);
+  const [estadoCivis, setEstadoCivis] = useState<EstadoCivil[]>([]);
+  const [coresRacas, setCoresRacas] = useState<CorRaca[]>([]);
+  const [profissoes, setProfissoes] = useState<Profissao[]>([]);
+  const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [cgEditingId, setCgEditingId] = useState<string | null>(null);
+  const [cgSubmitting, setCgSubmitting] = useState(false);
+  const [cgAuditInfo, setCgAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditCgIdRef = useRef<string | null>(null);
+  const [cgFilterModalOpen, setCgFilterModalOpen] = useState(false);
+  const [cgFilterForm, setCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedCgFilterForm, setAppliedCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [cgManageSelection, setCgManageSelection] = useState<string>('sexo');
   const [adminForm, setAdminForm] = useState<AdminFormData>(emptyAdminForm);
   const [adminEditingId, setAdminEditingId] = useState<string | null>(null);
   const [adminSubmitting, setAdminSubmitting] = useState(false);
@@ -319,6 +405,58 @@ export default function Home() {
     () => parseColunasConfig(currentUser?.ds_config_colunas_admin),
     [currentUser?.ds_config_colunas_admin]
   );
+  const CG_DEFS = {
+    sexo: {
+      descKey: 'ds_sexo',
+      collection: 'cg_sexo',
+      configKey: 'ds_config_colunas_cg_sexo',
+      columns: SEXO_COLUMNS,
+      fieldInfos: SEXO_FIELD_INFOS,
+      items: (): CgItem[] => sexos,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um sexo.',
+    },
+    estadoCivil: {
+      descKey: 'ds_estado_civil',
+      collection: 'cg_estado_civil',
+      configKey: 'ds_config_colunas_cg_estado_civil',
+      columns: ESTADO_CIVIL_COLUMNS,
+      fieldInfos: ESTADO_CIVIL_FIELD_INFOS,
+      items: (): CgItem[] => estadoCivis,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um estado civil.',
+    },
+    corRaca: {
+      descKey: 'ds_cor_raca',
+      collection: 'cg_cor_raca',
+      configKey: 'ds_config_colunas_cg_cor_raca',
+      columns: COR_RACA_COLUMNS,
+      fieldInfos: COR_RACA_FIELD_INFOS,
+      items: (): CgItem[] => coresRacas,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar uma cor/raça.',
+    },
+    profissao: {
+      descKey: 'ds_profissao',
+      collection: 'cg_profissao',
+      configKey: 'ds_config_colunas_cg_profissao',
+      columns: PROFISSAO_COLUMNS,
+      fieldInfos: PROFISSAO_FIELD_INFOS,
+      items: (): CgItem[] => profissoes,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar uma profissão.',
+    },
+  } as const;
+
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'profissao' ? 'profissao' : 'sexo';
+  const cgDef = CG_DEFS[cgKind];
+  const cgDescKey = cgDef.descKey;
+  const cgCollection = cgDef.collection;
+  const cgConfigKey = cgDef.configKey;
+  const cgColumns = cgDef.columns;
+  const cgFieldInfos = cgDef.fieldInfos;
+  const cgItems = cgDef.items();
+  const cgEmptyMessage = cgDef.emptyMessage;
+  const cgColunasConfig = useMemo(
+    () => parseColunasConfig(currentUser?.[cgDef.configKey]),
+    [currentUser?.[cgDef.configKey], cgKind]
+  );
 
   const auditAutor = useMemo(() => {
     if (!currentUser) return undefined;
@@ -353,10 +491,74 @@ export default function Home() {
     }
   }, []);
 
+  const loadSexos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterSexos();
+      setSexos(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadEstadoCivis = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterEstadoCivis();
+      setEstadoCivis(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCoresRacas = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterCoresRacas();
+      setCoresRacas(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadProfissoes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterProfissoes();
+      setProfissoes(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCgItems = useCallback(async () => {
+    if (cgKind === 'sexo') {
+      await loadSexos();
+    } else if (cgKind === 'estadoCivil') {
+      await loadEstadoCivis();
+    } else if (cgKind === 'corRaca') {
+      await loadCoresRacas();
+    } else {
+      await loadProfissoes();
+    }
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes]);
+
   useEffect(() => {
     loadPessoasFisicas();
     loadUsuarios();
-  }, [loadPessoasFisicas, loadUsuarios]);
+    loadSexos();
+    loadEstadoCivis();
+    loadCoresRacas();
+    loadProfissoes();
+  }, [loadPessoasFisicas, loadUsuarios, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes]);
 
   /* ── Persistir sessão: sobrevive à recarga; só quebra no Sair ── */
   useEffect(() => {
@@ -368,12 +570,13 @@ export default function Home() {
           userId: currentUser.id,
           activeSection,
           adminManageSelection,
+          cgManageSelection,
         })
       );
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, activeSection, adminManageSelection]);
+  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -417,6 +620,7 @@ export default function Home() {
           userId?: string;
           activeSection?: SectionType;
           adminManageSelection?: string;
+          cgManageSelection?: string;
         };
 
         if (!session?.userId) return;
@@ -431,11 +635,14 @@ export default function Home() {
         }
 
         setCurrentUser(usuarioSalvo);
-        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica") {
+        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais") {
           setActiveSection(session.activeSection);
         }
         if (typeof session.adminManageSelection === "string" && session.adminManageSelection.trim() !== "") {
           setAdminManageSelection(session.adminManageSelection);
+        }
+        if (typeof session.cgManageSelection === "string" && session.cgManageSelection.trim() !== "") {
+          setCgManageSelection(session.cgManageSelection);
         }
         setView("list");
         setIsAuthenticated(true);
@@ -487,6 +694,24 @@ export default function Home() {
     setActiveSection("administracaoSistema");
   }
 
+  function openCgNewForm() {
+    setCgForm(emptyCgForm);
+    setCgEditingId(null);
+    setCgAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setView("form");
+    setActiveSection("cadastrosGerais");
+  }
+
+  function handleCgManageSelectionChange(value: string) {
+    setCgManageSelection(value);
+    // Ao trocar a seleção no meio da edição, zera o registro em edição
+    // para nunca salvar contra a coleção errada.
+    setCgForm(emptyCgForm);
+    setCgEditingId(null);
+    setCgAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  }
+
   async function openAuditModal(pessoaId?: string | null) {
     if (!pessoaId) return;
     setAuditDocumentType('pessoa_fisica');
@@ -517,6 +742,21 @@ export default function Home() {
     }
   }
 
+  async function openCgAuditModal(cgId?: string | null) {
+    if (!cgId) return;
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId(cgCollection, cgId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   function closeAuditModal() {
     setAuditModalOpen(false);
     setAuditLogs([]);
@@ -537,6 +777,30 @@ export default function Home() {
 
   function closeAdminFilterModal() {
     setAdminFilterModalOpen(false);
+  }
+
+  function openCgFilterModal() {
+    setCgFilterForm(appliedCgFilterForm);
+    setCgFilterModalOpen(true);
+  }
+
+  function closeCgFilterModal() {
+    setCgFilterModalOpen(false);
+  }
+
+  function applyCgFilter() {
+    setAppliedCgFilterForm({ ...cgFilterForm, ie_status: cgFilterForm.ie_status || 'T' });
+    setCgFilterModalOpen(false);
+  }
+
+  function clearCgFilter() {
+    setCgFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedCgFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  }
+
+  function handleCgFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyCgFilter();
   }
 
   function openAdminPessoaFisicaLookup() {
@@ -624,6 +888,20 @@ export default function Home() {
     }
   }
 
+  function handleCgSortChange(logicalIndex: number) {
+    if (cgSortColumn === logicalIndex) {
+      if (cgSortAsc) {
+        setCgSortAsc(false);
+      } else {
+        setCgSortColumn(null);
+        setCgSortAsc(null);
+      }
+    } else {
+      setCgSortColumn(logicalIndex);
+      setCgSortAsc(true);
+    }
+  }
+
   /* ── Carregar autor da auditoria (para o rodapé do formulário) ── */
   async function carregarAutorAuditoriaPessoa(id: string) {
     try {
@@ -657,6 +935,25 @@ export default function Home() {
         ...prev,
         createdBy: createLog?.usuarioNome ?? '',
         updatedBy: lastChangeLog?.usuarioNome ?? '',
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  async function carregarAutorAuditoriaCg(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId(cgCollection, id);
+      if (auditCgIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => {
+        const acao = String(l.acao ?? '').toLowerCase();
+        return acao === 'update' || acao === 'password';
+      });
+      setCgAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
       }));
     } catch {
       // mantém vazio em caso de falha
@@ -715,6 +1012,27 @@ export default function Home() {
     }
   }
 
+  function openCgEditForm(item: CgItem) {
+    setCgForm({
+      descricao: String((item as unknown as Record<string, unknown>)[cgDef.descKey] ?? ''),
+      ie_status: item.ie_status ?? 'A',
+    });
+    setCgEditingId(item.id ?? null);
+    setCgAuditInfo({
+      createdAt: item.dt_criacao ?? '',
+      updatedAt: item.dt_alteracao ?? '',
+      createdBy: (item as unknown as Record<string, unknown>).ds_usuario_criacao ? String((item as unknown as Record<string, unknown>).ds_usuario_criacao) : '',
+      updatedBy: (item as unknown as Record<string, unknown>).ds_usuario_alteracao ? String((item as unknown as Record<string, unknown>).ds_usuario_alteracao) : '',
+    });
+    auditCgIdRef.current = item.id ?? null;
+    setMessage("");
+    setView("form");
+    setActiveSection("cadastrosGerais");
+    if (item.id) {
+      carregarAutorAuditoriaCg(item.id);
+    }
+  }
+
   /* ── Voltar para lista ── */
   function goToList() {
     setForm(emptyForm);
@@ -730,6 +1048,14 @@ export default function Home() {
     setMessage("");
     setView("list");
     setActiveSection("administracaoSistema");
+  }
+
+  function goToCgList() {
+    setCgForm(emptyCgForm);
+    setCgEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("cadastrosGerais");
   }
 
   const filteredPessoasFisicas = useMemo(() => {
@@ -844,6 +1170,51 @@ export default function Home() {
     });
   }, [filteredUsuarios, adminSortColumn, adminSortAsc]);
 
+  const filteredCgItems = useMemo(() => {
+    return cgItems.filter((item) => {
+      const rec = item as unknown as Record<string, unknown>;
+      if (appliedCgFilterForm.nr_sequencia) {
+        if (String(rec.nr_sequencia) !== appliedCgFilterForm.nr_sequencia.trim()) return false;
+      }
+      if (appliedCgFilterForm.descricao && !String(rec[cgDescKey] ?? '').toLowerCase().includes(appliedCgFilterForm.descricao.toLowerCase())) return false;
+      if (appliedCgFilterForm.ie_status && appliedCgFilterForm.ie_status.toUpperCase() !== 'T') {
+        if (String(rec.ie_status ?? '').toUpperCase() !== appliedCgFilterForm.ie_status.toUpperCase()) return false;
+      }
+      return true;
+    });
+  }, [cgItems, appliedCgFilterForm, cgDescKey]);
+
+  const filteredSortedCgItems = useMemo(() => {
+    const sorted = [...filteredCgItems];
+    if (cgSortColumn === null || cgSortAsc === null) {
+      return sorted.sort((a, b) => {
+        const ra = a as unknown as Record<string, unknown>;
+        const rb = b as unknown as Record<string, unknown>;
+        const dateA = String(ra.dt_criacao || "");
+        const dateB = String(rb.dt_criacao || "");
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return Number(ra.nr_sequencia) - Number(rb.nr_sequencia);
+      });
+    }
+
+    const key = cgColumns[cgSortColumn].key as string;
+    return sorted.sort((a, b) => {
+      const ra = a as unknown as Record<string, unknown>;
+      const rb = b as unknown as Record<string, unknown>;
+      const valA = ra[key];
+      const valB = rb[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return cgSortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return cgSortAsc ? -1 : 1;
+      if (strA > strB) return cgSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [filteredCgItems, cgSortColumn, cgSortAsc, cgColumns]);
+
   const currentEditIndex = useMemo(() => {
     if (!editingId) return -1;
     return filteredSortedPessoasFisicas.findIndex((p) => p.id === editingId);
@@ -854,10 +1225,17 @@ export default function Home() {
     return filteredSortedUsuarios.findIndex((u) => u.id === adminEditingId);
   }, [filteredSortedUsuarios, adminEditingId]);
 
+  const currentCgEditIndex = useMemo(() => {
+    if (!cgEditingId) return -1;
+    return filteredSortedCgItems.findIndex((s) => s.id === cgEditingId);
+  }, [filteredSortedCgItems, cgEditingId]);
+
   const hasPrevRecord = currentEditIndex > 0;
   const hasNextRecord = currentEditIndex >= 0 && currentEditIndex < filteredSortedPessoasFisicas.length - 1;
   const hasPrevAdminRecord = currentAdminEditIndex > 0;
   const hasNextAdminRecord = currentAdminEditIndex >= 0 && currentAdminEditIndex < filteredSortedUsuarios.length - 1;
+  const hasPrevCgRecord = currentCgEditIndex > 0;
+  const hasNextCgRecord = currentCgEditIndex >= 0 && currentCgEditIndex < filteredSortedCgItems.length - 1;
 
   function goToPrevRecord() {
     if (!hasPrevRecord) return;
@@ -881,6 +1259,18 @@ export default function Home() {
     if (!hasNextAdminRecord) return;
     const next = filteredSortedUsuarios[currentAdminEditIndex + 1];
     if (next) openAdminEditForm(next);
+  }
+
+  function goToPrevCgRecord() {
+    if (!hasPrevCgRecord) return;
+    const previous = filteredSortedCgItems[currentCgEditIndex - 1];
+    if (previous) openCgEditForm(previous);
+  }
+
+  function goToNextCgRecord() {
+    if (!hasNextCgRecord) return;
+    const next = filteredSortedCgItems[currentCgEditIndex + 1];
+    if (next) openCgEditForm(next);
   }
 
   /* ── Salvar (criar ou atualizar) ── */
@@ -1103,6 +1493,66 @@ export default function Home() {
     }
   }
 
+  async function handleCgSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    setCgSubmitting(true);
+
+    try {
+      const payload = {
+        [cgDescKey]: cgForm.descricao,
+        ie_status: cgForm.ie_status,
+      } as Record<string, unknown>;
+
+      if (cgEditingId) {
+        const currentItem = cgItems.find((s) => s.id === cgEditingId);
+        const hasChanges = currentItem
+          ? [cgDescKey, 'ie_status'].some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setCgForm(emptyCgForm);
+          setCgEditingId(null);
+          await loadCgItems();
+          setView("list");
+          return;
+        }
+
+        if (cgKind === 'sexo') {
+          await atualizarSexo(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'estadoCivil') {
+          await atualizarEstadoCivil(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'corRaca') {
+          await atualizarCorRaca(cgEditingId, payload as any, auditAutor);
+        } else {
+          await atualizarProfissao(cgEditingId, payload as any, auditAutor);
+        }
+        setMessage("Atualizado com sucesso!");
+      } else {
+        if (cgKind === 'sexo') {
+          await criarSexo(payload as any, auditAutor);
+        } else if (cgKind === 'estadoCivil') {
+          await criarEstadoCivil(payload as any, auditAutor);
+        } else if (cgKind === 'corRaca') {
+          await criarCorRaca(payload as any, auditAutor);
+        } else {
+          await criarProfissao(payload as any, auditAutor);
+        }
+        setMessage("Cadastrado com sucesso!");
+      }
+
+      setCgForm(emptyCgForm);
+      setCgEditingId(null);
+      await loadCgItems();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setCgSubmitting(false);
+    }
+  }
+
   function openChangePasswordModal(usuario: Usuario) {
     setPasswordChangeUserId(usuario.id ?? null);
     setPasswordChangeValue("");
@@ -1202,6 +1652,25 @@ export default function Home() {
       await loadUsuarios();
     } catch {
       setMessage("Erro ao excluir usuário.");
+    }
+  }
+
+  async function handleCgDelete(id: string) {
+    setMessage("");
+    try {
+      if (cgKind === 'sexo') {
+        await excluirSexo(id);
+      } else if (cgKind === 'estadoCivil') {
+        await excluirEstadoCivil(id);
+      } else if (cgKind === 'corRaca') {
+        await excluirCorRaca(id);
+      } else {
+        await excluirProfissao(id);
+      }
+      setMessage("Excluído com sucesso!");
+      await loadCgItems();
+    } catch {
+      setMessage("Erro ao excluir.");
     }
   }
 
@@ -1373,6 +1842,18 @@ export default function Home() {
       });
   }
 
+  function handleCgColumnsChange(config: ColunasConfig) {
+    if (!currentUser?.id) return;
+    const serialized = serializeColunasConfig(config.order, config.widths);
+    atualizarPreferenciasUsuario(currentUser.id, { [cgConfigKey]: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, [cgConfigKey]: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Cadastros Gerais)', err);
+      });
+  }
+
   /* ── Ordenar funções do menu lateral (apenas com o menu aberto) ── */
   function handleSectionDragStart(section: SectionType) {
     if (!isSidebarOpen) return;
@@ -1466,8 +1947,10 @@ export default function Home() {
           onView={() => {
             if (contextMenu.section === 'pessoaFisica') {
               openEditForm(contextMenu.item as PessoaFisica);
-            } else {
+            } else if (contextMenu.section === 'administracaoSistema') {
               openAdminEditForm(contextMenu.item as Usuario);
+            } else {
+              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao);
             }
             setContextMenu(null);
           }}
@@ -1481,9 +1964,12 @@ export default function Home() {
             if (contextMenu.section === 'pessoaFisica') {
               const pessoaId = (contextMenu.item as PessoaFisica).id;
               if (pessoaId) handleDelete(pessoaId);
-            } else {
+            } else if (contextMenu.section === 'administracaoSistema') {
               const usuarioId = (contextMenu.item as Usuario).id;
               if (usuarioId) handleAdminDelete(usuarioId);
+            } else {
+              const cgId = (contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao).id;
+              if (cgId) handleCgDelete(cgId);
             }
             setContextMenu(null);
           }}
@@ -1786,7 +2272,7 @@ export default function Home() {
                 initialColumns={pfColunasConfig}
                 onColumnsChange={handlePfColumnsChange}
               />
-            ) : (
+            ) : activeSection === "administracaoSistema" ? (
               adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaListView
                   message={message}
@@ -1795,7 +2281,7 @@ export default function Home() {
                   pessoasFisicas={pessoasFisicas}
                   openNewForm={openAdminNewForm}
                   openEditForm={openAdminEditForm}
-                setContextMenu={setContextMenu}
+                  setContextMenu={setContextMenu}
                   sortColumn={adminSortColumn}
                   sortAsc={adminSortAsc}
                   onSortChange={handleAdminSortChange}
@@ -1809,6 +2295,34 @@ export default function Home() {
                 <div className="p-6">
                   <h2 className="text-lg font-semibold">Área de Administração</h2>
                   <p className="mt-2 text-sm text-slate-600">Selecione uma função para gerenciar nesta seção.</p>
+                </div>
+              )
+            ) : (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'profissao') ? (
+                <CadastroGeralListView
+                  key={cgManageSelection}
+                  loading={loading}
+                  items={filteredSortedCgItems}
+                  columns={cgColumns}
+                  formatCellValue={formatCadastroGeralCellValue}
+                  emptyMessage={cgEmptyMessage}
+                  selectOptions={CG_SELECT_OPTIONS}
+                  manageSelection={cgManageSelection}
+                  onManageSelectionChange={handleCgManageSelectionChange}
+                  openNewForm={openCgNewForm}
+                  openEditForm={openCgEditForm}
+                  openFilter={openCgFilterModal}
+                  setContextMenu={setContextMenu}
+                  sortColumn={cgSortColumn}
+                  sortAsc={cgSortAsc}
+                  onSortChange={handleCgSortChange}
+                  initialColumns={cgColunasConfig}
+                  onColumnsChange={handleCgColumnsChange}
+                />
+              ) : (
+                <div className="p-6">
+                  <h2 className="text-lg font-semibold">Cadastros Gerais</h2>
+                  <p className="mt-2 text-sm text-slate-600">Selecione um cadastro para gerenciar nesta seção.</p>
                 </div>
               )
             )
@@ -1832,7 +2346,7 @@ export default function Home() {
               hasPrevRecord={hasPrevRecord}
               hasNextRecord={hasNextRecord}
             />
-          ) : (
+          ) : activeSection === "administracaoSistema" ? (
             <AdministracaoSistemaFormView
               message={message}
               editingId={adminEditingId}
@@ -1855,6 +2369,32 @@ export default function Home() {
               onOpenAudit={openAdminAuditModal}
               manageSelection={adminManageSelection}
               onManageSelectionChange={setAdminManageSelection}
+            />
+          ) : (
+            <CadastroGeralFormView
+              key={cgManageSelection}
+              editingId={cgEditingId}
+              sequence={cgEditingId ? (cgItems.find((a) => a.id === cgEditingId)?.nr_sequencia ?? null) : null}
+              form={cgForm}
+              setForm={setCgForm}
+              submitting={cgSubmitting}
+              handleSubmit={handleCgSubmit}
+              goToList={goToCgList}
+              createdAt={cgAuditInfo.createdAt}
+              updatedAt={cgAuditInfo.updatedAt}
+              createdBy={cgAuditInfo.createdBy}
+              updatedBy={cgAuditInfo.updatedBy}
+              onPrevRecord={goToPrevCgRecord}
+              onNextRecord={goToNextCgRecord}
+              hasPrevRecord={hasPrevCgRecord}
+              hasNextRecord={hasNextCgRecord}
+              onOpenAudit={openCgAuditModal}
+              manageSelection={cgManageSelection}
+              onManageSelectionChange={handleCgManageSelectionChange}
+              selectOptions={CG_SELECT_OPTIONS}
+              fieldInfos={cgFieldInfos}
+              descFieldKey={cgDescKey}
+              collectionName={cgCollection}
             />
           )}
         </div>
@@ -2154,6 +2694,17 @@ export default function Home() {
             </div>
           </form>
         </div>
+      )}
+
+      {cgFilterModalOpen && view === "list" && activeSection === "cadastrosGerais" && (
+        <CadastroGeralFilterModal
+          open={cgFilterModalOpen}
+          onClose={closeCgFilterModal}
+          filterForm={cgFilterForm}
+          setFilterForm={setCgFilterForm}
+          onSubmit={handleCgFilterSubmit}
+          onClear={clearCgFilter}
+        />
       )}
 
       {auditModalOpen && (
@@ -2481,6 +3032,7 @@ export default function Home() {
         const after = auditLogs[selectedAuditIndex]?.detalhes ?? {};
         const before = auditLogs[selectedAuditIndex + 1]?.detalhes ?? null;
         const isUsuario = auditDocumentType === 'usuario';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao';
         const fieldsOrder = isUsuario
           ? [
               'nr_sequencia',
@@ -2489,6 +3041,14 @@ export default function Home() {
               'ds_usuario_alternativo',
               'ie_status',
               'ds_observacao',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
+          : isCg
+          ? [
+              'nr_sequencia',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : 'ds_sexo',
+              'ie_status',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -2536,6 +3096,10 @@ export default function Home() {
                       dt_nascimento: 'Data de nascimento',
                       ds_email: 'E-mail',
                       nr_telefone: 'Telefone',
+                      ds_sexo: 'Descrição',
+                      ds_estado_civil: 'Descrição',
+                      ds_cor_raca: 'Descrição',
+                      ds_profissao: 'Descrição',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
                     };
@@ -2604,7 +3168,7 @@ export default function Home() {
         );
       })()}
 
-      {(submitting || adminSubmitting) && view === "form" && (
+      {(submitting || adminSubmitting || cgSubmitting) && view === "form" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
           <div className="w-full max-w-[240px] border border-slate-200 bg-white p-6 text-center shadow-xl shadow-black/20">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#003056]/10 text-[#003056]">

@@ -11,6 +11,10 @@ export interface Usuario {
   ie_tema?: string;
   ds_config_colunas_pf?: string;
   ds_config_colunas_admin?: string;
+  ds_config_colunas_cg_sexo?: string;
+  ds_config_colunas_cg_estado_civil?: string;
+  ds_config_colunas_cg_cor_raca?: string;
+  ds_config_colunas_cg_profissao?: string;
   ds_config_ordem_menu?: string;
   dt_criacao: string;
   dt_alteracao: string;
