@@ -2492,7 +2492,7 @@ export default function Home() {
       {filterModalOpen && view === "list" && activeSection === "pessoaFisica" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeFilterModal} />
-          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -2509,7 +2509,7 @@ export default function Home() {
             </div>
 
             <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
-              <div className="sm:col-span-3">
+              <div className="sm:col-span-2">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
                   Sequência
                 </label>
@@ -2521,7 +2521,7 @@ export default function Home() {
                   onChange={(e) => setFilterForm({ ...filterForm, nr_sequencia: e.target.value })}
                 />
               </div>
-              <div className="sm:col-span-9">
+              <div className="sm:col-span-7">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
                   Nome completo
                 </label>
@@ -2532,7 +2532,7 @@ export default function Home() {
                 />
               </div>
 
-              <div className="sm:col-span-6">
+              <div className="sm:col-span-3">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
                   CPF
                 </label>
