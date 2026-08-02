@@ -64,6 +64,9 @@ const SESSION_KEY = "quasar_session";
 /* Chave base da preferência de tema no localStorage (uma por usuário) */
 const DARK_MODE_KEY = "quasar_dark_mode";
 
+/* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
+const SYSTEM_VERSION = "0.1.0";
+
 function getDarkModeKey(userId?: string | null): string {
   return userId ? `${DARK_MODE_KEY}_${userId}` : DARK_MODE_KEY;
 }
@@ -1355,7 +1358,7 @@ export default function Home() {
         }`}
       >
         <div
-          className="relative flex items-center border-b border-[#004a7a] cursor-pointer select-none"
+          className="relative flex items-center border-b border-[#004a7a] cursor-pointer select-none outline-none"
           style={{ height: "44px" }}
           onClick={() => setIsSidebarOpen((prev) => !prev)}
           role="button"
@@ -1391,7 +1394,7 @@ export default function Home() {
         <nav className="mt-2 flex flex-col gap-0.5 px-1">
           <button
             type="button"
-            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] cursor-pointer outline-none ${
               isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
             } ${activeSection === 'pessoaFisica' ? 'bg-[#004a7a]' : ''}`}
             onClick={() => {
@@ -1437,7 +1440,7 @@ export default function Home() {
           </button>
           <button
             type="button"
-            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+            className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] cursor-pointer outline-none ${
               isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
             } ${activeSection === 'administracaoSistema' ? 'bg-[#004a7a]' : ''}`}
             onClick={() => {
@@ -1506,7 +1509,7 @@ export default function Home() {
                   setIsUserMenuOpen(true);
                 }
               }}
-              className={`flex w-full items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] cursor-pointer ${
+              className={`flex w-full items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] cursor-pointer outline-none ${
                 isSidebarOpen ? "justify-start gap-2.5" : "justify-center gap-0"
               } ${isUserMenuOpen ? "bg-[#004a7a]" : ""}`}
             >
@@ -1535,18 +1538,67 @@ export default function Home() {
                   }}
                 />
                 <div
-                  className="fixed bottom-4 left-4 z-50 origin-bottom-left max-w-[320px] w-auto inline-block rounded-[3px] bg-[#003056] p-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                  className="fixed bottom-4 left-4 z-50 origin-bottom-left max-w-[320px] w-auto inline-block rounded-[2px] bg-[#003056] p-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
                   style={{ animation: isUserMenuClosing ? "popupClose 220ms cubic-bezier(0.16, 1, 0.3, 1) both" : "popupOpen 220ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
                 >
-                  <div className="mb-3 flex flex-col items-center gap-3 pb-3">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
-                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  {/* Canto superior: switch à esquerda, sair encostado na borda direita */}
+                  <div className="-mr-[10px] flex items-center justify-between">
+                    <button
+                      type="button"
+                      onClick={toggleDarkMode}
+                      className="flex cursor-pointer items-center rounded-[2px] bg-transparent text-white transition outline-none"
+                      aria-pressed={darkMode}
+                    >
+                      <span className="flex h-6 w-11 shrink-0 items-center rounded-full bg-white/30 p-[2px] transition-colors duration-300">
+                        <span
+                          className={`flex h-5 w-5 items-center justify-center rounded-full bg-white shadow transition-transform duration-300 ease-out ${
+                            darkMode ? "translate-x-5" : "translate-x-0"
+                          }`}
+                        >
+                          {darkMode ? (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#003056]">
+                              <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+                            </svg>
+                          ) : (
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="12" cy="12" r="4" />
+                              <path d="M12 2v2" />
+                              <path d="M12 20v2" />
+                              <path d="m4.93 4.93 1.41 1.41" />
+                              <path d="m17.66 17.66 1.41 1.41" />
+                              <path d="M2 12h2" />
+                              <path d="M20 12h2" />
+                              <path d="m6.34 17.66-1.41 1.41" />
+                              <path d="m19.07 4.93-1.41 1.41" />
+                            </svg>
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleLogout}
+                      className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[2px] bg-transparent text-white transition outline-none"
+                      aria-label="Sair"
+                    >
+                      <svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+                        <path d="m16 17 5-5-5-5" />
+                        <path d="M21 12H9" />
+                      </svg>
+                    </button>
+                  </div>
+
+                  {/* Avatar e nomes */}
+                  <div className="my-3 flex flex-col items-center gap-3">
+                    <div className="flex h-[76px] w-[76px] shrink-0 items-center justify-center rounded-full bg-white/10 text-white">
+                      <svg width="50" height="50" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
                         <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
                         <circle cx="12" cy="7" r="4" />
                       </svg>
                     </div>
                     <div className="min-w-0 text-center">
-                      <p className="text-[13px] font-semibold text-white">
+                      <p className="text-[15px] font-semibold text-white">
                         {currentUserPersonName}
                       </p>
                       <p className="text-sm text-white/70">
@@ -1554,47 +1606,46 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={toggleDarkMode}
-                    className="mb-2 flex w-full cursor-pointer items-center justify-between rounded-[6px] bg-[#1A4567] px-[9px] py-[7px] text-sm font-semibold text-white transition hover:bg-[#173d5c]"
-                    aria-pressed={darkMode}
-                  >
-                    <span className="flex items-center gap-2">
-                      {darkMode ? (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="4" />
-                          <path d="M12 2v2" />
-                          <path d="M12 20v2" />
-                          <path d="m4.93 4.93 1.41 1.41" />
-                          <path d="m17.66 17.66 1.41 1.41" />
-                          <path d="M2 12h2" />
-                          <path d="M20 12h2" />
-                          <path d="m6.34 17.66-1.41 1.41" />
-                          <path d="m19.07 4.93-1.41 1.41" />
-                        </svg>
-                      ) : (
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
-                        </svg>
-                      )}
-                      <span>{darkMode ? "Modo claro" : "Modo escuro"}</span>
-                    </span>
-                    <span
-                      className={`flex h-5 w-9 shrink-0 items-center rounded-full p-[2px] transition-colors duration-200 ${
-                        darkMode ? "justify-end bg-[#2cc958]" : "justify-start bg-white/30"
-                      }`}
+
+                  {/* Alterar senha, Base de Conhecimento, Central de Suporte e Política de Privacidade */}
+                  <div className="mt-8 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsUserMenuClosing(false);
+                        if (currentUser) openChangePasswordModal(currentUser);
+                      }}
+                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
                     >
-                      <span className="h-4 w-4 rounded-full bg-white shadow" />
+                      Alterar senha
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                    >
+                      Base de Conhecimento
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                    >
+                      Central de Suporte
+                    </button>
+                    <button
+                      type="button"
+                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                    >
+                      Política de Privacidade
+                    </button>
+                  </div>
+
+                  {/* Versão do sistema */}
+                  <div className="mt-4 flex flex-col items-start gap-1 text-[11px]" style={{ color: '#fff' }}>
+                    <span>
+                      <span className="font-semibold">Versão:</span> {SYSTEM_VERSION}
                     </span>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleLogout}
-                    className="w-full cursor-pointer rounded-[6px] border-0 border-b border-white/30 bg-[#1A4567] px-[9px] py-[7px] text-sm font-semibold text-white transition hover:bg-[#173d5c]"
-                  >
-                    Sair
-                  </button>
+                  </div>
                 </div>
               </>
             )}
