@@ -8,14 +8,17 @@ export interface Usuario {
   ds_email?: string;
   ds_senha: string;
   ds_observacao: string;
-  ie_tema?: string;
-  ds_config_colunas_pf?: string;
-  ds_config_colunas_admin?: string;
-  ds_config_colunas_cg_sexo?: string;
-  ds_config_colunas_cg_estado_civil?: string;
-  ds_config_colunas_cg_cor_raca?: string;
-  ds_config_colunas_cg_profissao?: string;
-  ds_config_ordem_menu?: string;
+  /* Preferências personalizadas do usuário (nomes padronizados) */
+  config_tema?: string;
+  config_colunas_pessoa_fisica?: string;
+  config_colunas_as_usuario?: string;
+  config_colunas_cg_sexo?: string;
+  config_colunas_cg_estado_civil?: string;
+  config_colunas_cg_cor_raca?: string;
+  config_colunas_cg_profissao?: string;
+  config_ordem_menu_lateral?: string;
+  ds_usuario_criacao?: string;
+  ds_usuario_alteracao?: string;
   dt_criacao: string;
   dt_alteracao: string;
 }

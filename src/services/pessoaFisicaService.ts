@@ -52,17 +52,20 @@ export async function obterPessoasFisicas(): Promise<PessoaFisica[]> {
 }
 
 export async function criarPessoaFisica(
-  pessoa: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">,
+  pessoa: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
   autor?: AuditAutor
 ): Promise<string> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequencia();
+  const nomeAutor = autor?.usuarioNome?.trim() || '-';
 
   const docRef = await addDoc(pessoaFisicaColecao, {
     ...pessoa,
     nr_sequencia,
     dt_criacao: agora,
     dt_alteracao: agora,
+    ds_usuario_criacao: nomeAutor,
+    ds_usuario_alteracao: nomeAutor,
   });
   try {
     // registrar auditoria na subcollection pessoa_fisica/{id}/auditoria
@@ -85,7 +88,7 @@ export async function criarPessoaFisica(
 
 export async function atualizarPessoaFisica(
   id: string,
-  pessoa: Partial<Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao">>,
+  pessoa: Partial<Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "ds_usuario_criacao" | "ds_usuario_alteracao">>,
   autor?: AuditAutor
 ): Promise<void> {
   const docRef = doc(db, "pessoa_fisica", id);
@@ -105,14 +108,16 @@ export async function atualizarPessoaFisica(
   }
 
   const agora = new Date().toISOString();
+  const nomeAutor = autor?.usuarioNome?.trim() || '-';
   await updateDoc(docRef, {
     ...pessoa,
     dt_alteracao: agora,
+    ds_usuario_alteracao: nomeAutor,
   });
 
   try {
     const auditCol = collection(db, "pessoa_fisica", id, "auditoria");
-    const full = { ...currentData, ...pessoa, dt_alteracao: agora };
+    const full = { ...currentData, ...pessoa, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? '-',

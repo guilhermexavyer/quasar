@@ -52,17 +52,20 @@ export async function obterUsuarios(): Promise<Usuario[]> {
 }
 
 export async function criarUsuario(
-  usuario: Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">,
+  usuario: Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
   autor?: AuditAutor
 ): Promise<string> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoUsuarioSequencia();
+  const nomeAutor = autor?.usuarioNome?.trim() || '-';
 
   const docRef = await addDoc(usuarioColecao, {
     ...usuario,
     nr_sequencia,
     dt_criacao: agora,
     dt_alteracao: agora,
+    ds_usuario_criacao: nomeAutor,
+    ds_usuario_alteracao: nomeAutor,
   });
 
   try {
@@ -77,6 +80,8 @@ export async function criarUsuario(
         nr_sequencia,
         dt_criacao: agora,
         dt_alteracao: agora,
+        ds_usuario_criacao: nomeAutor,
+        ds_usuario_alteracao: nomeAutor,
       },
     });
   } catch (e) {
@@ -88,7 +93,7 @@ export async function criarUsuario(
 
 export async function atualizarUsuario(
   id: string,
-  usuario: Partial<Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao">>,
+  usuario: Partial<Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "ds_usuario_criacao" | "ds_usuario_alteracao">>,
   autor?: AuditAutor
 ): Promise<void> {
   const docRef = doc(db, "usuario", id);
@@ -99,9 +104,11 @@ export async function atualizarUsuario(
 
   const currentData = snap.data() as Record<string, any>;
   const agora = new Date().toISOString();
+  const nomeAutor = autor?.usuarioNome?.trim() || '-';
   await updateDoc(docRef, {
     ...usuario,
     dt_alteracao: agora,
+    ds_usuario_alteracao: nomeAutor,
   });
 
   try {
@@ -109,6 +116,7 @@ export async function atualizarUsuario(
       ...currentData,
       ...usuario,
       dt_alteracao: agora,
+      ds_usuario_alteracao: nomeAutor,
     };
 
     const changedKeys = Object.keys(usuario).filter((key) => {
@@ -132,8 +140,8 @@ export async function atualizarUsuario(
   }
 }
 
-export async function atualizarPreferenciaTema(id: string, ie_tema: string): Promise<void> {
-  await atualizarPreferenciasUsuario(id, { ie_tema });
+export async function atualizarPreferenciaTema(id: string, config_tema: string): Promise<void> {
+  await atualizarPreferenciasUsuario(id, { config_tema });
 }
 
 export async function atualizarPreferenciasUsuario(

@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Seeder — Cadastros Gerais
+ * Seeder — Cadastros Gerais e Usuário Inicial
  *
  * Popula as coleções de cadastros gerais do sistema com dados padrão
  * baseados nas classificações oficiais brasileiras:
@@ -8,6 +8,8 @@
  *   - cg_estado_civil  → todos os estados civis (Código Civil / IBGE)
  *   - cg_cor_raca      → as 5 categorias do IBGE (cor ou raça)
  *   - cg_profissao     → lista ampla de profissões (inspirada na CBO)
+ *   - usuario          → usuário administrador inicial (nr_sequencia 1,
+ *                        senha em SHA-256, criado por 'implantacao')
  *
  * O script é IDEMPOTENTE: registros cuja descrição já existe são ignorados.
  * Após inserir, sincroniza o contador da coleção (_counters) para que os
@@ -16,13 +18,15 @@
  * Uso:
  *   node --env-file=.env.local scripts/seed.mjs
  *
- * Para limpar antes de rodar (apaga tudo das 4 coleções e contadores):
+ * Para limpar antes de rodar (apaga as coleções de cadastros gerais e seus
+ * contadores — a coleção usuario NÃO é apagada, preservando contas existentes):
  *   node --env-file=.env.local scripts/seed.mjs --reset
  *
  * Para apenas mostrar o que seria inserido (sem escrever nada):
  *   node --env-file=.env.local scripts/seed.mjs --dry-run
  */
 
+import { createHash } from "node:crypto";
 import { initializeApp, getApps } from "firebase/app";
 import {
   getFirestore,
@@ -198,6 +202,14 @@ const DRY_RUN = process.argv.includes("--dry-run");
 const USUARIO_IMPLANTACAO = "implantacao";
 const DATA_IMPLANTACAO = "2026-01-01T00:00:00";
 
+/* Usuário administrador inicial do sistema */
+const USUARIO_ADMIN = {
+  ds_usuario: "administrador",
+  ds_usuario_alternativo: "administrador",
+  senha: "quasar.123456",
+  ie_status: "A",
+};
+
 /* ------------------------------------------------------------------ */
 /*  Reset (opcional)                                                  */
 /* ------------------------------------------------------------------ */
@@ -299,11 +311,78 @@ async function semearColecao(cfg) {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Seed do usuário administrador inicial                             */
+/* ------------------------------------------------------------------ */
+
+async function semearUsuario() {
+  const colRef = collection(db, "usuario");
+  const snap = await getDocs(colRef);
+
+  // Já existe (comparação insensível a maiúsculas, espaços e acentos)
+  const jaExiste = snap.docs.some((d) =>
+    normalizar(d.data().ds_usuario) === normalizar(USUARIO_ADMIN.ds_usuario)
+  );
+
+  // Maior nr_sequencia atual (para manter a numeração e o contador corretos)
+  let maxSeq = 0;
+  if (snap.size > 0) {
+    maxSeq = Math.max(...snap.docs.map((d) => Number(d.data().nr_sequencia) || 0));
+  }
+
+  // Sequência 1 é a ideal, mas se outro usuário já a ocupa, usa a próxima livre
+  const seqAdmin = snap.docs.some((d) => Number(d.data().nr_sequencia) === 1)
+    ? maxSeq + 1
+    : 1;
+
+  if (jaExiste) {
+    // Mesmo sem inserir, corrige o contador se estiver atrasado
+    await setDoc(
+      doc(db, "_counters", "usuario_sequence"),
+      { current: Math.max(maxSeq, 1) },
+      { merge: true }
+    );
+    console.log(`ℹ️  usuario: administrador já existe (${snap.size} usuário(s) no total)`);
+    return { nome: "usuario", inseridos: 0, existentes: snap.size };
+  }
+
+  if (DRY_RUN) {
+    console.log(`👀 usuario: administrador seria inserido (nr_sequencia: ${seqAdmin})`);
+    return { nome: "usuario", inseridos: 1, existentes: snap.size };
+  }
+
+  // SHA-256 em hexadecimal — mesmo formato que o hashPassword do login
+  const senhaHash = createHash("sha256").update(USUARIO_ADMIN.senha).digest("hex");
+
+  await setDoc(doc(colRef), {
+    nr_sequencia: seqAdmin,
+    ds_usuario: USUARIO_ADMIN.ds_usuario,
+    ds_usuario_alternativo: USUARIO_ADMIN.ds_usuario_alternativo,
+    ds_senha: senhaHash,
+    ie_status: USUARIO_ADMIN.ie_status,
+    ds_observacao: "",
+    dt_criacao: DATA_IMPLANTACAO,
+    dt_alteracao: DATA_IMPLANTACAO,
+    ds_usuario_criacao: USUARIO_IMPLANTACAO,
+    ds_usuario_alteracao: USUARIO_IMPLANTACAO,
+  });
+
+  // Sincroniza o contador para o próximo cadastro pela tela continuar correto
+  await setDoc(
+    doc(db, "_counters", "usuario_sequence"),
+    { current: Math.max(maxSeq, 1) },
+    { merge: true }
+  );
+
+  console.log(`✅ usuario: administrador inserido (nr_sequencia: 1)`);
+  return { nome: "usuario", inseridos: 1, existentes: snap.size };
+}
+
+/* ------------------------------------------------------------------ */
 /*  Execução                                                          */
 /* ------------------------------------------------------------------ */
 
 async function main() {
-  console.log("🌱 Seeder — Cadastros Gerais\n");
+  console.log("🌱 Seeder — Cadastros Gerais e Usuário Inicial\n");
   if (RESET && !DRY_RUN) await resetar();
 
   const total = { inseridos: 0 };
@@ -311,6 +390,8 @@ async function main() {
     const r = await semearColecao(cfg);
     total.inseridos += r.inseridos;
   }
+  const rUsuario = await semearUsuario();
+  total.inseridos += rUsuario.inseridos;
 
   if (DRY_RUN) {
     console.log(
@@ -318,7 +399,7 @@ async function main() {
     );
   } else {
     console.log(
-      `\n🎉 Concluído! ${total.inseridos} novos registros em ${COLECOES.length} coleções.`
+      `\n🎉 Concluído! ${total.inseridos} novos registros em ${COLECOES.length + 1} coleções.`
     );
     console.log(
       "   Lembre-se: para os registros aparecerem, a tela precisa estar na seção Cadastros Gerais."

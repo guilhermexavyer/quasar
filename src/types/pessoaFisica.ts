@@ -10,4 +10,6 @@ export interface PessoaFisica {
   nr_telefone: string;
   dt_criacao: string;
   dt_alteracao: string;
+  ds_usuario_criacao?: string;
+  ds_usuario_alteracao?: string;
 }

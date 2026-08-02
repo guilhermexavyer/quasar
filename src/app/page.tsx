@@ -398,18 +398,18 @@ export default function Home() {
   }, [currentUser, pessoasFisicas]);
 
   const pfColunasConfig = useMemo(
-    () => parseColunasConfig(currentUser?.ds_config_colunas_pf),
-    [currentUser?.ds_config_colunas_pf]
+    () => parseColunasConfig(currentUser?.config_colunas_pessoa_fisica),
+    [currentUser?.config_colunas_pessoa_fisica]
   );
   const adminColunasConfig = useMemo(
-    () => parseColunasConfig(currentUser?.ds_config_colunas_admin),
-    [currentUser?.ds_config_colunas_admin]
+    () => parseColunasConfig(currentUser?.config_colunas_as_usuario),
+    [currentUser?.config_colunas_as_usuario]
   );
   const CG_DEFS = {
     sexo: {
       descKey: 'ds_sexo',
       collection: 'cg_sexo',
-      configKey: 'ds_config_colunas_cg_sexo',
+      configKey: 'config_colunas_cg_sexo',
       columns: SEXO_COLUMNS,
       fieldInfos: SEXO_FIELD_INFOS,
       items: (): CgItem[] => sexos,
@@ -418,7 +418,7 @@ export default function Home() {
     estadoCivil: {
       descKey: 'ds_estado_civil',
       collection: 'cg_estado_civil',
-      configKey: 'ds_config_colunas_cg_estado_civil',
+      configKey: 'config_colunas_cg_estado_civil',
       columns: ESTADO_CIVIL_COLUMNS,
       fieldInfos: ESTADO_CIVIL_FIELD_INFOS,
       items: (): CgItem[] => estadoCivis,
@@ -427,7 +427,7 @@ export default function Home() {
     corRaca: {
       descKey: 'ds_cor_raca',
       collection: 'cg_cor_raca',
-      configKey: 'ds_config_colunas_cg_cor_raca',
+      configKey: 'config_colunas_cg_cor_raca',
       columns: COR_RACA_COLUMNS,
       fieldInfos: COR_RACA_FIELD_INFOS,
       items: (): CgItem[] => coresRacas,
@@ -436,7 +436,7 @@ export default function Home() {
     profissao: {
       descKey: 'ds_profissao',
       collection: 'cg_profissao',
-      configKey: 'ds_config_colunas_cg_profissao',
+      configKey: 'config_colunas_cg_profissao',
       columns: PROFISSAO_COLUMNS,
       fieldInfos: PROFISSAO_FIELD_INFOS,
       items: (): CgItem[] => profissoes,
@@ -582,10 +582,10 @@ export default function Home() {
   useEffect(() => {
     if (!currentUser?.id) return;
     const userKey = getDarkModeKey(currentUser.id);
-    if (currentUser.ie_tema) {
-      setDarkMode(currentUser.ie_tema === 'E');
+    if (currentUser.config_tema) {
+      setDarkMode(currentUser.config_tema === 'E');
       try {
-        window.localStorage.setItem(userKey, currentUser.ie_tema === 'E' ? "1" : "0");
+        window.localStorage.setItem(userKey, currentUser.config_tema === 'E' ? "1" : "0");
       } catch {
         /* storage indisponível */
       }
@@ -603,7 +603,7 @@ export default function Home() {
   /* ── Aplicar ordem das funções do menu do usuário logado ── */
   useEffect(() => {
     if (!currentUser) return;
-    const parsed = parseMenuOrder(currentUser.ds_config_ordem_menu);
+    const parsed = parseMenuOrder(currentUser.config_ordem_menu_lateral);
     setMenuOrder(parsed ? normalizeMenuOrder(parsed) : DEFAULT_SECTION_ORDER);
   }, [currentUser]);
 
@@ -914,8 +914,8 @@ export default function Home() {
       });
       setAuditInfo((prev) => ({
         ...prev,
-        createdBy: createLog?.usuarioNome ?? '',
-        updatedBy: lastChangeLog?.usuarioNome ?? '',
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
       }));
     } catch {
       // mantém vazio em caso de falha
@@ -933,8 +933,8 @@ export default function Home() {
       });
       setAdminAuditInfo((prev) => ({
         ...prev,
-        createdBy: createLog?.usuarioNome ?? '',
-        updatedBy: lastChangeLog?.usuarioNome ?? '',
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
       }));
     } catch {
       // mantém vazio em caso de falha
@@ -973,8 +973,8 @@ export default function Home() {
     setAuditInfo({
       createdAt: pessoa.dt_criacao ?? '',
       updatedAt: pessoa.dt_alteracao ?? '',
-      createdBy: '',
-      updatedBy: '',
+      createdBy: pessoa.ds_usuario_criacao ?? '',
+      updatedBy: pessoa.ds_usuario_alteracao ?? '',
     });
     auditPessoaIdRef.current = pessoa.id ?? null;
     setMessage("");
@@ -1000,8 +1000,8 @@ export default function Home() {
     setAdminAuditInfo({
       createdAt: usuario.dt_criacao ?? '',
       updatedAt: usuario.dt_alteracao ?? '',
-      createdBy: '',
-      updatedBy: '',
+      createdBy: usuario.ds_usuario_criacao ?? '',
+      updatedBy: usuario.ds_usuario_alteracao ?? '',
     });
     auditUsuarioIdRef.current = usuario.id ?? null;
     setMessage("");
@@ -1807,10 +1807,10 @@ export default function Home() {
       /* storage indisponível */
     }
     if (currentUser?.id) {
-      const ie_tema = next ? 'E' : 'C';
-      atualizarPreferenciaTema(currentUser.id, ie_tema)
+      const config_tema = next ? 'E' : 'C';
+      atualizarPreferenciaTema(currentUser.id, config_tema)
         .then(() => {
-          setCurrentUser((u) => (u ? { ...u, ie_tema } : u));
+          setCurrentUser((u) => (u ? { ...u, config_tema } : u));
         })
         .catch((err) => {
           console.error('Erro ao salvar preferência de tema no banco', err);
@@ -1821,9 +1821,9 @@ export default function Home() {
   function handlePfColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
-    atualizarPreferenciasUsuario(currentUser.id, { ds_config_colunas_pf: serialized })
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pessoa_fisica: serialized })
       .then(() => {
-        setCurrentUser((u) => (u ? { ...u, ds_config_colunas_pf: serialized } : u));
+        setCurrentUser((u) => (u ? { ...u, config_colunas_pessoa_fisica: serialized } : u));
       })
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Pessoas Físicas)', err);
@@ -1833,9 +1833,9 @@ export default function Home() {
   function handleAdminColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
-    atualizarPreferenciasUsuario(currentUser.id, { ds_config_colunas_admin: serialized })
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_as_usuario: serialized })
       .then(() => {
-        setCurrentUser((u) => (u ? { ...u, ds_config_colunas_admin: serialized } : u));
+        setCurrentUser((u) => (u ? { ...u, config_colunas_as_usuario: serialized } : u));
       })
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Usuários)', err);
@@ -1890,9 +1890,9 @@ export default function Home() {
   function persistMenuOrder(order: SectionType[]) {
     if (!currentUser?.id) return;
     const serialized = serializeMenuOrder(order);
-    atualizarPreferenciasUsuario(currentUser.id, { ds_config_ordem_menu: serialized })
+    atualizarPreferenciasUsuario(currentUser.id, { config_ordem_menu_lateral: serialized })
       .then(() => {
-        setCurrentUser((u) => (u ? { ...u, ds_config_ordem_menu: serialized } : u));
+        setCurrentUser((u) => (u ? { ...u, config_ordem_menu_lateral: serialized } : u));
       })
       .catch((err) => {
         console.error('Erro ao salvar ordem do menu', err);
@@ -2159,7 +2159,7 @@ export default function Home() {
                               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                             </svg>
                           ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#f59e0b" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="12" cy="12" r="4" />
                               <path d="M12 2v2" />
                               <path d="M12 20v2" />
@@ -2369,6 +2369,7 @@ export default function Home() {
               onOpenAudit={openAdminAuditModal}
               manageSelection={adminManageSelection}
               onManageSelectionChange={setAdminManageSelection}
+              readOnly={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.ds_usuario ?? '').trim().toLowerCase() === 'administrador' : false}
             />
           ) : (
             <CadastroGeralFormView
