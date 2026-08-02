@@ -6,6 +6,7 @@ import type { ContextMenuState } from "@/types/contextMenu";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import { COLUMNS, formatCellValue } from "@/lib/pessoaFisicaUtils";
 import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import Select from "@/components/ui/Select";
 
 interface ListViewProps {
   message: string;
@@ -21,6 +22,7 @@ interface ListViewProps {
   onSortChange: (logicalIndex: number) => void;
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
+  columnLookups?: Partial<Record<keyof PessoaFisica, Record<number, string>>>;
 }
 
 export default function PessoaFisicaListView({
@@ -37,6 +39,7 @@ export default function PessoaFisicaListView({
   onSortChange,
   initialColumns,
   onColumnsChange,
+  columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -44,10 +47,10 @@ export default function PessoaFisicaListView({
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
     initialColumns && isValidOrder(initialColumns.order, COLUMNS.length)
       ? [...initialColumns.order]
-      : [0, 1, 2, 3, 4, 5, 6, 7]
+      : Array.from({ length: COLUMNS.length }, (_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
-  const [pageSize, setPageSize] = useState<number | 'all'>(15);
+  const [pageSize, setPageSize] = useState<number | 'all'>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
   const minWidthsRef = useRef<number[]>([]);
@@ -532,7 +535,10 @@ export default function PessoaFisicaListView({
                         {columnOrder.map((logicalIdx) => {
                           const col = COLUMNS[logicalIdx];
                           const value = pessoa[col.key];
-                          const displayValue = formatCellValue(col.key, value);
+                          const lookupMap = columnLookups?.[col.key];
+                          const displayValue = lookupMap
+                            ? (value !== null && value !== undefined && value !== '' ? (lookupMap[Number(value)] ?? '') : '')
+                            : formatCellValue(col.key, value);
                           const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
@@ -616,21 +622,18 @@ export default function PessoaFisicaListView({
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <select
-                        aria-label="Registros por página"
-                        value={pageSize}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setPageSize(value === 'all' ? 'all' : Number(value));
-                        }}
-                        className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 outline-none transition focus:border-[#003056]"
-                      >
-                        <option value={15}>15 por página</option>
-                        <option value={25}>25 por página</option>
-                        <option value={50}>50 por página</option>
-                        <option value={100}>100 por página</option>
-                        <option value="all">Todos</option>
-                      </select>
+                      <Select
+                        value={String(pageSize)}
+                        onChange={(v) => setPageSize(v === 'all' ? 'all' : Number(v))}
+                        options={[
+                          { value: '25', label: '25 por página' },
+                          { value: '50', label: '50 por página' },
+                          { value: '100', label: '100 por página' },
+                          { value: 'all', label: 'Todos' },
+                        ]}
+                        showPlaceholder={false}
+                        className="min-w-[130px]"
+                      />
                     </div>
                   </div>
 

@@ -9,6 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { removerUndefined } from "@/lib/firestoreUtils";
 import type { Usuario } from "@/types/usuario";
 import type { AuditAutor } from "@/services/auditService";
 
@@ -59,8 +60,10 @@ export async function criarUsuario(
   const nr_sequencia = await obterProximoUsuarioSequencia();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
 
+  const dados = removerUndefined(usuario);
+
   const docRef = await addDoc(usuarioColecao, {
-    ...usuario,
+    ...dados,
     nr_sequencia,
     dt_criacao: agora,
     dt_alteracao: agora,
@@ -76,7 +79,7 @@ export async function criarUsuario(
       acao: 'create',
       timestamp: agora,
       detalhes: {
-        ...usuario,
+        ...dados,
         nr_sequencia,
         dt_criacao: agora,
         dt_alteracao: agora,
@@ -103,10 +106,20 @@ export async function atualizarUsuario(
   }
 
   const currentData = snap.data() as Record<string, any>;
+  const hasActualChanges = Object.entries(usuario).some(([key, value]) => {
+    const currentValue = currentData[key];
+    return String(currentValue ?? '') !== String(value ?? '');
+  });
+
+  if (!hasActualChanges) {
+    return;
+  }
+
+  const dados = removerUndefined(usuario);
   const agora = new Date().toISOString();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
   await updateDoc(docRef, {
-    ...usuario,
+    ...dados,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,
   });
@@ -114,7 +127,7 @@ export async function atualizarUsuario(
   try {
     const updatedData = {
       ...currentData,
-      ...usuario,
+      ...dados,
       dt_alteracao: agora,
       ds_usuario_alteracao: nomeAutor,
     };

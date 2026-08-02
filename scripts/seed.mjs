@@ -61,7 +61,7 @@ const db = getFirestore(app);
 /*  Dados dos cadastros gerais                                        */
 /* ------------------------------------------------------------------ */
 
-const SEXOS = ["Masculino", "Feminino"];
+const SEXOS = ["Masculino", "Feminino", "Outro"];
 
 const ESTADOS_CIVIS = [
   "Solteiro",
@@ -70,6 +70,7 @@ const ESTADOS_CIVIS = [
   "Divorciado",
   "Viúvo",
   "União estável",
+  "Outro",
 ];
 
 const CORES_RACAS = ["Branca", "Preta", "Parda", "Amarela", "Indígena"];
@@ -178,6 +179,325 @@ const PROFISSOES = [
   "Disc Jockey", "Iluminador", "Sonoplasta", "Cenógrafo", "Figurinista",
 ];
 
+/* CBO (Classificação Brasileira de Ocupações — CBO 2002) por profissão.
+   Apenas as profissões que possuem código oficial recebem nr_cbo; as demais
+   (ocupações modernas sem código na CBO 2002) ficam sem o campo. */
+const PROFISSOES_CBO = {
+  // Saúde
+  "Médico": "223105",
+  "Enfermeiro": "223505",
+  "Técnico de Enfermagem": "322230",
+  "Auxiliar de Enfermagem": "322225",
+  "Dentista": "223205",
+  "Farmacêutico": "223405",
+  "Fisioterapeuta": "223605",
+  "Psicólogo": "251505",
+  "Nutricionista": "223710",
+  "Fonoaudiólogo": "223805",
+  "Terapeuta Ocupacional": "223905",
+  "Biomédico": "221205",
+  "Biomédica": "221205",
+  "Veterinário": "223305",
+  "Radiologista": "324110",
+  "Massoterapeuta": "322115",
+  "Acupunturista": "223910",
+  "Quiropraxista": "223915",
+  "Agente Comunitário de Saúde": "515105",
+  "Cuidador de Idosos": "516210",
+  "Obstetra": "223115",
+
+  // Engenharia e arquitetura
+  "Engenheiro Civil": "214205",
+  "Engenheiro Mecânico": "214405",
+  "Engenheiro Elétrico": "215105",
+  "Engenheiro Eletrônico": "215205",
+  "Engenheiro Químico": "214605",
+  "Engenheiro de Produção": "214305",
+  "Engenheiro Agrônomo": "222205",
+  "Arquiteto": "214105",
+  "Urbanista": "214105",
+
+  // Tecnologia da informação
+  "Programador": "212420",
+  "Desenvolvedor de Software": "212405",
+  "Analista de Sistemas": "212405",
+  "Administrador de Banco de Dados": "212305",
+  "Administrador de Redes": "212310",
+  "Suporte Técnico": "317105",
+
+  // Educação
+  "Professor": "231205",
+  "Professor Universitário": "231305",
+  "Pedagogo": "239405",
+  "Professor de Educação Física": "224105",
+  "Bibliotecário": "261205",
+
+  // Direito
+  "Advogado": "241005",
+  "Juiz": "241205",
+  "Promotor de Justiça": "241305",
+  "Delegado": "242205",
+
+  // Administração e finanças
+  "Administrador": "252105",
+  "Contador": "252205",
+  "Economista": "251105",
+  "Analista de Recursos Humanos": "252405",
+  "Auditor": "252210",
+  "Atuário": "253105",
+  "Estatístico": "253205",
+  "Assistente Administrativo": "411005",
+  "Recepcionista": "422105",
+  "Caixa": "421105",
+  "Operador de Caixa": "421105",
+  "Teleoperador": "422305",
+  "Almoxarife": "414105",
+
+  // Vendas e comércio
+  "Vendedor": "521105",
+  "Vendedor Interno": "521105",
+  "Vendedor Externo": "521110",
+  "Representante Comercial": "354205",
+  "Comprador": "354210",
+  "Corretor de Imóveis": "354105",
+
+  // Indústria e ofícios
+  "Operador de Empilhadeira": "782210",
+  "Mecânico de Automóveis": "914110",
+  "Eletricista": "715205",
+  "Eletricista Industrial": "731105",
+  "Soldador": "723305",
+  "Torneiro Mecânico": "721105",
+  "Marceneiro": "771105",
+  "Carpinteiro": "771110",
+  "Pedreiro": "715105",
+  "Servente de Obras": "717005",
+  "Mestre de Obras": "710105",
+  "Pintor": "723105",
+  "Encanador": "724105",
+  "Padeiro": "848305",
+  "Confeiteiro": "848310",
+  "Cozinheiro": "513205",
+  "Auxiliar de Cozinha": "513210",
+  "Copeiro": "513405",
+  "Garçom": "513415",
+  "Açougueiro": "516305",
+  "Agricultor": "621005",
+  "Jardinheiro": "622005",
+
+  // Transporte e logística
+  "Motorista": "782305",
+  "Motorista de Ônibus": "782315",
+  "Motorista de Caminhão": "782305",
+  "Taxista": "782310",
+  "Entregador": "519105",
+  "Conferente": "414205",
+  "Piloto de Aeronaves": "312205",
+  "Comissário de Bordo": "312210",
+
+  // Comunicação e artes
+  "Jornalista": "261305",
+  "Tradutor": "261405",
+  "Intérprete": "261410",
+  "Publicitário": "252305",
+  "Designer Gráfico": "262405",
+  "Fotógrafo": "271105",
+  "Ator": "262805",
+  "Atriz": "262805",
+  "Músico": "262605",
+  "Cantor": "262610",
+  "Escritor": "262105",
+
+  // Serviços gerais
+  "Porteiro": "517205",
+  "Vigilante": "517305",
+  "Zelador": "514105",
+  "Faxineiro": "514305",
+  "Manicure": "514315",
+  "Pedicure": "514315",
+  "Cabeleireiro": "516105",
+  "Barbeiro": "516110",
+  "Técnico em Segurança do Trabalho": "351605",
+
+  // Ciências e pesquisa
+  "Físico": "213105",
+  "Químico": "213405",
+  "Matemático": "213205",
+  "Biólogo": "221105",
+
+  // Outros
+  "Guias de Turismo": "511105",
+  "Hoteleiro": "122505",
+  "Turismólogo": "122520",
+  "Recepcionista de Hotel": "422110",
+  "Camareira": "513315",
+  "Governanta": "513305",
+  "Mordomo": "513215",
+  "Sommelier": "513440",
+  "Barman": "513405",
+  "Maître": "513410",
+  "Barista": "513425",
+  "Astrólogo": "516705",
+  "Tatuador": "516810",
+  "Depiladora": "516805",
+
+  // Administração — cargos e finanças
+  "Analista de Marketing": "253115",
+  "Gerente de Vendas": "142320",
+  "Gerente Comercial": "142315",
+  "Gerente de Loja": "142120",
+  "Gerente de Banco": "142110",
+  "Leiloeiro": "142205",
+  "Consultor de Vendas": "354145",
+  "Promotor de Vendas": "521130",
+  "Auxiliar Administrativo": "411010",
+  "Caixa Bancário": "421125",
+  "Secretário Executivo": "252320",
+  "Estoquista": "414115",
+  "Expedidor": "414215",
+  "Carregador": "783225",
+  "Técnico em Logística": "351115",
+
+  // Direito e segurança
+  "Defensor Público": "241230",
+  "Oficial de Justiça": "242225",
+  "Tabelião": "142130",
+  "Notário": "142135",
+  "Registrador": "142135",
+  "Detetive": "351805",
+  "Investigador": "517225",
+  "Perito Criminal": "212430",
+  "Agente de Trânsito": "517220",
+  "Guarda Municipal": "517215",
+  "Segurança Particular": "517330",
+
+  // Educação
+  "Coordenador Pedagógico": "239405",
+  "Orientador Educacional": "239410",
+  "Supervisor de Ensino": "239415",
+  "Diretor de Escola": "131205",
+  "Instrutor de Cursos": "333115",
+  "Professor de Idiomas": "232125",
+  "Professor de Música": "233225",
+  "Educador Físico": "224140",
+  "Personal Trainer": "224140",
+
+  // Engenharia e ciências
+  "Engenheiro Ambiental": "222115",
+  "Geólogo": "216105",
+  "Astrônomo": "211105",
+  "Meteorologista": "211115",
+  "Oceanógrafo": "223224",
+  "Paleontólogo": "211210",
+  "Antropólogo": "251315",
+  "Arqueólogo": "251305",
+  "Filósofo": "251405",
+  "Geógrafo": "251310",
+  "Sociólogo": "251120",
+  "Historiador": "251125",
+  "Químico Industrial": "213215",
+  "Farmacêutico Industrial": "223415",
+  "Pesquisador": "203005",
+
+  // Indústria e ofícios
+  "Operador de Produção": "784205",
+  "Operador de Máquinas": "841420",
+  "Operador de Caldeira": "862120",
+  "Operador de Retroescavadeira": "715140",
+  "Operador de Colheitadeira": "632125",
+  "Tratorista": "632125",
+  "Ferramenteiro": "724205",
+  "Fresador": "721220",
+  "Funileiro": "724315",
+  "Serralheiro": "724440",
+  "Gesseiro": "716510",
+  "Azulejista": "715505",
+  "Telhadista": "715525",
+  "Vidraceiro": "715535",
+  "Estampador": "763310",
+  "Chapeiro": "513435",
+  "Lavadeiro": "516310",
+  "Passadeira": "516325",
+  "Diarista": "516220",
+  "Metalúrgico": "721215",
+  "Mecânico": "913115",
+  "Técnico de Manutenção": "911105",
+  "Técnico de Refrigeração": "911305",
+  "Esteticista": "322130",
+  "Maquiador": "377130",
+  "Pescador": "632105",
+  "Agropecuarista": "611005",
+  "Floricultor": "613205",
+
+  // Comunicação e artes
+  "Arquivista": "261210",
+  "Museólogo": "261215",
+  "Redator": "261130",
+  "Repórter": "261125",
+  "Locutor": "391125",
+  "Cinegrafista": "271110",
+  "Compositor": "261510",
+  "Produtor Musical": "376315",
+  "Produtor de Eventos": "354820",
+  "Organizador de Eventos": "354820",
+  "Cerimonialista": "354825",
+  "Disc Jockey": "376405",
+  "Poeta": "261425",
+  "Percussionista": "276320",
+  "Ilustrador": "262410",
+  "Cartunista": "262415",
+  "Escultor": "262420",
+  "Ceramista": "752105",
+  "Artesão": "376105",
+  "Iluminador": "374125",
+  "Sonoplasta": "374140",
+  "Figurinista": "262810",
+  "Artista Plástico": "262205",
+  "Desenhista Técnico": "318010",
+  "Topógrafo": "312405",
+  "Web Designer": "317120",
+  "Técnico de Informática": "317110",
+  "Atendente": "422125",
+  "Despachante": "342205",
+  "Corretor de Seguros": "351720",
+
+  // CBOs adicionados no levantamento completo
+  "Gestor de Pessoas": "252405",
+  "Consultor Jurídico": "241040",
+  "Comerciante": "141410",
+  "Analista Financeiro": "252545",
+  "Desenvolvedor Mobile": "317110",
+  "UX Designer": "262410",
+  "Controlador Interno": "252220",
+  "Engenheiro de Software": "212405",
+  "Analista de Compras": "354205",
+  "Procurador": "241115",
+  "Engenheiro de Minas": "213105",
+  "Desenvolvedor Web": "317105",
+  "Coreógrafo": "262110",
+  "Editor de Vídeo": "261620",
+  "Analista de Infraestrutura": "317210",
+  "Diretor de Arte": "262405",
+  "Engenheiro de Alimentos": "214605",
+  "Dançarino": "262105",
+  "Revisor de Textos": "261425",
+  "Apresentador": "261310",
+  "Motoboy": "519110",
+  "Eletricista Predial": "715615",
+  "Bombeiro Hidráulico": "715210",
+  "Churrasqueiro": "513215",
+  "Tesoureiro": "413115",
+  "Gestor de Projetos": "142520",
+  "Testador de Software": "317110",
+  "Analista de Crédito": "252525",
+  "Pintor Predial": "716610",
+  "Geneticista": "221105",
+  "Analista de Qualidade": "351105",
+  "Bombeiro Civil": "517110",
+  "Cenógrafo": "262805",
+  "Analista de Logística": "342125",
+};
+
 /* Normalização para comparação: minúsculas, sem espaços e sem acentos */
 function normalizar(valor) {
   return String(valor ?? "")
@@ -192,7 +512,9 @@ const COLECOES = [
   { nome: "cg_sexo",           contador: "cg_sexo_sequence",           campo: "ds_sexo",           valores: SEXOS },
   { nome: "cg_estado_civil",   contador: "cg_estado_civil_sequence",   campo: "ds_estado_civil",   valores: ESTADOS_CIVIS },
   { nome: "cg_cor_raca",       contador: "cg_cor_raca_sequence",       campo: "ds_cor_raca",       valores: CORES_RACAS },
-  { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES },
+  // O CBO é gravado sem máscara (apenas dígitos). O replace abaixo é uma
+  // salvaguarda extra caso o mapa venha a receber um valor com formatação.
+  { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },
 ];
 
 const RESET = process.argv.includes("--reset");
@@ -248,10 +570,54 @@ async function semearColecao(cfg) {
   const colRef = collection(db, cfg.nome);
   const snap = await getDocs(colRef);
 
+  // Normaliza cada valor-fonte: pode ser uma string simples ou um objeto
+  // { [cfg.campo]: "descrição", ...camposExtras } (ex.: nr_cbo na profissão)
+  function nomeDe(valor) {
+    return typeof valor === "string" ? valor : valor[cfg.campo];
+  }
+
   // Descrições já existentes (comparação insensível a maiúsculas, espaços e acentos)
   const existentes = new Set(
     snap.docs.map((d) => normalizar(d.data()[cfg.campo]))
   );
+
+  // Campos extras da fonte (ex.: nr_cbo), por nome normalizado — para backfill
+  const extrasPorNome = new Map();
+  for (const valor of cfg.valores) {
+    if (typeof valor === "object" && valor !== null) {
+      const extras = Object.fromEntries(
+        Object.entries(valor).filter(([k]) => k !== cfg.campo && k !== "id")
+      );
+      if (Object.keys(extras).length > 0) {
+        extrasPorNome.set(normalizar(nomeDe(valor)), extras);
+      }
+    }
+  }
+
+  // Backfill: preenche campos extras ausentes em registros já existentes
+  // (ex.: profissões antigas sem nr_cbo passam a receber o código do seeder).
+  // Apenas os campos extras são gravados — dt_alteracao/ds_usuario_alteracao de
+  // registros existentes NÃO são sobrescritos (preserva edições feitas pela tela).
+  const backfill = writeBatch(db);
+  let backfillCount = 0;
+  for (const d of snap.docs) {
+    const extras = extrasPorNome.get(normalizar(d.data()[cfg.campo]));
+    if (!extras) continue;
+    const precisaAtualizar = Object.entries(extras).some(([k, v]) => {
+      const atual = d.data()[k];
+      return String(atual ?? "") !== String(v ?? "");
+    });
+    if (precisaAtualizar) {
+      backfill.update(doc(db, cfg.nome, d.id), extras);
+      backfillCount += 1;
+    }
+  }
+  if (backfillCount > 0 && !DRY_RUN) {
+    await backfill.commit();
+    console.log(
+      `🔁 ${cfg.nome}: ${backfillCount} registro(s) existente(s) atualizados com campos extras`
+    );
+  }
 
   // Maior nr_sequencia atual (para continuar a numeração)
   let proximaSeq = 1;
@@ -260,10 +626,20 @@ async function semearColecao(cfg) {
     proximaSeq = maxSeq + 1;
   }
 
-  // Deduplica a lista-fonte e ignora o que já existe no banco
-  const novos = [...new Set(cfg.valores)].filter(
-    (v) => !existentes.has(normalizar(v))
-  );
+  // Deduplica a lista-fonte (por nome normalizado) e ignora o que já existe
+  const vistos = new Set();
+  const novos = [];
+  for (const valor of cfg.valores) {
+    const chave = normalizar(nomeDe(valor));
+    if (existentes.has(chave) || vistos.has(chave)) continue;
+    vistos.add(chave);
+    novos.push(valor);
+  }
+
+  const backfillInfo =
+    DRY_RUN && backfillCount > 0
+      ? `; 🔁 ${backfillCount} existente(s) seriam atualizados`
+      : "";
 
   if (novos.length === 0) {
     // Mesmo sem inserir, corrige o contador se estiver atrasado
@@ -272,23 +648,29 @@ async function semearColecao(cfg) {
       { current: proximaSeq - 1 },
       { merge: true }
     );
-    console.log(`ℹ️  ${cfg.nome}: nada a inserir (${snap.size} já existem)`);
-    return { nome: cfg.nome, inseridos: 0, existentes: snap.size };
+    console.log(`ℹ️  ${cfg.nome}: nada a inserir (${snap.size} já existem)${backfillInfo}`);
+    return { nome: cfg.nome, inseridos: 0, existentes: snap.size, atualizados: backfillCount };
   }
 
   if (DRY_RUN) {
-    console.log(
-      `👀 ${cfg.nome}: ${novos.length} seriam inseridos (próxima sequência: ${proximaSeq})`
-    );
-    return { nome: cfg.nome, inseridos: novos.length, existentes: snap.size };
+    let msg = `👀 ${cfg.nome}: ${novos.length} seriam inseridos (próxima sequência: ${proximaSeq})${backfillInfo}`;
+    console.log(msg);
+    return { nome: cfg.nome, inseridos: novos.length, existentes: snap.size, atualizados: backfillCount };
   }
 
   const batch = writeBatch(db);
   let ultimaSeq = proximaSeq - 1;
   for (const valor of novos) {
     const ref = doc(colRef);
+    const extras =
+      typeof valor === "object" && valor !== null
+        ? Object.fromEntries(
+            Object.entries(valor).filter(([k]) => k !== cfg.campo && k !== "id")
+          )
+        : {};
     batch.set(ref, {
-      [cfg.campo]: valor,
+      [cfg.campo]: nomeDe(valor),
+      ...extras,
       nr_sequencia: proximaSeq,
       ie_status: "A",
       dt_criacao: DATA_IMPLANTACAO,

@@ -2,10 +2,13 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
+import Select from "@/components/ui/Select";
 
 export interface CadastroGeralFormData {
   descricao: string;
   ie_status: string;
+  /** Campo extra opcional (ex.: CBO na função Profissão). */
+  nr_cbo?: string;
 }
 
 interface FormViewProps {
@@ -31,6 +34,8 @@ interface FormViewProps {
   fieldInfos: Record<string, { type: string; field: string; collection: string }>;
   descFieldKey: string;
   collectionName: string;
+  /** Exibe o campo extra CBO (usado na função Profissão). */
+  showCbo?: boolean;
 }
 
 export default function CadastroGeralFormView({
@@ -56,6 +61,7 @@ export default function CadastroGeralFormView({
   fieldInfos,
   descFieldKey,
   collectionName,
+  showCbo = false,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
@@ -142,17 +148,13 @@ export default function CadastroGeralFormView({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-5">
-          <select
-            aria-label="Função de cadastro geral"
+          <Select
             value={manageSelection}
-            onChange={(e) => onManageSelectionChange(e.target.value)}
-            className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-[#000] outline-none cursor-pointer"
-            style={{ appearance: 'none', WebkitAppearance: 'none' }}
-          >
-            {selectOptions.map((opt) => (
-              <option key={opt.value} value={opt.value}>{opt.label}</option>
-            ))}
-          </select>
+            onChange={onManageSelectionChange}
+            options={selectOptions}
+            disabled
+            showPlaceholder={false}
+          />
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -204,7 +206,7 @@ export default function CadastroGeralFormView({
             />
           </div>
 
-          <div className="sm:col-span-11 group">
+          <div className={`${showCbo ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
             {renderFieldLabel(descFieldKey, 'Descrição')}
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -212,6 +214,19 @@ export default function CadastroGeralFormView({
               onChange={(e) => setForm({ ...form, descricao: e.target.value })}
             />
           </div>
+
+          {showCbo && (
+            <div className="sm:col-span-3 group">
+              {renderFieldLabel('nr_cbo', 'CBO')}
+              <input
+                maxLength={7}
+                inputMode="numeric"
+                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                value={form.nr_cbo ?? ''}
+                onChange={(e) => setForm({ ...form, nr_cbo: e.target.value.replace(/\D/g, '') })}
+              />
+            </div>
+          )}
 
           <div className="sm:col-span-12">
             <div className="group w-full">

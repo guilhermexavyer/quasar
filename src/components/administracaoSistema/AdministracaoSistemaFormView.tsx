@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_FIELD_INFOS, formatAdminCellValue } from "@/lib/usuarioUtils";
+import Select from "@/components/ui/Select";
 
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -140,15 +141,12 @@ export default function AdministracaoSistemaFormView({
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex items-center justify-between gap-3">
         <div className="flex items-center gap-5">
-          <select
-            aria-label="Função de administração"
+          <Select
             value={manageSelection}
-            onChange={(e) => onManageSelectionChange(e.target.value)}
-            className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-[#000] outline-none cursor-pointer"
-            style={{ appearance: 'none', WebkitAppearance: 'none' }}
-          >
-            <option value="usuarios">Usuários</option>
-          </select>
+            onChange={onManageSelectionChange}
+            options={[{ value: 'usuarios', label: 'Usuários' }]}
+            showPlaceholder={false}
+          />
           <div className="flex items-center gap-1">
             <button
               type="button"

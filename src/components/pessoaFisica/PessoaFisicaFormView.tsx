@@ -3,8 +3,15 @@
 import { useEffect, useRef, useState } from "react";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import { FIELD_INFOS, applyCpfMask, applyDateMask, applyPhoneMask, formatDate } from "@/lib/pessoaFisicaUtils";
+import Select from "@/components/ui/Select";
 
 export type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
+
+export interface CgSelectOption {
+  nr_sequencia: number;
+  descricao: string;
+  ie_status?: string;
+}
 
 interface FormViewProps {
   message: string;
@@ -24,6 +31,10 @@ interface FormViewProps {
   onNextRecord: () => void;
   hasPrevRecord: boolean;
   hasNextRecord: boolean;
+  sexos?: CgSelectOption[];
+  estadoCivis?: CgSelectOption[];
+  coresRacas?: CgSelectOption[];
+  profissoes?: CgSelectOption[];
 }
 
 export default function PessoaFisicaFormView({
@@ -44,10 +55,25 @@ export default function PessoaFisicaFormView({
   onNextRecord,
   hasPrevRecord,
   hasNextRecord,
+  sexos = [],
+  estadoCivis = [],
+  coresRacas = [],
+  profissoes = [],
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
+
+  function cgOptions(options: CgSelectOption[], selected?: number): CgSelectOption[] {
+    const active = options
+      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
+    const selectedItem = options.find((op) => op.nr_sequencia === selected);
+    if (selectedItem && selectedItem.ie_status === 'I' && !active.some((op) => op.nr_sequencia === selectedItem.nr_sequencia)) {
+      return [...active, selectedItem];
+    }
+    return active;
+  }
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
     const meta = FIELD_INFOS[fieldKey];
@@ -231,6 +257,42 @@ export default function PessoaFisicaFormView({
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={form.nr_telefone}
               onChange={(e) => setForm({ ...form, nr_telefone: applyPhoneMask(e.target.value) })}
+            />
+          </div>
+
+          <div className="sm:col-span-3 group">
+            {renderFieldLabel('nr_seq_sexo', 'Sexo')}
+            <Select
+              value={form.nr_seq_sexo ? String(form.nr_seq_sexo) : ''}
+              onChange={(v) => setForm({ ...form, nr_seq_sexo: v ? Number(v) : undefined })}
+              options={cgOptions(sexos, form.nr_seq_sexo).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+            />
+          </div>
+
+          <div className="sm:col-span-3 group">
+            {renderFieldLabel('nr_seq_estado_civil', 'Estado civil')}
+            <Select
+              value={form.nr_seq_estado_civil ? String(form.nr_seq_estado_civil) : ''}
+              onChange={(v) => setForm({ ...form, nr_seq_estado_civil: v ? Number(v) : undefined })}
+              options={cgOptions(estadoCivis, form.nr_seq_estado_civil).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+            />
+          </div>
+
+          <div className="sm:col-span-3 group">
+            {renderFieldLabel('nr_seq_cor_raca', 'Cor/Raça')}
+            <Select
+              value={form.nr_seq_cor_raca ? String(form.nr_seq_cor_raca) : ''}
+              onChange={(v) => setForm({ ...form, nr_seq_cor_raca: v ? Number(v) : undefined })}
+              options={cgOptions(coresRacas, form.nr_seq_cor_raca).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+            />
+          </div>
+
+          <div className="sm:col-span-3 group">
+            {renderFieldLabel('nr_seq_profissao', 'Profissão')}
+            <Select
+              value={form.nr_seq_profissao ? String(form.nr_seq_profissao) : ''}
+              onChange={(v) => setForm({ ...form, nr_seq_profissao: v ? Number(v) : undefined })}
+              options={cgOptions(profissoes, form.nr_seq_profissao).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
             />
           </div>
         </div>

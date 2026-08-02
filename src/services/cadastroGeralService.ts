@@ -9,6 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { removerUndefined } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 export interface CadastroGeralRecord {
@@ -73,8 +74,10 @@ export function createCadastroGeralService<T extends CadastroGeralRecord>(
       const nr_sequencia = await obterProximoSequencia(contadorDoc);
       const nomeAutor = autor?.usuarioNome?.trim() || '-';
 
+      const dados = removerUndefined(item);
+
       const docRef = await addDoc(colecao, {
-        ...item,
+        ...dados,
         nr_sequencia,
         dt_criacao: agora,
         dt_alteracao: agora,
@@ -84,7 +87,7 @@ export function createCadastroGeralService<T extends CadastroGeralRecord>(
       try {
         const auditCol = collection(db, collectionName, docRef.id, "auditoria");
         const snap = await getDoc(docRef);
-        const full = snap.exists() ? snap.data() : { ...item, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
+        const full = snap.exists() ? snap.data() : { ...dados, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
         await addDoc(auditCol, {
           usuarioId: autor?.usuarioId ?? null,
           usuarioNome: autor?.usuarioNome ?? '-',
@@ -120,17 +123,18 @@ export function createCadastroGeralService<T extends CadastroGeralRecord>(
         return;
       }
 
+      const dados = removerUndefined(item);
       const agora = new Date().toISOString();
       const nomeAutor = autor?.usuarioNome?.trim() || '-';
       await updateDoc(docRef, {
-        ...item,
+        ...dados,
         dt_alteracao: agora,
         ds_usuario_alteracao: nomeAutor,
       });
 
       try {
         const auditCol = collection(db, collectionName, id, "auditoria");
-        const full = { ...currentData, ...item, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+        const full = removerUndefined({ ...currentData, ...dados, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor });
         await addDoc(auditCol, {
           usuarioId: autor?.usuarioId ?? null,
           usuarioNome: autor?.usuarioNome ?? '-',

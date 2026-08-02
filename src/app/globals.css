@@ -186,9 +186,6 @@ select:disabled {
 /* Superfícies */
 .dark .bg-white { background-color: #27272a !important; }
 .dark .bg-white.modal-dark { background-color: #18181b !important; }
-.dark .modal-dark input.bg-white,
-.dark .modal-dark textarea.bg-white,
-.dark .modal-dark select.bg-white { background-color: #27272a !important; }
 .dark .bg-white\/95 { background-color: #18181b !important; }
 .dark .bg-\[\#bbb\] { background-color: #3f3f46 !important; }
 .dark .bg-\[\#ccc\] { background-color: #27272a !important; }
@@ -318,5 +315,40 @@ select:disabled {
 }
 .dark .active\:outline-\[\#066fc5\]:active {
   outline-color: #d4d4d8 !important;
+}
+
+/* ============================================================
+   DROPDOWN CUSTOMIZADO (Select)
+   ============================================================ */
+.dark .cg-select-trigger {
+  background-color: #18181b !important;
+  color: #e4e4e7 !important;
+  border-top-color: #2c2c31 !important;
+  border-left-color: #2c2c31 !important;
+  border-right-color: #38383e !important;
+  border-bottom-color: #38383e !important;
+}
+.dark .cg-select-trigger:disabled {
+  background-color: #27272a !important;
+  color: #71717a !important;
+}
+.dark .cg-select-trigger:focus,
+.dark .cg-select-trigger:focus-visible {
+  border-color: #d4d4d8 !important;
+}
+.dark .cg-select-list {
+  background-color: #18181b !important;
+  border-color: #3f3f46 !important;
+  box-shadow: 0 4px 10px rgba(0, 0, 0, 0.5) !important;
+}
+.dark .cg-select-list button {
+  color: #d4d4d8 !important;
+}
+.dark .cg-select-list button:hover {
+  background-color: #3f3f46 !important;
+}
+.dark .cg-select-list button[aria-selected="true"] {
+  background-color: #2e2e33 !important;
+  color: #e4e4e7 !important;
 }
 

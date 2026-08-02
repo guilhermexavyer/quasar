@@ -70,6 +70,7 @@ import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLooku
 import CadastroGeralListView from "@/components/cadastrosGerais/CadastroGeralListView";
 import CadastroGeralFormView, { type CadastroGeralFormData } from "@/components/cadastrosGerais/CadastroGeralFormView";
 import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/components/cadastrosGerais/CadastroGeralFilterModal";
+import Select from "@/components/ui/Select";
 import type { Sexo } from "@/types/sexo";
 import type { EstadoCivil } from "@/types/estadoCivil";
 import type { CorRaca } from "@/types/corRaca";
@@ -92,6 +93,10 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
   dt_nascimento: "",
   ds_email: "",
   nr_telefone: "",
+  nr_seq_sexo: undefined,
+  nr_seq_estado_civil: undefined,
+  nr_seq_cor_raca: undefined,
+  nr_seq_profissao: undefined,
 };
 
 /* Chave da sessão persistida no localStorage */
@@ -110,10 +115,17 @@ function getDarkModeKey(userId?: string | null): string {
 type ViewType = "list" | "form";
 type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais";
 
-type FilterFormData = FormData & {
+type FilterFormData = Omit<
+  FormData,
+  "nr_sequencia" | "nr_seq_sexo" | "nr_seq_estado_civil" | "nr_seq_cor_raca" | "nr_seq_profissao"
+> & {
   nr_sequencia: string;
   dt_nascimento_inicio: string;
   dt_nascimento_fim: string;
+  nr_seq_sexo: string;
+  nr_seq_estado_civil: string;
+  nr_seq_cor_raca: string;
+  nr_seq_profissao: string;
 };
 
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -123,6 +135,10 @@ const emptyFilterForm: FilterFormData = {
   nr_sequencia: "",
   dt_nascimento_inicio: "",
   dt_nascimento_fim: "",
+  nr_seq_sexo: "",
+  nr_seq_estado_civil: "",
+  nr_seq_cor_raca: "",
+  nr_seq_profissao: "",
 };
 
 const emptyAdminForm: AdminFormData = {
@@ -136,6 +152,7 @@ const emptyAdminForm: AdminFormData = {
 const emptyCgForm: CadastroGeralFormData = {
   descricao: "",
   ie_status: 'A',
+  nr_cbo: '',
 };
 
 const CG_SELECT_OPTIONS = [
@@ -382,7 +399,9 @@ export default function Home() {
   const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupApplied, setLookupApplied] = useState(false);
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
+  const [passwordChangeConfirmValue, setPasswordChangeConfirmValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
+  const [passwordChangeIsSelf, setPasswordChangeIsSelf] = useState(false);
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [menuOrder, setMenuOrder] = useState<SectionType[]>(DEFAULT_SECTION_ORDER);
@@ -465,6 +484,28 @@ export default function Home() {
       usuarioNome: currentUserPersonName || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "-",
     };
   }, [currentUser, currentUserPersonName]);
+
+  /* ── Opções de Cadastros Gerais para os dropdowns de Pessoa Física ── */
+  const pfCgOptions = useMemo(
+    () => ({
+      sexos: sexos.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sexo, ie_status: s.ie_status })),
+      estadoCivis: estadoCivis.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_estado_civil, ie_status: s.ie_status })),
+      coresRacas: coresRacas.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_cor_raca, ie_status: s.ie_status })),
+      profissoes: profissoes.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_profissao, ie_status: s.ie_status })),
+    }),
+    [sexos, estadoCivis, coresRacas, profissoes]
+  );
+
+  /* ── Lookups (nr_sequencia → descrição) para as colunas de Pessoa Física ── */
+  const pfCgLookups = useMemo(
+    () => ({
+      nr_seq_sexo: Object.fromEntries(pfCgOptions.sexos.map((o) => [o.nr_sequencia, o.descricao])),
+      nr_seq_estado_civil: Object.fromEntries(pfCgOptions.estadoCivis.map((o) => [o.nr_sequencia, o.descricao])),
+      nr_seq_cor_raca: Object.fromEntries(pfCgOptions.coresRacas.map((o) => [o.nr_sequencia, o.descricao])),
+      nr_seq_profissao: Object.fromEntries(pfCgOptions.profissoes.map((o) => [o.nr_sequencia, o.descricao])),
+    }),
+    [pfCgOptions]
+  );
 
   /* ── Carregar pessoas físicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
@@ -968,6 +1009,10 @@ export default function Home() {
       dt_nascimento: pessoa.dt_nascimento,
       ds_email: pessoa.ds_email,
       nr_telefone: pessoa.nr_telefone,
+      nr_seq_sexo: pessoa.nr_seq_sexo,
+      nr_seq_estado_civil: pessoa.nr_seq_estado_civil,
+      nr_seq_cor_raca: pessoa.nr_seq_cor_raca,
+      nr_seq_profissao: pessoa.nr_seq_profissao,
     });
     setEditingId(pessoa.id ?? null);
     setAuditInfo({
@@ -1016,6 +1061,7 @@ export default function Home() {
     setCgForm({
       descricao: String((item as unknown as Record<string, unknown>)[cgDef.descKey] ?? ''),
       ie_status: item.ie_status ?? 'A',
+      nr_cbo: String((item as unknown as Record<string, unknown>).nr_cbo ?? ''),
     });
     setCgEditingId(item.id ?? null);
     setCgAuditInfo({
@@ -1088,6 +1134,18 @@ export default function Home() {
         const queryPhone = appliedFilterForm.nr_telefone.replace(/\D/g, '');
         const pessoaPhone = pessoa.nr_telefone.replace(/\D/g, '');
         if (!pessoaPhone.includes(queryPhone)) return false;
+      }
+      if (appliedFilterForm.nr_seq_sexo && String(pessoa.nr_seq_sexo ?? '') !== appliedFilterForm.nr_seq_sexo) {
+        return false;
+      }
+      if (appliedFilterForm.nr_seq_estado_civil && String(pessoa.nr_seq_estado_civil ?? '') !== appliedFilterForm.nr_seq_estado_civil) {
+        return false;
+      }
+      if (appliedFilterForm.nr_seq_cor_raca && String(pessoa.nr_seq_cor_raca ?? '') !== appliedFilterForm.nr_seq_cor_raca) {
+        return false;
+      }
+      if (appliedFilterForm.nr_seq_profissao && String(pessoa.nr_seq_profissao ?? '') !== appliedFilterForm.nr_seq_profissao) {
+        return false;
       }
       return true;
     });
@@ -1288,6 +1346,10 @@ export default function Home() {
           'dt_nascimento',
           'ds_email',
           'nr_telefone',
+          'nr_seq_sexo',
+          'nr_seq_estado_civil',
+          'nr_seq_cor_raca',
+          'nr_seq_profissao',
         ];
         const hasChanges = currentPessoa
           ? formKeys.some((key) => String(currentPessoa[key] ?? '') !== String(form[key] ?? ''))
@@ -1502,12 +1564,14 @@ export default function Home() {
       const payload = {
         [cgDescKey]: cgForm.descricao,
         ie_status: cgForm.ie_status,
+        ...(cgKind === 'profissao' ? { nr_cbo: cgForm.nr_cbo ?? '' } : {}),
       } as Record<string, unknown>;
 
       if (cgEditingId) {
         const currentItem = cgItems.find((s) => s.id === cgEditingId);
+        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : [cgDescKey, 'ie_status'];
         const hasChanges = currentItem
-          ? [cgDescKey, 'ie_status'].some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
+          ? changeKeys.some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
           : true;
 
         if (!hasChanges) {
@@ -1553,16 +1617,20 @@ export default function Home() {
     }
   }
 
-  function openChangePasswordModal(usuario: Usuario) {
+  function openChangePasswordModal(usuario: Usuario, isSelf = false) {
     setPasswordChangeUserId(usuario.id ?? null);
     setPasswordChangeValue("");
+    setPasswordChangeConfirmValue("");
+    setPasswordChangeIsSelf(isSelf);
     setChangePasswordModalOpen(true);
   }
 
   function closeChangePasswordModal() {
     setChangePasswordModalOpen(false);
     setPasswordChangeValue("");
+    setPasswordChangeConfirmValue("");
     setPasswordChangeUserId(null);
+    setPasswordChangeIsSelf(false);
   }
 
   function openPessoaFisicaLookup() {
@@ -1618,6 +1686,16 @@ export default function Home() {
     event.preventDefault();
     if (!passwordChangeUserId) return;
     setMessage("");
+
+    if (!passwordChangeValue) {
+      setMessage("Informe a nova senha.");
+      return;
+    }
+    if (passwordChangeIsSelf && passwordChangeValue !== passwordChangeConfirmValue) {
+      setMessage("As senhas não coincidem.");
+      return;
+    }
+
     setAdminSubmitting(true);
 
     try {
@@ -1676,7 +1754,11 @@ export default function Home() {
 
   function getMessageStatus(message: string) {
     if (message.toLowerCase().includes("sucesso")) return "success";
-    if (message.toLowerCase().includes("erro")) return "error";
+    if (
+      message.toLowerCase().includes("erro") ||
+      message.toLowerCase().includes("não coincidem") ||
+      message.toLowerCase().includes("informe a")
+    ) return "error";
     return "warning";
   }
 
@@ -2213,7 +2295,7 @@ export default function Home() {
                       onClick={() => {
                         setIsUserMenuOpen(false);
                         setIsUserMenuClosing(false);
-                        if (currentUser) openChangePasswordModal(currentUser);
+                        if (currentUser) openChangePasswordModal(currentUser, true);
                       }}
                       className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
                     >
@@ -2271,6 +2353,7 @@ export default function Home() {
                 onSortChange={handleSortChange}
                 initialColumns={pfColunasConfig}
                 onColumnsChange={handlePfColumnsChange}
+                columnLookups={pfCgLookups}
               />
             ) : activeSection === "administracaoSistema" ? (
               adminManageSelection === 'usuarios' ? (
@@ -2345,6 +2428,10 @@ export default function Home() {
               onNextRecord={goToNextRecord}
               hasPrevRecord={hasPrevRecord}
               hasNextRecord={hasNextRecord}
+              sexos={pfCgOptions.sexos}
+              estadoCivis={pfCgOptions.estadoCivis}
+              coresRacas={pfCgOptions.coresRacas}
+              profissoes={pfCgOptions.profissoes}
             />
           ) : activeSection === "administracaoSistema" ? (
             <AdministracaoSistemaFormView
@@ -2396,6 +2483,7 @@ export default function Home() {
               fieldInfos={cgFieldInfos}
               descFieldKey={cgDescKey}
               collectionName={cgCollection}
+              showCbo={cgKind === 'profissao'}
             />
           )}
         </div>
@@ -2508,6 +2596,50 @@ export default function Home() {
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={filterForm.nr_telefone}
                   onChange={(e) => setFilterForm({ ...filterForm, nr_telefone: applyPhoneMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Sexo
+                </label>
+                <Select
+                  value={filterForm.nr_seq_sexo}
+                  onChange={(v) => setFilterForm({ ...filterForm, nr_seq_sexo: v })}
+                  options={[...pfCgOptions.sexos].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' })).map((o) => ({ value: String(o.nr_sequencia), label: o.descricao }))}
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Estado civil
+                </label>
+                <Select
+                  value={filterForm.nr_seq_estado_civil}
+                  onChange={(v) => setFilterForm({ ...filterForm, nr_seq_estado_civil: v })}
+                  options={[...pfCgOptions.estadoCivis].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' })).map((o) => ({ value: String(o.nr_sequencia), label: o.descricao }))}
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Cor/Raça
+                </label>
+                <Select
+                  value={filterForm.nr_seq_cor_raca}
+                  onChange={(v) => setFilterForm({ ...filterForm, nr_seq_cor_raca: v })}
+                  options={[...pfCgOptions.coresRacas].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' })).map((o) => ({ value: String(o.nr_sequencia), label: o.descricao }))}
+                />
+              </div>
+
+              <div className="sm:col-span-3">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Profissão
+                </label>
+                <Select
+                  value={filterForm.nr_seq_profissao}
+                  onChange={(v) => setFilterForm({ ...filterForm, nr_seq_profissao: v })}
+                  options={[...pfCgOptions.profissoes].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' })).map((o) => ({ value: String(o.nr_sequencia), label: o.descricao }))}
                 />
               </div>
             </div>
@@ -2811,6 +2943,19 @@ export default function Home() {
                   autoFocus
                 />
               </div>
+              {passwordChangeIsSelf && (
+                <div>
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                    Confirmar senha
+                  </label>
+                  <input
+                    type="password"
+                    className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                    value={passwordChangeConfirmValue}
+                    onChange={(e) => setPasswordChangeConfirmValue(e.target.value)}
+                  />
+                </div>
+              )}
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
@@ -2825,7 +2970,7 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={adminSubmitting || !passwordChangeValue}
-                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
                 Salvar

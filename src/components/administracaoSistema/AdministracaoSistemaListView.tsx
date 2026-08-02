@@ -7,6 +7,7 @@ import type { ContextMenuState } from "@/types/contextMenu";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import Select from "@/components/ui/Select";
 
 interface ListViewProps {
   message: string;
@@ -52,7 +53,7 @@ export default function AdministracaoSistemaListView({
       : ADMIN_COLUMNS.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
-  const [pageSize, setPageSize] = useState<number | 'all'>(15);
+  const [pageSize, setPageSize] = useState<number | 'all'>(25);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
   const minWidthsRef = useRef<number[]>([]);
@@ -450,15 +451,12 @@ export default function AdministracaoSistemaListView({
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <select
-              aria-label="Função de administração"
+            <Select
               value={manageSelection}
-              onChange={(e) => onManageSelectionChange(e.target.value)}
-              className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-[#000] outline-none cursor-pointer"
-              style={{ appearance: 'none', WebkitAppearance: 'none' }}
-            >
-              <option value="usuarios">Usuários</option>
-            </select>
+              onChange={onManageSelectionChange}
+              options={[{ value: 'usuarios', label: 'Usuários' }]}
+              showPlaceholder={false}
+            />
             <button
               type="button"
               onClick={openFilter}
@@ -634,21 +632,18 @@ export default function AdministracaoSistemaListView({
                     </div>
 
                     <div className="flex items-center gap-4">
-                      <select
-                        aria-label="Registros por página"
-                        value={pageSize}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setPageSize(value === 'all' ? 'all' : Number(value));
-                        }}
-                        className="rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm text-slate-800 outline-none transition focus:border-[#003056]"
-                      >
-                        <option value={15}>15 por página</option>
-                        <option value={25}>25 por página</option>
-                        <option value={50}>50 por página</option>
-                        <option value={100}>100 por página</option>
-                        <option value="all">Todos</option>
-                      </select>
+                      <Select
+                        value={String(pageSize)}
+                        onChange={(v) => setPageSize(v === 'all' ? 'all' : Number(v))}
+                        options={[
+                          { value: '25', label: '25 por página' },
+                          { value: '50', label: '50 por página' },
+                          { value: '100', label: '100 por página' },
+                          { value: 'all', label: 'Todos' },
+                        ]}
+                        showPlaceholder={false}
+                        className="min-w-[130px]"
+                      />
                     </div>
                   </div>
 

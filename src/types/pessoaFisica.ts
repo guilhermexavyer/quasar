@@ -8,6 +8,10 @@ export interface PessoaFisica {
   dt_nascimento: string;
   ds_email: string;
   nr_telefone: string;
+  nr_seq_sexo?: number;
+  nr_seq_estado_civil?: number;
+  nr_seq_cor_raca?: number;
+  nr_seq_profissao?: number;
   dt_criacao: string;
   dt_alteracao: string;
   ds_usuario_criacao?: string;

@@ -15,6 +15,10 @@ export const COLUMNS: ColDef[] = [
   { key: 'dt_nascimento', label: 'Nascimento' },
   { key: 'ds_email', label: 'E-mail' },
   { key: 'nr_telefone', label: 'Telefone' },
+  { key: 'nr_seq_sexo', label: 'Sexo' },
+  { key: 'nr_seq_estado_civil', label: 'Estado civil' },
+  { key: 'nr_seq_cor_raca', label: 'Cor/Raça' },
+  { key: 'nr_seq_profissao', label: 'Profissão' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
 ];
@@ -26,6 +30,10 @@ export const FIELD_INFOS = {
   dt_nascimento: { type: 'string', field: 'dt_nascimento', collection: 'pessoa_fisica' },
   ds_email: { type: 'string', field: 'ds_email', collection: 'pessoa_fisica' },
   nr_telefone: { type: 'string', field: 'nr_telefone', collection: 'pessoa_fisica' },
+  nr_seq_sexo: { type: 'int64', field: 'nr_seq_sexo', collection: 'pessoa_fisica' },
+  nr_seq_estado_civil: { type: 'int64', field: 'nr_seq_estado_civil', collection: 'pessoa_fisica' },
+  nr_seq_cor_raca: { type: 'int64', field: 'nr_seq_cor_raca', collection: 'pessoa_fisica' },
+  nr_seq_profissao: { type: 'int64', field: 'nr_seq_profissao', collection: 'pessoa_fisica' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'pessoa_fisica' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'pessoa_fisica' },
 } as const;
@@ -37,6 +45,10 @@ export const FIELD_LABELS: Record<string, string> = {
   dt_nascimento: 'Data de nascimento',
   ds_email: 'E-mail',
   nr_telefone: 'Telefone',
+  nr_seq_sexo: 'Sexo',
+  nr_seq_estado_civil: 'Estado civil',
+  nr_seq_cor_raca: 'Cor/Raça',
+  nr_seq_profissao: 'Profissão',
   dt_criacao: 'Criação',
   dt_alteracao: 'Alteração',
 };

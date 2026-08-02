@@ -9,6 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { removerUndefined } from "@/lib/firestoreUtils";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { AuditAutor } from "@/services/auditService";
 
@@ -59,8 +60,10 @@ export async function criarPessoaFisica(
   const nr_sequencia = await obterProximoSequencia();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
 
+  const dados = removerUndefined(pessoa);
+
   const docRef = await addDoc(pessoaFisicaColecao, {
-    ...pessoa,
+    ...dados,
     nr_sequencia,
     dt_criacao: agora,
     dt_alteracao: agora,
@@ -71,7 +74,7 @@ export async function criarPessoaFisica(
     // registrar auditoria na subcollection pessoa_fisica/{id}/auditoria
     const auditCol = collection(db, "pessoa_fisica", docRef.id, "auditoria");
     const snap = await getDoc(docRef);
-    const full = snap.exists() ? snap.data() : { ...pessoa, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
+    const full = snap.exists() ? snap.data() : { ...dados, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? '-',
@@ -107,17 +110,18 @@ export async function atualizarPessoaFisica(
     return;
   }
 
+  const dados = removerUndefined(pessoa);
   const agora = new Date().toISOString();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
   await updateDoc(docRef, {
-    ...pessoa,
+    ...dados,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,
   });
 
   try {
     const auditCol = collection(db, "pessoa_fisica", id, "auditoria");
-    const full = { ...currentData, ...pessoa, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+    const full = removerUndefined({ ...currentData, ...dados, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor });
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? '-',

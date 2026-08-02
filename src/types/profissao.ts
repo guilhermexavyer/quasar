@@ -2,6 +2,7 @@ export interface Profissao {
   id?: string;
   nr_sequencia: number;
   ds_profissao: string;
+  nr_cbo?: string;
   ie_status?: string;
   dt_criacao: string;
   dt_alteracao: string;
