@@ -16,6 +16,7 @@ export interface Usuario {
   config_colunas_cg_estado_civil?: string;
   config_colunas_cg_cor_raca?: string;
   config_colunas_cg_profissao?: string;
+  config_colunas_cg_orgao_emissor?: string;
   config_ordem_menu_lateral?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;

@@ -8,6 +8,7 @@
  *   - cg_estado_civil  → todos os estados civis (Código Civil / IBGE)
  *   - cg_cor_raca      → as 5 categorias do IBGE (cor ou raça)
  *   - cg_profissao     → lista ampla de profissões (inspirada na CBO)
+ *   - cg_orgao_emissor → órgãos emissores de documentos de identificação
  *   - usuario          → usuário administrador inicial (nr_sequencia 1,
  *                        senha em SHA-256, criado por 'implantacao')
  *
@@ -74,6 +75,68 @@ const ESTADOS_CIVIS = [
 ];
 
 const CORES_RACAS = ["Branca", "Preta", "Parda", "Amarela", "Indígena"];
+
+/* Órgãos emissores de documentos de identificação no Brasil
+   (RG, CTPS, CNH, passaporte, registros profissionais etc.).
+   Cada item é { sg_orgao_emissor, ds_orgao_emissor } — a sigla fica em
+   campo próprio e a descrição contém apenas o nome do órgão. */
+const ORGAOS_EMISSORES = [
+  // Órgãos de segurança pública e identificação
+  { sg_orgao_emissor: "SSP",    ds_orgao_emissor: "Secretaria de Segurança Pública" },
+  { sg_orgao_emissor: "SSI",    ds_orgao_emissor: "Secretaria de Segurança Interna" },
+  { sg_orgao_emissor: "SDS",    ds_orgao_emissor: "Secretaria de Defesa Social" },
+  { sg_orgao_emissor: "SESP",   ds_orgao_emissor: "Secretaria de Estado de Segurança Pública" },
+  { sg_orgao_emissor: "SEGUP",  ds_orgao_emissor: "Secretaria de Estado de Segurança Pública e Defesa Social" },
+  { sg_orgao_emissor: "SSPDS",  ds_orgao_emissor: "Secretaria de Segurança Pública e Defesa Social" },
+  { sg_orgao_emissor: "SESDEC", ds_orgao_emissor: "Secretaria de Estado de Segurança e Defesa Civil" },
+  { sg_orgao_emissor: "SJCDH",  ds_orgao_emissor: "Secretaria de Justiça, Cidadania e Direitos Humanos" },
+  { sg_orgao_emissor: "PC",     ds_orgao_emissor: "Polícia Civil" },
+  { sg_orgao_emissor: "PM",     ds_orgao_emissor: "Polícia Militar" },
+  { sg_orgao_emissor: "PF",     ds_orgao_emissor: "Polícia Federal" },
+  { sg_orgao_emissor: "PRF",    ds_orgao_emissor: "Polícia Rodoviária Federal" },
+  { sg_orgao_emissor: "DPF",    ds_orgao_emissor: "Departamento de Polícia Federal" },
+  { sg_orgao_emissor: "DETRAN", ds_orgao_emissor: "Departamento Estadual de Trânsito" },
+  { sg_orgao_emissor: "IFP",    ds_orgao_emissor: "Instituto Félix Pacheco" },
+  { sg_orgao_emissor: "IPF",    ds_orgao_emissor: "Instituto de Polícia Federal" },
+  { sg_orgao_emissor: "DIC",    ds_orgao_emissor: "Divisão de Identificação Civil" },
+  { sg_orgao_emissor: "",      ds_orgao_emissor: "Instituto de Identificação do Estado" },
+  { sg_orgao_emissor: "CART",   ds_orgao_emissor: "Cartório" },
+  { sg_orgao_emissor: "",      ds_orgao_emissor: "Cartório de Registro Civil" },
+  { sg_orgao_emissor: "",      ds_orgao_emissor: "Vara de Registros Públicos" },
+  { sg_orgao_emissor: "",      ds_orgao_emissor: "Corregedoria Geral da Justiça" },
+
+  // Órgãos federais
+  { sg_orgao_emissor: "MTE", ds_orgao_emissor: "Ministério do Trabalho e Emprego" },
+  { sg_orgao_emissor: "MJ",  ds_orgao_emissor: "Ministério da Justiça" },
+  { sg_orgao_emissor: "SRF", ds_orgao_emissor: "Secretaria da Receita Federal" },
+  { sg_orgao_emissor: "MRE", ds_orgao_emissor: "Ministério das Relações Exteriores" },
+
+  // Forças armadas
+  { sg_orgao_emissor: "EB",  ds_orgao_emissor: "Exército Brasileiro" },
+  { sg_orgao_emissor: "MB",  ds_orgao_emissor: "Marinha do Brasil" },
+  { sg_orgao_emissor: "FAB", ds_orgao_emissor: "Força Aérea Brasileira" },
+
+  // Conselhos profissionais
+  { sg_orgao_emissor: "OAB",     ds_orgao_emissor: "Ordem dos Advogados do Brasil" },
+  { sg_orgao_emissor: "CRM",     ds_orgao_emissor: "Conselho Regional de Medicina" },
+  { sg_orgao_emissor: "COREN",   ds_orgao_emissor: "Conselho Regional de Enfermagem" },
+  { sg_orgao_emissor: "CRO",     ds_orgao_emissor: "Conselho Regional de Odontologia" },
+  { sg_orgao_emissor: "CRF",     ds_orgao_emissor: "Conselho Regional de Farmácia" },
+  { sg_orgao_emissor: "CRP",     ds_orgao_emissor: "Conselho Regional de Psicologia" },
+  { sg_orgao_emissor: "CREFITO", ds_orgao_emissor: "Conselho Regional de Fisioterapia e Terapia Ocupacional" },
+  { sg_orgao_emissor: "CREF",    ds_orgao_emissor: "Conselho Regional de Educação Física" },
+  { sg_orgao_emissor: "CREA",    ds_orgao_emissor: "Conselho Regional de Engenharia e Agronomia" },
+  { sg_orgao_emissor: "CRC",     ds_orgao_emissor: "Conselho Regional de Contabilidade" },
+  { sg_orgao_emissor: "CRA",     ds_orgao_emissor: "Conselho Regional de Administração" },
+  { sg_orgao_emissor: "CRECI",   ds_orgao_emissor: "Conselho Regional de Corretores de Imóveis" },
+  { sg_orgao_emissor: "CRMV",    ds_orgao_emissor: "Conselho Regional de Medicina Veterinária" },
+  { sg_orgao_emissor: "CRQ",     ds_orgao_emissor: "Conselho Regional de Química" },
+  { sg_orgao_emissor: "CRB",     ds_orgao_emissor: "Conselho Regional de Biblioteconomia" },
+  { sg_orgao_emissor: "CRE",     ds_orgao_emissor: "Conselho Regional de Economia" },
+  { sg_orgao_emissor: "CRESS",   ds_orgao_emissor: "Conselho Regional de Serviço Social" },
+  { sg_orgao_emissor: "CRN",     ds_orgao_emissor: "Conselho Regional de Nutrição" },
+  { sg_orgao_emissor: "CRBio",   ds_orgao_emissor: "Conselho Regional de Biologia" },
+];
 
 const PROFISSOES = [
   // Saúde
@@ -515,6 +578,7 @@ const COLECOES = [
   // O CBO é gravado sem máscara (apenas dígitos). O replace abaixo é uma
   // salvaguarda extra caso o mapa venha a receber um valor com formatação.
   { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },
+  { nome: "cg_orgao_emissor",  contador: "cg_orgao_emissor_sequence",  campo: "ds_orgao_emissor",  valores: ORGAOS_EMISSORES },
 ];
 
 const RESET = process.argv.includes("--reset");

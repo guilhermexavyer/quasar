@@ -60,7 +60,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
       : columns.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
-  const [pageSize, setPageSize] = useState<number | 'all'>(25);
+  const [pageSize, setPageSize] = useState<number | 'all'>(30);
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [pageInput, setPageInput] = useState<string>('1');
   const minWidthsRef = useRef<number[]>([]);
@@ -463,6 +463,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
               onChange={onManageSelectionChange}
               options={selectOptions}
               showPlaceholder={false}
+              className="!w-[140px]"
             />
             <button
               type="button"
@@ -637,7 +638,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
                         value={String(pageSize)}
                         onChange={(v) => setPageSize(v === 'all' ? 'all' : Number(v))}
                         options={[
-                          { value: '25', label: '25 por página' },
+                          { value: '30', label: '30 por página' },
                           { value: '50', label: '50 por página' },
                           { value: '100', label: '100 por página' },
                           { value: 'all', label: 'Todos' },

@@ -33,8 +33,18 @@ export default function Select({
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
   const [openUp, setOpenUp] = useState(false);
+  const [searchBuffer, setSearchBuffer] = useState("");
   const rootRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
+  const searchTimeoutRef = useRef<number | null>(null);
+
+  // Normaliza para comparação: minúsculas, sem acentos (ex.: "Técnico" ≈ "tecnico").
+  function normalizeLabel(label: string): string {
+    return label
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "");
+  }
 
   const items = useMemo(
     () => (showPlaceholder ? [{ value: "", label: "---" }, ...options] : options),
@@ -72,6 +82,17 @@ export default function Select({
       list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight - list.clientHeight;
     }
   }, [open, items, value, visibleOptions]);
+
+  // Ao fechar, limpa o buffer da busca por digitação.
+  useEffect(() => {
+    if (!open) {
+      setSearchBuffer("");
+      if (searchTimeoutRef.current) {
+        window.clearTimeout(searchTimeoutRef.current);
+        searchTimeoutRef.current = null;
+      }
+    }
+  }, [open]);
 
   useEffect(() => {
     if (!open) return;
@@ -116,6 +137,38 @@ export default function Select({
       }
     } else if (event.key === "Tab") {
       setOpen(false);
+    } else if (
+      open &&
+      !event.ctrlKey &&
+      !event.metaKey &&
+      !event.altKey &&
+      (event.key.length === 1 || event.key === "Backspace")
+    ) {
+      // Busca por digitação (type-ahead): acumula os caracteres digitados e
+      // destaca a primeira opção que comece com o texto (ex.: "tec" → "Técnico").
+      event.preventDefault();
+      const nextBuffer =
+        event.key === "Backspace"
+          ? searchBuffer.slice(0, -1)
+          : searchBuffer + event.key.toLowerCase();
+      setSearchBuffer(nextBuffer);
+
+      if (searchTimeoutRef.current) {
+        window.clearTimeout(searchTimeoutRef.current);
+      }
+      searchTimeoutRef.current = window.setTimeout(() => {
+        setSearchBuffer("");
+      }, 1200);
+
+      const query = normalizeLabel(nextBuffer);
+      if (query) {
+        const matchIndex = items.findIndex((o) =>
+          o.label && normalizeLabel(o.label).startsWith(query)
+        );
+        if (matchIndex >= 0) {
+          setHighlighted(matchIndex);
+        }
+      }
     }
   }
 
@@ -138,7 +191,7 @@ export default function Select({
         type="button"
         disabled={disabled}
         onClick={() => {
-          if (!open) setHighlighted(Math.max(0, items.findIndex((o) => o.value === value)));
+          if (!open) setHighlighted(-1);
           setOpen((o) => !o);
         }}
         onKeyDown={handleKeyDown}
@@ -170,7 +223,8 @@ export default function Select({
         <div
           ref={listRef}
           role="listbox"
-          className={`cg-select-list absolute left-0 right-0 z-20 overflow-y-auto border border-[#ccc] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
+          onMouseLeave={() => setHighlighted(-1)}
+          className={`cg-select-list absolute left-0 right-0 z-40 overflow-y-auto border border-[#ccc] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
             openUp ? "bottom-full mb-[2px]" : "top-full mt-[2px]"
           }`}
           style={{ maxHeight: visibleOptions * ROW_HEIGHT }}
@@ -187,11 +241,9 @@ export default function Select({
                 onMouseEnter={() => setHighlighted(index)}
                 onClick={() => handleSelect(op.value)}
                 className={`block w-full cursor-pointer truncate px-2 py-1.5 text-left text-sm transition ${
-                  isHighlighted
-                    ? "bg-slate-300 text-slate-900"
-                    : isSelected
-                      ? "bg-slate-100 font-medium text-slate-900"
-                      : "text-slate-800"
+                  isHighlighted || isSelected
+                    ? "bg-slate-100 text-slate-900"
+                    : "text-slate-800"
                 }`}
               >
                 {op.label}

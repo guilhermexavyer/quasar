@@ -9,6 +9,8 @@ export interface CadastroGeralFormData {
   ie_status: string;
   /** Campo extra opcional (ex.: CBO na função Profissão). */
   nr_cbo?: string;
+  /** Sigla do órgão emissor (função Órgão emissor). */
+  sg_orgao_emissor?: string;
 }
 
 interface FormViewProps {
@@ -36,6 +38,8 @@ interface FormViewProps {
   collectionName: string;
   /** Exibe o campo extra CBO (usado na função Profissão). */
   showCbo?: boolean;
+  /** Exibe o campo extra Sigla (usado na função Órgão emissor). */
+  showSigla?: boolean;
 }
 
 export default function CadastroGeralFormView({
@@ -62,6 +66,7 @@ export default function CadastroGeralFormView({
   descFieldKey,
   collectionName,
   showCbo = false,
+  showSigla = false,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
@@ -206,7 +211,7 @@ export default function CadastroGeralFormView({
             />
           </div>
 
-          <div className={`${showCbo ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
+          <div className={`${(showCbo || showSigla) ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
             {renderFieldLabel(descFieldKey, 'Descrição')}
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -224,6 +229,18 @@ export default function CadastroGeralFormView({
                 className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                 value={form.nr_cbo ?? ''}
                 onChange={(e) => setForm({ ...form, nr_cbo: e.target.value.replace(/\D/g, '') })}
+              />
+            </div>
+          )}
+
+          {showSigla && (
+            <div className="sm:col-span-3 group">
+              {renderFieldLabel('sg_orgao_emissor', 'Sigla')}
+              <input
+                maxLength={10}
+                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                value={form.sg_orgao_emissor ?? ''}
+                onChange={(e) => setForm({ ...form, sg_orgao_emissor: e.target.value })}
               />
             </div>
           )}

@@ -40,6 +40,12 @@ import {
   obterProfissoes,
   atualizarProfissao,
 } from "@/services/profissaoService";
+import {
+  criarOrgaoEmissor,
+  excluirOrgaoEmissor,
+  obterOrgaosEmissores,
+  atualizarOrgaoEmissor,
+} from "@/services/orgaoEmissorService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import {
@@ -67,6 +73,8 @@ import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
+import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
+import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
 import CadastroGeralListView from "@/components/cadastrosGerais/CadastroGeralListView";
 import CadastroGeralFormView, { type CadastroGeralFormData } from "@/components/cadastrosGerais/CadastroGeralFormView";
 import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/components/cadastrosGerais/CadastroGeralFilterModal";
@@ -75,10 +83,12 @@ import type { Sexo } from "@/types/sexo";
 import type { EstadoCivil } from "@/types/estadoCivil";
 import type { CorRaca } from "@/types/corRaca";
 import type { Profissao } from "@/types/profissao";
+import type { OrgaoEmissor } from "@/types/orgaoEmissor";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
 import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
 import { PROFISSAO_COLUMNS, PROFISSAO_FIELD_INFOS } from "@/lib/profissaoUtils";
+import { ORGAO_EMISSOR_COLUMNS, ORGAO_EMISSOR_FIELD_INFOS } from "@/lib/orgaoEmissorUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { ContextMenuState } from "@/types/contextMenu";
@@ -97,6 +107,7 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
   nr_seq_estado_civil: undefined,
   nr_seq_cor_raca: undefined,
   nr_seq_profissao: undefined,
+  cd_ibge_naturalidade: "",
 };
 
 /* Chave da sessão persistida no localStorage */
@@ -107,6 +118,12 @@ const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
 const SYSTEM_VERSION = "0.1.0";
+
+/* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
+const UF_OPTIONS = [
+  'AC', 'AL', 'AP', 'AM', 'BA', 'CE', 'DF', 'ES', 'GO', 'MA', 'MT', 'MS', 'MG',
+  'PA', 'PB', 'PR', 'PE', 'PI', 'RJ', 'RN', 'RS', 'RO', 'RR', 'SC', 'SP', 'SE', 'TO',
+].map((uf) => ({ value: uf, label: uf }));
 
 function getDarkModeKey(userId?: string | null): string {
   return userId ? `${DARK_MODE_KEY}_${userId}` : DARK_MODE_KEY;
@@ -153,6 +170,7 @@ const emptyCgForm: CadastroGeralFormData = {
   descricao: "",
   ie_status: 'A',
   nr_cbo: '',
+  sg_orgao_emissor: '',
 };
 
 const CG_SELECT_OPTIONS = [
@@ -160,9 +178,10 @@ const CG_SELECT_OPTIONS = [
   { value: 'estadoCivil', label: 'Estado civil' },
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'profissao', label: 'Profissão' },
+  { value: 'orgaoEmissor', label: 'Órgão emissor' },
 ];
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -349,7 +368,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'usuario' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'usuario' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -378,6 +397,7 @@ export default function Home() {
   const [estadoCivis, setEstadoCivis] = useState<EstadoCivil[]>([]);
   const [coresRacas, setCoresRacas] = useState<CorRaca[]>([]);
   const [profissoes, setProfissoes] = useState<Profissao[]>([]);
+  const [orgaosEmissores, setOrgaosEmissores] = useState<OrgaoEmissor[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
   const [cgSubmitting, setCgSubmitting] = useState(false);
@@ -398,6 +418,13 @@ export default function Home() {
   const [lookupForm, setLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupApplied, setLookupApplied] = useState(false);
+  const [naturalidadeLookupOpen, setNaturalidadeLookupOpen] = useState(false);
+  const [cidadeLookupForm, setCidadeLookupForm] = useState({ codigo: '', nome: '', uf: '' });
+  const [cidadeLookupApplied, setCidadeLookupApplied] = useState(false);
+  const [cidadeResults, setCidadeResults] = useState<Cidade[]>([]);
+  const [cidadeLoading, setCidadeLoading] = useState(false);
+  const [naturalidadeNome, setNaturalidadeNome] = useState('');
+  const naturalidadeCodeRef = useRef('');
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
   const [passwordChangeConfirmValue, setPasswordChangeConfirmValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
@@ -461,9 +488,18 @@ export default function Home() {
       items: (): CgItem[] => profissoes,
       emptyMessage: 'Clique em "Adicionar" para cadastrar uma profissão.',
     },
+    orgaoEmissor: {
+      descKey: 'ds_orgao_emissor',
+      collection: 'cg_orgao_emissor',
+      configKey: 'config_colunas_cg_orgao_emissor',
+      columns: ORGAO_EMISSOR_COLUMNS,
+      fieldInfos: ORGAO_EMISSOR_FIELD_INFOS,
+      items: (): CgItem[] => orgaosEmissores,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um órgão emissor.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'profissao' ? 'profissao' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -580,6 +616,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadOrgaosEmissores = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterOrgaosEmissores();
+      setOrgaosEmissores(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -587,10 +635,12 @@ export default function Home() {
       await loadEstadoCivis();
     } else if (cgKind === 'corRaca') {
       await loadCoresRacas();
-    } else {
+    } else if (cgKind === 'profissao') {
       await loadProfissoes();
+    } else {
+      await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -599,7 +649,8 @@ export default function Home() {
     loadEstadoCivis();
     loadCoresRacas();
     loadProfissoes();
-  }, [loadPessoasFisicas, loadUsuarios, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes]);
+    loadOrgaosEmissores();
+  }, [loadPessoasFisicas, loadUsuarios, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores]);
 
   /* ── Persistir sessão: sobrevive à recarga; só quebra no Sair ── */
   useEffect(() => {
@@ -721,6 +772,7 @@ export default function Home() {
     setEditingId(null);
     setAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
+    setNaturalidadeNome('');
     setView("form");
     setActiveSection("pessoaFisica");
   }
@@ -785,7 +837,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -1013,7 +1065,23 @@ export default function Home() {
       nr_seq_estado_civil: pessoa.nr_seq_estado_civil,
       nr_seq_cor_raca: pessoa.nr_seq_cor_raca,
       nr_seq_profissao: pessoa.nr_seq_profissao,
+      cd_ibge_naturalidade: pessoa.cd_ibge_naturalidade ?? '',
     });
+    // Resolve o nome da cidade a partir do código IBGE salvo
+    const codigo = pessoa.cd_ibge_naturalidade ?? '';
+    naturalidadeCodeRef.current = codigo;
+    setNaturalidadeNome('');
+    if (codigo) {
+      cidadePorCodigo(codigo)
+        .then((cidade) => {
+          if (naturalidadeCodeRef.current === codigo) {
+            setNaturalidadeNome(cidade ? `${cidade.nome} - ${cidade.uf}` : '');
+          }
+        })
+        .catch(() => {
+          if (naturalidadeCodeRef.current === codigo) setNaturalidadeNome('');
+        });
+    }
     setEditingId(pessoa.id ?? null);
     setAuditInfo({
       createdAt: pessoa.dt_criacao ?? '',
@@ -1062,6 +1130,7 @@ export default function Home() {
       descricao: String((item as unknown as Record<string, unknown>)[cgDef.descKey] ?? ''),
       ie_status: item.ie_status ?? 'A',
       nr_cbo: String((item as unknown as Record<string, unknown>).nr_cbo ?? ''),
+      sg_orgao_emissor: String((item as unknown as Record<string, unknown>).sg_orgao_emissor ?? ''),
     });
     setCgEditingId(item.id ?? null);
     setCgAuditInfo({
@@ -1350,6 +1419,7 @@ export default function Home() {
           'nr_seq_estado_civil',
           'nr_seq_cor_raca',
           'nr_seq_profissao',
+          'cd_ibge_naturalidade',
         ];
         const hasChanges = currentPessoa
           ? formKeys.some((key) => String(currentPessoa[key] ?? '') !== String(form[key] ?? ''))
@@ -1565,11 +1635,12 @@ export default function Home() {
         [cgDescKey]: cgForm.descricao,
         ie_status: cgForm.ie_status,
         ...(cgKind === 'profissao' ? { nr_cbo: cgForm.nr_cbo ?? '' } : {}),
+        ...(cgKind === 'orgaoEmissor' ? { sg_orgao_emissor: cgForm.sg_orgao_emissor ?? '' } : {}),
       } as Record<string, unknown>;
 
       if (cgEditingId) {
         const currentItem = cgItems.find((s) => s.id === cgEditingId);
-        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : [cgDescKey, 'ie_status'];
+        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : [cgDescKey, 'ie_status'];
         const hasChanges = currentItem
           ? changeKeys.some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
           : true;
@@ -1589,8 +1660,10 @@ export default function Home() {
           await atualizarEstadoCivil(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'corRaca') {
           await atualizarCorRaca(cgEditingId, payload as any, auditAutor);
-        } else {
+        } else if (cgKind === 'profissao') {
           await atualizarProfissao(cgEditingId, payload as any, auditAutor);
+        } else {
+          await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
         setMessage("Atualizado com sucesso!");
       } else {
@@ -1600,8 +1673,10 @@ export default function Home() {
           await criarEstadoCivil(payload as any, auditAutor);
         } else if (cgKind === 'corRaca') {
           await criarCorRaca(payload as any, auditAutor);
-        } else {
+        } else if (cgKind === 'profissao') {
           await criarProfissao(payload as any, auditAutor);
+        } else {
+          await criarOrgaoEmissor(payload as any, auditAutor);
         }
         setMessage("Cadastrado com sucesso!");
       }
@@ -1682,6 +1757,62 @@ export default function Home() {
     });
   }, [pessoasFisicas, lookupFilter]);
 
+  /* ── Lookup de cidades (Naturalidade — API IBGE) ── */
+  async function openNaturalidadeLookup() {
+    setCidadeLookupForm({ codigo: '', nome: '', uf: '' });
+    setCidadeLookupApplied(false);
+    setCidadeResults([]);
+    setNaturalidadeLookupOpen(true);
+  }
+
+  function closeNaturalidadeLookup() {
+    setNaturalidadeLookupOpen(false);
+  }
+
+  async function handleCidadeSearch() {
+    setCidadeLoading(true);
+    try {
+      const results = await buscarCidades(cidadeLookupForm);
+      setCidadeResults(results);
+      setCidadeLookupApplied(true);
+    } catch {
+      setCidadeResults([]);
+      setCidadeLookupApplied(true);
+    } finally {
+      setCidadeLoading(false);
+    }
+  }
+
+  function handleCidadeSelect(cidade: Cidade) {
+    const codigo = String(cidade.id);
+    naturalidadeCodeRef.current = codigo;
+    setForm({ ...form, cd_ibge_naturalidade: codigo });
+    setNaturalidadeNome(`${cidade.nome} - ${cidade.uf}`);
+    closeNaturalidadeLookup();
+  }
+
+  function clearCidadeLookup() {
+    setCidadeLookupForm({ codigo: '', nome: '', uf: '' });
+    setCidadeResults([]);
+    setCidadeLookupApplied(false);
+  }
+
+  async function handleNaturalidadeCodeChange(codigo: string) {
+    naturalidadeCodeRef.current = codigo;
+    setForm({ ...form, cd_ibge_naturalidade: codigo });
+    if (codigo.length < 7) {
+      setNaturalidadeNome('');
+      return;
+    }
+    try {
+      const cidade = await cidadePorCodigo(codigo);
+      if (naturalidadeCodeRef.current !== codigo) return;
+      setNaturalidadeNome(cidade ? `${cidade.nome} - ${cidade.uf}` : '');
+    } catch {
+      if (naturalidadeCodeRef.current === codigo) setNaturalidadeNome('');
+    }
+  }
+
   async function handleChangePasswordSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!passwordChangeUserId) return;
@@ -1742,8 +1873,10 @@ export default function Home() {
         await excluirEstadoCivil(id);
       } else if (cgKind === 'corRaca') {
         await excluirCorRaca(id);
-      } else {
+      } else if (cgKind === 'profissao') {
         await excluirProfissao(id);
+      } else {
+        await excluirOrgaoEmissor(id);
       }
       setMessage("Excluído com sucesso!");
       await loadCgItems();
@@ -2381,7 +2514,7 @@ export default function Home() {
                 </div>
               )
             ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'profissao') ? (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor') ? (
                 <CadastroGeralListView
                   key={cgManageSelection}
                   loading={loading}
@@ -2432,6 +2565,9 @@ export default function Home() {
               estadoCivis={pfCgOptions.estadoCivis}
               coresRacas={pfCgOptions.coresRacas}
               profissoes={pfCgOptions.profissoes}
+              naturalidadeNome={naturalidadeNome}
+              onOpenNaturalidadeLookup={openNaturalidadeLookup}
+              onNaturalidadeCodeChange={handleNaturalidadeCodeChange}
             />
           ) : activeSection === "administracaoSistema" ? (
             <AdministracaoSistemaFormView
@@ -2484,6 +2620,7 @@ export default function Home() {
               descFieldKey={cgDescKey}
               collectionName={cgCollection}
               showCbo={cgKind === 'profissao'}
+              showSigla={cgKind === 'orgaoEmissor'}
             />
           )}
         </div>
@@ -2547,7 +2684,7 @@ export default function Home() {
 
               <div className="sm:col-span-6">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de nascimento (início)
+                  Nascimento (início)
                 </label>
                 <input
                   type="text"
@@ -2562,7 +2699,7 @@ export default function Home() {
 
               <div className="sm:col-span-6">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de nascimento (fim)
+                  Nascimento (fim)
                 </label>
                 <input
                   type="text"
@@ -2983,9 +3120,10 @@ export default function Home() {
       {pessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 p-[15px] bg-[#fafafa] overflow-auto">
+              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
                   <button
@@ -3030,7 +3168,8 @@ export default function Home() {
                     />
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-end gap-2">
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
                   <button
                     type="button"
                     onClick={clearLookupFilter}
@@ -3069,9 +3208,10 @@ export default function Home() {
       {adminPessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 p-[15px] bg-[#fafafa] overflow-auto">
+              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
                   <button
@@ -3116,7 +3256,8 @@ export default function Home() {
                     />
                   </div>
                 </div>
-                <div className="mt-4 flex items-center justify-end gap-2">
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
                   <button
                     type="button"
                     onClick={clearAdminPessoaFisicaLookupFilter}
@@ -3174,11 +3315,101 @@ export default function Home() {
         </div>
       )}
 
+      {naturalidadeLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeNaturalidadeLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar cidade</h2>
+                  <button
+                    type="button"
+                    onClick={closeNaturalidadeLookup}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                    aria-label="Fechar localizar cidade"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Código IBGE</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={7}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={cidadeLookupForm.codigo}
+                      onChange={(e) => setCidadeLookupForm({ ...cidadeLookupForm, codigo: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={cidadeLookupForm.nome}
+                      onChange={(e) => setCidadeLookupForm({ ...cidadeLookupForm, nome: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Estado</label>
+                    <Select
+                      value={cidadeLookupForm.uf}
+                      onChange={(v) => setCidadeLookupForm({ ...cidadeLookupForm, uf: v })}
+                      options={UF_OPTIONS}
+                    />
+                  </div>
+                </div>
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <button
+                    type="button"
+                    onClick={clearCidadeLookup}
+                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleCidadeSearch}
+                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Filtrar
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {cidadeLoading ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
+                    Carregando cidades...
+                  </div>
+                ) : !cidadeLookupApplied || cidadeResults.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
+                    Nenhum registro encontrado.
+                  </div>
+                ) : (
+                  <CidadeLookupTable
+                    cidades={cidadeResults}
+                    onSelect={handleCidadeSelect}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {detailModalOpen && selectedAuditIndex !== null && (() => {
         const after = auditLogs[selectedAuditIndex]?.detalhes ?? {};
         const before = auditLogs[selectedAuditIndex + 1]?.detalhes ?? null;
         const isUsuario = auditDocumentType === 'usuario';
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor';
         const fieldsOrder = isUsuario
           ? [
               'nr_sequencia',
@@ -3193,7 +3424,8 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : 'ds_sexo',
+              ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : []),
               'ie_status',
               'dt_criacao',
               'dt_alteracao',
@@ -3205,6 +3437,7 @@ export default function Home() {
               'dt_nascimento',
               'ds_email',
               'nr_telefone',
+              'cd_ibge_naturalidade',
               'dt_criacao',
               'dt_alteracao',
             ];
@@ -3239,13 +3472,16 @@ export default function Home() {
 
                       ds_nome: 'Nome completo',
                       nr_cpf: 'CPF',
-                      dt_nascimento: 'Data de nascimento',
+                      dt_nascimento: 'Nascimento',
                       ds_email: 'E-mail',
                       nr_telefone: 'Telefone',
+                      cd_ibge_naturalidade: 'Naturalidade',
                       ds_sexo: 'Descrição',
                       ds_estado_civil: 'Descrição',
                       ds_cor_raca: 'Descrição',
                       ds_profissao: 'Descrição',
+                      ds_orgao_emissor: 'Descrição',
+                      sg_orgao_emissor: 'Sigla',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
                     };

@@ -12,6 +12,7 @@ export interface PessoaFisica {
   nr_seq_estado_civil?: number;
   nr_seq_cor_raca?: number;
   nr_seq_profissao?: number;
+  cd_ibge_naturalidade?: string;
   dt_criacao: string;
   dt_alteracao: string;
   ds_usuario_criacao?: string;

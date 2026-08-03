@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PessoaFisica } from "@/types/pessoaFisica";
-import { FIELD_INFOS, applyCpfMask, applyDateMask, applyPhoneMask, formatDate } from "@/lib/pessoaFisicaUtils";
+import { FIELD_INFOS, applyCpfMask, applyDateMask, applyPhoneMask, formatDate, parseDateInput } from "@/lib/pessoaFisicaUtils";
 import Select from "@/components/ui/Select";
 
 export type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -31,6 +31,9 @@ interface FormViewProps {
   onNextRecord: () => void;
   hasPrevRecord: boolean;
   hasNextRecord: boolean;
+  naturalidadeNome: string;
+  onOpenNaturalidadeLookup: () => void;
+  onNaturalidadeCodeChange: (codigo: string) => void;
   sexos?: CgSelectOption[];
   estadoCivis?: CgSelectOption[];
   coresRacas?: CgSelectOption[];
@@ -55,6 +58,9 @@ export default function PessoaFisicaFormView({
   onNextRecord,
   hasPrevRecord,
   hasNextRecord,
+  naturalidadeNome,
+  onOpenNaturalidadeLookup,
+  onNaturalidadeCodeChange,
   sexos = [],
   estadoCivis = [],
   coresRacas = [],
@@ -63,6 +69,23 @@ export default function PessoaFisicaFormView({
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
+
+  // Calcula a idade a partir da data de nascimento (formato DD/MM/AAAA).
+  function calcularIdade(dtNascimento: string): string {
+    const parsed = parseDateInput(dtNascimento);
+    if (parsed === null) return '';
+    const day = parsed % 100;
+    const month = Math.floor(parsed / 100) % 100;
+    const year = Math.floor(parsed / 10000);
+    const today = new Date();
+    let age = today.getFullYear() - year;
+    const currentMonth = today.getMonth() + 1;
+    const currentDay = today.getDate();
+    if (currentMonth < month || (currentMonth === month && currentDay < day)) {
+      age -= 1;
+    }
+    return age >= 0 ? String(age) : '';
+  }
 
   function cgOptions(options: CgSelectOption[], selected?: number): CgSelectOption[] {
     const active = options
@@ -224,8 +247,8 @@ export default function PessoaFisicaFormView({
             />
           </div>
 
-          <div className="sm:col-span-6 group">
-            {renderFieldLabel('dt_nascimento', 'Data de nascimento')}
+          <div className="sm:col-span-5 group">
+            {renderFieldLabel('dt_nascimento', 'Nascimento')}
             <input
               type="text"
               inputMode="numeric"
@@ -239,7 +262,17 @@ export default function PessoaFisicaFormView({
             />
           </div>
 
-          <div className="sm:col-span-6 group">
+          <div className="sm:col-span-1 group">
+            {renderFieldLabel('qt_idade', 'Idade')}
+            <input
+              disabled
+              maxLength={3}
+              className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm transition focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
+              value={calcularIdade(form.dt_nascimento)}
+            />
+          </div>
+
+          <div className="sm:col-span-3 group">
             {renderFieldLabel('ds_email', 'E-mail')}
             <input
               type="email"
@@ -249,7 +282,7 @@ export default function PessoaFisicaFormView({
             />
           </div>
 
-          <div className="sm:col-span-6 group">
+          <div className="sm:col-span-3 group">
             {renderFieldLabel('nr_telefone', 'Telefone')}
             <input
               inputMode="numeric"
@@ -258,6 +291,43 @@ export default function PessoaFisicaFormView({
               value={form.nr_telefone}
               onChange={(e) => setForm({ ...form, nr_telefone: applyPhoneMask(e.target.value) })}
             />
+          </div>
+
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('cd_ibge_naturalidade', 'Naturalidade')}
+            <div className="flex items-center gap-2 flex-nowrap">
+              <div style={{ width: 100 }}>
+                <label className="sr-only">Código IBGE da cidade</label>
+                <input
+                  inputMode="numeric"
+                  maxLength={7}
+                  placeholder="Código"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={form.cd_ibge_naturalidade ?? ''}
+                  onChange={(e) => onNaturalidadeCodeChange(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                />
+              </div>
+              <div className="relative flex-1 min-w-0">
+                <label className="sr-only">Nome da cidade</label>
+                <input
+                  readOnly
+                  placeholder="Cidade - UF"
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={naturalidadeNome}
+                />
+                <button
+                  type="button"
+                  onClick={onOpenNaturalidadeLookup}
+                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
+                  aria-label="Localizar cidade"
+                >
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <circle cx="11" cy="11" r="7" />
+                    <path d="m21 21-4.3-4.3" />
+                  </svg>
+                </button>
+              </div>
+            </div>
           </div>
 
           <div className="sm:col-span-3 group">
