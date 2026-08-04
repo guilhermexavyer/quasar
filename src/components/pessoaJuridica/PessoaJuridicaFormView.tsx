@@ -1,12 +1,21 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { PessoaFisica } from "@/types/pessoaFisica";
-import { FIELD_INFOS, applyCepMask, applyCpfMask, applyDateMask, applyPhoneMask, formatDate, parseDateInput } from "@/lib/pessoaFisicaUtils";
+import type { PessoaJuridica } from "@/types/pessoaJuridica";
+import {
+  PJ_FIELD_INFOS,
+  applyCnpjMask,
+} from "@/lib/pessoaJuridicaUtils";
+import {
+  applyCepMask,
+  applyDateMask,
+  applyPhoneMask,
+  formatDate,
+} from "@/lib/pessoaFisicaUtils";
 import Select from "@/components/ui/Select";
 import { buscarEnderecoPorCep } from "@/services/cepService";
 
-export type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
+export type FormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 export interface CgSelectOption {
   nr_sequencia: number;
@@ -34,14 +43,9 @@ interface FormViewProps {
   onNextRecord: () => void;
   hasPrevRecord: boolean;
   hasNextRecord: boolean;
-  naturalidadeNome: string;
-  onOpenNaturalidadeLookup: () => void;
-  onNaturalidadeCodeChange: (codigo: string) => void;
-  sexos?: CgSelectOption[];
-  estadoCivis?: CgSelectOption[];
-  coresRacas?: CgSelectOption[];
-  profissoes?: CgSelectOption[];
-  orgaosEmissores?: CgSelectOption[];
+  cidadeNome: string;
+  onOpenCidadeLookup: () => void;
+  onCidadeCodeChange: (codigo: string) => void;
   logradouros?: CgSelectOption[];
   estados?: { value: string; label: string }[];
   selectOptions: { value: string; label: string }[];
@@ -49,7 +53,7 @@ interface FormViewProps {
   onManageSelectionChange: (v: string) => void;
 }
 
-export default function PessoaFisicaFormView({
+export default function PessoaJuridicaFormView({
   message,
   editingId,
   sequence,
@@ -67,14 +71,9 @@ export default function PessoaFisicaFormView({
   onNextRecord,
   hasPrevRecord,
   hasNextRecord,
-  naturalidadeNome,
-  onOpenNaturalidadeLookup,
-  onNaturalidadeCodeChange,
-  sexos = [],
-  estadoCivis = [],
-  coresRacas = [],
-  profissoes = [],
-  orgaosEmissores = [],
+  cidadeNome,
+  onOpenCidadeLookup,
+  onCidadeCodeChange,
   logradouros = [],
   estados = [],
   selectOptions,
@@ -82,27 +81,10 @@ export default function PessoaFisicaFormView({
   onManageSelectionChange,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
-  const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
+  const [infoPopupField, setInfoPopupField] = useState<keyof typeof PJ_FIELD_INFOS | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
   const [cepLoading, setCepLoading] = useState(false);
   const prevCepRef = useRef(form.nr_cep ?? '');
-
-  // Calcula a idade a partir da data de nascimento (formato DD/MM/AAAA).
-  function calcularIdade(dtNascimento: string): string {
-    const parsed = parseDateInput(dtNascimento);
-    if (parsed === null) return '';
-    const day = parsed % 100;
-    const month = Math.floor(parsed / 100) % 100;
-    const year = Math.floor(parsed / 10000);
-    const today = new Date();
-    let age = today.getFullYear() - year;
-    const currentMonth = today.getMonth() + 1;
-    const currentDay = today.getDate();
-    if (currentMonth < month || (currentMonth === month && currentDay < day)) {
-      age -= 1;
-    }
-    return age >= 0 ? String(age) : '';
-  }
 
   // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
   // (status 'I' em Cadastros Gerais) são ocultados.
@@ -140,8 +122,8 @@ export default function PessoaFisicaFormView({
     return best ? best.op.nr_sequencia : undefined;
   }
 
-  function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
-    const meta = FIELD_INFOS[fieldKey];
+  function renderFieldLabel(fieldKey: keyof typeof PJ_FIELD_INFOS, label: string) {
+    const meta = PJ_FIELD_INFOS[fieldKey];
     return (
       <div className="block text-sm mb-1" style={{ color: '#666' }}>
         <div className="relative group inline-flex items-center gap-2">
@@ -217,8 +199,9 @@ export default function PessoaFisicaFormView({
     return () => document.removeEventListener('click', handleClose);
   }, [infoPopupField]);
 
-  // Ao informar/altera um CEP completo (8 dígitos), consulta o ViaCEP e preenche Rua e Bairro.
-  // Não busca ao abrir um registro já salvo — apenas quando o CEP muda após o mount.
+  // Ao informar/altera um CEP completo (8 dígitos), consulta o ViaCEP e preenche
+  // Rua, Bairro, Logradouro e UF. Não busca ao abrir um registro já salvo —
+  // apenas quando o CEP muda após o mount.
   useEffect(() => {
     const current = form.nr_cep ?? '';
     if (current === prevCepRef.current) return;
@@ -239,6 +222,7 @@ export default function PessoaFisicaFormView({
           ...prev,
           ds_endereco: endereco.logradouro,
           ds_bairro: endereco.bairro,
+          sg_estado: endereco.uf || prev.sg_estado,
           nr_seq_logradouro: inferirLogradouro(endereco.logradouro) ?? prev.nr_seq_logradouro,
         }));
       })
@@ -308,9 +292,9 @@ export default function PessoaFisicaFormView({
         className="mt-4 flex-1 flex flex-col min-h-0"
       >
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-9">
-          {/* ── Dados Pessoais ── */}
+          {/* ── Dados da Empresa ── */}
           <section>
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dados Pessoais</h2>
+            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dados da Empresa</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
               <div className="sm:col-span-1 group">
                 {renderFieldLabel('nr_sequencia', 'Sequência')}
@@ -322,110 +306,36 @@ export default function PessoaFisicaFormView({
               </div>
 
               <div className="sm:col-span-11 group">
-                {renderFieldLabel('ds_nome', 'Nome completo')}
+                {renderFieldLabel('ds_razao_social', 'Razão social')}
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                  value={form.ds_nome}
-                  onChange={(e) => setForm({ ...form, ds_nome: e.target.value })}
+                  value={form.ds_razao_social}
+                  onChange={(e) => setForm({ ...form, ds_razao_social: e.target.value })}
+                />
+              </div>
+
+              <div className="sm:col-span-8 group">
+                {renderFieldLabel('ds_nome_fantasia', 'Nome fantasia')}
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={form.ds_nome_fantasia}
+                  onChange={(e) => setForm({ ...form, ds_nome_fantasia: e.target.value })}
                 />
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('dt_nascimento', 'Nascimento')}
+                {renderFieldLabel('dt_abertura', 'Data de abertura')}
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
-                  value={form.dt_nascimento}
+                  value={form.dt_abertura}
                   onChange={(e) =>
-                    setForm({ ...form, dt_nascimento: applyDateMask(e.target.value) })
+                    setForm({ ...form, dt_abertura: applyDateMask(e.target.value) })
                   }
                 />
-              </div>
-
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('qt_idade', 'Idade')}
-                <input
-                  disabled
-                  maxLength={3}
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm transition focus:outline-none disabled:bg-slate-100 disabled:text-slate-500"
-                  value={calcularIdade(form.dt_nascimento)}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_seq_sexo', 'Sexo')}
-                <Select
-                  value={form.nr_seq_sexo ? String(form.nr_seq_sexo) : ''}
-                  onChange={(v) => setForm({ ...form, nr_seq_sexo: v ? Number(v) : undefined })}
-                  options={cgOptions(sexos).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_seq_estado_civil', 'Estado civil')}
-                <Select
-                  value={form.nr_seq_estado_civil ? String(form.nr_seq_estado_civil) : ''}
-                  onChange={(v) => setForm({ ...form, nr_seq_estado_civil: v ? Number(v) : undefined })}
-                  options={cgOptions(estadoCivis).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_seq_cor_raca', 'Cor/Raça')}
-                <Select
-                  value={form.nr_seq_cor_raca ? String(form.nr_seq_cor_raca) : ''}
-                  onChange={(v) => setForm({ ...form, nr_seq_cor_raca: v ? Number(v) : undefined })}
-                  options={cgOptions(coresRacas).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_seq_profissao', 'Profissão')}
-                <Select
-                  value={form.nr_seq_profissao ? String(form.nr_seq_profissao) : ''}
-                  onChange={(v) => setForm({ ...form, nr_seq_profissao: v ? Number(v) : undefined })}
-                  options={cgOptions(profissoes).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
-                />
-              </div>
-
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel('cd_ibge_naturalidade', 'Naturalidade')}
-                <div className="flex items-center gap-2 flex-nowrap">
-                  <div style={{ width: 100 }}>
-                    <label className="sr-only">Código IBGE da cidade</label>
-                    <input
-                      inputMode="numeric"
-                      maxLength={7}
-                      placeholder="Código"
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
-                      value={form.cd_ibge_naturalidade ?? ''}
-                      onChange={(e) => onNaturalidadeCodeChange(e.target.value.replace(/\D/g, '').slice(0, 7))}
-                    />
-                  </div>
-                  <div className="relative flex-1 min-w-0">
-                    <label className="sr-only">Nome da cidade</label>
-                    <input
-                      readOnly
-                      placeholder="Cidade - UF"
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
-                      value={naturalidadeNome}
-                    />
-                    <button
-                      type="button"
-                      onClick={onOpenNaturalidadeLookup}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
-                      aria-label="Localizar cidade"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="7" />
-                        <path d="m21 21-4.3-4.3" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
               </div>
             </div>
           </section>
@@ -435,54 +345,33 @@ export default function PessoaFisicaFormView({
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Documentos</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('nr_cpf', 'CPF')}
+                {renderFieldLabel('nr_cnpj', 'CNPJ')}
                 <input
                   inputMode="numeric"
-                  maxLength={14}
+                  maxLength={18}
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                  value={form.nr_cpf}
-                  onChange={(e) => setForm({ ...form, nr_cpf: applyCpfMask(e.target.value) })}
+                  value={form.nr_cnpj}
+                  onChange={(e) => setForm({ ...form, nr_cnpj: applyCnpjMask(e.target.value) })}
                 />
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('nr_rg', 'RG')}
+                {renderFieldLabel('nr_inscricao_estadual', 'Inscrição estadual')}
                 <input
-                  maxLength={15}
+                  maxLength={20}
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                  value={form.nr_rg ?? ''}
-                  onChange={(e) => setForm({ ...form, nr_rg: e.target.value })}
+                  value={form.nr_inscricao_estadual}
+                  onChange={(e) => setForm({ ...form, nr_inscricao_estadual: e.target.value })}
                 />
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('dt_emissao', 'Data de emissão')}
+                {renderFieldLabel('nr_inscricao_municipal', 'Inscrição municipal')}
                 <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD/MM/AAAA"
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
-                  value={form.dt_emissao ?? ''}
-                  onChange={(e) => setForm({ ...form, dt_emissao: applyDateMask(e.target.value) })}
-                />
-              </div>
-
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel('nr_seq_orgao_emissor', 'Órgão emissor')}
-                <Select
-                  value={form.nr_seq_orgao_emissor ? String(form.nr_seq_orgao_emissor) : ''}
-                  onChange={(v) => setForm({ ...form, nr_seq_orgao_emissor: v ? Number(v) : undefined })}
-                  options={cgOptions(orgaosEmissores).map((op) => ({ value: String(op.nr_sequencia), label: op.sigla?.trim() || op.descricao }))}
-                />
-              </div>
-
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel('sg_estado', 'UF')}
-                <Select
-                  value={form.sg_estado ?? ''}
-                  onChange={(v) => setForm({ ...form, sg_estado: v })}
-                  options={estados}
+                  maxLength={20}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={form.nr_inscricao_municipal}
+                  onChange={(e) => setForm({ ...form, nr_inscricao_municipal: e.target.value })}
                 />
               </div>
             </div>
@@ -577,6 +466,50 @@ export default function PessoaFisicaFormView({
                   value={form.ds_complemento ?? ''}
                   onChange={(e) => setForm({ ...form, ds_complemento: e.target.value })}
                 />
+              </div>
+
+              <div className="sm:col-span-3 group">
+                {renderFieldLabel('sg_estado', 'UF')}
+                <Select
+                  value={form.sg_estado ?? ''}
+                  onChange={(v) => setForm({ ...form, sg_estado: v })}
+                  options={estados}
+                />
+              </div>
+
+              <div className="sm:col-span-9 group">
+                {renderFieldLabel('cd_ibge_cidade', 'Cidade')}
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 100 }}>
+                    <label className="sr-only">Código IBGE da cidade</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={7}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none"
+                      value={form.cd_ibge_cidade ?? ''}
+                      onChange={(e) => onCidadeCodeChange(e.target.value.replace(/\D/g, '').slice(0, 7))}
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <label className="sr-only">Nome da cidade</label>
+                    <input
+                      readOnly
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      value={cidadeNome}
+                    />
+                    <button
+                      type="button"
+                      onClick={onOpenCidadeLookup}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
+                      aria-label="Localizar cidade"
+                    >
+                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                        <circle cx="11" cy="11" r="7" />
+                        <path d="m21 21-4.3-4.3" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

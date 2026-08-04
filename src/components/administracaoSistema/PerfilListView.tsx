@@ -2,20 +2,18 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
-import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
-import type { Usuario } from "@/types/usuario";
-import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
+import type { Perfil } from "@/types/perfil";
+import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
 import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 
 interface ListViewProps {
   message: string;
   loading: boolean;
-  usuarios: Usuario[];
-  pessoasFisicas: PessoaFisica[];
+  perfis: Perfil[];
   openNewForm: () => void;
-  openEditForm: (usuario: Usuario) => void;
+  openEditForm: (perfil: Perfil) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
@@ -27,11 +25,10 @@ interface ListViewProps {
   onColumnsChange?: (config: ColunasConfig) => void;
 }
 
-export default function AdministracaoSistemaListView({
+export default function PerfilListView({
   message,
   loading,
-  usuarios,
-  pessoasFisicas,
+  perfis,
   openNewForm,
   openEditForm,
   setContextMenu,
@@ -48,9 +45,9 @@ export default function AdministracaoSistemaListView({
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, ADMIN_COLUMNS.length)
+    initialColumns && isValidOrder(initialColumns.order, PERFIL_COLUMNS.length)
       ? [...initialColumns.order]
-      : ADMIN_COLUMNS.map((_, i) => i)
+      : PERFIL_COLUMNS.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(30);
@@ -61,7 +58,7 @@ export default function AdministracaoSistemaListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === ADMIN_COLUMNS.length
+    initialColumns?.widths && initialColumns.widths.length === PERFIL_COLUMNS.length
       ? [...initialColumns.widths]
       : []
   );
@@ -106,7 +103,7 @@ export default function AdministracaoSistemaListView({
     const ths = table.querySelectorAll<HTMLElement>("thead tr th");
     if (ths.length === 0) return [];
 
-    const widths = new Array(ADMIN_COLUMNS.length).fill(0);
+    const widths = new Array(PERFIL_COLUMNS.length).fill(0);
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       widths[logicalIdx] = measureHeaderMinWidth(th);
@@ -237,7 +234,7 @@ export default function AdministracaoSistemaListView({
         setColumnOrder(newOrder);
         if (tableRef.current) {
           const ths = tableRef.current.querySelectorAll<HTMLElement>("thead tr th");
-          const byLogical = new Array<number>(ADMIN_COLUMNS.length).fill(0);
+          const byLogical = new Array<number>(PERFIL_COLUMNS.length).fill(0);
           ths.forEach((thEl, domIdx) => {
             byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
           });
@@ -254,14 +251,14 @@ export default function AdministracaoSistemaListView({
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  const totalRecords = usuarios.length;
+  const totalRecords = perfis.length;
   const pageCount = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalRecords / pageSize));
   const currentPageSafe = Math.min(currentPage, pageCount);
   const firstRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? 1 : (currentPageSafe - 1) * pageSize + 1);
   const lastRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? totalRecords : Math.min(totalRecords, currentPageSafe * pageSize));
-  const paginatedUsuarios = pageSize === 'all'
-    ? usuarios
-    : usuarios.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
+  const paginatedPerfis = pageSize === 'all'
+    ? perfis
+    : perfis.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -280,7 +277,7 @@ export default function AdministracaoSistemaListView({
     if (!table) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, usuarios.length]);
+  }, [columnOrder, loading, perfis.length]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {
@@ -419,7 +416,7 @@ export default function AdministracaoSistemaListView({
       document.body.style.userSelect = "";
       if (table) {
         setFrozenWidth(table.style.width);
-        const byLogical = new Array<number>(ADMIN_COLUMNS.length).fill(0);
+        const byLogical = new Array<number>(PERFIL_COLUMNS.length).fill(0);
         ths.forEach((thEl, domIdx) => {
           byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
         });
@@ -492,11 +489,11 @@ export default function AdministracaoSistemaListView({
                 </div>
               ))}
             </div>
-          ) : usuarios.length === 0 ? (
+          ) : perfis.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
               <p className="mt-1 text-sm text-slate-500">
-                Clique em "Adicionar" para cadastrar um usuário.
+                Clique em "Adicionar" para cadastrar um perfil.
               </p>
             </div>
           ) : (
@@ -505,8 +502,8 @@ export default function AdministracaoSistemaListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
-                        const col = ADMIN_COLUMNS[logicalIdx];
+                      {columnOrder.map((logicalIdx) => {
+                        const col = PERFIL_COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (
                           <th
@@ -529,27 +526,21 @@ export default function AdministracaoSistemaListView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {paginatedUsuarios.map((usuario) => (
+                    {paginatedPerfis.map((perfil) => (
                       <tr
-                        key={usuario.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === usuario.id ? 'row-selected' : ''}`}
-                        onClick={() => setSelectedId((prev) => (prev === usuario.id ? null : usuario.id ?? null))}
+                        key={perfil.id}
+                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === perfil.id ? 'row-selected' : ''}`}
+                        onClick={() => setSelectedId((prev) => (prev === perfil.id ? null : perfil.id ?? null))}
                         onContextMenu={(e) => {
                           e.preventDefault();
-                          setSelectedId(usuario.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracaoSistema', item: usuario });
+                          setSelectedId(perfil.id ?? null);
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracaoSistema', item: perfil });
                         }}
                       >
                         {columnOrder.map((logicalIdx) => {
-                          const col = ADMIN_COLUMNS[logicalIdx];
-                          let displayValue = '';
-                          if (col.key === 'nr_seq_pessoa_fisica') {
-                            const seq = (usuario as any).nr_seq_pessoa_fisica as number | undefined | null;
-                            displayValue = seq ? (pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '') : '';
-                          } else {
-                            const value = usuario[col.key as keyof Usuario];
-                            displayValue = formatAdminCellValue(col.key as keyof Usuario, value);
-                          }
+                          const col = PERFIL_COLUMNS[logicalIdx];
+                          const value = perfil[col.key as keyof Perfil];
+                          const displayValue = formatPerfilCellValue(col.key as keyof Perfil, value);
                           const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>

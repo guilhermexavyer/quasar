@@ -2,55 +2,58 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
-import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
-import type { Usuario } from "@/types/usuario";
-import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
+import type { PessoaJuridica } from "@/types/pessoaJuridica";
+import { PJ_COLUMNS, formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
 import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 
 interface ListViewProps {
   message: string;
   loading: boolean;
-  usuarios: Usuario[];
-  pessoasFisicas: PessoaFisica[];
+  pessoasJuridicas: PessoaJuridica[];
   openNewForm: () => void;
-  openEditForm: (usuario: Usuario) => void;
+  openEditForm: (pessoa: PessoaJuridica) => void;
+  handleDelete: (id: string) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
+  selectOptions: { value: string; label: string }[];
+  manageSelection: string;
+  onManageSelectionChange: (v: string) => void;
   sortColumn: number | null;
   sortAsc: boolean | null;
   onSortChange: (logicalIndex: number) => void;
-  manageSelection: string;
-  onManageSelectionChange: (v: string) => void;
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
+  columnLookups?: Partial<Record<keyof PessoaJuridica, Record<number, string>>>;
 }
 
-export default function AdministracaoSistemaListView({
+export default function PessoaJuridicaListView({
   message,
   loading,
-  usuarios,
-  pessoasFisicas,
+  pessoasJuridicas,
   openNewForm,
   openEditForm,
+  openFilter,
+  handleDelete,
   setContextMenu,
+  selectOptions,
+  manageSelection,
+  onManageSelectionChange,
   sortColumn,
   sortAsc,
   onSortChange,
-  manageSelection,
-  onManageSelectionChange,
-  openFilter,
   initialColumns,
   onColumnsChange,
+  columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, ADMIN_COLUMNS.length)
+    initialColumns && isValidOrder(initialColumns.order, PJ_COLUMNS.length)
       ? [...initialColumns.order]
-      : ADMIN_COLUMNS.map((_, i) => i)
+      : Array.from({ length: PJ_COLUMNS.length }, (_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(30);
@@ -61,7 +64,7 @@ export default function AdministracaoSistemaListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === ADMIN_COLUMNS.length
+    initialColumns?.widths && initialColumns.widths.length === PJ_COLUMNS.length
       ? [...initialColumns.widths]
       : []
   );
@@ -106,7 +109,7 @@ export default function AdministracaoSistemaListView({
     const ths = table.querySelectorAll<HTMLElement>("thead tr th");
     if (ths.length === 0) return [];
 
-    const widths = new Array(ADMIN_COLUMNS.length).fill(0);
+    const widths = new Array(PJ_COLUMNS.length).fill(0);
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       widths[logicalIdx] = measureHeaderMinWidth(th);
@@ -237,7 +240,7 @@ export default function AdministracaoSistemaListView({
         setColumnOrder(newOrder);
         if (tableRef.current) {
           const ths = tableRef.current.querySelectorAll<HTMLElement>("thead tr th");
-          const byLogical = new Array<number>(ADMIN_COLUMNS.length).fill(0);
+          const byLogical = new Array<number>(PJ_COLUMNS.length).fill(0);
           ths.forEach((thEl, domIdx) => {
             byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
           });
@@ -254,14 +257,14 @@ export default function AdministracaoSistemaListView({
     document.addEventListener("mouseup", onMouseUp);
   }
 
-  const totalRecords = usuarios.length;
+  const totalRecords = pessoasJuridicas.length;
   const pageCount = pageSize === 'all' ? 1 : Math.max(1, Math.ceil(totalRecords / pageSize));
   const currentPageSafe = Math.min(currentPage, pageCount);
   const firstRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? 1 : (currentPageSafe - 1) * pageSize + 1);
   const lastRecord = totalRecords === 0 ? 0 : (pageSize === 'all' ? totalRecords : Math.min(totalRecords, currentPageSafe * pageSize));
-  const paginatedUsuarios = pageSize === 'all'
-    ? usuarios
-    : usuarios.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
+  const paginatedPessoasJuridicas = pageSize === 'all'
+    ? pessoasJuridicas
+    : pessoasJuridicas.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
 
   useEffect(() => {
     setCurrentPage(1);
@@ -280,7 +283,7 @@ export default function AdministracaoSistemaListView({
     if (!table) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, usuarios.length]);
+  }, [columnOrder, loading, pessoasJuridicas.length]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {
@@ -419,7 +422,7 @@ export default function AdministracaoSistemaListView({
       document.body.style.userSelect = "";
       if (table) {
         setFrozenWidth(table.style.width);
-        const byLogical = new Array<number>(ADMIN_COLUMNS.length).fill(0);
+        const byLogical = new Array<number>(PJ_COLUMNS.length).fill(0);
         ths.forEach((thEl, domIdx) => {
           byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
         });
@@ -454,7 +457,7 @@ export default function AdministracaoSistemaListView({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={[{ value: 'usuarios', label: 'Usuários' }, { value: 'perfis', label: 'Perfis' }]}
+              options={selectOptions}
               showPlaceholder={false}
               className="!w-[180px]"
             />
@@ -492,11 +495,11 @@ export default function AdministracaoSistemaListView({
                 </div>
               ))}
             </div>
-          ) : usuarios.length === 0 ? (
+          ) : pessoasJuridicas.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
               <p className="mt-1 text-sm text-slate-500">
-                Clique em "Adicionar" para cadastrar um usuário.
+                Clique em "Adicionar" para cadastrar uma pessoa jurídica.
               </p>
             </div>
           ) : (
@@ -505,8 +508,8 @@ export default function AdministracaoSistemaListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
-                        const col = ADMIN_COLUMNS[logicalIdx];
+                      {columnOrder.map((logicalIdx) => {
+                        const col = PJ_COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (
                           <th
@@ -529,27 +532,24 @@ export default function AdministracaoSistemaListView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {paginatedUsuarios.map((usuario) => (
+                    {paginatedPessoasJuridicas.map((pessoa) => (
                       <tr
-                        key={usuario.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === usuario.id ? 'row-selected' : ''}`}
-                        onClick={() => setSelectedId((prev) => (prev === usuario.id ? null : usuario.id ?? null))}
+                        key={pessoa.id}
+                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === pessoa.id ? 'row-selected' : ''}`}
+                        onClick={() => setSelectedId((prev) => (prev === pessoa.id ? null : pessoa.id ?? null))}
                         onContextMenu={(e) => {
                           e.preventDefault();
-                          setSelectedId(usuario.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracaoSistema', item: usuario });
+                          setSelectedId(pessoa.id ?? null);
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'pessoaFisica', item: pessoa });
                         }}
                       >
                         {columnOrder.map((logicalIdx) => {
-                          const col = ADMIN_COLUMNS[logicalIdx];
-                          let displayValue = '';
-                          if (col.key === 'nr_seq_pessoa_fisica') {
-                            const seq = (usuario as any).nr_seq_pessoa_fisica as number | undefined | null;
-                            displayValue = seq ? (pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '') : '';
-                          } else {
-                            const value = usuario[col.key as keyof Usuario];
-                            displayValue = formatAdminCellValue(col.key as keyof Usuario, value);
-                          }
+                          const col = PJ_COLUMNS[logicalIdx];
+                          const value = pessoa[col.key];
+                          const lookupMap = columnLookups?.[col.key];
+                          const displayValue = lookupMap
+                            ? (value !== null && value !== undefined && value !== '' ? (lookupMap[Number(value)] ?? '') : '')
+                            : formatCellValuePj(col.key, value);
                           const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>

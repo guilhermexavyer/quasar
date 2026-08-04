@@ -35,7 +35,17 @@ export const FIELD_INFOS = {
   nr_seq_estado_civil: { type: 'int64', field: 'nr_seq_estado_civil', collection: 'pessoa_fisica' },
   nr_seq_cor_raca: { type: 'int64', field: 'nr_seq_cor_raca', collection: 'pessoa_fisica' },
   nr_seq_profissao: { type: 'int64', field: 'nr_seq_profissao', collection: 'pessoa_fisica' },
+  nr_rg: { type: 'string', field: 'nr_rg', collection: 'pessoa_fisica' },
+  dt_emissao: { type: 'string', field: 'dt_emissao', collection: 'pessoa_fisica' },
+  nr_seq_orgao_emissor: { type: 'int64', field: 'nr_seq_orgao_emissor', collection: 'pessoa_fisica' },
+  sg_estado: { type: 'string', field: 'sg_estado', collection: 'pessoa_fisica' },
   cd_ibge_naturalidade: { type: 'string', field: 'cd_ibge_naturalidade', collection: 'pessoa_fisica' },
+  nr_cep: { type: 'string', field: 'nr_cep', collection: 'pessoa_fisica' },
+  ds_endereco: { type: 'string', field: 'ds_endereco', collection: 'pessoa_fisica' },
+  nr_endereco: { type: 'string', field: 'nr_endereco', collection: 'pessoa_fisica' },
+  ds_bairro: { type: 'string', field: 'ds_bairro', collection: 'pessoa_fisica' },
+  ds_complemento: { type: 'string', field: 'ds_complemento', collection: 'pessoa_fisica' },
+  nr_seq_logradouro: { type: 'int64', field: 'nr_seq_logradouro', collection: 'pessoa_fisica' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'pessoa_fisica' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'pessoa_fisica' },
 } as const;
@@ -52,7 +62,17 @@ export const FIELD_LABELS: Record<string, string> = {
   nr_seq_estado_civil: 'Estado civil',
   nr_seq_cor_raca: 'Cor/Raça',
   nr_seq_profissao: 'Profissão',
+  nr_rg: 'RG',
+  dt_emissao: 'Data de emissão',
+  nr_seq_orgao_emissor: 'Órgão emissor',
+  sg_estado: 'UF',
   cd_ibge_naturalidade: 'Naturalidade',
+  nr_cep: 'CEP',
+  ds_endereco: 'Rua',
+  nr_endereco: 'Número',
+  ds_bairro: 'Bairro',
+  ds_complemento: 'Complemento',
+  nr_seq_logradouro: 'Logradouro',
   dt_criacao: 'Criação',
   dt_alteracao: 'Alteração',
 };
@@ -171,6 +191,12 @@ export function applyPhoneMask(value: string): string {
   if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
   if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
   return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
+export function applyCepMask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 5) return digits;
+  return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 }
 
 export function formatCellValue(key: keyof PessoaFisica, value: unknown): string {

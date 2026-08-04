@@ -333,6 +333,24 @@ select:disabled {
 /* ============================================================
    DROPDOWN CUSTOMIZADO (Select)
    ============================================================ */
+/* Modo claro — mesmas bordas dos campos normais (topo/esquerda #999,
+   direita/baixo #ccc, foco #066fc5) para o gatilho do dropdown. */
+.cg-select-trigger {
+  border-top: 1px solid #999;
+  border-left: 1px solid #999;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  border-radius: 0;
+}
+
+.cg-select-trigger:focus,
+.cg-select-trigger:focus-visible {
+  border-top-color: #066fc5;
+  border-left-color: #066fc5;
+  border-right-color: #066fc5;
+  border-bottom-color: #066fc5;
+}
+
 .dark .cg-select-trigger {
   background-color: #18181b !important;
   color: #e4e4e7 !important;

@@ -463,7 +463,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
               onChange={onManageSelectionChange}
               options={selectOptions}
               showPlaceholder={false}
-              className="!w-[140px]"
+              className="!w-[180px]"
             />
             <button
               type="button"

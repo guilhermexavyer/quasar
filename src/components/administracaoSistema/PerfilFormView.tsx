@@ -1,23 +1,18 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
+import type { Perfil } from "@/types/perfil";
+import { PERFIL_FIELD_INFOS, formatPerfilCellValue } from "@/lib/perfilUtils";
 import Select from "@/components/ui/Select";
 
-export interface CadastroGeralFormData {
-  descricao: string;
-  ie_status: string;
-  /** Campo extra opcional (ex.: CBO na função Profissão). */
-  nr_cbo?: string;
-  /** Sigla genérica (funções Órgão emissor e Logradouro). */
-  sg_sigla?: string;
-}
+export type PerfilFormData = Omit<Perfil, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 interface FormViewProps {
+  message: string;
   editingId: string | null;
   sequence?: number | null;
-  form: CadastroGeralFormData;
-  setForm: React.Dispatch<React.SetStateAction<CadastroGeralFormData>>;
+  form: PerfilFormData;
+  setForm: React.Dispatch<React.SetStateAction<PerfilFormData>>;
   submitting: boolean;
   handleSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
   goToList: () => void;
@@ -29,22 +24,13 @@ interface FormViewProps {
   onNextRecord: () => void;
   hasPrevRecord: boolean;
   hasNextRecord: boolean;
-  onOpenAudit?: (id?: string | null) => void;
+  onOpenAudit?: (perfilId?: string | null) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
-  selectOptions: { value: string; label: string }[];
-  fieldInfos: Record<string, { type: string; field: string; collection: string }>;
-  descFieldKey: string;
-  collectionName: string;
-  /** Exibe o campo extra CBO (usado na função Profissão). */
-  showCbo?: boolean;
-  /** Exibe o campo extra Sigla (funções Órgão emissor e Logradouro). */
-  showSigla?: boolean;
-  /** Chave do campo de sigla na coleção atual (ex.: sg_orgao_emissor, sg_logradouro). */
-  siglaFieldKey?: string;
 }
 
-export default function CadastroGeralFormView({
+export default function PerfilFormView({
+  message,
   editingId,
   sequence,
   form,
@@ -63,23 +49,16 @@ export default function CadastroGeralFormView({
   onOpenAudit,
   manageSelection,
   onManageSelectionChange,
-  selectOptions,
-  fieldInfos,
-  descFieldKey,
-  collectionName,
-  showCbo = false,
-  showSigla = false,
-  siglaFieldKey = 'sg_sigla',
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
-  const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
+  const [infoPopupField, setInfoPopupField] = useState<keyof typeof PERFIL_FIELD_INFOS | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
 
-  function renderFieldLabel(fieldKey: string, label: string) {
-    const meta = fieldInfos[fieldKey] ?? {
+  function renderFieldLabel(fieldKey: keyof typeof PERFIL_FIELD_INFOS, label: string) {
+    const meta = PERFIL_FIELD_INFOS[fieldKey] ?? {
       type: 'string',
-      field: fieldKey,
-      collection: collectionName,
+      field: String(fieldKey),
+      collection: 'perfil',
     };
     return (
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
@@ -163,10 +142,10 @@ export default function CadastroGeralFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={selectOptions}
-            disabled
+            options={[{ value: 'usuarios', label: 'Usuários' }, { value: 'perfis', label: 'Perfis' }]}
             showPlaceholder={false}
             className="!w-[180px]"
+            disabled
           />
           <div className="flex items-center gap-1">
             <button
@@ -219,66 +198,49 @@ export default function CadastroGeralFormView({
             />
           </div>
 
-          <div className={`${(showCbo || showSigla) ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
-            {renderFieldLabel(descFieldKey, 'Descrição')}
+          <div className="sm:col-span-11 group">
+            {renderFieldLabel('ds_perfil', 'Perfil')}
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-              value={form.descricao}
-              onChange={(e) => setForm({ ...form, descricao: e.target.value })}
+              value={form.ds_perfil}
+              onChange={(e) => setForm({ ...form, ds_perfil: e.target.value })}
             />
           </div>
 
-          {showCbo && (
-            <div className="sm:col-span-3 group">
-              {renderFieldLabel('nr_cbo', 'CBO')}
-              <input
-                maxLength={7}
-                inputMode="numeric"
-                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                value={form.nr_cbo ?? ''}
-                onChange={(e) => setForm({ ...form, nr_cbo: e.target.value.replace(/\D/g, '') })}
-              />
+          <div className="sm:col-span-6 group">
+            {renderFieldLabel('ie_status', 'Status')}
+            <div className="flex items-center gap-4">
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="ie_status"
+                  value="A"
+                  checked={form.ie_status === 'A' || !form.ie_status}
+                  onChange={() => setForm({ ...form, ie_status: 'A' })}
+                />
+                <span>Ativo</span>
+              </label>
+              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                <input
+                  type="radio"
+                  name="ie_status"
+                  value="I"
+                  checked={form.ie_status === 'I'}
+                  onChange={() => setForm({ ...form, ie_status: 'I' })}
+                />
+                <span>Inativo</span>
+              </label>
             </div>
-          )}
+          </div>
 
-          {showSigla && (
-            <div className="sm:col-span-3 group">
-              {renderFieldLabel(siglaFieldKey, 'Sigla')}
-              <input
-                maxLength={10}
-                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                value={form.sg_sigla ?? ''}
-                onChange={(e) => setForm({ ...form, sg_sigla: e.target.value })}
-              />
-            </div>
-          )}
-
-          <div className="sm:col-span-12">
-            <div className="group w-full">
-              {renderFieldLabel('ie_status', 'Status')}
-              <div className="flex items-center gap-4 mb-3">
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="ie_status"
-                    value="A"
-                    checked={form.ie_status === 'A' || !form.ie_status}
-                    onChange={() => setForm({ ...form, ie_status: 'A' })}
-                  />
-                  <span>Ativo</span>
-                </label>
-                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                  <input
-                    type="radio"
-                    name="ie_status"
-                    value="I"
-                    checked={form.ie_status === 'I'}
-                    onChange={() => setForm({ ...form, ie_status: 'I' })}
-                  />
-                  <span>Inativo</span>
-                </label>
-              </div>
-            </div>
+          <div className="sm:col-span-12 group">
+            {renderFieldLabel('ds_observacao', 'Observação')}
+            <textarea
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+              rows={3}
+              value={form.ds_observacao}
+              onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
+            />
           </div>
         </div>
 
@@ -286,7 +248,7 @@ export default function CadastroGeralFormView({
           <div className="flex items-center justify-between gap-3">
             <div className="text-[13px] text-slate-500">
               <div className="relative group flex items-center gap-2">
-                <span>Criado por {createdBy || '-'} em {createdAt ? formatCadastroGeralCellValue('dt_criacao', createdAt) : '-'}</span>
+                <span>Criado por {createdBy || '-'} em {createdAt ? formatPerfilCellValue('dt_criacao', createdAt) : '-'}</span>
                 <button
                   type="button"
                   onClick={() => onOpenAudit?.(editingId)}
@@ -301,7 +263,7 @@ export default function CadastroGeralFormView({
                 </button>
               </div>
               <div className="relative group flex items-center gap-2 mt-1">
-                <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatCadastroGeralCellValue('dt_alteracao', updatedAt) : '-'}</span>
+                <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatPerfilCellValue('dt_alteracao', updatedAt) : '-'}</span>
                 <button
                   type="button"
                   onClick={() => onOpenAudit?.(editingId)}
@@ -328,7 +290,7 @@ export default function CadastroGeralFormView({
               <button
                 type="submit"
                 disabled={submitting}
-                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
                 Salvar

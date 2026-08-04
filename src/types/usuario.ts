@@ -11,12 +11,17 @@ export interface Usuario {
   /* Preferências personalizadas do usuário (nomes padronizados) */
   config_tema?: string;
   config_colunas_pessoa_fisica?: string;
+  config_colunas_pessoa_juridica?: string;
   config_colunas_as_usuario?: string;
+  config_colunas_as_perfil?: string;
+  /* Perfis delegados ao usuário (JSON de nr_sequencia dos perfis) */
+  config_perfis?: string;
   config_colunas_cg_sexo?: string;
   config_colunas_cg_estado_civil?: string;
   config_colunas_cg_cor_raca?: string;
   config_colunas_cg_profissao?: string;
   config_colunas_cg_orgao_emissor?: string;
+  config_colunas_cg_logradouro?: string;
   config_ordem_menu_lateral?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;

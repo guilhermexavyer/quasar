@@ -77,7 +77,7 @@ export default function AdministracaoSistemaFormView({
               setInfoPopupField((current) => (current === fieldKey ? null : fieldKey));
             }}
             aria-label={`Informações do campo ${label}`}
-            className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+            className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === fieldKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -91,6 +91,10 @@ export default function AdministracaoSistemaFormView({
               className="absolute left-full bottom-0 z-10 ml-1 w-[240px] bg-white p-[10px] text-xs border border-[#ccc] shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
               onClick={(event) => event.stopPropagation()}
             >
+              <span
+                aria-hidden="true"
+                className="absolute left-[-4px] bottom-[6px] h-[8px] w-[8px] rotate-45 border-l border-b border-[#ccc] bg-white"
+              />
               <div className="font-semibold text-slate-900 mb-2">Informações do campo</div>
               <div className="space-y-1">
                 <div><span className="font-semibold">Tipo:</span> {meta.type}</div>
@@ -144,8 +148,9 @@ export default function AdministracaoSistemaFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={[{ value: 'usuarios', label: 'Usuários' }]}
+            options={[{ value: 'usuarios', label: 'Usuários' }, { value: 'perfis', label: 'Perfis' }]}
             showPlaceholder={false}
+            className="!w-[180px]"
           />
           <div className="flex items-center gap-1">
             <button

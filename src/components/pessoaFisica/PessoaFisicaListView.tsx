@@ -17,6 +17,9 @@ interface ListViewProps {
   handleDelete: (id: string) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
+  selectOptions: { value: string; label: string }[];
+  manageSelection: string;
+  onManageSelectionChange: (v: string) => void;
   sortColumn: number | null;
   sortAsc: boolean | null;
   onSortChange: (logicalIndex: number) => void;
@@ -34,6 +37,9 @@ export default function PessoaFisicaListView({
   openFilter,
   handleDelete,
   setContextMenu,
+  selectOptions,
+  manageSelection,
+  onManageSelectionChange,
   sortColumn,
   sortAsc,
   onSortChange,
@@ -448,7 +454,13 @@ export default function PessoaFisicaListView({
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
         <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2">
-            <h1 className="text-[20px] font-semibold text-[#000]">Pessoas Físicas</h1>
+            <Select
+              value={manageSelection}
+              onChange={onManageSelectionChange}
+              options={selectOptions}
+              showPlaceholder={false}
+              className="!w-[180px]"
+            />
             <button
               type="button"
               onClick={openFilter}

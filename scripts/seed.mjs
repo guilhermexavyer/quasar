@@ -9,6 +9,7 @@
  *   - cg_cor_raca      → as 5 categorias do IBGE (cor ou raça)
  *   - cg_profissao     → lista ampla de profissões (inspirada na CBO)
  *   - cg_orgao_emissor → órgãos emissores de documentos de identificação
+ *   - cg_logradouro    → tipos de logradouro com as siglas oficiais (Correios)
  *   - usuario          → usuário administrador inicial (nr_sequencia 1,
  *                        senha em SHA-256, criado por 'implantacao')
  *
@@ -136,6 +137,58 @@ const ORGAOS_EMISSORES = [
   { sg_orgao_emissor: "CRESS",   ds_orgao_emissor: "Conselho Regional de Serviço Social" },
   { sg_orgao_emissor: "CRN",     ds_orgao_emissor: "Conselho Regional de Nutrição" },
   { sg_orgao_emissor: "CRBio",   ds_orgao_emissor: "Conselho Regional de Biologia" },
+];
+
+/* Tipos de logradouro usados em endereços no Brasil, com as siglas
+   oficiais da tabela de logradouros (Correios / Febraban). Cada item é
+   { sg_logradouro, ds_logradouro } — a sigla fica em campo próprio e a
+   descrição contém o nome completo do tipo de logradouro. */
+const LOGRADOUROS = [
+  { sg_logradouro: "AL",    ds_logradouro: "Alameda" },
+  { sg_logradouro: "AV",    ds_logradouro: "Avenida" },
+  { sg_logradouro: "BC",    ds_logradouro: "Beco" },
+  { sg_logradouro: "BLV",   ds_logradouro: "Boulevard" },
+  { sg_logradouro: "CAM",   ds_logradouro: "Caminho" },
+  { sg_logradouro: "CH",    ds_logradouro: "Chácara" },
+  { sg_logradouro: "COL",   ds_logradouro: "Colônia" },
+  { sg_logradouro: "COND",  ds_logradouro: "Condomínio" },
+  { sg_logradouro: "CJ",    ds_logradouro: "Conjunto" },
+  { sg_logradouro: "DT",    ds_logradouro: "Distrito" },
+  { sg_logradouro: "ESPL",  ds_logradouro: "Esplanada" },
+  { sg_logradouro: "ET",    ds_logradouro: "Estação" },
+  { sg_logradouro: "EST",   ds_logradouro: "Estrada" },
+  { sg_logradouro: "FAZ",   ds_logradouro: "Fazenda" },
+  { sg_logradouro: "FLR",   ds_logradouro: "Floresta" },
+  { sg_logradouro: "GAL",   ds_logradouro: "Galeria" },
+  { sg_logradouro: "JD",    ds_logradouro: "Jardim" },
+  { sg_logradouro: "LD",    ds_logradouro: "Ladeira" },
+  { sg_logradouro: "LGO",   ds_logradouro: "Largo" },
+  { sg_logradouro: "LOT",   ds_logradouro: "Loteamento" },
+  { sg_logradouro: "MOR",   ds_logradouro: "Morro" },
+  { sg_logradouro: "NCL",   ds_logradouro: "Núcleo" },
+  { sg_logradouro: "PQ",    ds_logradouro: "Parque" },
+  { sg_logradouro: "PS",    ds_logradouro: "Passarela" },
+  { sg_logradouro: "PSG",   ds_logradouro: "Passagem" },
+  { sg_logradouro: "PTO",   ds_logradouro: "Pátio" },
+  { sg_logradouro: "PC",    ds_logradouro: "Praça" },
+  { sg_logradouro: "PR",    ds_logradouro: "Praia" },
+  { sg_logradouro: "PROL",  ds_logradouro: "Prolongamento" },
+  { sg_logradouro: "QD",    ds_logradouro: "Quadra" },
+  { sg_logradouro: "QT",    ds_logradouro: "Quinta" },
+  { sg_logradouro: "RCN",   ds_logradouro: "Recanto" },
+  { sg_logradouro: "ROD",   ds_logradouro: "Rodovia" },
+  { sg_logradouro: "R",     ds_logradouro: "Rua" },
+  { sg_logradouro: "SVD",   ds_logradouro: "Servidão" },
+  { sg_logradouro: "ST",    ds_logradouro: "Sítio" },
+  { sg_logradouro: "TV",    ds_logradouro: "Travessa" },
+  { sg_logradouro: "TR",    ds_logradouro: "Trecho" },
+  { sg_logradouro: "TRV",   ds_logradouro: "Trevo" },
+  { sg_logradouro: "VL",    ds_logradouro: "Vale" },
+  { sg_logradouro: "VR",    ds_logradouro: "Vereda" },
+  { sg_logradouro: "VIA",   ds_logradouro: "Via" },
+  { sg_logradouro: "VLA",   ds_logradouro: "Viela" },
+  { sg_logradouro: "VL",    ds_logradouro: "Vila" },
+  { sg_logradouro: "ZZ",    ds_logradouro: "Zigue-zague" },
 ];
 
 const PROFISSOES = [
@@ -579,6 +632,7 @@ const COLECOES = [
   // salvaguarda extra caso o mapa venha a receber um valor com formatação.
   { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },
   { nome: "cg_orgao_emissor",  contador: "cg_orgao_emissor_sequence",  campo: "ds_orgao_emissor",  valores: ORGAOS_EMISSORES },
+  { nome: "cg_logradouro",     contador: "cg_logradouro_sequence",     campo: "ds_logradouro",     valores: LOGRADOUROS },
 ];
 
 const RESET = process.argv.includes("--reset");
@@ -824,6 +878,128 @@ async function semearUsuario() {
 }
 
 /* ------------------------------------------------------------------ */
+/*  Seed do perfil administrador e vínculo com o usuário admin        */
+/* ------------------------------------------------------------------ */
+
+/* Funções do sistema (mesmas chaves usadas pelo menu lateral) */
+const TODAS_FUNCOES = [
+  "pessoaFisica",
+  "administracaoSistema",
+  "cadastrosGerais",
+];
+
+async function semearPerfilAdministrador() {
+  const colRef = collection(db, "perfil");
+  const snap = await getDocs(colRef);
+
+  // Perfil já existente (por descrição, insensível a maiúsculas/espaços/acentos)
+  const existente = snap.docs.find(
+    (d) => normalizar(d.data().ds_perfil) === "administrador"
+  );
+
+  let perfilId = null;
+  let perfilSeq = null;
+
+  if (existente) {
+    perfilId = existente.id;
+    perfilSeq = Number(existente.data().nr_sequencia) || null;
+
+    // Garante que o perfil existente tenha todas as funções liberadas
+    const funcoesAtuais = existente.data().config_funcoes ?? "";
+    if (normalizar(funcoesAtuais) !== normalizar(JSON.stringify(TODAS_FUNCOES))) {
+      if (DRY_RUN) {
+        console.log(`👀 perfil: administrador existente seria atualizado com todas as funções`);
+      } else {
+        await setDoc(
+          doc(db, "perfil", perfilId),
+          { config_funcoes: JSON.stringify(TODAS_FUNCOES) },
+          { merge: true }
+        );
+        console.log(`🔁 perfil: administrador atualizado com todas as funções (${perfilSeq})`);
+      }
+    } else {
+      console.log(`ℹ️  perfil: administrador já existe com todas as funções (${perfilSeq})`);
+    }
+  } else {
+    // Maior nr_sequencia atual para continuar a numeração
+    let maxSeq = 0;
+    if (snap.size > 0) {
+      maxSeq = Math.max(...snap.docs.map((d) => Number(d.data().nr_sequencia) || 0));
+    }
+    const novaSeq = maxSeq + 1;
+
+    if (DRY_RUN) {
+      console.log(`👀 perfil: administrador seria inserido (nr_sequencia: ${novaSeq})`);
+      perfilSeq = novaSeq;
+    } else {
+      const ref = doc(colRef);
+      await setDoc(ref, {
+        nr_sequencia: novaSeq,
+        ds_perfil: "Administrador",
+        ds_observacao: "Perfil padrão do sistema com acesso a todas as funções.",
+        ie_status: "A",
+        config_funcoes: JSON.stringify(TODAS_FUNCOES),
+        dt_criacao: DATA_IMPLANTACAO,
+        dt_alteracao: DATA_IMPLANTACAO,
+        ds_usuario_criacao: USUARIO_IMPLANTACAO,
+        ds_usuario_alteracao: USUARIO_IMPLANTACAO,
+      });
+      perfilId = ref.id;
+      perfilSeq = novaSeq;
+      console.log(`✅ perfil: administrador inserido (nr_sequencia: ${novaSeq})`);
+
+      // Sincroniza o contador para o próximo cadastro pela tela continuar correto
+      await setDoc(
+        doc(db, "_counters", "perfil_sequence"),
+        { current: novaSeq },
+        { merge: true }
+      );
+    }
+  }
+
+  if (!perfilSeq) return;
+
+  // Vincula o perfil ao usuário administrador (nr_sequencia 1)
+  const usuarioRef = collection(db, "usuario");
+  const usuariosSnap = await getDocs(usuarioRef);
+  const admin = usuariosSnap.docs.find((d) => Number(d.data().nr_sequencia) === 1);
+
+  if (!admin) {
+    console.log(`⚠️  usuario: administrador (nr_sequencia 1) não encontrado — vínculo não feito`);
+    return;
+  }
+
+  const perfisAtuais = parseArray(admin.data().config_perfis);
+  if (perfisAtuais.includes(perfilSeq)) {
+    console.log(`ℹ️  usuario: administrador já possui o perfil (${perfilSeq}) vinculado`);
+    return;
+  }
+
+  if (DRY_RUN) {
+    console.log(`👀 usuario: administrador (1) receberia o vínculo do perfil (${perfilSeq})`);
+    return;
+  }
+
+  await setDoc(
+    doc(db, "usuario", admin.id),
+    { config_perfis: JSON.stringify([...perfisAtuais, perfilSeq]) },
+    { merge: true }
+  );
+  console.log(`✅ usuario: administrador (1) vinculado ao perfil (${perfilSeq})`);
+}
+
+/* Parse de array serializado (JSON) com fallback para vazio */
+function parseArray(raw) {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+/* ------------------------------------------------------------------ */
 /*  Execução                                                          */
 /* ------------------------------------------------------------------ */
 
@@ -838,6 +1014,7 @@ async function main() {
   }
   const rUsuario = await semearUsuario();
   total.inseridos += rUsuario.inseridos;
+  await semearPerfilAdministrador();
 
   if (DRY_RUN) {
     console.log(
