@@ -20,6 +20,8 @@ interface ListViewProps {
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Submódulos permitidos do dropdown PAI (Pessoas Físicas/Jurídicas) conforme permissões. */
+  allowedSubmodulos?: string[];
   sortColumn: number | null;
   sortAsc: boolean | null;
   onSortChange: (logicalIndex: number) => void;
@@ -40,6 +42,7 @@ export default function PessoaJuridicaListView({
   selectOptions,
   manageSelection,
   onManageSelectionChange,
+  allowedSubmodulos = ['pessoasFisicas', 'pessoasJuridicas'],
   sortColumn,
   sortAsc,
   onSortChange,
@@ -457,7 +460,7 @@ export default function PessoaJuridicaListView({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={selectOptions}
+              options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={false}
               className="!w-[180px]"
             />

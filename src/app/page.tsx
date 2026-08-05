@@ -100,11 +100,14 @@ import {
 } from "@/lib/camposConfigUtils";
 import {
   PERMISSOES_POR_FUNCAO,
+  PERMISSOES_GRUPOS,
   parsePermissoesConfig,
   serializePermissoesConfig,
-  getPermissoes,
   adminSubmodulosPermitidos,
+  pessoaSubmodulosPermitidos,
+  temPermissao,
 } from "@/lib/permissoesUtils";
+import type { PermissaoDef } from "@/lib/permissoesUtils";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
 import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
@@ -719,6 +722,51 @@ export default function Home() {
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
+  // Permissões das opções de Administração do Sistema (menu de contexto) para
+  // o usuário logado: o administrador tem tudo liberado; os demais seguem o
+  // perfil ativo (sem configuração salva = tudo liberado).
+  const permissoesAdmin = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdministrador || temPermissao(permissoesAtivas, 'administracaoSistema', permissao);
+    return {
+      alterarStatusCampo: permitida('alterar_status_campo'),
+      adicionarPerfil: permitida('adicionar_perfil'),
+      verPerfil: permitida('ver_perfil'),
+      delegarFuncoesPerfil: permitida('delegar_funcoes_perfil'),
+      duplicarPerfil: permitida('duplicar_perfil'),
+      excluirPerfil: permitida('excluir_perfil'),
+      adicionarUsuario: permitida('adicionar_usuario'),
+      verUsuario: permitida('ver_usuario'),
+      alterarSenhaUsuario: permitida('alterar_senha_usuario'),
+      delegarPerfisUsuario: permitida('delegar_perfis_usuario'),
+      excluirUsuario: permitida('excluir_usuario'),
+    };
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Permissões da função Cadastro de Pessoas (Pessoas Físicas/Jurídicas) para
+  // o usuário logado: o administrador tem tudo liberado; os demais seguem o
+  // perfil ativo (sem configuração salva = tudo liberado).
+  const permissoesPessoa = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdministrador || temPermissao(permissoesAtivas, 'pessoaFisica', permissao);
+    return {
+      adicionarPessoaFisica: permitida('adicionar_pessoa_fisica'),
+      verPessoaFisica: permitida('ver_pessoa_fisica'),
+      excluirPessoaFisica: permitida('excluir_pessoa_fisica'),
+      adicionarPessoaJuridica: permitida('adicionar_pessoa_juridica'),
+      verPessoaJuridica: permitida('ver_pessoa_juridica'),
+      excluirPessoaJuridica: permitida('excluir_pessoa_juridica'),
+    };
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Submódulos da função Cadastro de Pessoas (Pessoas Físicas/Jurídicas)
+  // liberados ao usuário logado conforme as permissões do perfil ativo.
+  const allowedPessoaSubmodulos = useMemo(() => {
+    // O administrador tem acesso total.
+    if (isAdministrador) return ['pessoasFisicas', 'pessoasJuridicas'];
+    return pessoaSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdministrador, permissoesAtivas]);
+
   // Se o submódulo ativo deixar de ser permitido (ex.: perfil sem a permissão),
   // volta para o primeiro submódulo permitido.
   useEffect(() => {
@@ -727,6 +775,15 @@ export default function Home() {
       setAdminManageSelection(allowedAdminSubmodulos[0] ?? 'usuarios');
     }
   }, [allowedAdminSubmodulos, adminManageSelection, currentUser]);
+
+  // Se o submódulo ativo de Cadastro de Pessoas deixar de ser permitido,
+  // volta para o primeiro submódulo permitido.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!allowedPessoaSubmodulos.includes(pjManageSelection)) {
+      setPjManageSelection(allowedPessoaSubmodulos[0] ?? 'pessoasFisicas');
+    }
+  }, [allowedPessoaSubmodulos, pjManageSelection, currentUser]);
 
   const allowedSections = useMemo(() => {
     // O administrador tem todas as funções liberadas.
@@ -1266,6 +1323,76 @@ export default function Home() {
     setPerfilCampoErros([]);
     setView("form");
     setActiveSection("administracaoSistema");
+  }
+
+  // Botão "Adicionar" de Usuários: sem a permissão, mostra aviso em vez de abrir o formulário.
+  function handleAdminNewForm() {
+    if (!permissoesAdmin.adicionarUsuario) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openAdminNewForm();
+  }
+
+  // Botão "Adicionar" de Perfis: sem a permissão, mostra aviso em vez de abrir o formulário.
+  function handlePerfilNewForm() {
+    if (!permissoesAdmin.adicionarPerfil) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openPerfilNewForm();
+  }
+
+  // Botão "Adicionar" de Pessoas Físicas: sem a permissão, mostra aviso.
+  function handlePessoaNewForm() {
+    if (!permissoesPessoa.adicionarPessoaFisica) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openNewForm();
+  }
+
+  // Botão "Adicionar" de Pessoas Jurídicas: sem a permissão, mostra aviso.
+  function handlePjNewForm() {
+    if (!permissoesPessoa.adicionarPessoaJuridica) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openPjNewForm();
+  }
+
+  // "Ver" do menu de contexto: respeita as permissões da seção ativa.
+  function podeVerNoContexto(): boolean {
+    if (view !== 'list') return false;
+    const s = contextMenu?.section;
+    if (!s) return false;
+    if (s === 'administracaoSistema') {
+      if (adminManageSelection === 'perfis') return permissoesAdmin.verPerfil;
+      if (adminManageSelection === 'usuarios') return permissoesAdmin.verUsuario;
+      return true;
+    }
+    if (s === 'pessoaFisica') {
+      if (pjManageSelection === 'pessoasJuridicas') return permissoesPessoa.verPessoaJuridica;
+      return permissoesPessoa.verPessoaFisica;
+    }
+    return true;
+  }
+
+  // "Excluir" do menu de contexto: respeita as permissões da seção ativa.
+  function podeExcluirNoContexto(): boolean {
+    if (isProtectedAdminItem) return false;
+    const s = contextMenu?.section;
+    if (!s) return true;
+    if (s === 'administracaoSistema') {
+      if (adminManageSelection === 'perfis') return permissoesAdmin.excluirPerfil;
+      if (adminManageSelection === 'usuarios') return permissoesAdmin.excluirUsuario;
+      return true;
+    }
+    if (s === 'pessoaFisica') {
+      if (pjManageSelection === 'pessoasJuridicas') return permissoesPessoa.excluirPessoaJuridica;
+      return permissoesPessoa.excluirPessoaFisica;
+    }
+    return true;
   }
 
   function openCgNewForm() {
@@ -3175,9 +3302,15 @@ export default function Home() {
     // desatualizado (ex.: permissões salvas numa edição anterior do mesmo modal).
     const perfilAtual = perfis.find((p) => p.id === perfil.id) ?? perfil;
     const config = parsePermissoesConfig(perfilAtual.config_permissoes);
+    // Função nunca configurada = tudo liberado por padrão; o modal reflete isso
+    // pré-marcando todas as permissões (estado efetivo, não o array salvo).
+    const atuais = config[funcao];
+    const selecionadas = atuais
+      ? [...atuais]
+      : (PERMISSOES_POR_FUNCAO[funcao] ?? []).map((p) => p.key);
     setPermissoesPerfil(perfilAtual);
     setPermissoesFuncao(funcao);
-    setPermissoesSelecionadas(getPermissoes(config, funcao));
+    setPermissoesSelecionadas(selecionadas);
     setMessage("");
     setPermissoesModalOpen(true);
   }
@@ -3199,10 +3332,14 @@ export default function Home() {
     if (!permissoesPerfil?.id || !permissoesFuncao) return;
     setMessage("");
     const config = parsePermissoesConfig(permissoesPerfil.config_permissoes);
-    const atuais = getPermissoes(config, permissoesFuncao);
+    // Compara com o estado EFETIVO: função nunca configurada conta como todas
+    // as permissões marcadas (não apenas o array salvo, que é vazio/ausente).
+    const atuaisEfetivas =
+      config[permissoesFuncao] ??
+      (PERMISSOES_POR_FUNCAO[permissoesFuncao] ?? []).map((p) => p.key);
     const sameAsSaved =
-      atuais.length === permissoesSelecionadas.length &&
-      atuais.every((p) => permissoesSelecionadas.includes(p));
+      atuaisEfetivas.length === permissoesSelecionadas.length &&
+      atuaisEfetivas.every((p) => permissoesSelecionadas.includes(p));
 
     if (sameAsSaved) {
       setMessage("Nenhuma alteração detectada.");
@@ -3662,7 +3799,7 @@ export default function Home() {
           x={contextMenu.x}
           y={contextMenu.y}
           state={contextMenu}
-          showView={view === 'list'}
+          showView={podeVerNoContexto()}
           onView={() => {
             if (contextMenu.section === 'pessoaFisica') {
               if (pjManageSelection === 'pessoasJuridicas') {
@@ -3681,7 +3818,12 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          showChangePassword={contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios' && !isProtectedAdminItem}
+          showChangePassword={
+            contextMenu.section === 'administracaoSistema' &&
+            adminManageSelection === 'usuarios' &&
+            !isProtectedAdminItem &&
+            permissoesAdmin.alterarSenhaUsuario
+          }
           onChangePassword={() => {
             if (contextMenu.section === 'administracaoSistema') {
               openChangePasswordModal(contextMenu.item as Usuario);
@@ -3689,7 +3831,10 @@ export default function Home() {
             setContextMenu(null);
           }}
           onDelegateFunctions={
-            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'perfis' && !isProtectedAdminItem
+            contextMenu.section === 'administracaoSistema' &&
+            adminManageSelection === 'perfis' &&
+            !isProtectedAdminItem &&
+            permissoesAdmin.delegarFuncoesPerfil
               ? () => {
                   openDelegateFuncoesModal(contextMenu.item as Perfil);
                   setContextMenu(null);
@@ -3697,7 +3842,10 @@ export default function Home() {
               : undefined
           }
           onDuplicate={
-            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'perfis' && !isProtectedAdminItem
+            contextMenu.section === 'administracaoSistema' &&
+            adminManageSelection === 'perfis' &&
+            !isProtectedAdminItem &&
+            permissoesAdmin.duplicarPerfil
               ? () => {
                   openDuplicatePerfilModal(contextMenu.item as Perfil);
                   setContextMenu(null);
@@ -3705,14 +3853,17 @@ export default function Home() {
               : undefined
           }
           onDelegatePerfis={
-            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios' && !isProtectedAdminItem
+            contextMenu.section === 'administracaoSistema' &&
+            adminManageSelection === 'usuarios' &&
+            !isProtectedAdminItem &&
+            permissoesAdmin.delegarPerfisUsuario
               ? () => {
                   openDelegatePerfisModal(contextMenu.item as Usuario);
                   setContextMenu(null);
                 }
               : undefined
           }
-          showDelete={!isProtectedAdminItem}
+          showDelete={podeExcluirNoContexto()}
           onDelete={() => {
             if (contextMenu.section === 'pessoaFisica') {
               if (pjManageSelection === 'pessoasJuridicas') {
@@ -4071,7 +4222,7 @@ export default function Home() {
                   message={message}
                   loading={loading}
                   pessoasJuridicas={filteredSortedPessoasJuridicas}
-                  openNewForm={openPjNewForm}
+                  openNewForm={handlePjNewForm}
                   openEditForm={openPjEditForm}
                   openFilter={openPjFilterModal}
                   handleDelete={handlePjDelete}
@@ -4079,6 +4230,7 @@ export default function Home() {
                   selectOptions={PJ_SELECT_OPTIONS}
                   manageSelection={pjManageSelection}
                   onManageSelectionChange={handlePjManageSelectionChange}
+                  allowedSubmodulos={allowedPessoaSubmodulos}
                   sortColumn={pjSortColumn}
                   sortAsc={pjSortAsc}
                   onSortChange={handlePjSortChange}
@@ -4091,7 +4243,7 @@ export default function Home() {
                   message={message}
                   loading={loading}
                   pessoasFisicas={filteredSortedPessoasFisicas}
-                  openNewForm={openNewForm}
+                  openNewForm={handlePessoaNewForm}
                   openEditForm={openEditForm}
                   openFilter={openFilterModal}
                   handleDelete={handleDelete}
@@ -4099,6 +4251,7 @@ export default function Home() {
                   selectOptions={PJ_SELECT_OPTIONS}
                   manageSelection={pjManageSelection}
                   onManageSelectionChange={handlePjManageSelectionChange}
+                  allowedSubmodulos={allowedPessoaSubmodulos}
                   sortColumn={sortColumn}
                   sortAsc={sortAsc}
                   onSortChange={handleSortChange}
@@ -4115,6 +4268,7 @@ export default function Home() {
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
+                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
                 />
               ) : adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaListView
@@ -4122,7 +4276,7 @@ export default function Home() {
                   loading={loading}
                   usuarios={filteredSortedUsuarios}
                   pessoasFisicas={pessoasFisicas}
-                  openNewForm={openAdminNewForm}
+                  openNewForm={handleAdminNewForm}
                   openEditForm={openAdminEditForm}
                   setContextMenu={setContextMenu}
                   sortColumn={adminSortColumn}
@@ -4140,7 +4294,7 @@ export default function Home() {
                   message={message}
                   loading={loading}
                   perfis={filteredSortedPerfis}
-                  openNewForm={openPerfilNewForm}
+                  openNewForm={handlePerfilNewForm}
                   openEditForm={openPerfilEditForm}
                   setContextMenu={setContextMenu}
                   sortColumn={perfilSortColumn}
@@ -4211,6 +4365,7 @@ export default function Home() {
                 selectOptions={PJ_SELECT_OPTIONS}
                 manageSelection={pjManageSelection}
                 onManageSelectionChange={handlePjManageSelectionChange}
+                allowedSubmodulos={allowedPessoaSubmodulos}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_juridica')}
                 campoErros={pjCampoErros}
               />
@@ -4246,6 +4401,7 @@ export default function Home() {
                 selectOptions={PJ_SELECT_OPTIONS}
                 manageSelection={pjManageSelection}
                 onManageSelectionChange={handlePjManageSelectionChange}
+                allowedSubmodulos={allowedPessoaSubmodulos}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica')}
                 campoErros={pfCampoErros}
               />
@@ -4258,6 +4414,7 @@ export default function Home() {
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
                 allowedSubmodulos={allowedAdminSubmodulos}
+                podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
               />
             ) : adminManageSelection === 'usuarios' ? (
               <AdministracaoSistemaFormView
@@ -4845,14 +5002,14 @@ export default function Home() {
                         padding: '10px',
                         borderStyle: 'solid',
                         borderWidth: '1px',
-                        borderTopColor: '#999',
-                        borderLeftColor: '#999',
+                        borderTopColor: '#ccc',
+                        borderLeftColor: '#ccc',
                         borderBottomColor: '#ccc',
                         borderRightColor: '#ccc',
                       }}
                     >
                       <div className="flex w-full items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1 text-sm font-medium truncate" style={{ color: '#000' }}>{SECTION_DEFS[section].label}</div>
+                        <div className="min-w-0 flex-1 text-sm font-medium truncate" style={{ color: '#444' }}>{SECTION_DEFS[section].label}</div>
                         <button
                           type="button"
                           role="switch"
@@ -4919,31 +5076,52 @@ export default function Home() {
             </div>
 
             <div className="p-[15px] overflow-auto">
-              {(PERMISSOES_POR_FUNCAO[permissoesFuncao] ?? []).length === 0 ? (
-                <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-slate-500">
-                  As permissões desta função serão configuradas em breve.
-                </div>
-              ) : (
-                <div className="grid gap-2">
-                  {(PERMISSOES_POR_FUNCAO[permissoesFuncao] ?? []).map((perm) => {
-                    const checked = permissoesSelecionadas.includes(perm.key);
-                    return (
-                      <label
-                        key={perm.key}
-                        className="flex cursor-pointer select-none items-center gap-3 rounded-[3px] px-[6px] py-[4px] transition focus-within:outline focus-within:outline-2 focus-within:outline-[#066fc5] focus-within:outline-offset-2"
-                      >
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={() => togglePermissao(perm.key)}
-                          className="cg-checkbox"
-                        />
-                        <span className="text-sm">{perm.label}</span>
-                      </label>
-                    );
-                  })}
-                </div>
-              )}
+              {(() => {
+                const defs = PERMISSOES_POR_FUNCAO[permissoesFuncao] ?? [];
+                if (defs.length === 0) {
+                  return (
+                    <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-slate-500">
+                      As permissões desta função serão configuradas em breve.
+                    </div>
+                  );
+                }
+                const checkbox = (perm: PermissaoDef) => {
+                  const checked = permissoesSelecionadas.includes(perm.key);
+                  return (
+                    <label
+                      key={perm.key}
+                      className="flex cursor-pointer select-none items-center gap-3 rounded-[3px] px-[6px] py-[4px] transition focus-within:outline focus-within:outline-2 focus-within:outline-[#066fc5] focus-within:outline-offset-2"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={checked}
+                        onChange={() => togglePermissao(perm.key)}
+                        className="cg-checkbox"
+                      />
+                      <span className="text-sm">{perm.label}</span>
+                    </label>
+                  );
+                };
+                const grupos = PERMISSOES_GRUPOS[permissoesFuncao] ?? [];
+                if (grupos.length > 0) {
+                  return (
+                    <div className="grid gap-4">
+                      {grupos.map((grupo) => (
+                        <div key={grupo.titulo}>
+                          <div className="mb-1 text-sm font-medium" style={{ color: '#444' }}>{grupo.titulo}</div>
+                          <div className="grid gap-2">
+                            {grupo.chaves.map((chave) => {
+                              const perm = defs.find((p) => p.key === chave);
+                              return perm ? checkbox(perm) : null;
+                            })}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  );
+                }
+                return <div className="grid gap-2">{defs.map(checkbox)}</div>;
+              })()}
             </div>
 
             <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
@@ -5014,8 +5192,8 @@ export default function Home() {
                           padding: '10px',
                           borderStyle: 'solid',
                           borderWidth: '1px',
-                          borderTopColor: '#999',
-                          borderLeftColor: '#999',
+                          borderTopColor: '#ccc',
+                          borderLeftColor: '#ccc',
                           borderBottomColor: '#ccc',
                           borderRightColor: '#ccc',
                         }}
@@ -5215,14 +5393,14 @@ export default function Home() {
                           padding: '10px',
                           borderStyle: 'solid',
                           borderWidth: '1px',
-                          borderTopColor: '#999',
-                          borderLeftColor: '#999',
+                          borderTopColor: '#ccc',
+                          borderLeftColor: '#ccc',
                           borderBottomColor: '#ccc',
                           borderRightColor: '#ccc',
                         }}
                       >
                         <div className="flex w-full items-center justify-between">
-                          <div className="text-sm font-medium truncate" style={{ color: '#000' }}>{log.usuarioNome ?? log.usuarioId ?? ''}</div>
+                          <div className="text-sm font-medium truncate" style={{ color: '#444' }}>{log.usuarioNome ?? log.usuarioId ?? ''}</div>
                           <div className="flex items-center gap-[10px] text-xs">
                             <span className="text-slate-600">{actionLabel}</span>
                             <span className="text-slate-600 whitespace-nowrap" style={{ marginLeft: 10 }}>{log.timestamp ? formatDate(String(log.timestamp)) : ''}</span>

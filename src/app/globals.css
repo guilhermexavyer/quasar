@@ -243,8 +243,8 @@ select:disabled {
   border-bottom-color: rgba(255, 255, 255, 0.08) !important;
 }
 .dark .flex.border {
-  border-top-color: #3f3f46 !important;
-  border-left-color: #3f3f46 !important;
+  border-top-color: #52525b !important;
+  border-left-color: #52525b !important;
   border-bottom-color: #52525b !important;
   border-right-color: #52525b !important;
 }

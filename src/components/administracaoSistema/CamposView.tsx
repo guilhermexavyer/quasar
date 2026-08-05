@@ -38,6 +38,8 @@ interface CamposViewProps {
   onManageSelectionChange: (v: string) => void;
   /** Submódulos permitidos do dropdown PAI (Campos/Perfis/Usuários) conforme permissões. */
   allowedSubmodulos?: string[];
+  /** Permite ao usuário alterar o status dos campos (menu de contexto). */
+  podeAlterarStatusCampo?: boolean;
 }
 
 export default function CamposView({
@@ -46,6 +48,7 @@ export default function CamposView({
   manageSelection,
   onManageSelectionChange,
   allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
+  podeAlterarStatusCampo = true,
 }: CamposViewProps) {
   const [selectedPerfilId, setSelectedPerfilId] = useState<string | null>(null);
   const [selectedFuncao, setSelectedFuncao] = useState<string | null>(null);
@@ -340,7 +343,10 @@ export default function CamposView({
                   onRowContextMenu={(c, e) => {
                     // Clique direito também seleciona o campo.
                     setSelectedCampoKey(c.key);
-                    setCampoMenu({ x: e.clientX, y: e.clientY, chave: c.key });
+                    // Sem a permissão de alterar status, o menu de contexto não abre.
+                    if (podeAlterarStatusCampo) {
+                      setCampoMenu({ x: e.clientX, y: e.clientY, chave: c.key });
+                    }
                   }}
                 />
               </div>
@@ -349,7 +355,7 @@ export default function CamposView({
         </div>
       </div>
 
-      {campoMenu && menuCampo && selectedPerfil && (
+      {campoMenu && menuCampo && selectedPerfil && podeAlterarStatusCampo && (
         <div ref={campoMenuRef}>
           <ContextMenu
             x={campoMenu.x}

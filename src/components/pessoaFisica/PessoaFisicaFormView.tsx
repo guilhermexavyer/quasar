@@ -49,6 +49,8 @@ interface FormViewProps {
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Submódulos permitidos do dropdown PAI (Pessoas Físicas/Jurídicas) conforme permissões. */
+  allowedSubmodulos?: string[];
   /** Regras de campos por perfil (colecao pessoa_fisica): campo → status. */
   campoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
@@ -86,6 +88,7 @@ export default function PessoaFisicaFormView({
   selectOptions,
   manageSelection,
   onManageSelectionChange,
+  allowedSubmodulos = ['pessoasFisicas', 'pessoasJuridicas'],
   campoRegras = {},
   campoErros = [],
 }: FormViewProps) {
@@ -283,7 +286,7 @@ export default function PessoaFisicaFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={selectOptions}
+            options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
             className="!w-[180px]"
