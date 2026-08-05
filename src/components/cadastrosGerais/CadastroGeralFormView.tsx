@@ -35,6 +35,8 @@ interface FormViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   selectOptions: { value: string; label: string }[];
+  /** Submódulos permitidos do dropdown PAI (tipos de cadastro) conforme permissões. */
+  allowedSubmodulos?: string[];
   fieldInfos: Record<string, { type: string; field: string; collection: string }>;
   descFieldKey: string;
   collectionName: string;
@@ -70,6 +72,7 @@ export default function CadastroGeralFormView({
   manageSelection,
   onManageSelectionChange,
   selectOptions,
+  allowedSubmodulos = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'],
   fieldInfos,
   descFieldKey,
   collectionName,
@@ -185,7 +188,7 @@ export default function CadastroGeralFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={selectOptions}
+            options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
             className="!w-[180px]"

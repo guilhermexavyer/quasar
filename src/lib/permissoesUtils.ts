@@ -43,7 +43,38 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "ver_pessoa_juridica", label: "Permite ver" },
     { key: "excluir_pessoa_juridica", label: "Permite excluir" },
   ],
-  cadastrosGerais: [],
+  cadastrosGerais: [
+    // Cor/Raça
+    { key: "acessar_cor_raca", label: "Permite acessar Cor/Raça" },
+    { key: "adicionar_cor_raca", label: "Permite adicionar" },
+    { key: "ver_cor_raca", label: "Permite ver" },
+    { key: "excluir_cor_raca", label: "Permite excluir" },
+    // Estado civil
+    { key: "acessar_estado_civil", label: "Permite acessar Estado civil" },
+    { key: "adicionar_estado_civil", label: "Permite adicionar" },
+    { key: "ver_estado_civil", label: "Permite ver" },
+    { key: "excluir_estado_civil", label: "Permite excluir" },
+    // Logradouro
+    { key: "acessar_logradouro", label: "Permite acessar Logradouro" },
+    { key: "adicionar_logradouro", label: "Permite adicionar" },
+    { key: "ver_logradouro", label: "Permite ver" },
+    { key: "excluir_logradouro", label: "Permite excluir" },
+    // Órgão emissor
+    { key: "acessar_orgao_emissor", label: "Permite acessar Órgão emissor" },
+    { key: "adicionar_orgao_emissor", label: "Permite adicionar" },
+    { key: "ver_orgao_emissor", label: "Permite ver" },
+    { key: "excluir_orgao_emissor", label: "Permite excluir" },
+    // Profissão
+    { key: "acessar_profissao", label: "Permite acessar Profissão" },
+    { key: "adicionar_profissao", label: "Permite adicionar" },
+    { key: "ver_profissao", label: "Permite ver" },
+    { key: "excluir_profissao", label: "Permite excluir" },
+    // Sexo
+    { key: "acessar_sexo", label: "Permite acessar Sexo" },
+    { key: "adicionar_sexo", label: "Permite adicionar" },
+    { key: "ver_sexo", label: "Permite ver" },
+    { key: "excluir_sexo", label: "Permite excluir" },
+  ],
 };
 
 /**
@@ -73,6 +104,32 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     {
       titulo: 'Pessoas Jurídicas',
       chaves: ['acessar_pessoa_juridica', 'adicionar_pessoa_juridica', 'ver_pessoa_juridica', 'excluir_pessoa_juridica'],
+    },
+  ],
+  cadastrosGerais: [
+    {
+      titulo: 'Cor/Raça',
+      chaves: ['acessar_cor_raca', 'adicionar_cor_raca', 'ver_cor_raca', 'excluir_cor_raca'],
+    },
+    {
+      titulo: 'Estado civil',
+      chaves: ['acessar_estado_civil', 'adicionar_estado_civil', 'ver_estado_civil', 'excluir_estado_civil'],
+    },
+    {
+      titulo: 'Logradouro',
+      chaves: ['acessar_logradouro', 'adicionar_logradouro', 'ver_logradouro', 'excluir_logradouro'],
+    },
+    {
+      titulo: 'Órgão emissor',
+      chaves: ['acessar_orgao_emissor', 'adicionar_orgao_emissor', 'ver_orgao_emissor', 'excluir_orgao_emissor'],
+    },
+    {
+      titulo: 'Profissão',
+      chaves: ['acessar_profissao', 'adicionar_profissao', 'ver_profissao', 'excluir_profissao'],
+    },
+    {
+      titulo: 'Sexo',
+      chaves: ['acessar_sexo', 'adicionar_sexo', 'ver_sexo', 'excluir_sexo'],
     },
   ],
 };
@@ -164,4 +221,29 @@ export function pessoaSubmodulosPermitidos(config: PermissoesConfig | undefined)
   if (!salvos) return PESSOA_SUBMODULOS.map((s) => s.value);
   // Configuração salva (mesmo vazia): libera apenas o que está marcado.
   return PESSOA_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
+}
+
+/**
+ * Submódulos da função Cadastros Gerais (dropdown PAI) e a permissão que
+ * libera o acesso a cada um deles.
+ */
+export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
+  { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
+  { value: 'logradouro', label: 'Logradouro', permissao: 'acessar_logradouro' },
+  { value: 'orgaoEmissor', label: 'Órgão emissor', permissao: 'acessar_orgao_emissor' },
+  { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
+  { value: 'sexo', label: 'Sexo', permissao: 'acessar_sexo' },
+];
+
+/**
+ * Valores do dropdown PAI da função Cadastros Gerais liberados conforme as
+ * permissões salvas. Sem configuração (lista vazia) = tudo liberado.
+ */
+export function cgSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
+  const salvos = config?.["cadastrosGerais"];
+  // Sem configuração salva para a função: comportamento padrão (tudo liberado).
+  if (!salvos) return CG_SUBMODULOS.map((s) => s.value);
+  // Configuração salva (mesmo vazia): libera apenas o que está marcado.
+  return CG_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
 }

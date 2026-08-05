@@ -105,6 +105,7 @@ import {
   serializePermissoesConfig,
   adminSubmodulosPermitidos,
   pessoaSubmodulosPermitidos,
+  cgSubmodulosPermitidos,
   temPermissao,
 } from "@/lib/permissoesUtils";
 import type { PermissaoDef } from "@/lib/permissoesUtils";
@@ -767,6 +768,32 @@ export default function Home() {
     return pessoaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
+  // Permissões da função Cadastros Gerais (por seção/tipo de cadastro) para
+  // o usuário logado: o administrador tem tudo liberado; os demais seguem o
+  // perfil ativo (sem configuração salva = tudo liberado).
+  const permissoesCg = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdministrador || temPermissao(permissoesAtivas, 'cadastrosGerais', permissao);
+    const secoes = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'] as const;
+    const resultado: Record<string, { adicionar: boolean; ver: boolean; excluir: boolean }> = {};
+    for (const secao of secoes) {
+      resultado[secao] = {
+        adicionar: permitida(`adicionar_${secao}`),
+        ver: permitida(`ver_${secao}`),
+        excluir: permitida(`excluir_${secao}`),
+      };
+    }
+    return resultado;
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Submódulos da função Cadastros Gerais (dropdown PAI) liberados ao usuário
+  // logado conforme as permissões do perfil ativo.
+  const allowedCgSubmodulos = useMemo(() => {
+    // O administrador tem acesso total.
+    if (isAdministrador) return ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'];
+    return cgSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdministrador, permissoesAtivas]);
+
   // Se o submódulo ativo deixar de ser permitido (ex.: perfil sem a permissão),
   // volta para o primeiro submódulo permitido.
   useEffect(() => {
@@ -784,6 +811,15 @@ export default function Home() {
       setPjManageSelection(allowedPessoaSubmodulos[0] ?? 'pessoasFisicas');
     }
   }, [allowedPessoaSubmodulos, pjManageSelection, currentUser]);
+
+  // Se o submódulo ativo de Cadastros Gerais deixar de ser permitido, volta
+  // para o primeiro submódulo permitido.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!allowedCgSubmodulos.includes(cgManageSelection)) {
+      setCgManageSelection(allowedCgSubmodulos[0] ?? 'sexo');
+    }
+  }, [allowedCgSubmodulos, cgManageSelection, currentUser]);
 
   const allowedSections = useMemo(() => {
     // O administrador tem todas as funções liberadas.
@@ -1361,6 +1397,15 @@ export default function Home() {
     openPjNewForm();
   }
 
+  // Botão "Adicionar" de Cadastros Gerais: sem a permissão da seção ativa, mostra aviso.
+  function handleCgNewForm() {
+    if (!permissoesCg[cgKind]?.adicionar) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openCgNewForm();
+  }
+
   // "Ver" do menu de contexto: respeita as permissões da seção ativa.
   function podeVerNoContexto(): boolean {
     if (view !== 'list') return false;
@@ -1374,6 +1419,9 @@ export default function Home() {
     if (s === 'pessoaFisica') {
       if (pjManageSelection === 'pessoasJuridicas') return permissoesPessoa.verPessoaJuridica;
       return permissoesPessoa.verPessoaFisica;
+    }
+    if (s === 'cadastrosGerais') {
+      return permissoesCg[cgKind]?.ver ?? true;
     }
     return true;
   }
@@ -1391,6 +1439,9 @@ export default function Home() {
     if (s === 'pessoaFisica') {
       if (pjManageSelection === 'pessoasJuridicas') return permissoesPessoa.excluirPessoaJuridica;
       return permissoesPessoa.excluirPessoaFisica;
+    }
+    if (s === 'cadastrosGerais') {
+      return permissoesCg[cgKind]?.excluir ?? true;
     }
     return true;
   }
@@ -4320,7 +4371,8 @@ export default function Home() {
                   selectOptions={CG_SELECT_OPTIONS}
                   manageSelection={cgManageSelection}
                   onManageSelectionChange={handleCgManageSelectionChange}
-                  openNewForm={openCgNewForm}
+                  allowedSubmodulos={allowedCgSubmodulos}
+                  openNewForm={handleCgNewForm}
                   openEditForm={openCgEditForm}
                   openFilter={openCgFilterModal}
                   setContextMenu={setContextMenu}
@@ -4492,6 +4544,7 @@ export default function Home() {
               onOpenAudit={openCgAuditModal}
               manageSelection={cgManageSelection}
               onManageSelectionChange={handleCgManageSelectionChange}
+              allowedSubmodulos={allowedCgSubmodulos}
               selectOptions={CG_SELECT_OPTIONS}
               fieldInfos={cgFieldInfos}
               descFieldKey={cgDescKey}
@@ -5933,7 +5986,7 @@ export default function Home() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
             <div className="absolute inset-0" onClick={() => setDetailModalOpen(false)} />
-            <div className="relative w-full max-w-[1100px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="relative w-full max-w-[1250px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
               <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
                 <h3 className="text-base font-semibold" style={{ color: '#000' }}>Detalhe da auditoria</h3>
                 <button
@@ -6027,21 +6080,38 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       const config = parsePermissoesConfig(String(normalized));
-                      // Ordem estável de exibição: funções do sistema primeiro
-                      // (mesma ordem do campo Funções), depois qualquer outra chave.
-                      const chaves = [
-                        ...DEFAULT_SECTION_ORDER,
-                        ...Object.keys(config).filter((c) => !(DEFAULT_SECTION_ORDER as string[]).includes(c)),
-                      ];
                       const lines: string[] = [];
-                      for (const funcao of chaves) {
+                      // Funções presentes na configuração, em ordem alfabética pelo rótulo.
+                      const funcoes = Object.keys(config)
+                        .filter((f) => (PERMISSOES_POR_FUNCAO[f] ?? []).length > 0)
+                        .sort((a, b) => {
+                          const la = SECTION_DEFS[a as SectionType]?.label ?? a;
+                          const lb = SECTION_DEFS[b as SectionType]?.label ?? b;
+                          return la.localeCompare(lb, 'pt-BR');
+                        });
+                      for (const funcao of funcoes) {
                         const perms = config[funcao];
                         if (!perms) continue;
-                        const defs = PERMISSOES_POR_FUNCAO[funcao] ?? [];
-                        if (defs.length === 0) continue;
                         const funcaoLabel = SECTION_DEFS[funcao as SectionType]?.label ?? funcao;
-                        for (const def of defs) {
-                          lines.push(`${funcaoLabel} - ${def.label} [${perms.includes(def.key) ? 'SIM' : 'NÃO'}]`);
+                        const defs = PERMISSOES_POR_FUNCAO[funcao] ?? [];
+                        // Seções do modal, em ordem alfabética pelo título.
+                        const grupos = [...(PERMISSOES_GRUPOS[funcao] ?? [])].sort((a, b) =>
+                          a.titulo.localeCompare(b.titulo, 'pt-BR')
+                        );
+                        if (grupos.length === 0) {
+                          // Função sem seções: permissões na ordem do modal (defs).
+                          for (const def of defs) {
+                            lines.push(`${funcaoLabel} > ${def.label} [${perms.includes(def.key) ? 'SIM' : 'NÃO'}]`);
+                          }
+                          continue;
+                        }
+                        for (const grupo of grupos) {
+                          // Permissões na mesma ordem do modal (ordem das chaves do grupo).
+                          for (const chave of grupo.chaves) {
+                            const def = defs.find((d) => d.key === chave);
+                            if (!def) continue;
+                            lines.push(`${funcaoLabel} > ${grupo.titulo} > ${def.label} [${perms.includes(def.key) ? 'SIM' : 'NÃO'}]`);
+                          }
                         }
                       }
                       return lines.join('\n');

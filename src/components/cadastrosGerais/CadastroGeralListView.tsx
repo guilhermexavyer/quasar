@@ -21,6 +21,8 @@ interface ListViewProps<T extends { id?: string }> {
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Submódulos permitidos do dropdown PAI (tipos de cadastro) conforme permissões. */
+  allowedSubmodulos?: string[];
   openNewForm: () => void;
   openEditForm: (item: T) => void;
   openFilter: () => void;
@@ -41,6 +43,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   selectOptions,
   manageSelection,
   onManageSelectionChange,
+  allowedSubmodulos = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'],
   openNewForm,
   openEditForm,
   openFilter,
@@ -461,7 +464,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={selectOptions}
+              options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={false}
               className="!w-[180px]"
             />
