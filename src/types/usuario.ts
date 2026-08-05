@@ -16,6 +16,8 @@ export interface Usuario {
   config_colunas_as_perfil?: string;
   /* Perfis delegados ao usuário (JSON de nr_sequencia dos perfis) */
   config_perfis?: string;
+  /* Perfil ativo do usuário (nr_sequencia do perfil selecionado na pop-up) */
+  config_perfil_ativo?: string;
   config_colunas_cg_sexo?: string;
   config_colunas_cg_estado_civil?: string;
   config_colunas_cg_cor_raca?: string;

@@ -451,7 +451,7 @@ export default function PerfilListView({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={[{ value: 'usuarios', label: 'Usuários' }, { value: 'perfis', label: 'Perfis' }]}
+              options={[{ value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
               showPlaceholder={false}
               className="!w-[180px]"
             />

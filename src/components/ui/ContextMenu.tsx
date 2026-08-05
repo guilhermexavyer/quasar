@@ -10,6 +10,7 @@ interface ContextMenuProps {
   onChangePassword: () => void;
   onDelegateFunctions?: () => void;
   onDelegatePerfis?: () => void;
+  onDuplicate?: () => void;
   showChangePassword?: boolean;
   showView?: boolean;
   showDelete?: boolean;
@@ -24,6 +25,7 @@ export default function ContextMenu({
   onChangePassword,
   onDelegateFunctions,
   onDelegatePerfis,
+  onDuplicate,
   showChangePassword = false,
   showView = true,
   showDelete = true,
@@ -73,6 +75,16 @@ export default function ContextMenu({
           onClick={onDelegatePerfis}
         >
           Delegar perfis
+        </button>
+      )}
+      {onDuplicate && (
+        <button
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={onDuplicate}
+        >
+          Duplicar
         </button>
       )}
       {showDelete && (

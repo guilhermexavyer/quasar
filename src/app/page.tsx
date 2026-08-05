@@ -164,6 +164,12 @@ function getDarkModeKey(userId?: string | null): string {
   return userId ? `${DARK_MODE_KEY}_${userId}` : DARK_MODE_KEY;
 }
 
+const ACTIVE_PERFIL_KEY = "quasar_active_perfil";
+
+function getActivePerfilKey(userId?: string | null): string {
+  return userId ? `${ACTIVE_PERFIL_KEY}_${userId}` : ACTIVE_PERFIL_KEY;
+}
+
 type ViewType = "list" | "form";
 type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais";
 
@@ -422,6 +428,11 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
 };
 
+/* Ordem alfabética das funções (pelos nomes do menu lateral) */
+const SECTION_ORDER_ALPHABETICAL: SectionType[] = [...DEFAULT_SECTION_ORDER].sort((a, b) =>
+  SECTION_DEFS[a].label.localeCompare(SECTION_DEFS[b].label, 'pt-BR')
+);
+
 /* ------------------------------------------------------------------ */
 /*  Tipos das props dos subcomponentes                                */
 /* ------------------------------------------------------------------ */
@@ -565,7 +576,22 @@ export default function Home() {
   const [delegateFuncoes, setDelegateFuncoes] = useState<SectionType[]>([]);
   const [delegateFuncoesSaving, setDelegateFuncoesSaving] = useState(false);
   const [delegatePerfisModalOpen, setDelegatePerfisModalOpen] = useState(false);
+  const [activePerfilSequencia, setActivePerfilSequencia] = useState<number | null>(null);
+  const [duplicatePerfilModalOpen, setDuplicatePerfilModalOpen] = useState(false);
+  const [duplicatePerfilSource, setDuplicatePerfilSource] = useState<Perfil | null>(null);
+  const [duplicatePerfilName, setDuplicatePerfilName] = useState('');
+  const [duplicatePerfilSaving, setDuplicatePerfilSaving] = useState(false);
   const [delegatePerfisUsuario, setDelegatePerfisUsuario] = useState<Usuario | null>(null);
+
+  // Perfis ativos disponíveis no modal "Delegar perfis": ordenados por nome e,
+  // para usuários comuns, sem o perfil Administrador (exclusivo do admin).
+  const delegatePerfisDisponiveis = useMemo(() => {
+    const alvoEhAdministrador = isAdministradorUsuario(delegatePerfisUsuario);
+    return perfis
+      .filter((p) => String(p.ie_status ?? '').toUpperCase() === 'A')
+      .filter((p) => alvoEhAdministrador || !isAdministradorPerfil(p))
+      .sort((a, b) => (a.ds_perfil ?? '').localeCompare(b.ds_perfil ?? '', 'pt-BR'));
+  }, [delegatePerfisUsuario, perfis]);
   const [delegatePerfis, setDelegatePerfis] = useState<number[]>([]);
   const [delegatePerfisSaving, setDelegatePerfisSaving] = useState(false);
   const [adminOriginalSenhaHash, setAdminOriginalSenhaHash] = useState<string | null>(null);
@@ -640,26 +666,41 @@ export default function Home() {
     return isAdministradorUsuario(contextMenu.item as Usuario);
   }, [contextMenu, adminManageSelection, isAdministrador]);
 
-  const allowedSections = useMemo(() => {
-    // O administrador e usuários sem perfis vinculados têm todas as funções liberadas.
+  // Perfis vinculados ao usuário logado que estão ativos, em ordem alfabética.
+  // Para usuários comuns, o perfil Administrador (exclusivo do admin) não entra.
+  const usuarioPerfisVinculados = useMemo(() => {
     const perfilIds = parsePerfisConfig(currentUser?.config_perfis);
-    if (isAdministrador || perfilIds.length === 0) return [...DEFAULT_SECTION_ORDER];
-
-    const allowed = new Set<SectionType>();
-    for (const perfil of perfis) {
-      if (!perfilIds.includes(perfil.nr_sequencia)) continue;
-      // Perfil sem config_funcoes salvo equivale a todas as funções liberadas
-      // (mesmo default exibido no modal "Delegar funções").
-      const funcoes = perfil.config_funcoes
-        ? parseFuncoesConfig(perfil.config_funcoes)
-        : [...DEFAULT_SECTION_ORDER];
-      for (const section of funcoes) {
-        allowed.add(section);
-      }
-    }
-    // Mantém a ordem padrão do sistema, filtrando apenas o que foi liberado.
-    return DEFAULT_SECTION_ORDER.filter((s) => allowed.has(s));
+    if (perfilIds.length === 0) return [];
+    return perfis
+      .filter(
+        (p) =>
+          perfilIds.includes(p.nr_sequencia) &&
+          String(p.ie_status ?? '').toUpperCase() === 'A' &&
+          (isAdministrador || !isAdministradorPerfil(p))
+      )
+      .sort((a, b) => (a.ds_perfil ?? '').localeCompare(b.ds_perfil ?? '', 'pt-BR'));
   }, [currentUser?.config_perfis, perfis, isAdministrador]);
+
+  const allowedSections = useMemo(() => {
+    // O administrador tem todas as funções liberadas.
+    if (isAdministrador) return [...DEFAULT_SECTION_ORDER];
+
+    // Sem perfis vinculados = comportamento padrão: todas as funções liberadas.
+    const perfilIds = parsePerfisConfig(currentUser?.config_perfis);
+    if (perfilIds.length === 0) return [...DEFAULT_SECTION_ORDER];
+
+    // Perfis vinculados, porém todos inativos: sem acesso a nenhuma função.
+    if (usuarioPerfisVinculados.length === 0) return [];
+
+    // As funções liberadas vêm do perfil ATIVO selecionado na pop-up do usuário.
+    const ativo =
+      usuarioPerfisVinculados.find((p) => p.nr_sequencia === activePerfilSequencia) ??
+      usuarioPerfisVinculados[0];
+    // Perfil sem config_funcoes salvo não libera nenhuma função.
+    const funcoes = parseFuncoesConfig(ativo.config_funcoes);
+    // Mantém a ordem padrão do sistema, filtrando apenas o que foi liberado.
+    return DEFAULT_SECTION_ORDER.filter((s) => funcoes.includes(s));
+  }, [isAdministrador, currentUser?.config_perfis, usuarioPerfisVinculados, activePerfilSequencia]);
 
   const pfColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_pessoa_fisica),
@@ -1004,6 +1045,50 @@ export default function Home() {
     const parsed = parseMenuOrder(currentUser.config_ordem_menu_lateral);
     setMenuOrder(parsed ? normalizeMenuOrder(parsed) : DEFAULT_SECTION_ORDER);
   }, [currentUser]);
+
+  /* ── Perfil ativo do usuário logado (selecionado na pop-up) ── */
+  useEffect(() => {
+    if (!currentUser) return;
+    if (usuarioPerfisVinculados.length === 0) {
+      setActivePerfilSequencia(null);
+      return;
+    }
+    const saved = Number(currentUser.config_perfil_ativo);
+    const savedOk = usuarioPerfisVinculados.some((p) => p.nr_sequencia === saved);
+    if (savedOk) {
+      setActivePerfilSequencia(saved);
+      return;
+    }
+    /* Fallback: preferência local do próprio usuário (nunca a de outro) */
+    try {
+      const local = Number(window.localStorage.getItem(getActivePerfilKey(currentUser.id)));
+      const localOk = usuarioPerfisVinculados.some((p) => p.nr_sequencia === local);
+      if (localOk) {
+        setActivePerfilSequencia(local);
+        return;
+      }
+    } catch {
+      /* storage indisponível */
+    }
+    setActivePerfilSequencia(usuarioPerfisVinculados[0].nr_sequencia);
+  }, [currentUser, usuarioPerfisVinculados]);
+
+  function handleActivePerfilChange(nr: number) {
+    setActivePerfilSequencia(nr);
+    if (!currentUser?.id) return;
+    try {
+      window.localStorage.setItem(getActivePerfilKey(currentUser.id), String(nr));
+    } catch {
+      /* storage indisponível */
+    }
+    atualizarPreferenciasUsuario(currentUser.id, { config_perfil_ativo: String(nr) })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_perfil_ativo: String(nr) } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar perfil ativo no banco', err);
+      });
+  }
 
   /* ── Se a seção ativa não está liberada ao usuário, volta à primeira liberada ── */
   useEffect(() => {
@@ -2909,7 +2994,8 @@ export default function Home() {
   function openDelegateFuncoesModal(perfil: Perfil) {
     const saved = parseFuncoesConfig(perfil.config_funcoes);
     setDelegateFuncoesPerfil(perfil);
-    setDelegateFuncoes(saved.length > 0 ? saved : [...DEFAULT_SECTION_ORDER]);
+    // Perfil novo (sem config_funcoes) não vem com nenhuma função liberada.
+    setDelegateFuncoes(saved);
     setMessage("");
     setDelegateFuncoesModalOpen(true);
   }
@@ -3011,6 +3097,60 @@ export default function Home() {
       setMessage("Erro ao salvar perfis.");
     } finally {
       setDelegatePerfisSaving(false);
+    }
+  }
+
+  function openDuplicatePerfilModal(perfil: Perfil) {
+    setDuplicatePerfilSource(perfil);
+    setDuplicatePerfilName('');
+    setMessage("");
+    setDuplicatePerfilModalOpen(true);
+  }
+
+  function closeDuplicatePerfilModal() {
+    setDuplicatePerfilModalOpen(false);
+    setDuplicatePerfilSource(null);
+    setDuplicatePerfilName('');
+  }
+
+  async function handleDuplicatePerfilSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const nome = duplicatePerfilName.trim();
+    if (!nome || !duplicatePerfilSource) return;
+
+    // Não é possível ter perfis com o mesmo nome.
+    const jaExiste = perfis.some((p) => (p.ds_perfil ?? '').trim().toLowerCase() === nome.toLowerCase());
+    if (jaExiste) {
+      setMessage("Perfil já existente.");
+      return;
+    }
+
+    setDuplicatePerfilSaving(true);
+    try {
+      // Duplica o perfil preservando status, observação e funções liberadas.
+      await criarPerfil(
+        {
+          ds_perfil: nome,
+          ds_observacao: duplicatePerfilSource.ds_observacao ?? '',
+          ie_status: duplicatePerfilSource.ie_status ?? 'A',
+          config_funcoes: duplicatePerfilSource.config_funcoes,
+        } as any,
+        auditAutor
+      );
+      setMessage("Perfil duplicado com sucesso!");
+      await loadPerfis();
+      // Abre o novo perfil no formulário de edição para ajustes.
+      const novo = perfis.find((p) => (p.ds_perfil ?? '').trim().toLowerCase() === nome.toLowerCase());
+      closeDuplicatePerfilModal();
+      if (novo) {
+        openPerfilEditForm(novo);
+        setView('form');
+      }
+    } catch {
+      setMessage("Erro ao duplicar perfil.");
+    } finally {
+      setDuplicatePerfilSaving(false);
     }
   }
 
@@ -3370,6 +3510,14 @@ export default function Home() {
                 }
               : undefined
           }
+          onDuplicate={
+            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'perfis' && !isProtectedAdminItem
+              ? () => {
+                  openDuplicatePerfilModal(contextMenu.item as Perfil);
+                  setContextMenu(null);
+                }
+              : undefined
+          }
           onDelegatePerfis={
             contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios' && !isProtectedAdminItem
               ? () => {
@@ -3654,6 +3802,25 @@ export default function Home() {
                       </p>
                     </div>
                   </div>
+
+                  {/* Perfil ativo (alternância entre perfis vinculados) */}
+                  {usuarioPerfisVinculados.length > 0 && (
+                    <div className="mb-1 w-full">
+                      <Select
+                        value={String(activePerfilSequencia ?? usuarioPerfisVinculados[0].nr_sequencia)}
+                        onChange={(v) => {
+                          const nr = Number(v);
+                          if (Number.isFinite(nr)) handleActivePerfilChange(nr);
+                        }}
+                        options={usuarioPerfisVinculados.map((p) => ({
+                          value: String(p.nr_sequencia),
+                          label: p.ds_perfil ?? '',
+                        }))}
+                        showPlaceholder={false}
+                        className="!bg-[#1A4567] !text-white !border-[#1A4567] !rounded-[2px]"
+                      />
+                    </div>
+                  )}
 
                   {/* Alterar senha, Base de Conhecimento, Central de Suporte e Política de Privacidade */}
                   <div className="mt-8 flex flex-col gap-2">
@@ -4443,7 +4610,7 @@ export default function Home() {
 
             <div className="p-[15px] overflow-auto">
               <div className="grid gap-3">
-                {DEFAULT_SECTION_ORDER.map((section) => {
+                {SECTION_ORDER_ALPHABETICAL.map((section) => {
                   const enabled = delegateFuncoes.includes(section);
                   return (
                     <div
@@ -4479,7 +4646,7 @@ export default function Home() {
               </div>
             </div>
 
-            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px]">
+            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
               <button
                 type="button"
                 onClick={closeDelegateFuncoesModal}
@@ -4533,13 +4700,11 @@ export default function Home() {
             </div>
 
             <div className="p-[15px] overflow-auto">
-              {perfis.filter((p) => String(p.ie_status ?? '').toUpperCase() === 'A').length === 0 ? (
+              {delegatePerfisDisponiveis.length === 0 ? (
                 <div className="py-8 text-center text-sm text-slate-600">Nenhum perfil ativo encontrado.</div>
               ) : (
               <div className="grid gap-3">
-                {perfis
-                  .filter((p) => String(p.ie_status ?? '').toUpperCase() === 'A')
-                  .map((perfil) => {
+                {delegatePerfisDisponiveis.map((perfil) => {
                     const enabled = delegatePerfis.includes(perfil.nr_sequencia);
                     return (
                       <div
@@ -4576,7 +4741,7 @@ export default function Home() {
               )}
             </div>
 
-            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px]">
+            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
               <button
                 type="button"
                 onClick={closeDelegatePerfisModal}
@@ -4596,6 +4761,64 @@ export default function Home() {
               </button>
             </div>
           </div>
+        </div>
+      )}
+
+      {duplicatePerfilModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeDuplicatePerfilModal} />
+          <form
+            onSubmit={handleDuplicatePerfilSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Duplicar perfil</h2>
+              <button
+                type="button"
+                onClick={closeDuplicatePerfilModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar duplicar perfil"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Perfil
+                </label>
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={duplicatePerfilName}
+                  onChange={(e) => setDuplicatePerfilName(e.target.value)}
+                  autoFocus
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeDuplicatePerfilModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={duplicatePerfilSaving || !duplicatePerfilName.trim()}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
         </div>
       )}
 
