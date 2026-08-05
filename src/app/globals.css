@@ -383,3 +383,29 @@ select:disabled {
   color: #e4e4e7 !important;
 }
 
+/* ============================================================
+   CAMPOS OBRIGATÓRIOS — BORDA VERMELHA
+   Campos obrigatórios vazios ao salvar ficam com borda vermelha.
+   Usam !important para vencer as cores globais dos campos e as
+   regras do dark mode (que também usam !important).
+   ============================================================ */
+.border-red-500,
+.cg-select-trigger.cg-select-error {
+  border-top-color: #ef4444 !important;
+  border-left-color: #ef4444 !important;
+  border-right-color: #ef4444 !important;
+  border-bottom-color: #ef4444 !important;
+}
+.border-red-500:focus,
+.border-red-500:focus-visible,
+.cg-select-trigger.cg-select-error:focus,
+.cg-select-trigger.cg-select-error:focus-visible {
+  border-color: #ef4444 !important;
+}
+.dark .border-red-500:focus,
+.dark .border-red-500:focus-visible,
+.dark .cg-select-trigger.cg-select-error:focus,
+.dark .cg-select-trigger.cg-select-error:focus-visible {
+  border-color: #ef4444 !important;
+}
+

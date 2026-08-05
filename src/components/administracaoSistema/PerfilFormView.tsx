@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Perfil } from "@/types/perfil";
 import { PERFIL_FIELD_INFOS, formatPerfilCellValue } from "@/lib/perfilUtils";
+import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 
 export type PerfilFormData = Omit<Perfil, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -28,6 +30,10 @@ interface FormViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   readOnly?: boolean;
+  /** Regras de campos por perfil (colecao perfil): campo → status. */
+  campoRegras?: Record<string, CampoStatus>;
+  /** Campos obrigatórios vazios no último submit (borda vermelha). */
+  campoErros?: string[];
 }
 
 export default function PerfilFormView({
@@ -51,10 +57,22 @@ export default function PerfilFormView({
   manageSelection,
   onManageSelectionChange,
   readOnly = false,
+  campoRegras = {},
+  campoErros = [],
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof PERFIL_FIELD_INFOS | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
+
+  function statusDe(campo: string): CampoStatus {
+    return campoRegras?.[campo] ?? 'N';
+  }
+
+  function inputClass(campo: string, base = "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"): string {
+    return campoErros.includes(campo)
+      ? `${base} border-red-500`
+      : `${base} border-slate-300`;
+  }
 
   function renderFieldLabel(fieldKey: keyof typeof PERFIL_FIELD_INFOS, label: string) {
     const meta = PERFIL_FIELD_INFOS[fieldKey] ?? {
@@ -62,10 +80,14 @@ export default function PerfilFormView({
       field: String(fieldKey),
       collection: 'perfil',
     };
+    const obrigatorio = statusDe(String(fieldKey)) === 'O';
     return (
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
         <div className="group inline-flex items-center gap-2 w-full">
-          <span>{label}</span>
+          <span className="inline-flex items-center gap-1">
+            {obrigatorio && <RequiredAsterisk />}
+            <span>{label}</span>
+          </span>
           <button
             type="button"
             onClick={(event) => {
@@ -144,7 +166,7 @@ export default function PerfilFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={[{ value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
+            options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
             showPlaceholder={false}
             className="!w-[180px]"
             disabled
@@ -203,8 +225,8 @@ export default function PerfilFormView({
           <div className="sm:col-span-11 group">
             {renderFieldLabel('ds_perfil', 'Perfil')}
             <input
-              disabled={readOnly}
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+              disabled={readOnly || statusDe('ds_perfil') === 'D'}
+              className={`${inputClass('ds_perfil')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               value={form.ds_perfil}
               onChange={(e) => setForm({ ...form, ds_perfil: e.target.value })}
             />
@@ -212,37 +234,37 @@ export default function PerfilFormView({
 
           <div className="sm:col-span-6 group">
             {renderFieldLabel('ie_status', 'Status')}
-            <div className="flex items-center gap-4">
-              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name="ie_status"
-                  value="A"
-                  disabled={readOnly}
-                  checked={form.ie_status === 'A' || !form.ie_status}
-                  onChange={() => setForm({ ...form, ie_status: 'A' })}
-                />
-                <span>Ativo</span>
-              </label>
-              <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                <input
-                  type="radio"
-                  name="ie_status"
-                  value="I"
-                  disabled={readOnly}
-                  checked={form.ie_status === 'I'}
-                  onChange={() => setForm({ ...form, ie_status: 'I' })}
-                />
-                <span>Inativo</span>
-              </label>
+            <div className={`flex items-center gap-4 rounded-[3px] border px-2 py-1.5 ${campoErros.includes('ie_status') ? 'border-red-500' : 'border-slate-300'}`}>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ie_status"
+                    value="A"
+                    disabled={readOnly || statusDe('ie_status') === 'D'}
+                    checked={form.ie_status === 'A' || !form.ie_status}
+                    onChange={() => setForm({ ...form, ie_status: 'A' })}
+                  />
+                  <span>Ativo</span>
+                </label>
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="radio"
+                    name="ie_status"
+                    value="I"
+                    disabled={readOnly || statusDe('ie_status') === 'D'}
+                    checked={form.ie_status === 'I'}
+                    onChange={() => setForm({ ...form, ie_status: 'I' })}
+                  />
+                  <span>Inativo</span>
+                </label>
             </div>
           </div>
 
           <div className="sm:col-span-12 group">
             {renderFieldLabel('ds_observacao', 'Observação')}
             <textarea
-              disabled={readOnly}
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+              disabled={readOnly || statusDe('ds_observacao') === 'D'}
+              className={`${inputClass('ds_observacao', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               rows={3}
               value={form.ds_observacao}
               onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}

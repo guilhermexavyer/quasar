@@ -2,7 +2,9 @@
 
 import { useEffect, useRef, useState } from "react";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
+import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 
 export interface CadastroGeralFormData {
   descricao: string;
@@ -42,6 +44,10 @@ interface FormViewProps {
   showSigla?: boolean;
   /** Chave do campo de sigla na coleção atual (ex.: sg_orgao_emissor, sg_logradouro). */
   siglaFieldKey?: string;
+  /** Regras de campos por perfil (colecao = collectionName): campo → status. */
+  campoRegras?: Record<string, CampoStatus>;
+  /** Campos obrigatórios vazios no último submit (borda vermelha). */
+  campoErros?: string[];
 }
 
 export default function CadastroGeralFormView({
@@ -70,10 +76,22 @@ export default function CadastroGeralFormView({
   showCbo = false,
   showSigla = false,
   siglaFieldKey = 'sg_sigla',
+  campoRegras = {},
+  campoErros = [],
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
+
+  function statusDe(campo: string): CampoStatus {
+    return campoRegras?.[campo] ?? 'N';
+  }
+
+  function inputClass(campo: string, base = "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"): string {
+    return campoErros.includes(campo)
+      ? `${base} border-red-500`
+      : `${base} border-slate-300`;
+  }
 
   function renderFieldLabel(fieldKey: string, label: string) {
     const meta = fieldInfos[fieldKey] ?? {
@@ -81,10 +99,14 @@ export default function CadastroGeralFormView({
       field: fieldKey,
       collection: collectionName,
     };
+    const obrigatorio = statusDe(fieldKey) === 'O';
     return (
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
         <div className="group inline-flex items-center gap-2 w-full">
-          <span>{label}</span>
+          <span className="inline-flex items-center gap-1">
+            {obrigatorio && <RequiredAsterisk />}
+            <span>{label}</span>
+          </span>
           <button
             type="button"
             onClick={(event) => {
@@ -222,7 +244,8 @@ export default function CadastroGeralFormView({
           <div className={`${(showCbo || showSigla) ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
             {renderFieldLabel(descFieldKey, 'Descrição')}
             <input
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+              disabled={statusDe(descFieldKey) === 'D'}
+              className={`${inputClass(descFieldKey)} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               value={form.descricao}
               onChange={(e) => setForm({ ...form, descricao: e.target.value })}
             />
@@ -234,7 +257,8 @@ export default function CadastroGeralFormView({
               <input
                 maxLength={7}
                 inputMode="numeric"
-                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                disabled={statusDe('nr_cbo') === 'D'}
+                className={`${inputClass('nr_cbo')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                 value={form.nr_cbo ?? ''}
                 onChange={(e) => setForm({ ...form, nr_cbo: e.target.value.replace(/\D/g, '') })}
               />
@@ -246,7 +270,8 @@ export default function CadastroGeralFormView({
               {renderFieldLabel(siglaFieldKey, 'Sigla')}
               <input
                 maxLength={10}
-                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                disabled={statusDe(siglaFieldKey) === 'D'}
+                className={`${inputClass(siglaFieldKey)} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                 value={form.sg_sigla ?? ''}
                 onChange={(e) => setForm({ ...form, sg_sigla: e.target.value })}
               />
@@ -256,12 +281,13 @@ export default function CadastroGeralFormView({
           <div className="sm:col-span-12">
             <div className="group w-full">
               {renderFieldLabel('ie_status', 'Status')}
-              <div className="flex items-center gap-4 mb-3">
+              <div className={`flex items-center gap-4 mb-3 rounded-[3px] border px-2 py-1.5 ${campoErros.includes('ie_status') ? 'border-red-500' : 'border-slate-300'}`}>
                 <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="radio"
                     name="ie_status"
                     value="A"
+                    disabled={statusDe('ie_status') === 'D'}
                     checked={form.ie_status === 'A' || !form.ie_status}
                     onChange={() => setForm({ ...form, ie_status: 'A' })}
                   />
@@ -272,6 +298,7 @@ export default function CadastroGeralFormView({
                     type="radio"
                     name="ie_status"
                     value="I"
+                    disabled={statusDe('ie_status') === 'D'}
                     checked={form.ie_status === 'I'}
                     onChange={() => setForm({ ...form, ie_status: 'I' })}
                   />

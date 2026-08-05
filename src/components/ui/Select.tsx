@@ -17,6 +17,8 @@ interface SelectProps {
   visibleOptions?: number;
   /** Exibe a opção "---" (vazia) no topo da lista. Padrão: true. */
   showPlaceholder?: boolean;
+  /** Borda vermelha — campo obrigatório vazio ao salvar. */
+  error?: boolean;
 }
 
 const ROW_HEIGHT = 32; // altura aproximada de cada linha (px)
@@ -29,6 +31,7 @@ export default function Select({
   disabled = false,
   visibleOptions = 10,
   showPlaceholder = true,
+  error = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -197,7 +200,7 @@ export default function Select({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
-        className={`cg-select-trigger w-full border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 ${className}`}
+        className={`cg-select-trigger w-full border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 ${error ? "cg-select-error" : ""} ${className}`}
         style={{ textAlign: "left", cursor: disabled ? "default" : "pointer" }}
       >
         <span className="flex items-center justify-between gap-2">

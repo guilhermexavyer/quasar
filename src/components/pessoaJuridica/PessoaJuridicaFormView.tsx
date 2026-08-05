@@ -6,6 +6,7 @@ import {
   PJ_FIELD_INFOS,
   applyCnpjMask,
 } from "@/lib/pessoaJuridicaUtils";
+import type { CampoStatus } from "@/lib/camposConfigUtils";
 import {
   applyCepMask,
   applyDateMask,
@@ -13,6 +14,7 @@ import {
   formatDate,
 } from "@/lib/pessoaFisicaUtils";
 import Select from "@/components/ui/Select";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import { buscarEnderecoPorCep } from "@/services/cepService";
 
 export type FormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -51,6 +53,10 @@ interface FormViewProps {
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Regras de campos por perfil (colecao pessoa_juridica): campo → status. */
+  campoRegras?: Record<string, CampoStatus>;
+  /** Campos obrigatórios vazios no último submit (borda vermelha). */
+  campoErros?: string[];
 }
 
 export default function PessoaJuridicaFormView({
@@ -79,6 +85,8 @@ export default function PessoaJuridicaFormView({
   selectOptions,
   manageSelection,
   onManageSelectionChange,
+  campoRegras = {},
+  campoErros = [],
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof PJ_FIELD_INFOS | null>(null);
@@ -122,12 +130,26 @@ export default function PessoaJuridicaFormView({
     return best ? best.op.nr_sequencia : undefined;
   }
 
+  function statusDe(campo: string): CampoStatus {
+    return campoRegras?.[campo] ?? 'N';
+  }
+
+  function inputClass(campo: string, base = "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"): string {
+    return campoErros.includes(campo)
+      ? `${base} border-red-500`
+      : `${base} border-slate-300`;
+  }
+
   function renderFieldLabel(fieldKey: keyof typeof PJ_FIELD_INFOS, label: string) {
     const meta = PJ_FIELD_INFOS[fieldKey];
+    const obrigatorio = statusDe(String(fieldKey)) === 'O';
     return (
       <div className="block text-sm mb-1" style={{ color: '#666' }}>
         <div className="relative group inline-flex items-center gap-2">
-          <span>{label}</span>
+          <span className="inline-flex items-center gap-1">
+            {obrigatorio && <RequiredAsterisk />}
+            <span>{label}</span>
+          </span>
           <button
             type="button"
             onClick={(event) => {
@@ -308,7 +330,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-11 group">
                 {renderFieldLabel('ds_razao_social', 'Razão social')}
                 <input
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('ds_razao_social') === 'D'}
+                  className={`${inputClass('ds_razao_social')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_razao_social}
                   onChange={(e) => setForm({ ...form, ds_razao_social: e.target.value })}
                 />
@@ -317,7 +340,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-8 group">
                 {renderFieldLabel('ds_nome_fantasia', 'Nome fantasia')}
                 <input
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('ds_nome_fantasia') === 'D'}
+                  className={`${inputClass('ds_nome_fantasia')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_nome_fantasia}
                   onChange={(e) => setForm({ ...form, ds_nome_fantasia: e.target.value })}
                 />
@@ -330,7 +354,8 @@ export default function PessoaJuridicaFormView({
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  disabled={statusDe('dt_abertura') === 'D'}
+                  className={`${inputClass('dt_abertura', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.dt_abertura}
                   onChange={(e) =>
                     setForm({ ...form, dt_abertura: applyDateMask(e.target.value) })
@@ -349,7 +374,8 @@ export default function PessoaJuridicaFormView({
                 <input
                   inputMode="numeric"
                   maxLength={18}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('nr_cnpj') === 'D'}
+                  className={`${inputClass('nr_cnpj')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_cnpj}
                   onChange={(e) => setForm({ ...form, nr_cnpj: applyCnpjMask(e.target.value) })}
                 />
@@ -359,7 +385,8 @@ export default function PessoaJuridicaFormView({
                 {renderFieldLabel('nr_inscricao_estadual', 'Inscrição estadual')}
                 <input
                   maxLength={20}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('nr_inscricao_estadual') === 'D'}
+                  className={`${inputClass('nr_inscricao_estadual')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_inscricao_estadual}
                   onChange={(e) => setForm({ ...form, nr_inscricao_estadual: e.target.value })}
                 />
@@ -369,7 +396,8 @@ export default function PessoaJuridicaFormView({
                 {renderFieldLabel('nr_inscricao_municipal', 'Inscrição municipal')}
                 <input
                   maxLength={20}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('nr_inscricao_municipal') === 'D'}
+                  className={`${inputClass('nr_inscricao_municipal')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_inscricao_municipal}
                   onChange={(e) => setForm({ ...form, nr_inscricao_municipal: e.target.value })}
                 />
@@ -386,7 +414,8 @@ export default function PessoaJuridicaFormView({
                 <input
                   inputMode="numeric"
                   maxLength={15}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('nr_telefone') === 'D'}
+                  className={`${inputClass('nr_telefone')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_telefone}
                   onChange={(e) => setForm({ ...form, nr_telefone: applyPhoneMask(e.target.value) })}
                 />
@@ -396,7 +425,8 @@ export default function PessoaJuridicaFormView({
                 {renderFieldLabel('ds_email', 'E-mail')}
                 <input
                   type="email"
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('ds_email') === 'D'}
+                  className={`${inputClass('ds_email')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_email}
                   onChange={(e) => setForm({ ...form, ds_email: e.target.value })}
                 />
@@ -413,7 +443,8 @@ export default function PessoaJuridicaFormView({
                 <input
                   inputMode="numeric"
                   maxLength={9}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('nr_cep') === 'D'}
+                  className={`${inputClass('nr_cep')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_cep ?? ''}
                   onChange={(e) => setForm({ ...form, nr_cep: applyCepMask(e.target.value) })}
                 />
@@ -422,7 +453,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-3 group">
                 {renderFieldLabel('ds_endereco', 'Rua')}
                 <input
-                  className={`w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${cepLoading ? 'opacity-50' : ''}`}
+                  disabled={statusDe('ds_endereco') === 'D'}
+                  className={`${inputClass('ds_endereco')} ${cepLoading ? 'opacity-50' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_endereco ?? ''}
                   onChange={(e) => setForm({ ...form, ds_endereco: e.target.value })}
                 />
@@ -431,6 +463,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-3 group">
                 {renderFieldLabel('nr_seq_logradouro', 'Logradouro')}
                 <Select
+                  disabled={statusDe('nr_seq_logradouro') === 'D'}
+                  error={campoErros.includes('nr_seq_logradouro')}
                   value={form.nr_seq_logradouro ? String(form.nr_seq_logradouro) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_logradouro: v ? Number(v) : undefined })}
                   options={cgOptions(logradouros).map((op) => ({
@@ -444,7 +478,8 @@ export default function PessoaJuridicaFormView({
                 {renderFieldLabel('nr_endereco', 'Número')}
                 <input
                   maxLength={10}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('nr_endereco') === 'D'}
+                  className={`${inputClass('nr_endereco')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_endereco ?? ''}
                   onChange={(e) => setForm({ ...form, nr_endereco: e.target.value })}
                 />
@@ -453,7 +488,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-6 group">
                 {renderFieldLabel('ds_bairro', 'Bairro')}
                 <input
-                  className={`w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${cepLoading ? 'opacity-50' : ''}`}
+                  disabled={statusDe('ds_bairro') === 'D'}
+                  className={`${inputClass('ds_bairro')} ${cepLoading ? 'opacity-50' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_bairro ?? ''}
                   onChange={(e) => setForm({ ...form, ds_bairro: e.target.value })}
                 />
@@ -462,7 +498,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-6 group">
                 {renderFieldLabel('ds_complemento', 'Complemento')}
                 <input
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  disabled={statusDe('ds_complemento') === 'D'}
+                  className={`${inputClass('ds_complemento')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_complemento ?? ''}
                   onChange={(e) => setForm({ ...form, ds_complemento: e.target.value })}
                 />
@@ -471,6 +508,8 @@ export default function PessoaJuridicaFormView({
               <div className="sm:col-span-3 group">
                 {renderFieldLabel('sg_estado', 'UF')}
                 <Select
+                  disabled={statusDe('sg_estado') === 'D'}
+                  error={campoErros.includes('sg_estado')}
                   value={form.sg_estado ?? ''}
                   onChange={(v) => setForm({ ...form, sg_estado: v })}
                   options={estados}
@@ -485,7 +524,8 @@ export default function PessoaJuridicaFormView({
                     <input
                       inputMode="numeric"
                       maxLength={7}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none"
+                      disabled={statusDe('cd_ibge_cidade') === 'D'}
+                      className={`${inputClass('cd_ibge_cidade', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                       value={form.cd_ibge_cidade ?? ''}
                       onChange={(e) => onCidadeCodeChange(e.target.value.replace(/\D/g, '').slice(0, 7))}
                     />
@@ -500,7 +540,8 @@ export default function PessoaJuridicaFormView({
                     <button
                       type="button"
                       onClick={onOpenCidadeLookup}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
+                      disabled={statusDe('cd_ibge_cidade') === 'D'}
+                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
                       aria-label="Localizar cidade"
                     >
                       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

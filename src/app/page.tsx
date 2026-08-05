@@ -90,6 +90,14 @@ import AdministracaoSistemaListView from "@/components/administracaoSistema/Admi
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
 import PerfilFormView, { type PerfilFormData } from "@/components/administracaoSistema/PerfilFormView";
+import CamposView from "@/components/administracaoSistema/CamposView";
+import {
+  parseCamposConfig,
+  serializeCamposConfig,
+  campoRegrasDaColecao,
+  camposObrigatoriosVazios,
+  type CampoStatus,
+} from "@/lib/camposConfigUtils";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
 import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
@@ -115,7 +123,7 @@ import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
 import type { ContextMenuState } from "@/types/contextMenu";
-import { PERFIL_COLUMNS } from "@/lib/perfilUtils";
+import { PERFIL_COLUMNS, parseFuncoesConfig } from "@/lib/perfilUtils";
 import { obterPerfis, criarPerfil, atualizarPerfil, excluirPerfil } from "@/services/perfilService";
 
 /* ------------------------------------------------------------------ */
@@ -311,19 +319,6 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
 
 function serializeMenuOrder(order: SectionType[]): string {
   return JSON.stringify(order);
-}
-
-function parseFuncoesConfig(raw?: string | null): SectionType[] {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(
-      (s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais"
-    ) as SectionType[];
-  } catch {
-    return [];
-  }
 }
 
 function serializeFuncoesConfig(funcoes: SectionType[]): string {
@@ -581,6 +576,12 @@ export default function Home() {
   const [duplicatePerfilSource, setDuplicatePerfilSource] = useState<Perfil | null>(null);
   const [duplicatePerfilName, setDuplicatePerfilName] = useState('');
   const [duplicatePerfilSaving, setDuplicatePerfilSaving] = useState(false);
+  // Campos obrigatórios vazios por formulário (Administração > Campos).
+  const [pfCampoErros, setPfCampoErros] = useState<string[]>([]);
+  const [pjCampoErros, setPjCampoErros] = useState<string[]>([]);
+  const [adminCampoErros, setAdminCampoErros] = useState<string[]>([]);
+  const [perfilCampoErros, setPerfilCampoErros] = useState<string[]>([]);
+  const [cgCampoErros, setCgCampoErros] = useState<string[]>([]);
   const [delegatePerfisUsuario, setDelegatePerfisUsuario] = useState<Usuario | null>(null);
 
   // Perfis ativos disponíveis no modal "Delegar perfis": ordenados por nome e,
@@ -680,6 +681,14 @@ export default function Home() {
       )
       .sort((a, b) => (a.ds_perfil ?? '').localeCompare(b.ds_perfil ?? '', 'pt-BR'));
   }, [currentUser?.config_perfis, perfis, isAdministrador]);
+
+  // Regras de campos do perfil ATIVO do usuário logado (Administração > Campos).
+  const campoRegrasAtivas = useMemo(() => {
+    const ativo =
+      usuarioPerfisVinculados.find((p) => p.nr_sequencia === activePerfilSequencia) ??
+      usuarioPerfisVinculados[0];
+    return ativo ? parseCamposConfig(ativo.config_campos) : {};
+  }, [usuarioPerfisVinculados, activePerfilSequencia]);
 
   const allowedSections = useMemo(() => {
     // O administrador tem todas as funções liberadas.
@@ -1138,7 +1147,7 @@ export default function Home() {
         if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais") {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos')) {
           setAdminManageSelection(session.adminManageSelection);
         }
         if (typeof session.cgManageSelection === "string" && session.cgManageSelection.trim() !== "") {
@@ -1184,6 +1193,7 @@ export default function Home() {
     setAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setNaturalidadeNome('');
+    setPfCampoErros([]);
     setView("form");
     setActiveSection("pessoaFisica");
   }
@@ -1194,6 +1204,7 @@ export default function Home() {
     setPjAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setPjCidadeNome('');
+    setPjCampoErros([]);
     setView("form");
     setActiveSection("pessoaFisica");
   }
@@ -1204,6 +1215,7 @@ export default function Home() {
     setAdminOriginalSenhaHash(null);
     setAdminAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
+    setAdminCampoErros([]);
     setView("form");
     setActiveSection("administracaoSistema");
   }
@@ -1213,6 +1225,7 @@ export default function Home() {
     setPerfilEditingId(null);
     setPerfilAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
+    setPerfilCampoErros([]);
     setView("form");
     setActiveSection("administracaoSistema");
   }
@@ -1222,13 +1235,14 @@ export default function Home() {
     setCgEditingId(null);
     setCgAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
+    setCgCampoErros([]);
     setView("form");
     setActiveSection("cadastrosGerais");
   }
 
   function handleAdminManageSelectionChange(value: string) {
     setAdminManageSelection(value);
-    // Ao trocar entre Usuários/Perfis, zera o formulário em edição
+    // Ao trocar entre Usuários/Perfis/Campos, zera o formulário em edição
     // para nunca salvar contra a coleção errada.
     setAdminForm(emptyAdminForm);
     setAdminEditingId(null);
@@ -1241,6 +1255,21 @@ export default function Home() {
     setPerfilFilterModalOpen(false);
     setMessage("");
     setView("list");
+  }
+
+  // Salva o status de um campo na configuração do perfil (Administração > Campos).
+  async function handleCamposStatusChange(perfil: Perfil, chave: string, status: CampoStatus) {
+    if (!perfil.id) return;
+    setMessage("");
+    const config = parseCamposConfig(perfil.config_campos);
+    config[chave] = status;
+    try {
+      await atualizarPerfil(perfil.id, { config_campos: serializeCamposConfig(config) }, auditAutor);
+      setMessage(`Campo atualizado: ${status === 'O' ? 'Obrigatório' : status === 'D' ? 'Desabilitado' : 'Normal'}`);
+      await loadPerfis();
+    } catch {
+      setMessage("Erro ao salvar configuração do campo.");
+    }
   }
 
   function handleCgManageSelectionChange(value: string) {
@@ -1708,6 +1737,7 @@ export default function Home() {
     });
     auditPessoaIdRef.current = pessoa.id ?? null;
     setMessage("");
+    setPfCampoErros([]);
     setView("form");
     setActiveSection("pessoaFisica");
     if (pessoa.id) {
@@ -1758,6 +1788,7 @@ export default function Home() {
     });
     auditPjIdRef.current = pessoa.id ?? null;
     setMessage("");
+    setPjCampoErros([]);
     setView("form");
     setActiveSection("pessoaFisica");
     if (pessoa.id) {
@@ -1780,6 +1811,7 @@ export default function Home() {
     });
     auditPerfilIdRef.current = perfil.id ?? null;
     setMessage("");
+    setPerfilCampoErros([]);
     setView("form");
     setActiveSection("administracaoSistema");
     if (perfil.id) {
@@ -1807,6 +1839,7 @@ export default function Home() {
     });
     auditUsuarioIdRef.current = usuario.id ?? null;
     setMessage("");
+    setAdminCampoErros([]);
     setView("form");
     setActiveSection("administracaoSistema");
     if (usuario.id) {
@@ -1830,6 +1863,7 @@ export default function Home() {
     });
     auditCgIdRef.current = item.id ?? null;
     setMessage("");
+    setCgCampoErros([]);
     setView("form");
     setActiveSection("cadastrosGerais");
     if (item.id) {
@@ -2266,6 +2300,15 @@ export default function Home() {
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const pfRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica');
+    const pfFaltantes = camposObrigatoriosVazios(form as unknown as Record<string, any>, pfRegras);
+    if (pfFaltantes.length > 0) {
+      setPfCampoErros(pfFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setPfCampoErros([]);
     setSubmitting(true);
 
     try {
@@ -2328,6 +2371,15 @@ export default function Home() {
   async function handlePjSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const pjRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_juridica');
+    const pjFaltantes = camposObrigatoriosVazios(pjForm as unknown as Record<string, any>, pjRegras);
+    if (pjFaltantes.length > 0) {
+      setPjCampoErros(pjFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setPjCampoErros([]);
     setPjSubmitting(true);
 
     try {
@@ -2479,6 +2531,15 @@ export default function Home() {
       setMessage("O usuário administrador não pode ser alterado por outros usuários.");
       return;
     }
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const adminRegras = campoRegrasDaColecao(campoRegrasAtivas, 'usuario');
+    const adminFaltantes = camposObrigatoriosVazios(adminForm as unknown as Record<string, any>, adminRegras);
+    if (adminFaltantes.length > 0) {
+      setAdminCampoErros(adminFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setAdminCampoErros([]);
     setAdminSubmitting(true);
 
     try {
@@ -2568,6 +2629,15 @@ export default function Home() {
       setMessage("O perfil Administrador não pode ser alterado por outros usuários.");
       return;
     }
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const perfilRegras = campoRegrasDaColecao(campoRegrasAtivas, 'perfil');
+    const perfilFaltantes = camposObrigatoriosVazios(perfilForm as unknown as Record<string, any>, perfilRegras);
+    if (perfilFaltantes.length > 0) {
+      setPerfilCampoErros(perfilFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setPerfilCampoErros([]);
     setPerfilSubmitting(true);
 
     try {
@@ -2619,6 +2689,24 @@ export default function Home() {
   async function handleCgSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const cgRegras = campoRegrasDaColecao(campoRegrasAtivas, cgCollection);
+    const cgSiglaChave = cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : null;
+    const cgFaltantes = camposObrigatoriosVazios(
+      {
+        [cgDescKey]: cgForm.descricao,
+        ie_status: cgForm.ie_status,
+        nr_cbo: cgForm.nr_cbo ?? '',
+        ...(cgSiglaChave ? { [cgSiglaChave]: cgForm.sg_sigla ?? '' } : {}),
+      },
+      cgRegras
+    );
+    if (cgFaltantes.length > 0) {
+      setCgCampoErros(cgFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setCgCampoErros([]);
     setCgSubmitting(true);
 
     try {
@@ -3922,7 +4010,14 @@ export default function Home() {
                 />
               )
             ) : activeSection === "administracaoSistema" ? (
-              adminManageSelection === 'usuarios' ? (
+              adminManageSelection === 'campos' ? (
+                <CamposView
+                  perfis={perfis}
+                  onChangeStatus={handleCamposStatusChange}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                />
+              ) : adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaListView
                   message={message}
                   loading={loading}
@@ -4015,6 +4110,8 @@ export default function Home() {
                 selectOptions={PJ_SELECT_OPTIONS}
                 manageSelection={pjManageSelection}
                 onManageSelectionChange={handlePjManageSelectionChange}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_juridica')}
+                campoErros={pjCampoErros}
               />
             ) : (
               <PessoaFisicaFormView
@@ -4048,10 +4145,19 @@ export default function Home() {
                 selectOptions={PJ_SELECT_OPTIONS}
                 manageSelection={pjManageSelection}
                 onManageSelectionChange={handlePjManageSelectionChange}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica')}
+                campoErros={pfCampoErros}
               />
             )
           ) : activeSection === "administracaoSistema" ? (
-            adminManageSelection === 'usuarios' ? (
+            adminManageSelection === 'campos' ? (
+              <CamposView
+                perfis={perfis}
+                onChangeStatus={handleCamposStatusChange}
+                manageSelection={adminManageSelection}
+                onManageSelectionChange={handleAdminManageSelectionChange}
+              />
+            ) : adminManageSelection === 'usuarios' ? (
               <AdministracaoSistemaFormView
                 message={message}
                 editingId={adminEditingId}
@@ -4075,6 +4181,8 @@ export default function Home() {
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
                 readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'usuario')}
+                campoErros={adminCampoErros}
               />
             ) : (
               <PerfilFormView
@@ -4098,6 +4206,8 @@ export default function Home() {
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
                 readOnly={!isAdministrador && perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'perfil')}
+                campoErros={perfilCampoErros}
               />
             )
           ) : (
@@ -4128,6 +4238,8 @@ export default function Home() {
               showCbo={cgKind === 'profissao'}
               showSigla={cgKind === 'orgaoEmissor' || cgKind === 'logradouro'}
               siglaFieldKey={cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : undefined}
+              campoRegras={campoRegrasDaColecao(campoRegrasAtivas, cgCollection)}
+              campoErros={cgCampoErros}
             />
           )}
         </div>

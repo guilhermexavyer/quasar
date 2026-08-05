@@ -1,0 +1,331 @@
+"use client";
+
+import { useMemo, useState } from "react";
+import type { Perfil } from "@/types/perfil";
+import {
+  CAMPO_STATUS_LABELS,
+  CAMPOS_POR_FUNCAO,
+  getCampoStatusByKey,
+  parseCamposConfig,
+  type CampoStatus,
+} from "@/lib/camposConfigUtils";
+import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
+import ContextMenu from "@/components/ui/ContextMenu";
+import ResizableTable from "@/components/ui/ResizableTable";
+import Select from "@/components/ui/Select";
+
+const FUNCAO_LABELS: Record<string, string> = {
+  pessoaFisica: "Cadastro de Pessoas",
+  administracaoSistema: "Administração do Sistema",
+  cadastrosGerais: "Cadastros Gerais",
+};
+
+const FUNCAO_ORDER_ALPHA = Object.keys(FUNCAO_LABELS).sort((a, b) =>
+  (FUNCAO_LABELS[a] ?? a).localeCompare(FUNCAO_LABELS[b] ?? b, "pt-BR")
+);
+
+interface CamposViewProps {
+  perfis: Perfil[];
+  onChangeStatus: (perfil: Perfil, chave: string, status: CampoStatus) => void;
+  manageSelection: string;
+  onManageSelectionChange: (v: string) => void;
+}
+
+export default function CamposView({
+  perfis,
+  onChangeStatus,
+  manageSelection,
+  onManageSelectionChange,
+}: CamposViewProps) {
+  const [selectedPerfilId, setSelectedPerfilId] = useState<string | null>(null);
+  const [selectedFuncao, setSelectedFuncao] = useState<string | null>(null);
+
+  // Ordenação em 3 estados (mesma lógica das tabelas de registro):
+  // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).
+  const [perfilSortKey, setPerfilSortKey] = useState<"nr_sequencia" | "ds_perfil" | null>(null);
+  const [perfilSortAsc, setPerfilSortAsc] = useState<boolean | null>(null);
+  const [funcaoSortKey, setFuncaoSortKey] = useState<string | null>(null);
+  const [funcaoSortAsc, setFuncaoSortAsc] = useState<boolean | null>(null);
+  const [campoSortKey, setCampoSortKey] = useState<string | null>(null);
+  const [campoSortAsc, setCampoSortAsc] = useState<boolean | null>(null);
+
+  // Menu de contexto do campo (status: Normal/Obrigatório/Desabilitado).
+  const [campoMenu, setCampoMenu] = useState<{
+    x: number;
+    y: number;
+    chave: string;
+  } | null>(null);
+
+  const selectedPerfil = perfis.find((p) => p.id === selectedPerfilId) ?? null;
+
+  // Funções liberadas do perfil selecionado (config_funcoes), em ordem alfabética.
+  const funcoesLiberadas = useMemo(() => {
+    if (!selectedPerfil) return [];
+    const ids = parseFuncoesConfig(selectedPerfil.config_funcoes);
+    return FUNCAO_ORDER_ALPHA.filter((f) => ids.includes(f as FuncaoId));
+  }, [selectedPerfil]);
+
+  // Ao trocar de perfil, garante que a função selecionada esteja liberada.
+  const funcaoAtiva =
+    selectedFuncao && funcoesLiberadas.includes(selectedFuncao)
+      ? selectedFuncao
+      : (funcoesLiberadas[0] ?? null);
+
+  const config = useMemo(
+    () => (selectedPerfil ? parseCamposConfig(selectedPerfil.config_campos) : {}),
+    [selectedPerfil]
+  );
+
+  const campos = useMemo(() => {
+    if (!funcaoAtiva) return [];
+    return [...(CAMPOS_POR_FUNCAO[funcaoAtiva] ?? [])];
+  }, [funcaoAtiva]);
+
+  function togglePerfilSort(key: "nr_sequencia" | "ds_perfil") {
+    if (perfilSortKey === key) {
+      if (perfilSortAsc) {
+        setPerfilSortAsc(false);
+      } else {
+        setPerfilSortKey(null);
+        setPerfilSortAsc(null);
+      }
+    } else {
+      setPerfilSortKey(key);
+      setPerfilSortAsc(true);
+    }
+  }
+
+  function toggleFuncaoSort() {
+    if (funcaoSortKey === "funcao") {
+      if (funcaoSortAsc) {
+        setFuncaoSortAsc(false);
+      } else {
+        setFuncaoSortKey(null);
+        setFuncaoSortAsc(null);
+      }
+    } else {
+      setFuncaoSortKey("funcao");
+      setFuncaoSortAsc(true);
+    }
+  }
+
+  function toggleCampoSort(key: string) {
+    if (campoSortKey === key) {
+      if (campoSortAsc) {
+        setCampoSortAsc(false);
+      } else {
+        setCampoSortKey(null);
+        setCampoSortAsc(null);
+      }
+    } else {
+      setCampoSortKey(key);
+      setCampoSortAsc(true);
+    }
+  }
+
+  const sortedPerfis = useMemo(() => {
+    if (perfilSortKey === null || perfilSortAsc === null) {
+      // Ordenação padrão: nr_sequencia crescente (mesmo padrão das listagens).
+      return [...perfis].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+    }
+    const list = [...perfis];
+    list.sort((a, b) => {
+      const av = String(a[perfilSortKey] ?? "");
+      const bv = String(b[perfilSortKey] ?? "");
+      const cmp = av.localeCompare(bv, "pt-BR", { numeric: true, sensitivity: "base" });
+      return perfilSortAsc ? cmp : -cmp;
+    });
+    return list;
+  }, [perfis, perfilSortKey, perfilSortAsc]);
+
+  const sortedFuncoes = useMemo(() => {
+    const list = [...funcoesLiberadas];
+    if (funcaoSortKey === null || funcaoSortAsc === null) {
+      // Ordenação padrão: alfabética.
+      return list;
+    }
+    list.sort((a, b) => {
+      const cmp = (FUNCAO_LABELS[a] ?? a).localeCompare(FUNCAO_LABELS[b] ?? b, "pt-BR");
+      return funcaoSortAsc ? cmp : -cmp;
+    });
+    return list;
+  }, [funcoesLiberadas, funcaoSortKey, funcaoSortAsc]);
+
+  const sortedCampos = useMemo(() => {
+    const list = [...campos];
+    const valorDe = (c: (typeof campos)[number], key: string): string => {
+      if (key === "tipo") return c.tipo;
+      if (key === "status") return getCampoStatusByKey(config, c.key);
+      return c.label;
+    };
+    if (campoSortKey === null || campoSortAsc === null) {
+      // Ordenação padrão: agrupa por tipo (ex.: Pessoa Física), depois por label.
+      list.sort((a, b) => {
+        let cmp = a.tipo.localeCompare(b.tipo, "pt-BR");
+        if (cmp === 0) cmp = a.label.localeCompare(b.label, "pt-BR");
+        return cmp;
+      });
+      return list;
+    }
+    list.sort((a, b) => {
+      const cmp = valorDe(a, campoSortKey).localeCompare(valorDe(b, campoSortKey), "pt-BR");
+      return campoSortAsc ? cmp : -cmp;
+    });
+    return list;
+  }, [campos, campoSortKey, campoSortAsc, config]);
+
+  const menuCampo = campoMenu ? sortedCampos.find((c) => c.key === campoMenu.chave) : null;
+
+  return (
+    <div className="flex-1 flex flex-col min-h-0 space-y-6">
+      {/* Altura mínima replica o header das listagens (botão Adicionar py-2.5 ≈ 42px):
+          mantém o dropdown Pai e o container na mesma posição das demais funções. */}
+      <div className="flex min-h-[42px] items-center gap-2">
+        <Select
+          value={manageSelection}
+          onChange={onManageSelectionChange}
+          options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
+          showPlaceholder={false}
+          className="!w-[180px]"
+        />
+      </div>
+
+      <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
+        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+          {/* ── Painel 1: Perfis ── */}
+          <div
+            className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
+            style={{
+              borderStyle: 'solid',
+              borderWidth: '1px',
+              borderTopColor: '#999',
+              borderLeftColor: '#999',
+              borderBottomColor: '#ccc',
+              borderRightColor: '#ccc',
+            }}
+          >
+            <div className="overflow-auto flex-1 min-h-0">
+              <ResizableTable<Perfil>
+                columns={[
+                  { key: "nr_sequencia", label: "#", align: "center", render: (p) => p.nr_sequencia },
+                  { key: "ds_perfil", label: "Perfil", render: (p) => p.ds_perfil },
+                ]}
+                rows={sortedPerfis}
+                rowKey={(p) => p.id ?? String(p.nr_sequencia)}
+                sortColumn={perfilSortKey}
+                sortAsc={perfilSortAsc ?? true}
+                onSortChange={(key) => togglePerfilSort(key as "nr_sequencia" | "ds_perfil")}
+                rowClassName={(p) => (p.id === selectedPerfilId ? "row-selected" : "")}
+                onRowClick={(p) => {
+                  setSelectedPerfilId(p.id ?? null);
+                  setSelectedFuncao(null);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* ── Painel 2: Funções liberadas ── */}
+          <div
+            className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
+            style={{
+              borderStyle: 'solid',
+              borderWidth: '1px',
+              borderTopColor: '#999',
+              borderLeftColor: '#999',
+              borderBottomColor: '#ccc',
+              borderRightColor: '#ccc',
+            }}
+          >
+            {!selectedPerfil ? (
+              <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
+                Selecione um perfil.
+              </div>
+            ) : funcoesLiberadas.length === 0 ? (
+              <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
+                Nenhuma função liberada para este perfil.
+              </div>
+            ) : (
+              <div className="overflow-auto flex-1 min-h-0">
+                <ResizableTable<string>
+                  columns={[
+                    { key: "funcao", label: "Função", render: (f) => FUNCAO_LABELS[f] ?? f },
+                  ]}
+                  rows={sortedFuncoes}
+                  rowKey={(f) => f}
+                  sortColumn={funcaoSortKey}
+                  sortAsc={funcaoSortAsc ?? true}
+                  onSortChange={toggleFuncaoSort}
+                  rowClassName={(f) => (f === funcaoAtiva ? "row-selected" : "")}
+                  onRowClick={(f) => setSelectedFuncao(f)}
+                />
+              </div>
+            )}
+          </div>
+
+          {/* ── Painel 3: Campos da função ── */}
+          <div
+            className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
+            style={{
+              borderStyle: 'solid',
+              borderWidth: '1px',
+              borderTopColor: '#999',
+              borderLeftColor: '#999',
+              borderBottomColor: '#ccc',
+              borderRightColor: '#ccc',
+            }}
+          >
+            {!funcaoAtiva ? (
+              <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
+                Selecione uma função.
+              </div>
+            ) : (
+              <div className="overflow-auto flex-1 min-h-0">
+                <ResizableTable<(typeof sortedCampos)[number]>
+                  columns={[
+                    { key: "label", label: "Campo", render: (c) => c.label },
+                    { key: "tipo", label: "Dropdown", render: (c) => c.tipo },
+                    {
+                      key: "status",
+                      label: "Status",
+                      render: (c) => CAMPO_STATUS_LABELS[getCampoStatusByKey(config, c.key)],
+                    },
+                  ]}
+                  rows={sortedCampos}
+                  rowKey={(c) => c.key}
+                  sortColumn={campoSortKey}
+                  sortAsc={campoSortAsc ?? true}
+                  onSortChange={toggleCampoSort}
+                  onRowContextMenu={(c, e) => {
+                    setCampoMenu({ x: e.clientX, y: e.clientY, chave: c.key });
+                  }}
+                />
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {campoMenu && menuCampo && selectedPerfil && (
+        <ContextMenu
+          x={campoMenu.x}
+          y={campoMenu.y}
+          state={{ x: campoMenu.x, y: campoMenu.y, section: 'administracaoSistema', item: selectedPerfil }}
+          showView={false}
+          showDelete={false}
+          onView={() => setCampoMenu(null)}
+          onChangePassword={() => setCampoMenu(null)}
+          onDelete={() => setCampoMenu(null)}
+          customItems={(
+            ["N", "O", "D"] as CampoStatus[]
+          ).map((s) => ({
+            label: CAMPO_STATUS_LABELS[s],
+            onClick: () => {
+              onChangeStatus(selectedPerfil, menuCampo.key, s);
+              setCampoMenu(null);
+            },
+          }))}
+        />
+      )}
+    </div>
+  );
+}

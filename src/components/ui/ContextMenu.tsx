@@ -11,6 +11,8 @@ interface ContextMenuProps {
   onDelegateFunctions?: () => void;
   onDelegatePerfis?: () => void;
   onDuplicate?: () => void;
+  /** Itens personalizados exibidos após as opções padrão (ex.: status de campo). */
+  customItems?: { label: string; onClick: () => void }[];
   showChangePassword?: boolean;
   showView?: boolean;
   showDelete?: boolean;
@@ -26,6 +28,7 @@ export default function ContextMenu({
   onDelegateFunctions,
   onDelegatePerfis,
   onDuplicate,
+  customItems,
   showChangePassword = false,
   showView = true,
   showDelete = true,
@@ -97,6 +100,17 @@ export default function ContextMenu({
           Excluir
         </button>
       )}
+      {customItems?.map((item) => (
+        <button
+          key={item.label}
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={item.onClick}
+        >
+          {item.label}
+        </button>
+      ))}
     </div>
   );
 }

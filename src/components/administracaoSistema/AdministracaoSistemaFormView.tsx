@@ -3,7 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_FIELD_INFOS, formatAdminCellValue } from "@/lib/usuarioUtils";
+import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -30,6 +32,10 @@ interface FormViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   readOnly?: boolean;
+  /** Regras de campos por perfil (colecao usuario): campo → status. */
+  campoRegras?: Record<string, CampoStatus>;
+  /** Campos obrigatórios vazios no último submit (borda vermelha). */
+  campoErros?: string[];
 }
 
 export default function AdministracaoSistemaFormView({
@@ -55,10 +61,22 @@ export default function AdministracaoSistemaFormView({
   manageSelection,
   onManageSelectionChange,
   readOnly = false,
+  campoRegras = {},
+  campoErros = [],
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof ADMIN_FIELD_INFOS | null>(null);
   const infoPopupRef = useRef<HTMLDivElement | null>(null);
+
+  function statusDe(campo: string): CampoStatus {
+    return campoRegras?.[campo] ?? 'N';
+  }
+
+  function inputClass(campo: string, base = "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"): string {
+    return campoErros.includes(campo)
+      ? `${base} border-red-500`
+      : `${base} border-slate-300`;
+  }
 
   function renderFieldLabel(fieldKey: keyof typeof ADMIN_FIELD_INFOS, label: string) {
     const meta = ADMIN_FIELD_INFOS[fieldKey] ?? {
@@ -66,10 +84,14 @@ export default function AdministracaoSistemaFormView({
       field: String(fieldKey),
       collection: 'usuario',
     };
+    const obrigatorio = statusDe(String(fieldKey)) === 'O';
     return (
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
         <div className="group inline-flex items-center gap-2 w-full">
-          <span>{label}</span>
+          <span className="inline-flex items-center gap-1">
+            {obrigatorio && <RequiredAsterisk />}
+            <span>{label}</span>
+          </span>
           <button
             type="button"
             onClick={(event) => {
@@ -148,7 +170,7 @@ export default function AdministracaoSistemaFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={[{ value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
+            options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
             showPlaceholder={false}
             className="!w-[180px]"
           />
@@ -206,8 +228,8 @@ export default function AdministracaoSistemaFormView({
           <div className="sm:col-span-5 group">
             {renderFieldLabel('ds_usuario', 'Usuário')}
             <input
-              disabled={!!editingId}
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+              disabled={!!editingId || statusDe('ds_usuario') === 'D'}
+              className={`${inputClass('ds_usuario')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               value={form.ds_usuario}
               onChange={(e) => setForm({ ...form, ds_usuario: e.target.value })}
             />
@@ -216,8 +238,8 @@ export default function AdministracaoSistemaFormView({
           <div className="sm:col-span-6 group">
             {renderFieldLabel('ds_usuario_alternativo', 'Usuário alternativo')}
             <input
-              disabled={readOnly}
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+              disabled={readOnly || statusDe('ds_usuario_alternativo') === 'D'}
+              className={`${inputClass('ds_usuario_alternativo')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               value={form.ds_usuario_alternativo}
               onChange={(e) => setForm({ ...form, ds_usuario_alternativo: e.target.value })}
             />
@@ -231,8 +253,8 @@ export default function AdministracaoSistemaFormView({
                 <input
                   inputMode="numeric"
                   maxLength={10}
-                  disabled={readOnly}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                  disabled={readOnly || statusDe('nr_seq_pessoa_fisica') === 'D'}
+                  className={`${inputClass('nr_seq_pessoa_fisica', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.nr_seq_pessoa_fisica ? String(form.nr_seq_pessoa_fisica) : ""}
                   onChange={(e) => {
                     const raw = e.target.value.replace(/\D/g, '');
@@ -253,7 +275,7 @@ export default function AdministracaoSistemaFormView({
                 <button
                   type="button"
                   onClick={onOpenPessoaFisicaLookup}
-                  disabled={readOnly}
+                  disabled={readOnly || statusDe('nr_seq_pessoa_fisica') === 'D'}
                   className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
                   aria-label="Localizar pessoa física"
                 >
@@ -270,8 +292,8 @@ export default function AdministracaoSistemaFormView({
             {renderFieldLabel('ds_email', 'E-mail')}
             <input
               type="email"
-              disabled={readOnly}
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+              disabled={readOnly || statusDe('ds_email') === 'D'}
+              className={`${inputClass('ds_email')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               value={form.ds_email ?? ""}
               onChange={(e) => setForm({ ...form, ds_email: e.target.value })}
             />
@@ -280,13 +302,13 @@ export default function AdministracaoSistemaFormView({
           <div className="sm:col-span-12">
             <div className="group w-full">
               {renderFieldLabel('ie_status', 'Status')}
-              <div className="flex items-center gap-4 mb-3">
+              <div className={`flex items-center gap-4 mb-3 rounded-[3px] border px-2 py-1.5 ${campoErros.includes('ie_status') ? 'border-red-500' : 'border-slate-300'}`}>
                 <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="radio"
                     name="ie_status"
                     value="A"
-                    disabled={readOnly}
+                    disabled={readOnly || statusDe('ie_status') === 'D'}
                     checked={form.ie_status === 'A' || !form.ie_status}
                     onChange={() => setForm({ ...form, ie_status: 'A' })}
                   />
@@ -297,7 +319,7 @@ export default function AdministracaoSistemaFormView({
                     type="radio"
                     name="ie_status"
                     value="B"
-                    disabled={readOnly}
+                    disabled={readOnly || statusDe('ie_status') === 'D'}
                     checked={form.ie_status === 'B'}
                     onChange={() => setForm({ ...form, ie_status: 'B' })}
                   />
@@ -308,7 +330,7 @@ export default function AdministracaoSistemaFormView({
                     type="radio"
                     name="ie_status"
                     value="I"
-                    disabled={readOnly}
+                    disabled={readOnly || statusDe('ie_status') === 'D'}
                     checked={form.ie_status === 'I'}
                     onChange={() => setForm({ ...form, ie_status: 'I' })}
                   />
@@ -319,8 +341,8 @@ export default function AdministracaoSistemaFormView({
             <div className="group w-full mt-2">
               {renderFieldLabel('ds_observacao', 'Observação')}
               <textarea
-                disabled={readOnly}
-                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                disabled={readOnly || statusDe('ds_observacao') === 'D'}
+                className={`${inputClass('ds_observacao', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                 rows={3}
                 value={form.ds_observacao}
                 onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}

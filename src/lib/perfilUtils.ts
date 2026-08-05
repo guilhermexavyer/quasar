@@ -1,6 +1,21 @@
 import type { Perfil } from "@/types/perfil";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 
+export type FuncaoId = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais";
+
+export function parseFuncoesConfig(raw?: string | null): FuncaoId[] {
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(
+      (s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais"
+    ) as FuncaoId[];
+  } catch {
+    return [];
+  }
+}
+
 export interface PerfilColDef {
   key: keyof Perfil;
   label: string;
