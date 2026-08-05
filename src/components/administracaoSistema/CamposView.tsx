@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { Perfil } from "@/types/perfil";
 import {
   CAMPO_STATUS_LABELS,
@@ -24,6 +24,13 @@ const FUNCAO_ORDER_ALPHA = Object.keys(FUNCAO_LABELS).sort((a, b) =>
   (FUNCAO_LABELS[a] ?? a).localeCompare(FUNCAO_LABELS[b] ?? b, "pt-BR")
 );
 
+/** Funções liberadas de um perfil (config_funcoes), em ordem alfabética. */
+function funcoesLiberadasDe(perfil: Perfil | null): string[] {
+  if (!perfil) return [];
+  const ids = parseFuncoesConfig(perfil.config_funcoes);
+  return FUNCAO_ORDER_ALPHA.filter((f) => ids.includes(f as FuncaoId));
+}
+
 interface CamposViewProps {
   perfis: Perfil[];
   onChangeStatus: (perfil: Perfil, chave: string, status: CampoStatus) => void;
@@ -39,6 +46,10 @@ export default function CamposView({
 }: CamposViewProps) {
   const [selectedPerfilId, setSelectedPerfilId] = useState<string | null>(null);
   const [selectedFuncao, setSelectedFuncao] = useState<string | null>(null);
+  const [selectedCampoKey, setSelectedCampoKey] = useState<string | null>(null);
+  // True após o usuário clicar numa função pela primeira vez (campos já exibidos).
+  // A partir daí, ao trocar de perfil os campos já podem aparecer automaticamente.
+  const [funcaoJaSelecionada, setFuncaoJaSelecionada] = useState(false);
 
   // Ordenação em 3 estados (mesma lógica das tabelas de registro):
   // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).
@@ -55,21 +66,33 @@ export default function CamposView({
     y: number;
     chave: string;
   } | null>(null);
+  // Referência do menu aberto: cliques dentro dele não fecham o menu.
+  const campoMenuRef = useRef<HTMLDivElement | null>(null);
+
+  // Fecha o menu de contexto ao clicar fora do container de campos (painel 3).
+  useEffect(() => {
+    if (!campoMenu) return;
+    function handleClose(event: MouseEvent) {
+      if (campoMenuRef.current && campoMenuRef.current.contains(event.target as Node)) {
+        return;
+      }
+      setCampoMenu(null);
+    }
+    document.addEventListener("mousedown", handleClose);
+    return () => document.removeEventListener("mousedown", handleClose);
+  }, [campoMenu]);
 
   const selectedPerfil = perfis.find((p) => p.id === selectedPerfilId) ?? null;
 
   // Funções liberadas do perfil selecionado (config_funcoes), em ordem alfabética.
-  const funcoesLiberadas = useMemo(() => {
-    if (!selectedPerfil) return [];
-    const ids = parseFuncoesConfig(selectedPerfil.config_funcoes);
-    return FUNCAO_ORDER_ALPHA.filter((f) => ids.includes(f as FuncaoId));
-  }, [selectedPerfil]);
+  const funcoesLiberadas = useMemo(() => funcoesLiberadasDe(selectedPerfil), [selectedPerfil]);
 
-  // Ao trocar de perfil, garante que a função selecionada esteja liberada.
+  // Nenhuma função vem pré-selecionada: o usuário deve clicar na função para
+  // ver os campos. Se a função selecionada deixar de ser liberada, cai para null.
   const funcaoAtiva =
     selectedFuncao && funcoesLiberadas.includes(selectedFuncao)
       ? selectedFuncao
-      : (funcoesLiberadas[0] ?? null);
+      : null;
 
   const config = useMemo(
     () => (selectedPerfil ? parseCamposConfig(selectedPerfil.config_campos) : {}),
@@ -218,7 +241,17 @@ export default function CamposView({
                 rowClassName={(p) => (p.id === selectedPerfilId ? "row-selected" : "")}
                 onRowClick={(p) => {
                   setSelectedPerfilId(p.id ?? null);
-                  setSelectedFuncao(null);
+                  setSelectedCampoKey(null);
+                  if (funcaoJaSelecionada) {
+                    // Campos já estavam sendo exibidos: ao trocar de perfil, mantém a
+                    // função escolhida (se o novo perfil a tiver) ou assume a primeira.
+                    const liberadas = funcoesLiberadasDe(p);
+                    const manter = selectedFuncao && liberadas.includes(selectedFuncao) ? selectedFuncao : null;
+                    setSelectedFuncao(manter ?? liberadas[0] ?? null);
+                  } else {
+                    // Primeira vez: exige que o usuário clique numa função para exibir os campos.
+                    setSelectedFuncao(null);
+                  }
                 }}
               />
             </div>
@@ -256,7 +289,11 @@ export default function CamposView({
                   sortAsc={funcaoSortAsc ?? true}
                   onSortChange={toggleFuncaoSort}
                   rowClassName={(f) => (f === funcaoAtiva ? "row-selected" : "")}
-                  onRowClick={(f) => setSelectedFuncao(f)}
+                  onRowClick={(f) => {
+                    setSelectedFuncao(f);
+                    setSelectedCampoKey(null);
+                    setFuncaoJaSelecionada(true);
+                  }}
                 />
               </div>
             )}
@@ -282,8 +319,8 @@ export default function CamposView({
               <div className="overflow-auto flex-1 min-h-0">
                 <ResizableTable<(typeof sortedCampos)[number]>
                   columns={[
-                    { key: "label", label: "Campo", render: (c) => c.label },
                     { key: "tipo", label: "Dropdown", render: (c) => c.tipo },
+                    { key: "label", label: "Campo", render: (c) => c.label },
                     {
                       key: "status",
                       label: "Status",
@@ -295,7 +332,11 @@ export default function CamposView({
                   sortColumn={campoSortKey}
                   sortAsc={campoSortAsc ?? true}
                   onSortChange={toggleCampoSort}
+                  rowClassName={(c) => (c.key === selectedCampoKey ? "row-selected" : "")}
+                  onRowClick={(c) => setSelectedCampoKey(c.key)}
                   onRowContextMenu={(c, e) => {
+                    // Clique direito também seleciona o campo.
+                    setSelectedCampoKey(c.key);
                     setCampoMenu({ x: e.clientX, y: e.clientY, chave: c.key });
                   }}
                 />
@@ -306,25 +347,28 @@ export default function CamposView({
       </div>
 
       {campoMenu && menuCampo && selectedPerfil && (
-        <ContextMenu
-          x={campoMenu.x}
-          y={campoMenu.y}
-          state={{ x: campoMenu.x, y: campoMenu.y, section: 'administracaoSistema', item: selectedPerfil }}
-          showView={false}
-          showDelete={false}
-          onView={() => setCampoMenu(null)}
-          onChangePassword={() => setCampoMenu(null)}
-          onDelete={() => setCampoMenu(null)}
-          customItems={(
-            ["N", "O", "D"] as CampoStatus[]
-          ).map((s) => ({
-            label: CAMPO_STATUS_LABELS[s],
-            onClick: () => {
-              onChangeStatus(selectedPerfil, menuCampo.key, s);
-              setCampoMenu(null);
-            },
-          }))}
-        />
+        <div ref={campoMenuRef}>
+          <ContextMenu
+            x={campoMenu.x}
+            y={campoMenu.y}
+            state={{ x: campoMenu.x, y: campoMenu.y, section: 'administracaoSistema', item: selectedPerfil }}
+            showView={false}
+            showDelete={false}
+            onView={() => setCampoMenu(null)}
+            onChangePassword={() => setCampoMenu(null)}
+            onDelete={() => setCampoMenu(null)}
+            customItems={(
+              // Esconde a opção do status atual: não faz sentido escolher o mesmo status.
+              ["N", "O", "D"] as CampoStatus[]
+            ).filter((s) => s !== getCampoStatusByKey(config, menuCampo.key)).map((s) => ({
+              label: CAMPO_STATUS_LABELS[s],
+              onClick: () => {
+                onChangeStatus(selectedPerfil, menuCampo.key, s);
+                setCampoMenu(null);
+              },
+            }))}
+          />
+        </div>
       )}
     </div>
   );

@@ -234,7 +234,7 @@ export default function PerfilFormView({
 
           <div className="sm:col-span-6 group">
             {renderFieldLabel('ie_status', 'Status')}
-            <div className={`flex items-center gap-4 rounded-[3px] border px-2 py-1.5 ${campoErros.includes('ie_status') ? 'border-red-500' : 'border-slate-300'}`}>
+            <div className="flex items-center gap-4">
                 <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="radio"

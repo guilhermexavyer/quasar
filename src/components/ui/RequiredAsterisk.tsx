@@ -8,8 +8,8 @@
 export default function RequiredAsterisk() {
   return (
     <svg
-      width="10"
-      height="13.5"
+      width="8"
+      height="10.5"
       viewBox="0 0 384 512"
       fill="currentColor"
       className="flex-shrink-0 text-red-600"

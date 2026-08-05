@@ -1265,7 +1265,7 @@ export default function Home() {
     config[chave] = status;
     try {
       await atualizarPerfil(perfil.id, { config_campos: serializeCamposConfig(config) }, auditAutor);
-      setMessage(`Campo atualizado: ${status === 'O' ? 'Obrigatório' : status === 'D' ? 'Desabilitado' : 'Normal'}`);
+      setMessage(`Campo atualizado com sucesso: ${status === 'O' ? 'Obrigatório' : status === 'D' ? 'Desabilitado' : 'Normal'}`);
       await loadPerfis();
     } catch {
       setMessage("Erro ao salvar configuração do campo.");
@@ -3216,25 +3216,25 @@ export default function Home() {
 
     setDuplicatePerfilSaving(true);
     try {
-      // Duplica o perfil preservando status, observação e funções liberadas.
+      // Duplica o perfil preservando status, observação, funções liberadas
+      // e as regras de campos (obrigatórios/desabilitados por função).
       await criarPerfil(
         {
           ds_perfil: nome,
           ds_observacao: duplicatePerfilSource.ds_observacao ?? '',
           ie_status: duplicatePerfilSource.ie_status ?? 'A',
           config_funcoes: duplicatePerfilSource.config_funcoes,
+          config_campos: duplicatePerfilSource.config_campos,
         } as any,
         auditAutor
       );
       setMessage("Perfil duplicado com sucesso!");
-      await loadPerfis();
-      // Abre o novo perfil no formulário de edição para ajustes.
-      const novo = perfis.find((p) => (p.ds_perfil ?? '').trim().toLowerCase() === nome.toLowerCase());
+      // Busca os perfis atualizados do banco (a variável perfis da closure
+      // ainda não contém o novo perfil recém-criado) para a listagem refletir.
+      const perfisAtualizados = await obterPerfis();
+      setPerfis(perfisAtualizados);
+      // Permanece na listagem de registros (Perfis).
       closeDuplicatePerfilModal();
-      if (novo) {
-        openPerfilEditForm(novo);
-        setView('form');
-      }
     } catch {
       setMessage("Erro ao duplicar perfil.");
     } finally {
