@@ -36,6 +36,8 @@ interface CamposViewProps {
   onChangeStatus: (perfil: Perfil, chave: string, status: CampoStatus) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Submódulos permitidos do dropdown PAI (Campos/Perfis/Usuários) conforme permissões. */
+  allowedSubmodulos?: string[];
 }
 
 export default function CamposView({
@@ -43,6 +45,7 @@ export default function CamposView({
   onChangeStatus,
   manageSelection,
   onManageSelectionChange,
+  allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
 }: CamposViewProps) {
   const [selectedPerfilId, setSelectedPerfilId] = useState<string | null>(null);
   const [selectedFuncao, setSelectedFuncao] = useState<string | null>(null);
@@ -207,7 +210,7 @@ export default function CamposView({
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
-          options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
+          options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={false}
           className="!w-[180px]"
         />

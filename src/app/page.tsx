@@ -98,6 +98,13 @@ import {
   camposObrigatoriosVazios,
   type CampoStatus,
 } from "@/lib/camposConfigUtils";
+import {
+  PERMISSOES_POR_FUNCAO,
+  parsePermissoesConfig,
+  serializePermissoesConfig,
+  getPermissoes,
+  adminSubmodulosPermitidos,
+} from "@/lib/permissoesUtils";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
 import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
@@ -570,6 +577,12 @@ export default function Home() {
   const [delegateFuncoesPerfil, setDelegateFuncoesPerfil] = useState<Perfil | null>(null);
   const [delegateFuncoes, setDelegateFuncoes] = useState<SectionType[]>([]);
   const [delegateFuncoesSaving, setDelegateFuncoesSaving] = useState(false);
+  // Modal "Permissões da função" (aberto pelo card de função no modal Delegar funções).
+  const [permissoesModalOpen, setPermissoesModalOpen] = useState(false);
+  const [permissoesPerfil, setPermissoesPerfil] = useState<Perfil | null>(null);
+  const [permissoesFuncao, setPermissoesFuncao] = useState<SectionType | null>(null);
+  const [permissoesSelecionadas, setPermissoesSelecionadas] = useState<string[]>([]);
+  const [permissoesSaving, setPermissoesSaving] = useState(false);
   const [delegatePerfisModalOpen, setDelegatePerfisModalOpen] = useState(false);
   const [activePerfilSequencia, setActivePerfilSequencia] = useState<number | null>(null);
   const [duplicatePerfilModalOpen, setDuplicatePerfilModalOpen] = useState(false);
@@ -689,6 +702,31 @@ export default function Home() {
       usuarioPerfisVinculados[0];
     return ativo ? parseCamposConfig(ativo.config_campos) : {};
   }, [usuarioPerfisVinculados, activePerfilSequencia]);
+
+  // Permissões do perfil ATIVO do usuário logado (Administração > Delegar funções).
+  const permissoesAtivas = useMemo(() => {
+    const ativo =
+      usuarioPerfisVinculados.find((p) => p.nr_sequencia === activePerfilSequencia) ??
+      usuarioPerfisVinculados[0];
+    return ativo ? parsePermissoesConfig(ativo.config_permissoes) : {};
+  }, [usuarioPerfisVinculados, activePerfilSequencia]);
+
+  // Submódulos da função Administração do Sistema liberados ao usuário logado
+  // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
+  const allowedAdminSubmodulos = useMemo(() => {
+    // O administrador tem acesso total.
+    if (isAdministrador) return ['campos', 'perfis', 'usuarios'];
+    return adminSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Se o submódulo ativo deixar de ser permitido (ex.: perfil sem a permissão),
+  // volta para o primeiro submódulo permitido.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!allowedAdminSubmodulos.includes(adminManageSelection)) {
+      setAdminManageSelection(allowedAdminSubmodulos[0] ?? 'usuarios');
+    }
+  }, [allowedAdminSubmodulos, adminManageSelection, currentUser]);
 
   const allowedSections = useMemo(() => {
     // O administrador tem todas as funções liberadas.
@@ -3131,6 +3169,65 @@ export default function Home() {
     }
   }
 
+  /* ── Permissões da função (modal aberto pelo card de função) ── */
+  function openPermissoesModal(perfil: Perfil, funcao: SectionType) {
+    // Usa a versão mais recente do perfil: o objeto em memória pode estar
+    // desatualizado (ex.: permissões salvas numa edição anterior do mesmo modal).
+    const perfilAtual = perfis.find((p) => p.id === perfil.id) ?? perfil;
+    const config = parsePermissoesConfig(perfilAtual.config_permissoes);
+    setPermissoesPerfil(perfilAtual);
+    setPermissoesFuncao(funcao);
+    setPermissoesSelecionadas(getPermissoes(config, funcao));
+    setMessage("");
+    setPermissoesModalOpen(true);
+  }
+
+  function closePermissoesModal() {
+    setPermissoesModalOpen(false);
+    setPermissoesPerfil(null);
+    setPermissoesFuncao(null);
+    setPermissoesSelecionadas([]);
+  }
+
+  function togglePermissao(permissao: string) {
+    setPermissoesSelecionadas((prev) =>
+      prev.includes(permissao) ? prev.filter((p) => p !== permissao) : [...prev, permissao]
+    );
+  }
+
+  async function handlePermissoesSave() {
+    if (!permissoesPerfil?.id || !permissoesFuncao) return;
+    setMessage("");
+    const config = parsePermissoesConfig(permissoesPerfil.config_permissoes);
+    const atuais = getPermissoes(config, permissoesFuncao);
+    const sameAsSaved =
+      atuais.length === permissoesSelecionadas.length &&
+      atuais.every((p) => permissoesSelecionadas.includes(p));
+
+    if (sameAsSaved) {
+      setMessage("Nenhuma alteração detectada.");
+      closePermissoesModal();
+      return;
+    }
+
+    config[permissoesFuncao] = permissoesSelecionadas;
+    setPermissoesSaving(true);
+    try {
+      await atualizarPerfil(
+        permissoesPerfil.id,
+        { config_permissoes: serializePermissoesConfig(config) },
+        auditAutor
+      );
+      setMessage("Permissões atualizadas com sucesso!");
+      await loadPerfis();
+      closePermissoesModal();
+    } catch {
+      setMessage("Erro ao salvar permissões.");
+    } finally {
+      setPermissoesSaving(false);
+    }
+  }
+
   function openDelegatePerfisModal(usuario: Usuario) {
     const saved = parsePerfisConfig(usuario.config_perfis);
     setDelegatePerfisUsuario(usuario);
@@ -3216,8 +3313,8 @@ export default function Home() {
 
     setDuplicatePerfilSaving(true);
     try {
-      // Duplica o perfil preservando status, observação, funções liberadas
-      // e as regras de campos (obrigatórios/desabilitados por função).
+      // Duplica o perfil preservando status, observação, funções liberadas,
+      // as regras de campos e as permissões de cada função.
       await criarPerfil(
         {
           ds_perfil: nome,
@@ -3225,6 +3322,7 @@ export default function Home() {
           ie_status: duplicatePerfilSource.ie_status ?? 'A',
           config_funcoes: duplicatePerfilSource.config_funcoes,
           config_campos: duplicatePerfilSource.config_campos,
+          config_permissoes: duplicatePerfilSource.config_permissoes,
         } as any,
         auditAutor
       );
@@ -4016,6 +4114,7 @@ export default function Home() {
                   onChangeStatus={handleCamposStatusChange}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
                 />
               ) : adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaListView
@@ -4031,6 +4130,7 @@ export default function Home() {
                   onSortChange={handleAdminSortChange}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
                   openFilter={openAdminFilterModal}
                   initialColumns={adminColunasConfig}
                   onColumnsChange={handleAdminColumnsChange}
@@ -4048,6 +4148,7 @@ export default function Home() {
                   onSortChange={handlePerfilSortChange}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
                   openFilter={openPerfilFilterModal}
                   initialColumns={perfilColunasConfig}
                   onColumnsChange={handlePerfilColumnsChange}
@@ -4156,6 +4257,7 @@ export default function Home() {
                 onChangeStatus={handleCamposStatusChange}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
               />
             ) : adminManageSelection === 'usuarios' ? (
               <AdministracaoSistemaFormView
@@ -4180,6 +4282,7 @@ export default function Home() {
                 onOpenAudit={openAdminAuditModal}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
                 readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'usuario')}
                 campoErros={adminCampoErros}
@@ -4205,6 +4308,7 @@ export default function Home() {
                 onOpenAudit={openPerfilAuditModal}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
                 readOnly={!isAdministrador && perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'perfil')}
                 campoErros={perfilCampoErros}
@@ -4727,7 +4831,16 @@ export default function Home() {
                   return (
                     <div
                       key={section}
-                      className="flex border bg-white"
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => delegateFuncoesPerfil && openPermissoesModal(delegateFuncoesPerfil, section)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault();
+                          if (delegateFuncoesPerfil) openPermissoesModal(delegateFuncoesPerfil, section);
+                        }
+                      }}
+                      className="flex cursor-pointer border bg-white transition focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
                       style={{
                         padding: '10px',
                         borderStyle: 'solid',
@@ -4738,13 +4851,18 @@ export default function Home() {
                         borderRightColor: '#ccc',
                       }}
                     >
-                      <div className="flex w-full items-center justify-between">
-                        <div className="text-sm font-medium truncate" style={{ color: '#000' }}>{SECTION_DEFS[section].label}</div>
+                      <div className="flex w-full items-center justify-between gap-2">
+                        <div className="min-w-0 flex-1 text-sm font-medium truncate" style={{ color: '#000' }}>{SECTION_DEFS[section].label}</div>
                         <button
                           type="button"
                           role="switch"
                           aria-checked={enabled}
-                          onClick={() => toggleDelegateFuncao(section)}
+                          onClick={(e) => {
+                            // O clique no switch só liga/desliga a função,
+                            // sem abrir o modal de permissões.
+                            e.stopPropagation();
+                            toggleDelegateFuncao(section);
+                          }}
                           className={`flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full p-[2px] transition-colors duration-300 ${enabled ? 'bg-[#2cc958]' : 'bg-[#bbb]'}`}
                         >
                           <span
@@ -4771,6 +4889,76 @@ export default function Home() {
                 type="button"
                 onClick={handleDelegateFuncoesSave}
                 disabled={delegateFuncoesSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {permissoesModalOpen && permissoesPerfil && permissoesFuncao && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closePermissoesModal} />
+          <div className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Permissões da função</h2>
+              <button
+                type="button"
+                onClick={closePermissoesModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="p-[15px] overflow-auto">
+              {(PERMISSOES_POR_FUNCAO[permissoesFuncao] ?? []).length === 0 ? (
+                <div className="flex min-h-[120px] items-center justify-center text-center text-sm text-slate-500">
+                  As permissões desta função serão configuradas em breve.
+                </div>
+              ) : (
+                <div className="grid gap-2">
+                  {(PERMISSOES_POR_FUNCAO[permissoesFuncao] ?? []).map((perm) => {
+                    const checked = permissoesSelecionadas.includes(perm.key);
+                    return (
+                      <label
+                        key={perm.key}
+                        className="flex cursor-pointer select-none items-center gap-3 rounded-[3px] px-[6px] py-[4px] transition focus-within:outline focus-within:outline-2 focus-within:outline-[#066fc5] focus-within:outline-offset-2"
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => togglePermissao(perm.key)}
+                          className="cg-checkbox"
+                        />
+                        <span className="text-sm">{perm.label}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
+              <button
+                type="button"
+                onClick={closePermissoesModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handlePermissoesSave}
+                disabled={permissoesSaving}
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -5540,6 +5728,7 @@ export default function Home() {
               'ds_observacao',
               'ie_status',
               'config_funcoes',
+              'config_permissoes',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -5566,7 +5755,7 @@ export default function Home() {
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
             <div className="absolute inset-0" onClick={() => setDetailModalOpen(false)} />
-            <div className="relative w-full max-w-[800px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="relative w-full max-w-[1100px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
               <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
                 <h3 className="text-base font-semibold" style={{ color: '#000' }}>Detalhe da auditoria</h3>
                 <button
@@ -5593,6 +5782,7 @@ export default function Home() {
                       ds_observacao: 'Observação',
                       ds_perfil: 'Perfil',
                       config_funcoes: 'Funções',
+                      config_permissoes: 'Permissões',
 
                       ds_nome: 'Nome completo',
                       nr_cpf: 'CPF',
@@ -5655,11 +5845,48 @@ export default function Home() {
                       return Math.max(1, lines.length);
                     };
 
+                    const getPermissoesDisplay = (val: any): string => {
+                      const normalized = normalizeAuditValue(val);
+                      if (normalized === null || normalized === undefined || normalized === '') return '';
+                      const config = parsePermissoesConfig(String(normalized));
+                      // Ordem estável de exibição: funções do sistema primeiro
+                      // (mesma ordem do campo Funções), depois qualquer outra chave.
+                      const chaves = [
+                        ...DEFAULT_SECTION_ORDER,
+                        ...Object.keys(config).filter((c) => !(DEFAULT_SECTION_ORDER as string[]).includes(c)),
+                      ];
+                      const lines: string[] = [];
+                      for (const funcao of chaves) {
+                        const perms = config[funcao];
+                        if (!perms) continue;
+                        const defs = PERMISSOES_POR_FUNCAO[funcao] ?? [];
+                        if (defs.length === 0) continue;
+                        const funcaoLabel = SECTION_DEFS[funcao as SectionType]?.label ?? funcao;
+                        for (const def of defs) {
+                          lines.push(`${funcaoLabel} - ${def.label} [${perms.includes(def.key) ? 'SIM' : 'NÃO'}]`);
+                        }
+                      }
+                      return lines.join('\n');
+                    };
+
+                    const getPermissoesRows = (val: any): number => {
+                      const display = getPermissoesDisplay(val);
+                      const lines = display.split('\n').filter((l) => l !== '');
+                      return Math.max(1, lines.length);
+                    };
+
                     // O campo Funções do "Antes" e do "Depois" deve ter a mesma
                     // altura: usa sempre o maior número de linhas entre os dois.
                     const maxFuncoesRows = Math.max(
                       getFuncoesRows(before ? (before as any).config_funcoes : undefined),
                       getFuncoesRows((after as any).config_funcoes)
+                    );
+
+                    // O campo Permissões do "Antes" e do "Depois" deve ter a mesma
+                    // altura: usa sempre o maior número de linhas entre os dois.
+                    const maxPermissoesRows = Math.max(
+                      getPermissoesRows(before ? (before as any).config_permissoes : undefined),
+                      getPermissoesRows((after as any).config_permissoes)
                     );
 
                     const renderFieldValue = (field: string, val: any) => {
@@ -5669,6 +5896,16 @@ export default function Home() {
                             disabled
                             rows={maxFuncoesRows}
                             value={getFuncoesDisplay(val)}
+                            className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none"
+                          />
+                        );
+                      }
+                      if (field === 'config_permissoes') {
+                        return (
+                          <textarea
+                            disabled
+                            rows={maxPermissoesRows}
+                            value={getPermissoesDisplay(val)}
                             className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none"
                           />
                         );

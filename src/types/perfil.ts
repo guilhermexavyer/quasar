@@ -8,6 +8,8 @@ export interface Perfil {
   config_funcoes?: string;
   /* Configuração de campos por função (JSON: `colecao.campo` → N/O/D) */
   config_campos?: string;
+  /* Permissões por função (JSON: `funcao` → [chaves de permissão concedidas]) */
+  config_permissoes?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;
   dt_criacao: string;

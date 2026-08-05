@@ -29,6 +29,8 @@ interface FormViewProps {
   onOpenAudit?: (perfilId?: string | null) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Submódulos permitidos do dropdown PAI (Campos/Perfis/Usuários) conforme permissões. */
+  allowedSubmodulos?: string[];
   readOnly?: boolean;
   /** Regras de campos por perfil (colecao perfil): campo → status. */
   campoRegras?: Record<string, CampoStatus>;
@@ -56,6 +58,7 @@ export default function PerfilFormView({
   onOpenAudit,
   manageSelection,
   onManageSelectionChange,
+  allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
   readOnly = false,
   campoRegras = {},
   campoErros = [],
@@ -166,7 +169,7 @@ export default function PerfilFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
+            options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
             showPlaceholder={false}
             className="!w-[180px]"
             disabled

@@ -21,6 +21,8 @@ interface ListViewProps {
   onSortChange: (logicalIndex: number) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  /** Submódulos permitidos do dropdown PAI (Campos/Perfis/Usuários) conforme permissões. */
+  allowedSubmodulos?: string[];
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
 }
@@ -37,6 +39,7 @@ export default function PerfilListView({
   onSortChange,
   manageSelection,
   onManageSelectionChange,
+  allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
   openFilter,
   initialColumns,
   onColumnsChange,
@@ -451,7 +454,7 @@ export default function PerfilListView({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }]}
+              options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={false}
               className="!w-[180px]"
             />
