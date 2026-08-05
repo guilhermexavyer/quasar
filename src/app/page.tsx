@@ -339,6 +339,16 @@ function serializePerfisConfig(perfis: number[]): string {
   return JSON.stringify(perfis);
 }
 
+// Usuário 'administrador' e perfil 'Administrador' são protegidos: outros
+// usuários só podem vê-los (não alterar/excluir/delegar).
+function isAdministradorUsuario(usuario?: { ds_usuario?: string | null } | null): boolean {
+  return (usuario?.ds_usuario ?? '').trim().toLowerCase() === 'administrador';
+}
+
+function isAdministradorPerfil(perfil?: { ds_perfil?: string | null } | null): boolean {
+  return (perfil?.ds_perfil ?? '').trim().toLowerCase() === 'administrador';
+}
+
 const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon: React.ReactNode }> = {
   pessoaFisica: {
     label: "Cadastro de Pessoas",
@@ -619,6 +629,16 @@ export default function Home() {
     () => (currentUser?.ds_usuario ?? '').trim().toLowerCase() === 'administrador',
     [currentUser]
   );
+
+  // Item protegido: o usuário 'administrador' ou o perfil 'Administrador' só
+  // podem ser vistos por outros usuários (não podem ser alterados/excluídos).
+  const isProtectedAdminItem = useMemo(() => {
+    if (!contextMenu || contextMenu.section !== 'administracaoSistema' || isAdministrador) return false;
+    if (adminManageSelection === 'perfis') {
+      return isAdministradorPerfil(contextMenu.item as Perfil);
+    }
+    return isAdministradorUsuario(contextMenu.item as Usuario);
+  }, [contextMenu, adminManageSelection, isAdministrador]);
 
   const allowedSections = useMemo(() => {
     // O administrador e usuários sem perfis vinculados têm todas as funções liberadas.
@@ -2369,6 +2389,11 @@ export default function Home() {
   async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    // Defesa em profundidade: não-admins não podem alterar o usuário administrador.
+    if (!isAdministrador && adminEditingId && isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId))) {
+      setMessage("O usuário administrador não pode ser alterado por outros usuários.");
+      return;
+    }
     setAdminSubmitting(true);
 
     try {
@@ -2453,6 +2478,11 @@ export default function Home() {
   async function handlePerfilSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+    // Defesa em profundidade: não-admins não podem alterar o perfil Administrador.
+    if (!isAdministrador && perfilEditingId && isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId))) {
+      setMessage("O perfil Administrador não pode ser alterado por outros usuários.");
+      return;
+    }
     setPerfilSubmitting(true);
 
     try {
@@ -2815,6 +2845,15 @@ export default function Home() {
     }
 
     if (!item) return;
+    // Itens protegidos (usuário administrador / perfil Administrador) só podem
+    // ser vistos por outros usuários — o menu de contexto não deve abrir aqui.
+    if (!isAdministrador && activeSection === 'administracaoSistema') {
+      if (adminManageSelection === 'perfis') {
+        if (isAdministradorPerfil(item as Perfil)) return;
+      } else {
+        if (isAdministradorUsuario(item as Usuario)) return;
+      }
+    }
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY, section, item });
   }
@@ -3316,7 +3355,7 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          showChangePassword={contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios'}
+          showChangePassword={contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios' && !isProtectedAdminItem}
           onChangePassword={() => {
             if (contextMenu.section === 'administracaoSistema') {
               openChangePasswordModal(contextMenu.item as Usuario);
@@ -3324,7 +3363,7 @@ export default function Home() {
             setContextMenu(null);
           }}
           onDelegateFunctions={
-            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'perfis'
+            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'perfis' && !isProtectedAdminItem
               ? () => {
                   openDelegateFuncoesModal(contextMenu.item as Perfil);
                   setContextMenu(null);
@@ -3332,13 +3371,14 @@ export default function Home() {
               : undefined
           }
           onDelegatePerfis={
-            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios'
+            contextMenu.section === 'administracaoSistema' && adminManageSelection === 'usuarios' && !isProtectedAdminItem
               ? () => {
                   openDelegatePerfisModal(contextMenu.item as Usuario);
                   setContextMenu(null);
                 }
               : undefined
           }
+          showDelete={!isProtectedAdminItem}
           onDelete={() => {
             if (contextMenu.section === 'pessoaFisica') {
               if (pjManageSelection === 'pessoasJuridicas') {
@@ -3867,7 +3907,7 @@ export default function Home() {
                 onOpenAudit={openAdminAuditModal}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
-                readOnly={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.ds_usuario ?? '').trim().toLowerCase() === 'administrador' : false}
+                readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
               />
             ) : (
               <PerfilFormView
@@ -3890,6 +3930,7 @@ export default function Home() {
                 onOpenAudit={openPerfilAuditModal}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
+                readOnly={!isAdministrador && perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
               />
             )
           ) : (

@@ -27,6 +27,7 @@ interface FormViewProps {
   onOpenAudit?: (perfilId?: string | null) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  readOnly?: boolean;
 }
 
 export default function PerfilFormView({
@@ -49,6 +50,7 @@ export default function PerfilFormView({
   onOpenAudit,
   manageSelection,
   onManageSelectionChange,
+  readOnly = false,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof PERFIL_FIELD_INFOS | null>(null);
@@ -106,7 +108,7 @@ export default function PerfilFormView({
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        if (submitting) return;
+        if (submitting || readOnly) return;
         const f = formRef.current;
         if (!f) return;
         if (typeof (f as any).requestSubmit === 'function') {
@@ -201,7 +203,8 @@ export default function PerfilFormView({
           <div className="sm:col-span-11 group">
             {renderFieldLabel('ds_perfil', 'Perfil')}
             <input
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+              disabled={readOnly}
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
               value={form.ds_perfil}
               onChange={(e) => setForm({ ...form, ds_perfil: e.target.value })}
             />
@@ -215,6 +218,7 @@ export default function PerfilFormView({
                   type="radio"
                   name="ie_status"
                   value="A"
+                  disabled={readOnly}
                   checked={form.ie_status === 'A' || !form.ie_status}
                   onChange={() => setForm({ ...form, ie_status: 'A' })}
                 />
@@ -225,6 +229,7 @@ export default function PerfilFormView({
                   type="radio"
                   name="ie_status"
                   value="I"
+                  disabled={readOnly}
                   checked={form.ie_status === 'I'}
                   onChange={() => setForm({ ...form, ie_status: 'I' })}
                 />
@@ -236,7 +241,8 @@ export default function PerfilFormView({
           <div className="sm:col-span-12 group">
             {renderFieldLabel('ds_observacao', 'Observação')}
             <textarea
-              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+              disabled={readOnly}
+              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
               rows={3}
               value={form.ds_observacao}
               onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
@@ -289,7 +295,7 @@ export default function PerfilFormView({
               </button>
               <button
                 type="submit"
-                disabled={submitting}
+                disabled={submitting || readOnly}
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
