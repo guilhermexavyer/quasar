@@ -156,6 +156,49 @@ export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: strin
 /** Configuração de permissões: `funcao` → lista de chaves de permissão concedidas. */
 export type PermissoesConfig = Record<string, string[]>;
 
+/**
+ * Versão atual do formato de `config_permissoes`. Deve ser incrementada sempre
+ * que novas permissões forem adicionadas a `PERMISSOES_POR_FUNCAO`: configurações
+ * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
+ * concedendo as permissões novas por padrão.
+ */
+export const PERMISSOES_CONFIG_VERSION = 1;
+
+/**
+ * Migra uma configuração antiga para a versão atual: para cada função com
+ * permissões salvas, une as chaves atuais de `PERMISSOES_POR_FUNCAO` — assim as
+ * permissões adicionadas depois do último salvamento passam a valer como
+ * concedidas (sem quebrar o que já estava marcado).
+ */
+export function migrarPermissoesConfig(config: PermissoesConfig): PermissoesConfig {
+  const out: PermissoesConfig = {};
+  for (const [funcao, salvos] of Object.entries(config)) {
+    const defs = PERMISSOES_POR_FUNCAO[funcao] ?? [];
+    if (defs.length === 0) {
+      out[funcao] = salvos;
+      continue;
+    }
+    const chavesAtuais = defs.map((d) => d.key);
+    out[funcao] = [...new Set([...salvos, ...chavesAtuais])];
+  }
+  return out;
+}
+
+/**
+ * Faz o parse aplicando a migração apenas quando a configuração é ANTIGA
+ * (versão anterior à atual). Configurações já migradas/salvas na versão atual
+ * são autoritativas: revogações explícitas continuam valendo (nada é
+ * re-concedido automaticamente).
+ */
+export function parsePermissoesConfigMigrada(
+  raw: string | null | undefined,
+  versao: number | undefined
+): PermissoesConfig {
+  const config = parsePermissoesConfig(raw);
+  if (versao !== undefined && versao >= PERMISSOES_CONFIG_VERSION) return config;
+  return migrarPermissoesConfig(config);
+}
+
 export function parsePermissoesConfig(raw?: string | null): PermissoesConfig {
   if (!raw) return {};
   try {

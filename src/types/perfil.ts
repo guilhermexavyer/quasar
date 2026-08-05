@@ -10,6 +10,8 @@ export interface Perfil {
   config_campos?: string;
   /* Permissões por função (JSON: `funcao` → [chaves de permissão concedidas]) */
   config_permissoes?: string;
+  /* Versão do formato de config_permissoes (controle da migração automática) */
+  config_permissoes_v?: number;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;
   dt_criacao: string;

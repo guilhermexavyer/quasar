@@ -199,6 +199,7 @@ select:disabled {
 
 /* Texto */
 .dark .text-slate-900 { color: #e4e4e7 !important; }
+.dark .text-\[\#444\] { color: #a1a1aa !important; }
 .dark .text-slate-800 { color: #d4d4d8 !important; }
 .dark .text-slate-700 { color: #a1a1aa !important; }
 .dark .text-slate-600 { color: #a1a1aa !important; }

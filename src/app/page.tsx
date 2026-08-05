@@ -101,8 +101,11 @@ import {
 import {
   PERMISSOES_POR_FUNCAO,
   PERMISSOES_GRUPOS,
+  PERMISSOES_CONFIG_VERSION,
   parsePermissoesConfig,
   serializePermissoesConfig,
+  migrarPermissoesConfig,
+  parsePermissoesConfigMigrada,
   adminSubmodulosPermitidos,
   pessoaSubmodulosPermitidos,
   cgSubmodulosPermitidos,
@@ -708,11 +711,13 @@ export default function Home() {
   }, [usuarioPerfisVinculados, activePerfilSequencia]);
 
   // Permissões do perfil ATIVO do usuário logado (Administração > Delegar funções).
+  // Aplica a migração automática APENAS em configurações antigas (versão anterior
+  // à atual): configurações atuais são autoritativas (revogações explícitas valem).
   const permissoesAtivas = useMemo(() => {
     const ativo =
       usuarioPerfisVinculados.find((p) => p.nr_sequencia === activePerfilSequencia) ??
       usuarioPerfisVinculados[0];
-    return ativo ? parsePermissoesConfig(ativo.config_permissoes) : {};
+    return ativo ? parsePermissoesConfigMigrada(ativo.config_permissoes, ativo.config_permissoes_v) : {};
   }, [usuarioPerfisVinculados, activePerfilSequencia]);
 
   // Submódulos da função Administração do Sistema liberados ao usuário logado
@@ -774,13 +779,21 @@ export default function Home() {
   const permissoesCg = useMemo(() => {
     const permitida = (permissao: string) =>
       isAdministrador || temPermissao(permissoesAtivas, 'cadastrosGerais', permissao);
-    const secoes = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'] as const;
+    // Chave de seção (dropdown) → sufixo usado nas chaves de permissão (snake_case).
+    const secoes: Record<string, string> = {
+      sexo: 'sexo',
+      estadoCivil: 'estado_civil',
+      corRaca: 'cor_raca',
+      profissao: 'profissao',
+      orgaoEmissor: 'orgao_emissor',
+      logradouro: 'logradouro',
+    };
     const resultado: Record<string, { adicionar: boolean; ver: boolean; excluir: boolean }> = {};
-    for (const secao of secoes) {
-      resultado[secao] = {
-        adicionar: permitida(`adicionar_${secao}`),
-        ver: permitida(`ver_${secao}`),
-        excluir: permitida(`excluir_${secao}`),
+    for (const [chave, sufixo] of Object.entries(secoes)) {
+      resultado[chave] = {
+        adicionar: permitida(`adicionar_${sufixo}`),
+        ver: permitida(`ver_${sufixo}`),
+        excluir: permitida(`excluir_${sufixo}`),
       };
     }
     return resultado;
@@ -820,6 +833,37 @@ export default function Home() {
       setCgManageSelection(allowedCgSubmodulos[0] ?? 'sexo');
     }
   }, [allowedCgSubmodulos, cgManageSelection, currentUser]);
+
+  // Migração única de config_permissoes antigas: perfis salvos antes da adição
+  // das permissões granulares ganham as permissões novas como concedidas (a
+  // runtime já usa a configuração migrada via permissoesAtivas).
+  useEffect(() => {
+    if (!currentUser) return;
+    const atualizados: Perfil[] = [];
+    for (const perfil of perfis) {
+      if (!perfil.id) continue;
+      const versao = Number(perfil.config_permissoes_v ?? 0);
+      if (versao >= PERMISSOES_CONFIG_VERSION) continue;
+      const config = parsePermissoesConfig(perfil.config_permissoes);
+      if (Object.keys(config).length === 0) continue;
+      const migrada = migrarPermissoesConfig(config);
+      if (JSON.stringify(migrada) === JSON.stringify(config)) continue;
+      atualizados.push({
+        ...perfil,
+        config_permissoes: serializePermissoesConfig(migrada),
+        config_permissoes_v: PERMISSOES_CONFIG_VERSION,
+      });
+      atualizarPerfil(perfil.id, {
+        config_permissoes: serializePermissoesConfig(migrada),
+        config_permissoes_v: PERMISSOES_CONFIG_VERSION,
+      }).catch(() => {});
+    }
+    if (atualizados.length > 0) {
+      setPerfis((prev) =>
+        prev.map((p) => atualizados.find((a) => a.id === p.id) ?? p)
+      );
+    }
+  }, [perfis, currentUser]);
 
   const allowedSections = useMemo(() => {
     // O administrador tem todas as funções liberadas.
@@ -3352,7 +3396,7 @@ export default function Home() {
     // Usa a versão mais recente do perfil: o objeto em memória pode estar
     // desatualizado (ex.: permissões salvas numa edição anterior do mesmo modal).
     const perfilAtual = perfis.find((p) => p.id === perfil.id) ?? perfil;
-    const config = parsePermissoesConfig(perfilAtual.config_permissoes);
+    const config = parsePermissoesConfigMigrada(perfilAtual.config_permissoes, perfilAtual.config_permissoes_v);
     // Função nunca configurada = tudo liberado por padrão; o modal reflete isso
     // pré-marcando todas as permissões (estado efetivo, não o array salvo).
     const atuais = config[funcao];
@@ -3382,7 +3426,7 @@ export default function Home() {
   async function handlePermissoesSave() {
     if (!permissoesPerfil?.id || !permissoesFuncao) return;
     setMessage("");
-    const config = parsePermissoesConfig(permissoesPerfil.config_permissoes);
+    const config = parsePermissoesConfigMigrada(permissoesPerfil.config_permissoes, permissoesPerfil.config_permissoes_v);
     // Compara com o estado EFETIVO: função nunca configurada conta como todas
     // as permissões marcadas (não apenas o array salvo, que é vazio/ausente).
     const atuaisEfetivas =
@@ -3403,7 +3447,10 @@ export default function Home() {
     try {
       await atualizarPerfil(
         permissoesPerfil.id,
-        { config_permissoes: serializePermissoesConfig(config) },
+        {
+          config_permissoes: serializePermissoesConfig(config),
+          config_permissoes_v: PERMISSOES_CONFIG_VERSION,
+        },
         auditAutor
       );
       setMessage("Permissões atualizadas com sucesso!");
@@ -3511,6 +3558,7 @@ export default function Home() {
           config_funcoes: duplicatePerfilSource.config_funcoes,
           config_campos: duplicatePerfilSource.config_campos,
           config_permissoes: duplicatePerfilSource.config_permissoes,
+          config_permissoes_v: duplicatePerfilSource.config_permissoes_v,
         } as any,
         auditAutor
       );
@@ -4136,7 +4184,7 @@ export default function Home() {
                       <span className="flex h-6 w-11 shrink-0 items-center rounded-full bg-[#2cc958] p-[2px] transition-colors duration-300">
                         <span
                           className={`flex h-5 w-5 items-center justify-center rounded-full shadow transition-transform duration-300 ease-out ${
-                            darkMode ? "bg-white translate-x-5" : "bg-[#003056] translate-x-0"
+                            darkMode ? "bg-white translate-x-5" : "bg-white translate-x-0"
                           }`}
                         >
                           {darkMode ? (
@@ -4144,7 +4192,7 @@ export default function Home() {
                               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                             </svg>
                           ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#003056" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                               <circle cx="12" cy="12" r="4" />
                               <path d="M12 2v2" />
                               <path d="M12 20v2" />
@@ -5062,7 +5110,7 @@ export default function Home() {
                       }}
                     >
                       <div className="flex w-full items-center justify-between gap-2">
-                        <div className="min-w-0 flex-1 text-sm font-medium truncate" style={{ color: '#444' }}>{SECTION_DEFS[section].label}</div>
+                        <div className="min-w-0 flex-1 text-sm truncate text-[#444]">{SECTION_DEFS[section].label}</div>
                         <button
                           type="button"
                           role="switch"
@@ -5252,7 +5300,7 @@ export default function Home() {
                         }}
                       >
                         <div className="flex w-full items-center justify-between">
-                          <div className="text-sm font-medium truncate text-slate-900">{perfil.ds_perfil}</div>
+                          <div className="text-sm truncate text-slate-900">{perfil.ds_perfil}</div>
                           <button
                             type="button"
                             role="switch"
