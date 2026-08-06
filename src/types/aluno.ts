@@ -1,3 +1,11 @@
+/** Um responsável do aluno (seção Responsáveis). */
+export interface AlunoResponsavel {
+  /** Pessoa física responsável. */
+  nr_seq_responsavel?: number;
+  /** Grau de parentesco do responsável. */
+  nr_seq_grau_parentesco?: number;
+}
+
 export interface Aluno {
   id?: string;
   nr_sequencia: number;
@@ -5,13 +13,14 @@ export interface Aluno {
   nr_seq_pessoa_fisica?: number;
   nr_matricula: string;
   dt_ingresso: string;
-  dt_desligamento?: string;
-  ds_desligamento?: string;
+  dt_status?: string;
+  ds_status?: string;
   ie_status?: string;
-  /** Pessoa física responsável (Responsáveis). */
+  /** Responsáveis do aluno (seção Responsáveis). */
+  responsaveis?: AlunoResponsavel[];
+  /* Campos legados (pré-responsaveis): lidos na migração para o array. */
   nr_seq_responsavel?: number;
-  nr_telefone?: string;
-  ds_email?: string;
+  nr_seq_grau_parentesco?: number;
   dt_criacao: string;
   dt_alteracao: string;
   ds_usuario_criacao?: string;

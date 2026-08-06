@@ -385,6 +385,29 @@ select:disabled {
 }
 
 /* ============================================================
+   BOTÕES + E − DOS RESPONSÁVEIS (.btn-responsavel)
+   Bordas idênticas às dos campos do sistema: superior/esquerda
+   #999, inferior/direita #ccc, sem arredondamento (raio 0).
+   ============================================================ */
+.btn-responsavel {
+  border-top: 1px solid #999;
+  border-left: 1px solid #999;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  border-radius: 0;
+  background: transparent;
+  outline: none;
+  transition: border-color 0.2s ease, color 0.2s ease;
+}
+
+.dark .btn-responsavel {
+  border-top-color: #2c2c31 !important;
+  border-left-color: #2c2c31 !important;
+  border-right-color: #38383e !important;
+  border-bottom-color: #38383e !important;
+}
+
+/* ============================================================
    CHECKBOX DO SISTEMA (.cg-checkbox)
    Caixinha com bordas curvas, sem aparência nativa. O preenchimento
    usa o azul do sistema (#066fc5) quando marcado.
@@ -451,5 +474,11 @@ select:disabled {
 .dark .cg-select-trigger.cg-select-error:focus,
 .dark .cg-select-trigger.cg-select-error:focus-visible {
   border-color: #ef4444 !important;
+}
+
+/* No modo escuro, o asterisco dos campos obrigatórios usa o mesmo tom de
+   vermelho das bordas dos campos obrigatórios vazios (#ef4444). */
+.dark .required-asterisk {
+  color: #ef4444;
 }
 

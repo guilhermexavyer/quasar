@@ -8,12 +8,14 @@ interface ContextMenuProps {
   state: ContextMenuState;
   onView: () => void;
   onChangePassword: () => void;
+  onChangeStatus?: () => void;
   onDelegateFunctions?: () => void;
   onDelegatePerfis?: () => void;
   onDuplicate?: () => void;
   /** Itens personalizados exibidos após as opções padrão (ex.: status de campo). */
   customItems?: { label: string; onClick: () => void }[];
   showChangePassword?: boolean;
+  showChangeStatus?: boolean;
   showView?: boolean;
   showDelete?: boolean;
   onDelete: () => void;
@@ -25,11 +27,13 @@ export default function ContextMenu({
   state,
   onView,
   onChangePassword,
+  onChangeStatus,
   onDelegateFunctions,
   onDelegatePerfis,
   onDuplicate,
   customItems,
   showChangePassword = false,
+  showChangeStatus = false,
   showView = true,
   showDelete = true,
   onDelete,
@@ -58,6 +62,16 @@ export default function ContextMenu({
           onClick={onChangePassword}
         >
           Alterar senha
+        </button>
+      )}
+      {showChangeStatus && onChangeStatus && (
+        <button
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={onChangeStatus}
+        >
+          Alterar status
         </button>
       )}
       {onDelegateFunctions && (

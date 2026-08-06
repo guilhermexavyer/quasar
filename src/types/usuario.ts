@@ -25,6 +25,7 @@ export interface Usuario {
   config_colunas_cg_profissao?: string;
   config_colunas_cg_orgao_emissor?: string;
   config_colunas_cg_logradouro?: string;
+  config_colunas_cg_grau_parentesco?: string;
   config_ordem_menu_lateral?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;

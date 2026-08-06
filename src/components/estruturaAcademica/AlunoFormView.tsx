@@ -1,8 +1,8 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Aluno } from "@/types/aluno";
-import { FIELD_INFOS, applyDateMask, applyPhoneMask, formatDate } from "@/lib/alunoUtils";
+import type { Aluno, AlunoResponsavel } from "@/types/aluno";
+import { FIELD_INFOS, applyDateMask, formatDate } from "@/lib/alunoUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
@@ -30,9 +30,11 @@ interface FormViewProps {
   /** Nome da pessoa física vinculada ao aluno (Identificação). */
   pessoaFisicaName: string;
   onOpenPessoaFisicaLookup: () => void;
-  /** Nome da pessoa física responsável (Responsáveis). */
-  responsavelName: string;
-  onOpenResponsavelLookup: () => void;
+  /** Nomes das pessoas físicas responsáveis (Responsáveis), por linha. */
+  responsaveisNames: string[];
+  onOpenResponsavelLookup: (index: number) => void;
+  /** Opções do dropdown "Grau de parentesco" (Responsáveis). */
+  grauParentescoOptions?: { value: string; label: string }[];
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -64,8 +66,9 @@ export default function AlunoFormView({
   hasNextRecord,
   pessoaFisicaName,
   onOpenPessoaFisicaLookup,
-  responsavelName,
+  responsaveisNames,
   onOpenResponsavelLookup,
+  grauParentescoOptions = [],
   selectOptions,
   manageSelection,
   onManageSelectionChange,
@@ -85,6 +88,30 @@ export default function AlunoFormView({
     return campoErros.includes(campo)
       ? `${base} border-red-500`
       : `${base} border-slate-300`;
+  }
+
+  /** Atualiza um responsável pelo índice. */
+  function atualizarResponsavel(index: number, patch: Partial<AlunoResponsavel>): AlunoFormData {
+    const responsaveis = [...(form.responsaveis ?? [])];
+    responsaveis[index] = { ...(responsaveis[index] ?? {}), ...patch };
+    return { ...form, responsaveis };
+  }
+
+  /** Adiciona uma nova linha vazia de responsável logo abaixo da atual. */
+  function adicionarResponsavel(index: number): AlunoFormData {
+    const responsaveis = [...(form.responsaveis ?? [])];
+    responsaveis.splice(index + 1, 0, { nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined });
+    return { ...form, responsaveis };
+  }
+
+  /** Remove um responsável pelo índice (mantém ao menos uma linha vazia). */
+  function removerResponsavel(index: number): AlunoFormData {
+    const responsaveis = [...(form.responsaveis ?? [])];
+    responsaveis.splice(index, 1);
+    if (responsaveis.length === 0) {
+      responsaveis.push({ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined });
+    }
+    return { ...form, responsaveis };
   }
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
@@ -300,20 +327,6 @@ export default function AlunoFormView({
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('dt_desligamento', 'Desligamento')}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD/MM/AAAA"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none placeholder:text-[#aaa] disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  value={form.dt_desligamento ?? ''}
-                  onChange={(e) => setForm({ ...form, dt_desligamento: applyDateMask(e.target.value) })}
-                />
-              </div>
-
-              <div className="sm:col-span-4 group">
                 {renderFieldLabel('ie_status', 'Status')}
                 <Select
                   disabled
@@ -322,21 +335,36 @@ export default function AlunoFormView({
                   onChange={(v) => setForm({ ...form, ie_status: v })}
                   options={[
                     { value: 'A', label: 'Ativo' },
-                    { value: 'B', label: 'Bloqueado' },
                     { value: 'I', label: 'Inativo' },
+                    { value: 'C', label: 'Cancelado' },
+                    { value: 'T', label: 'Transferido' },
                   ]}
                   showPlaceholder={false}
                 />
               </div>
 
+              <div className="sm:col-span-4 group">
+                {renderFieldLabel('dt_status', 'Data status')}
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none placeholder:text-[#aaa] disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                  value={form.dt_status ?? ''}
+                  onChange={(e) => setForm({ ...form, dt_status: applyDateMask(e.target.value) })}
+                />
+              </div>
+
               <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_desligamento', 'Motivo desligamento')}
+                {renderFieldLabel('ds_status', 'Motivo status')}
                 <textarea
                   disabled
                   className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
                   rows={3}
-                  value={form.ds_desligamento ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_desligamento: e.target.value })}
+                  value={form.ds_status ?? ''}
+                  onChange={(e) => setForm({ ...form, ds_status: e.target.value })}
                 />
               </div>
             </div>
@@ -345,70 +373,99 @@ export default function AlunoFormView({
           {/* ── Responsáveis ── */}
           <section>
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Responsáveis</h2>
-            <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel('nr_seq_responsavel', 'Pessoa física')}
-                <div className="flex items-center gap-2 flex-nowrap">
-                  <div style={{ width: 110 }}>
-                    <label className="sr-only">Sequência da pessoa física responsável</label>
-                    <input
-                      inputMode="numeric"
-                      maxLength={10}
-                      disabled={statusDe('nr_seq_responsavel') === 'D'}
-                      className={`${inputClass('nr_seq_responsavel', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                      value={form.nr_seq_responsavel ? String(form.nr_seq_responsavel) : ''}
-                      onChange={(e) => {
-                        const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setForm({ ...form, nr_seq_responsavel: raw ? Number(raw) : undefined });
-                      }}
-                    />
+            <div className="space-y-[15px]">
+              {(form.responsaveis ?? []).map((resp, index) => {
+                const erroPessoa = campoErros.includes('nr_seq_responsavel') && !resp.nr_seq_responsavel;
+                const erroGrau = campoErros.includes('nr_seq_grau_parentesco') && !resp.nr_seq_grau_parentesco;
+                return (
+                  <div key={index} className="grid gap-[15px] sm:grid-cols-12 items-start">
+                    <div className="sm:col-span-7 group">
+                      {index === 0 && renderFieldLabel('nr_seq_responsavel', 'Pessoa física')}
+                      <div className="flex items-center gap-2 flex-nowrap">
+                        <div style={{ width: 110 }}>
+                          <label className="sr-only">Sequência da pessoa física responsável</label>
+                          <input
+                            inputMode="numeric"
+                            maxLength={10}
+                            disabled={statusDe('nr_seq_responsavel') === 'D'}
+                            className={`${inputClass('nr_seq_responsavel', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} ${erroPessoa ? 'border-red-500' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                            value={resp.nr_seq_responsavel ? String(resp.nr_seq_responsavel) : ''}
+                            onChange={(e) => {
+                              const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+                              setForm(atualizarResponsavel(index, { nr_seq_responsavel: raw ? Number(raw) : undefined }));
+                            }}
+                          />
+                        </div>
+                        <div className="relative flex-1 min-w-0">
+                          <label className="sr-only">Nome da pessoa física responsável</label>
+                          <input
+                            readOnly
+                            className={`w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${erroPessoa ? 'border-red-500' : ''}`}
+                            value={responsaveisNames[index] ?? ''}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => onOpenResponsavelLookup(index)}
+                            disabled={statusDe('nr_seq_responsavel') === 'D'}
+                            className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                            aria-label="Localizar pessoa física responsável"
+                          >
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <circle cx="11" cy="11" r="7" />
+                              <path d="m21 21-4.3-4.3" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="sm:col-span-5 group">
+                      {index === 0 && renderFieldLabel('nr_seq_grau_parentesco', 'Grau de parentesco')}
+                      <div className="flex items-center gap-1">
+                        <div className="flex-1 min-w-0">
+                          <Select
+                            disabled={statusDe('nr_seq_grau_parentesco') === 'D'}
+                            error={erroGrau}
+                            value={resp.nr_seq_grau_parentesco ? String(resp.nr_seq_grau_parentesco) : ''}
+                            onChange={(v) =>
+                              setForm(atualizarResponsavel(index, { nr_seq_grau_parentesco: v ? Number(v) : undefined }))
+                            }
+                            options={grauParentescoOptions}
+                            showPlaceholder
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => setForm(adicionarResponsavel(index))}
+                          className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]"
+                          aria-label={`Adicionar responsável após o ${index + 1}`}
+                          title="Adicionar responsável"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M12 5v14" />
+                            <path d="M5 12h14" />
+                          </svg>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setForm(removerResponsavel(index))}
+                          disabled={(form.responsaveis ?? []).length <= 1}
+                          className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
+                          aria-label={`Remover responsável ${index + 1}`}
+                          title="Remover responsável"
+                        >
+                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                            <path d="M5 12h14" />
+                          </svg>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <div className="relative flex-1 min-w-0">
-                    <label className="sr-only">Nome da pessoa física responsável</label>
-                    <input
-                      readOnly
-
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
-                      value={responsavelName}
-                    />
-                    <button
-                      type="button"
-                      onClick={onOpenResponsavelLookup}
-                      disabled={statusDe('nr_seq_responsavel') === 'D'}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
-                      aria-label="Localizar pessoa física responsável"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="7" />
-                        <path d="m21 21-4.3-4.3" />
-                      </svg>
-                    </button>
-                  </div>
-                </div>
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_telefone', 'Telefone')}
-                <input
-                  inputMode="numeric"
-                  maxLength={15}
-                  disabled={statusDe('nr_telefone') === 'D'}
-                  className={`${inputClass('nr_telefone')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.nr_telefone ?? ''}
-                  onChange={(e) => setForm({ ...form, nr_telefone: applyPhoneMask(e.target.value) })}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('ds_email', 'E-mail')}
-                <input
-                  type="email"
-                  disabled={statusDe('ds_email') === 'D'}
-                  className={`${inputClass('ds_email')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.ds_email ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_email: e.target.value })}
-                />
-              </div>
+                );
+              })}
+              {(form.responsaveis ?? []).length === 0 && (
+                <p className="text-sm text-slate-500">Nenhum responsável cadastrado.</p>
+              )}
             </div>
           </section>
         </div>

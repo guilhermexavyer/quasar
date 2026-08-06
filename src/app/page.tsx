@@ -64,10 +64,16 @@ import {
   obterLogradouros,
   atualizarLogradouro,
 } from "@/services/logradouroService";
+import {
+  criarGrauParentesco,
+  excluirGrauParentesco,
+  obterGrausParentesco,
+  atualizarGrauParentesco,
+} from "@/services/grauParentescoService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
-import type { Aluno } from "@/types/aluno";
+import type { Aluno, AlunoResponsavel } from "@/types/aluno";
 import {
   applyCpfMask,
   applyDateMask,
@@ -79,7 +85,7 @@ import {
   formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
 import { PJ_COLUMNS } from "@/lib/pessoaJuridicaUtils";
-import { ALUNO_COLUMNS } from "@/lib/alunoUtils";
+import { ALUNO_COLUMNS, formatCellValue as formatAlunoCellValue } from "@/lib/alunoUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import {
   parseColunasConfig,
@@ -137,12 +143,14 @@ import type { CorRaca } from "@/types/corRaca";
 import type { Profissao } from "@/types/profissao";
 import type { OrgaoEmissor } from "@/types/orgaoEmissor";
 import type { Logradouro } from "@/types/logradouro";
+import type { GrauParentesco } from "@/types/grauParentesco";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
 import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
 import { PROFISSAO_COLUMNS, PROFISSAO_FIELD_INFOS } from "@/lib/profissaoUtils";
 import { ORGAO_EMISSOR_COLUMNS, ORGAO_EMISSOR_FIELD_INFOS } from "@/lib/orgaoEmissorUtils";
 import { LOGRADOURO_COLUMNS, LOGRADOURO_FIELD_INFOS } from "@/lib/logradouroUtils";
+import { GRAU_PARENTESCO_COLUMNS, GRAU_PARENTESCO_FIELD_INFOS } from "@/lib/grauParentescoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -249,6 +257,7 @@ const emptyCgForm: CadastroGeralFormData = {
 const CG_SELECT_OPTIONS = [
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'estadoCivil', label: 'Estado civil' },
+  { value: 'grauParentesco', label: 'Grau de parentesco' },
   { value: 'logradouro', label: 'Logradouro' },
   { value: 'orgaoEmissor', label: 'Órgão emissor' },
   { value: 'profissao', label: 'Profissão' },
@@ -273,13 +282,26 @@ const emptyAlunoForm: AlunoFormData = {
   nr_seq_pessoa_fisica: undefined,
   nr_matricula: "",
   dt_ingresso: "",
-  dt_desligamento: "",
-  ds_desligamento: "",
+  dt_status: "",
+  ds_status: "",
   ie_status: 'A',
-  nr_seq_responsavel: undefined,
-  nr_telefone: "",
-  ds_email: "",
+  responsaveis: [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }],
 };
+
+/** Converte um aluno salvo para o formato responsaveis[] (migra campos legados). */
+function migrarResponsaveis(aluno: Aluno): AlunoResponsavel[] {
+  // Formato novo gravado (mesmo que vazio — usuário limpou todos): respeita.
+  if (Array.isArray(aluno.responsaveis)) {
+    return aluno.responsaveis.length > 0
+      ? aluno.responsaveis.map((r) => ({ ...r }))
+      : [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }];
+  }
+  // Legado: nr_seq_responsavel/nr_seq_grau_parentesco no documento.
+  if (aluno.nr_seq_responsavel || aluno.nr_seq_grau_parentesco) {
+    return [{ nr_seq_responsavel: aluno.nr_seq_responsavel, nr_seq_grau_parentesco: aluno.nr_seq_grau_parentesco }];
+  }
+  return [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }];
+}
 
 const emptyPjForm: PjFormData = {
   ds_razao_social: "",
@@ -330,7 +352,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -571,7 +593,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -603,6 +625,7 @@ export default function Home() {
   const [profissoes, setProfissoes] = useState<Profissao[]>([]);
   const [orgaosEmissores, setOrgaosEmissores] = useState<OrgaoEmissor[]>([]);
   const [logradouros, setLogradouros] = useState<Logradouro[]>([]);
+  const [grausParentesco, setGrausParentesco] = useState<GrauParentesco[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -714,6 +737,12 @@ export default function Home() {
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
   const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel'>('aluno');
+  const alunoResponsavelLookupIndexRef = useRef(0);
+  // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
+  const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
+  const [alterarStatusAluno, setAlterarStatusAluno] = useState<Aluno | null>(null);
+  const [alterarStatusForm, setAlterarStatusForm] = useState({ dt_status: '', ie_status: '', ds_status: '' });
+  const [alterarStatusSaving, setAlterarStatusSaving] = useState(false);
   const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
@@ -851,6 +880,7 @@ export default function Home() {
       sexo: 'sexo',
       estadoCivil: 'estado_civil',
       corRaca: 'cor_raca',
+      grauParentesco: 'grau_parentesco',
       profissao: 'profissao',
       orgaoEmissor: 'orgao_emissor',
       logradouro: 'logradouro',
@@ -870,7 +900,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // O administrador tem acesso total.
-    if (isAdministrador) return ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'];
+    if (isAdministrador) return ['sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'profissao', 'orgaoEmissor', 'logradouro'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1028,9 +1058,18 @@ export default function Home() {
       items: (): CgItem[] => logradouros,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um logradouro.',
     },
+    grauParentesco: {
+      descKey: 'ds_grau_parentesco',
+      collection: 'cg_grau_parentesco',
+      configKey: 'config_colunas_cg_grau_parentesco',
+      columns: GRAU_PARENTESCO_COLUMNS,
+      fieldInfos: GRAU_PARENTESCO_FIELD_INFOS,
+      items: (): CgItem[] => grausParentesco,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um grau de parentesco.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -1087,13 +1126,24 @@ export default function Home() {
   );
 
   /* ── Lookups (nr_sequencia → nome) para as colunas de Aluno ── */
-  const alunoPessoaFisicaLookups = useMemo(
-    () => ({
-      nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
-      nr_seq_responsavel: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
-    }),
-    [pessoasFisicas]
-  );
+  const alunoPessoaFisicaLookups = useMemo(() => {
+    const nomePessoa = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
+    const nomeGrau = Object.fromEntries(grausParentesco.map((g) => [g.nr_sequencia, g.ds_grau_parentesco]));
+    return {
+      nr_seq_pessoa_fisica: nomePessoa,
+      responsaveis: (value: unknown) => {
+        const arr = Array.isArray(value) ? (value as AlunoResponsavel[]) : [];
+        const validos = arr.filter((r) => r && r.nr_seq_responsavel);
+        return validos
+          .map((r) => {
+            const nome = nomePessoa[r.nr_seq_responsavel!] ?? String(r.nr_seq_responsavel);
+            const grau = r.nr_seq_grau_parentesco ? (nomeGrau[r.nr_seq_grau_parentesco] ?? '') : '';
+            return grau ? `${nome} (${grau})` : nome;
+          })
+          .join(', ');
+      },
+    };
+  }, [pessoasFisicas, grausParentesco]);
 
   /* ── Carregar pessoas físicas, jurídicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
@@ -1228,6 +1278,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadGrausParentesco = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterGrausParentesco();
+      setGrausParentesco(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -1235,6 +1297,8 @@ export default function Home() {
       await loadEstadoCivis();
     } else if (cgKind === 'corRaca') {
       await loadCoresRacas();
+    } else if (cgKind === 'grauParentesco') {
+      await loadGrausParentesco();
     } else if (cgKind === 'profissao') {
       await loadProfissoes();
     } else if (cgKind === 'logradouro') {
@@ -1242,7 +1306,7 @@ export default function Home() {
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -1254,9 +1318,10 @@ export default function Home() {
     loadProfissoes();
     loadOrgaosEmissores();
     loadLogradouros();
+    loadGrausParentesco();
     loadPessoasJuridicas();
     loadAlunos();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadPessoasJuridicas, loadAlunos]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadPessoasJuridicas, loadAlunos]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -1750,7 +1815,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -2265,12 +2330,10 @@ export default function Home() {
       nr_seq_pessoa_fisica: aluno.nr_seq_pessoa_fisica,
       nr_matricula: aluno.nr_matricula ?? '',
       dt_ingresso: aluno.dt_ingresso ?? '',
-      dt_desligamento: aluno.dt_desligamento ?? '',
-      ds_desligamento: aluno.ds_desligamento ?? '',
+      dt_status: aluno.dt_status ?? '',
+      ds_status: aluno.ds_status ?? '',
       ie_status: aluno.ie_status ?? 'A',
-      nr_seq_responsavel: aluno.nr_seq_responsavel,
-      nr_telefone: aluno.nr_telefone ?? '',
-      ds_email: aluno.ds_email ?? '',
+      responsaveis: migrarResponsaveis(aluno),
     });
     setAlunoEditingId(aluno.id ?? null);
     setAlunoAuditInfo({
@@ -2940,9 +3003,39 @@ export default function Home() {
   async function handleAlunoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
+
+    // Remove linhas de responsáveis totalmente vazias antes de validar/salvar.
+    const responsaveisFiltrados = (alunoForm.responsaveis ?? []).filter(
+      (r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco
+    );
+
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    // nr_seq_responsavel/nr_seq_grau_parentesco ficam dentro do array
+    // responsaveis — se o campo é obrigatório, TODAS as linhas adicionadas
+    // (não só a primeira) precisam ter o valor preenchido.
     const alunoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'aluno');
-    const alunoFaltantes = camposObrigatoriosVazios(alunoForm as unknown as Record<string, any>, alunoRegras);
+    const alunoFaltantes: string[] = [];
+    const linhasResponsaveis = alunoForm.responsaveis ?? [];
+    if (
+      alunoRegras['nr_seq_responsavel'] === 'O' &&
+      linhasResponsaveis.some((r) => !r.nr_seq_responsavel)
+    ) {
+      alunoFaltantes.push('nr_seq_responsavel');
+    }
+    if (
+      alunoRegras['nr_seq_grau_parentesco'] === 'O' &&
+      linhasResponsaveis.some((r) => !r.nr_seq_grau_parentesco)
+    ) {
+      alunoFaltantes.push('nr_seq_grau_parentesco');
+    }
+    // Demais obrigatórios (campos planos do formulário).
+    const regrasPlanas: Record<string, CampoStatus> = {};
+    for (const [campo, status] of Object.entries(alunoRegras)) {
+      if (campo === 'nr_seq_responsavel' || campo === 'nr_seq_grau_parentesco') continue;
+      regrasPlanas[campo] = status;
+    }
+    const faltantesPlanos = camposObrigatoriosVazios(alunoForm as unknown as Record<string, unknown>, regrasPlanas);
+    alunoFaltantes.push(...faltantesPlanos);
     if (alunoFaltantes.length > 0) {
       setAlunoCampoErros(alunoFaltantes);
       setMessage("Preencha os campos obrigatórios.");
@@ -2951,6 +3044,8 @@ export default function Home() {
     setAlunoCampoErros([]);
     setAlunoSubmitting(true);
 
+    const payloadAluno = { ...alunoForm, responsaveis: responsaveisFiltrados };
+
     try {
       if (alunoEditingId) {
         const currentAluno = alunos.find((a) => a.id === alunoEditingId);
@@ -2958,15 +3053,18 @@ export default function Home() {
           'nr_seq_pessoa_fisica',
           'nr_matricula',
           'dt_ingresso',
-          'dt_desligamento',
-          'ds_desligamento',
+          'dt_status',
+          'ds_status',
           'ie_status',
-          'nr_seq_responsavel',
-          'nr_telefone',
-          'ds_email',
         ];
+        const responsaveisAtuais = migrarResponsaveis(currentAluno ?? ({} as Aluno)).filter(
+          (r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco
+        );
+        const responsaveisForm = (alunoForm.responsaveis ?? []).filter((r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco);
+        const responsaveisMudaram =
+          JSON.stringify(responsaveisAtuais) !== JSON.stringify(responsaveisForm);
         const hasChanges = currentAluno
-          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? ''))
+          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? '')) || responsaveisMudaram
           : true;
 
         if (!hasChanges) {
@@ -2978,10 +3076,10 @@ export default function Home() {
           return;
         }
 
-        await atualizarAluno(alunoEditingId, alunoForm, auditAutor);
+        await atualizarAluno(alunoEditingId, payloadAluno, auditAutor);
         setMessage("Atualizado com sucesso!");
       } else {
-        await criarAluno(alunoForm, auditAutor);
+        await criarAluno(payloadAluno, auditAutor);
         setMessage("Cadastrado com sucesso!");
       }
 
@@ -3373,6 +3471,8 @@ export default function Home() {
           await atualizarProfissao(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'logradouro') {
           await atualizarLogradouro(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'grauParentesco') {
+          await atualizarGrauParentesco(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -3388,6 +3488,8 @@ export default function Home() {
           await criarProfissao(payload as any, auditAutor);
         } else if (cgKind === 'logradouro') {
           await criarLogradouro(payload as any, auditAutor);
+        } else if (cgKind === 'grauParentesco') {
+          await criarGrauParentesco(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -3471,8 +3573,9 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel') {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel', responsavelIndex = 0) {
     alunoPessoaFisicaLookupTargetRef.current = target;
+    alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
     setAlunoLookupApplied(false);
     setAlunoPessoaFisicaLookupOpen(true);
@@ -3484,7 +3587,12 @@ export default function Home() {
 
   function handleAlunoPessoaFisicaSelect(pessoa: PessoaFisica) {
     if (alunoPessoaFisicaLookupTargetRef.current === 'responsavel') {
-      setAlunoForm({ ...alunoForm, nr_seq_responsavel: pessoa.nr_sequencia });
+      const index = alunoResponsavelLookupIndexRef.current;
+      setAlunoForm((prev) => {
+        const responsaveis = [...(prev.responsaveis ?? [])];
+        responsaveis[index] = { ...(responsaveis[index] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
+        return { ...prev, responsaveis };
+      });
     } else {
       setAlunoForm({ ...alunoForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
     }
@@ -3509,11 +3617,24 @@ export default function Home() {
     return pessoasFisicas.find((p) => p.nr_sequencia === alunoForm.nr_seq_pessoa_fisica)?.ds_nome ?? "";
   }, [alunoForm.nr_seq_pessoa_fisica, pessoasFisicas]);
 
-  // Nome exibido no campo "Pessoa física" de Responsáveis do formulário de Aluno.
-  const selectedAlunoResponsavelName = useMemo(() => {
-    if (!alunoForm.nr_seq_responsavel) return "";
-    return pessoasFisicas.find((p) => p.nr_sequencia === alunoForm.nr_seq_responsavel)?.ds_nome ?? "";
-  }, [alunoForm.nr_seq_responsavel, pessoasFisicas]);
+  // Nomes exibidos nos campos "Pessoa física" de Responsáveis do formulário de Aluno (por linha).
+  const selectedAlunoResponsaveisNames = useMemo(() => {
+    return (alunoForm.responsaveis ?? []).map((r) => {
+      if (!r.nr_seq_responsavel) return "";
+      return pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_responsavel)?.ds_nome ?? "";
+    });
+  }, [alunoForm.responsaveis, pessoasFisicas]);
+
+  // Opções do dropdown "Grau de parentesco" (Responsáveis) — apenas os ativos,
+  // em ordem alfabética (pt-BR).
+  const alunoGrauParentescoOptions = useMemo(
+    () =>
+      grausParentesco
+        .filter((g) => (g.ie_status ?? 'A') === 'A')
+        .map((g) => ({ value: String(g.nr_sequencia), label: g.ds_grau_parentesco }))
+        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
+    [grausParentesco]
+  );
 
   const filteredAlunoLookupPessoasFisicas = useMemo(() => {
     return pessoasFisicas.filter((pessoa) => {
@@ -3758,6 +3879,56 @@ export default function Home() {
       setMessage("Erro ao excluir.");
     }
     if (view === 'form') goToAlunoList();
+  }
+
+  function openAlterarStatusModal(aluno: Aluno) {
+    setAlterarStatusAluno(aluno);
+    // Data status já vem com a data atual; os demais campos começam vazios
+    // (o status atual NÃO fica disponível no dropdown e o motivo não é
+    // preenchido mesmo se houver valor salvo no banco).
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAlterarStatusForm({
+      dt_status: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+      ie_status: '',
+      ds_status: '',
+    });
+    setMessage("");
+    setAlterarStatusModalOpen(true);
+  }
+
+  function closeAlterarStatusModal() {
+    setAlterarStatusModalOpen(false);
+    setAlterarStatusAluno(null);
+  }
+
+  async function handleAlterarStatusSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!alterarStatusAluno?.id) return;
+    setMessage("");
+    if (!alterarStatusForm.ie_status) {
+      setMessage("Selecione um status.");
+      return;
+    }
+    setAlterarStatusSaving(true);
+    try {
+      await atualizarAluno(
+        alterarStatusAluno.id,
+        {
+          dt_status: alterarStatusForm.dt_status,
+          ie_status: alterarStatusForm.ie_status,
+          ds_status: alterarStatusForm.ds_status,
+        },
+        auditAutor
+      );
+      setMessage("Status alterado com sucesso!");
+      closeAlterarStatusModal();
+      await loadAlunos();
+    } catch {
+      setMessage("Erro ao alterar o status.");
+    } finally {
+      setAlterarStatusSaving(false);
+    }
   }
 
   async function handleAdminDelete(id: string) {
@@ -4030,6 +4201,8 @@ export default function Home() {
         await excluirEstadoCivil(id);
       } else if (cgKind === 'corRaca') {
         await excluirCorRaca(id);
+      } else if (cgKind === 'grauParentesco') {
+        await excluirGrauParentesco(id);
       } else if (cgKind === 'profissao') {
         await excluirProfissao(id);
       } else if (cgKind === 'logradouro') {
@@ -4372,7 +4545,7 @@ export default function Home() {
             } else if (contextMenu.section === 'estruturaAcademica') {
               openAlunoEditForm(contextMenu.item as Aluno);
             } else {
-              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | Logradouro);
+              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco);
             }
             setContextMenu(null);
           }}
@@ -4385,6 +4558,13 @@ export default function Home() {
           onChangePassword={() => {
             if (contextMenu.section === 'administracaoSistema') {
               openChangePasswordModal(contextMenu.item as Usuario);
+            }
+            setContextMenu(null);
+          }}
+          showChangeStatus={contextMenu.section === 'estruturaAcademica'}
+          onChangeStatus={() => {
+            if (contextMenu.section === 'estruturaAcademica') {
+              openAlterarStatusModal(contextMenu.item as Aluno);
             }
             setContextMenu(null);
           }}
@@ -4463,7 +4643,7 @@ export default function Home() {
                 setConfirmDeleteOpen(true);
               }
             } else {
-              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro;
+              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco;
               if (cg.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${cg.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleCgDelete(cg.id as string));
@@ -4913,7 +5093,7 @@ export default function Home() {
                 </div>
               )
             ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
                 <CadastroGeralListView
                   key={cgManageSelection}
                   loading={loading}
@@ -5097,8 +5277,9 @@ export default function Home() {
                   hasNextRecord={hasNextAlunoRecord}
                   pessoaFisicaName={selectedAlunoPessoaFisicaName}
                   onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
-                  responsavelName={selectedAlunoResponsavelName}
-                  onOpenResponsavelLookup={() => openAlunoPessoaFisicaLookup('responsavel')}
+                  responsaveisNames={selectedAlunoResponsaveisNames}
+                  onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('responsavel', index)}
+                  grauParentescoOptions={alunoGrauParentescoOptions}
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
                   onManageSelectionChange={handleAlunoManageSelectionChange}
@@ -6236,6 +6417,94 @@ export default function Home() {
         </div>
       )}
 
+      {alterarStatusModalOpen && alterarStatusAluno && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlterarStatusModal} />
+          <form
+            onSubmit={handleAlterarStatusSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status</h2>
+              <button
+                type="button"
+                onClick={closeAlterarStatusModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar alterar status"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Status
+                </label>
+                <Select
+                  value={alterarStatusForm.ie_status}
+                  onChange={(v) => setAlterarStatusForm({ ...alterarStatusForm, ie_status: v })}
+                  options={[
+                    { value: 'A', label: 'Ativo' },
+                    { value: 'I', label: 'Inativo' },
+                    { value: 'C', label: 'Cancelado' },
+                    { value: 'T', label: 'Transferido' },
+                    // A opção do status atual do aluno fica fora da lista.
+                  ].filter((o) => o.value !== (alterarStatusAluno?.ie_status ?? ''))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data status
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={alterarStatusForm.dt_status}
+                  onChange={(e) => setAlterarStatusForm({ ...alterarStatusForm, dt_status: applyDateMask(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Motivo status
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  value={alterarStatusForm.ds_status}
+                  onChange={(e) => setAlterarStatusForm({ ...alterarStatusForm, ds_status: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAlterarStatusModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={alterarStatusSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {pessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
@@ -6709,7 +6978,7 @@ export default function Home() {
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -6753,18 +7022,16 @@ export default function Home() {
               'nr_seq_pessoa_fisica',
               'nr_matricula',
               'dt_ingresso',
-              'dt_desligamento',
-              'ds_desligamento',
-              'nr_seq_responsavel',
-              'nr_telefone',
-              'ds_email',
+              'dt_status',
+              'ds_status',
+              'responsaveis',
               'dt_criacao',
               'dt_alteracao',
             ]
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               'ie_status',
               'dt_criacao',
@@ -6829,9 +7096,9 @@ export default function Home() {
                       cd_ibge_cidade: 'Cidade',
                       nr_matricula: 'Matrícula',
                       dt_ingresso: 'Ingresso',
-                      dt_desligamento: 'Desligamento',
-                      ds_desligamento: 'Motivo desligamento',
-                      nr_seq_responsavel: 'Responsável',
+                      dt_status: 'Data status',
+                      ds_status: 'Motivo status',
+                      responsaveis: 'Responsáveis',
                       ds_sexo: 'Descrição',
                       ds_estado_civil: 'Descrição',
                       ds_cor_raca: 'Descrição',
@@ -6840,6 +7107,7 @@ export default function Home() {
                       sg_orgao_emissor: 'Sigla',
                       ds_logradouro: 'Descrição',
                       sg_logradouro: 'Sigla',
+                      ds_grau_parentesco: 'Descrição',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
                     };
@@ -6862,7 +7130,21 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
-                      if (field === 'ie_status') return formatAdminCellValue('ie_status', normalized);
+                      if (field === 'ie_status') return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
+                      // Responsáveis: array de { nr_seq_responsavel, nr_seq_grau_parentesco }.
+                      if (field === 'responsaveis' && Array.isArray(normalized)) {
+                        const nomePessoa = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
+                        const nomeGrau = Object.fromEntries(grausParentesco.map((g) => [g.nr_sequencia, g.ds_grau_parentesco]));
+                        const respArr = normalized as AlunoResponsavel[];
+                        return respArr
+                          .filter((r) => r && r.nr_seq_responsavel)
+                          .map((r) => {
+                            const nome = nomePessoa[r.nr_seq_responsavel!] ?? String(r.nr_seq_responsavel);
+                            const grau = r.nr_seq_grau_parentesco ? (nomeGrau[r.nr_seq_grau_parentesco] ?? '') : '';
+                            return grau ? `${nome} (${grau})` : nome;
+                          })
+                          .join('\n');
+                      }
                       return String(normalized);
                     };
 

@@ -27,7 +27,8 @@ interface ListViewProps {
   onSortChange: (logicalIndex: number) => void;
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
-  columnLookups?: Partial<Record<keyof Aluno, Record<number, string>>>;
+  /** Lookups opcionais por coluna: mapa sequência→nome OU função formatadora (ex.: responsáveis). */
+  columnLookups?: Partial<Record<keyof Aluno, Record<number, string> | ((value: unknown) => string)>>;
 }
 
 export default function AlunoListView({
@@ -550,10 +551,13 @@ export default function AlunoListView({
                         {columnOrder.map((logicalIdx) => {
                           const col = COLUMNS[logicalIdx];
                           const value = aluno[col.key];
-                          const lookupMap = columnLookups?.[col.key];
-                          const displayValue = lookupMap
-                            ? (value !== null && value !== undefined && value !== '' ? (lookupMap[Number(value)] ?? '') : '')
-                            : formatCellValue(col.key, value);
+                          const lookup = columnLookups?.[col.key];
+                          const displayValue =
+                            typeof lookup === 'function'
+                              ? lookup(value)
+                              : lookup
+                                ? (value !== null && value !== undefined && value !== '' ? (lookup[Number(value)] ?? '') : '')
+                                : formatCellValue(col.key, value);
                           const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>

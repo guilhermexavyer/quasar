@@ -10,6 +10,7 @@
  *   - cg_profissao     → lista ampla de profissões (inspirada na CBO)
  *   - cg_orgao_emissor → órgãos emissores de documentos de identificação
  *   - cg_logradouro    → tipos de logradouro com as siglas oficiais (Correios)
+ *   - cg_grau_parentesco → graus de parentesco (escolar: responsáveis)
  *   - usuario          → usuário administrador inicial (nr_sequencia 1,
  *                        senha em SHA-256, criado por 'implantacao')
  *
@@ -76,6 +77,35 @@ const ESTADOS_CIVIS = [
 ];
 
 const CORES_RACAS = ["Branca", "Preta", "Parda", "Amarela", "Indígena"];
+
+const GRAUS_PARENTESCO = [
+  "Avó",
+  "Avô",
+  "Companheira",
+  "Companheiro",
+  "Curadora",
+  "Curador",
+  "Enteada",
+  "Enteado",
+  "Guardiã",
+  "Guardião",
+  "Irmã",
+  "Irmão",
+  "Madrasta",
+  "Mãe",
+  "Mãe adotiva",
+  "Pai",
+  "Pai adotivo",
+  "Padrasto",
+  "Prima",
+  "Primo",
+  "Responsável legal",
+  "Tia",
+  "Tio",
+  "Tutora",
+  "Tutor",
+  "Outro",
+];
 
 /* Órgãos emissores de documentos de identificação no Brasil
    (RG, CTPS, CNH, passaporte, registros profissionais etc.).
@@ -628,6 +658,7 @@ const COLECOES = [
   { nome: "cg_sexo",           contador: "cg_sexo_sequence",           campo: "ds_sexo",           valores: SEXOS },
   { nome: "cg_estado_civil",   contador: "cg_estado_civil_sequence",   campo: "ds_estado_civil",   valores: ESTADOS_CIVIS },
   { nome: "cg_cor_raca",       contador: "cg_cor_raca_sequence",       campo: "ds_cor_raca",       valores: CORES_RACAS },
+  { nome: "cg_grau_parentesco", contador: "cg_grau_parentesco_sequence", campo: "ds_grau_parentesco", valores: GRAUS_PARENTESCO },
   // O CBO é gravado sem máscara (apenas dígitos). O replace abaixo é uma
   // salvaguarda extra caso o mapa venha a receber um valor com formatação.
   { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },
@@ -694,12 +725,21 @@ async function semearColecao(cfg) {
     return typeof valor === "string" ? valor : valor[cfg.campo];
   }
 
-  // Descrições já existentes (comparação insensível a maiúsculas, espaços e acentos)
+  // Chave de deduplicação: insensível a maiúsculas/espaços, mas preserva o
+  // acento como desempate (ex.: "Avó" ≠ "Avô" — palavras que só diferem
+  // pela vogal acentuada não podem ser tratadas como duplicadas).
+  function chaveDe(texto) {
+    const t = String(texto ?? "");
+    return `${normalizar(texto)}|${t.toLowerCase()}`;
+  }
+
+  // Descrições já existentes (comparação insensível a maiúsculas/espaços,
+  // preservando o acento para distinguir palavras como "Avó" e "Avô")
   const existentes = new Set(
-    snap.docs.map((d) => normalizar(d.data()[cfg.campo]))
+    snap.docs.map((d) => chaveDe(d.data()[cfg.campo]))
   );
 
-  // Campos extras da fonte (ex.: nr_cbo), por nome normalizado — para backfill
+  // Campos extras da fonte (ex.: nr_cbo), por chave de deduplicação — para backfill
   const extrasPorNome = new Map();
   for (const valor of cfg.valores) {
     if (typeof valor === "object" && valor !== null) {
@@ -707,7 +747,7 @@ async function semearColecao(cfg) {
         Object.entries(valor).filter(([k]) => k !== cfg.campo && k !== "id")
       );
       if (Object.keys(extras).length > 0) {
-        extrasPorNome.set(normalizar(nomeDe(valor)), extras);
+        extrasPorNome.set(chaveDe(nomeDe(valor)), extras);
       }
     }
   }
@@ -719,7 +759,7 @@ async function semearColecao(cfg) {
   const backfill = writeBatch(db);
   let backfillCount = 0;
   for (const d of snap.docs) {
-    const extras = extrasPorNome.get(normalizar(d.data()[cfg.campo]));
+    const extras = extrasPorNome.get(chaveDe(d.data()[cfg.campo]));
     if (!extras) continue;
     const precisaAtualizar = Object.entries(extras).some(([k, v]) => {
       const atual = d.data()[k];
@@ -744,11 +784,11 @@ async function semearColecao(cfg) {
     proximaSeq = maxSeq + 1;
   }
 
-  // Deduplica a lista-fonte (por nome normalizado) e ignora o que já existe
+  // Deduplica a lista-fonte (por chave de deduplicação) e ignora o que já existe
   const vistos = new Set();
   const novos = [];
   for (const valor of cfg.valores) {
-    const chave = normalizar(nomeDe(valor));
+    const chave = chaveDe(nomeDe(valor));
     if (existentes.has(chave) || vistos.has(chave)) continue;
     vistos.add(chave);
     novos.push(valor);

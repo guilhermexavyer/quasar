@@ -167,16 +167,17 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_logradouro.sg_logradouro", label: "Sigla", tipo: "Logradouro", colecao: "cg_logradouro" },
     { key: "cg_logradouro.ds_logradouro", label: "Descrição", tipo: "Logradouro", colecao: "cg_logradouro" },
     { key: "cg_logradouro.ie_status", label: "Status", tipo: "Logradouro", colecao: "cg_logradouro" },
+
+    { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
+    { key: "cg_grau_parentesco.ie_status", label: "Status", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
   ],
   estruturaAcademica: [
+    // Desligamento, Status e Motivo desligamento não são configuráveis (campos
+    // fixos: desabilitados no formulário e sempre Ativo/desligado por regra).
     { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_matricula", label: "Matrícula", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.dt_ingresso", label: "Ingresso", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.dt_desligamento", label: "Desligamento", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.ds_desligamento", label: "Motivo desligamento", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.ie_status", label: "Status", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.nr_seq_responsavel", label: "Pessoa física responsável", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.nr_telefone", label: "Telefone", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.ds_email", label: "E-mail", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Aluno", colecao: "aluno" },
   ],
 };

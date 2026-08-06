@@ -16,12 +16,10 @@ export const ALUNO_COLUMNS: ColDef[] = [
   { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física' },
   { key: 'nr_matricula', label: 'Matrícula' },
   { key: 'dt_ingresso', label: 'Ingresso' },
-  { key: 'dt_desligamento', label: 'Desligamento' },
-  { key: 'ds_desligamento', label: 'Motivo desligamento' },
+  { key: 'dt_status', label: 'Data status' },
+  { key: 'ds_status', label: 'Motivo status' },
   { key: 'ie_status', label: 'Status' },
-  { key: 'nr_seq_responsavel', label: 'Responsável' },
-  { key: 'nr_telefone', label: 'Telefone' },
-  { key: 'ds_email', label: 'E-mail' },
+  { key: 'responsaveis', label: 'Responsáveis' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
 ];
@@ -31,12 +29,13 @@ export const FIELD_INFOS = {
   nr_seq_pessoa_fisica: { type: 'int64', field: 'nr_seq_pessoa_fisica', collection: 'aluno' },
   nr_matricula: { type: 'string', field: 'nr_matricula', collection: 'aluno' },
   dt_ingresso: { type: 'string', field: 'dt_ingresso', collection: 'aluno' },
-  dt_desligamento: { type: 'string', field: 'dt_desligamento', collection: 'aluno' },
-  ds_desligamento: { type: 'string', field: 'ds_desligamento', collection: 'aluno' },
+  dt_status: { type: 'string', field: 'dt_status', collection: 'aluno' },
+  ds_status: { type: 'string', field: 'ds_status', collection: 'aluno' },
   ie_status: { type: 'string', field: 'ie_status', collection: 'aluno' },
+  responsaveis: { type: 'array', field: 'responsaveis', collection: 'aluno' },
+  // Subcampos do array responsaveis (usados nas labels do formulário).
   nr_seq_responsavel: { type: 'int64', field: 'nr_seq_responsavel', collection: 'aluno' },
-  nr_telefone: { type: 'string', field: 'nr_telefone', collection: 'aluno' },
-  ds_email: { type: 'string', field: 'ds_email', collection: 'aluno' },
+  nr_seq_grau_parentesco: { type: 'int64', field: 'nr_seq_grau_parentesco', collection: 'aluno' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'aluno' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'aluno' },
 } as const;
@@ -46,12 +45,10 @@ export const FIELD_LABELS: Record<string, string> = {
   nr_seq_pessoa_fisica: 'Pessoa física',
   nr_matricula: 'Matrícula',
   dt_ingresso: 'Ingresso',
-  dt_desligamento: 'Desligamento',
-  ds_desligamento: 'Motivo desligamento',
+  dt_status: 'Data status',
+  ds_status: 'Motivo status',
   ie_status: 'Status',
-  nr_seq_responsavel: 'Pessoa física',
-  nr_telefone: 'Telefone',
-  ds_email: 'E-mail',
+  responsaveis: 'Responsáveis',
   dt_criacao: 'Criação',
   dt_alteracao: 'Alteração',
 };
@@ -63,23 +60,29 @@ export function formatCellValue(key: keyof Aluno, value: unknown): string {
 
   switch (key) {
     case 'dt_ingresso':
-    case 'dt_desligamento':
+    case 'dt_status':
     case 'dt_criacao':
     case 'dt_alteracao':
       return formatDate(stringValue);
-    case 'nr_telefone':
-      return formatPhone(stringValue);
     case 'ie_status':
       switch (stringValue) {
         case 'A':
           return 'Ativo';
-        case 'B':
-          return 'Bloqueado';
         case 'I':
           return 'Inativo';
+        case 'C':
+          return 'Cancelado';
+        case 'T':
+          return 'Transferido';
         default:
           return '';
       }
+    case 'responsaveis': {
+      // Fallback sem lookup: mostra a quantidade de responsáveis.
+      const arr = Array.isArray(value) ? value : [];
+      const validos = arr.filter((r) => r && r.nr_seq_responsavel);
+      return validos.length === 0 ? '' : validos.length === 1 ? '1 responsável' : `${validos.length} responsáveis`;
+    }
     default:
       return stringValue;
   }

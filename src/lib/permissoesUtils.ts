@@ -74,6 +74,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_sexo", label: "Permite adicionar" },
     { key: "ver_sexo", label: "Permite ver" },
     { key: "excluir_sexo", label: "Permite excluir" },
+    // Grau de parentesco
+    { key: "acessar_grau_parentesco", label: "Permite acessar Grau de parentesco" },
+    { key: "adicionar_grau_parentesco", label: "Permite adicionar" },
+    { key: "ver_grau_parentesco", label: "Permite ver" },
+    { key: "excluir_grau_parentesco", label: "Permite excluir" },
   ],
 };
 
@@ -131,6 +136,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Sexo',
       chaves: ['acessar_sexo', 'adicionar_sexo', 'ver_sexo', 'excluir_sexo'],
     },
+    {
+      titulo: 'Grau de parentesco',
+      chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'excluir_grau_parentesco'],
+    },
   ],
 };
 
@@ -162,7 +171,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 1;
+export const PERMISSOES_CONFIG_VERSION = 2;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -273,6 +282,7 @@ export function pessoaSubmodulosPermitidos(config: PermissoesConfig | undefined)
 export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
   { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
+  { value: 'grauParentesco', label: 'Grau de parentesco', permissao: 'acessar_grau_parentesco' },
   { value: 'logradouro', label: 'Logradouro', permissao: 'acessar_logradouro' },
   { value: 'orgaoEmissor', label: 'Órgão emissor', permissao: 'acessar_orgao_emissor' },
   { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
