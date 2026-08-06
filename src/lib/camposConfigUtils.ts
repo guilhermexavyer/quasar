@@ -168,4 +168,15 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_logradouro.ds_logradouro", label: "Descrição", tipo: "Logradouro", colecao: "cg_logradouro" },
     { key: "cg_logradouro.ie_status", label: "Status", tipo: "Logradouro", colecao: "cg_logradouro" },
   ],
+  estruturaAcademica: [
+    { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.nr_matricula", label: "Matrícula", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.dt_ingresso", label: "Ingresso", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.dt_desligamento", label: "Desligamento", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_desligamento", label: "Motivo desligamento", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ie_status", label: "Status", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.nr_seq_responsavel", label: "Pessoa física responsável", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.nr_telefone", label: "Telefone", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_email", label: "E-mail", tipo: "Aluno", colecao: "aluno" },
+  ],
 };

@@ -12,6 +12,7 @@ export interface Usuario {
   config_tema?: string;
   config_colunas_pessoa_fisica?: string;
   config_colunas_pessoa_juridica?: string;
+  config_colunas_aluno?: string;
   config_colunas_as_usuario?: string;
   config_colunas_as_perfil?: string;
   /* Perfis delegados ao usuário (JSON de nr_sequencia dos perfis) */

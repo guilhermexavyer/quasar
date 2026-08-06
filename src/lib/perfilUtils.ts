@@ -1,7 +1,7 @@
 import type { Perfil } from "@/types/perfil";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 
-export type FuncaoId = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais";
+export type FuncaoId = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica";
 
 export function parseFuncoesConfig(raw?: string | null): FuncaoId[] {
   if (!raw) return [];
@@ -9,7 +9,7 @@ export function parseFuncoesConfig(raw?: string | null): FuncaoId[] {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return [];
     return parsed.filter(
-      (s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais"
+      (s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica"
     ) as FuncaoId[];
   } catch {
     return [];

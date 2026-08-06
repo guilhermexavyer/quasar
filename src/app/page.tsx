@@ -14,6 +14,12 @@ import {
   obterPessoasJuridicas,
   atualizarPessoaJuridica,
 } from "@/services/pessoaJuridicaService";
+import {
+  criarAluno,
+  excluirAluno,
+  obterAlunos,
+  atualizarAluno,
+} from "@/services/alunoService";
 import { obterUsuarios } from "@/services/usuarioService";
 import {
   criarUsuario,
@@ -61,6 +67,7 @@ import {
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
+import type { Aluno } from "@/types/aluno";
 import {
   applyCpfMask,
   applyDateMask,
@@ -72,6 +79,7 @@ import {
   formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
 import { PJ_COLUMNS } from "@/lib/pessoaJuridicaUtils";
+import { ALUNO_COLUMNS } from "@/lib/alunoUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import {
   parseColunasConfig,
@@ -86,6 +94,8 @@ import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView
 import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView";
 import PessoaJuridicaListView from "@/components/pessoaJuridica/PessoaJuridicaListView";
 import PessoaJuridicaFormView from "@/components/pessoaJuridica/PessoaJuridicaFormView";
+import AlunoListView from "@/components/estruturaAcademica/AlunoListView";
+import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademica/AlunoFormView";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
@@ -193,7 +203,7 @@ function getActivePerfilKey(userId?: string | null): string {
 }
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais";
+type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica";
 
 type FilterFormData = Omit<
   FormData,
@@ -251,7 +261,25 @@ const PJ_SELECT_OPTIONS = [
   { value: 'pessoasJuridicas', label: 'Pessoas Jurídicas' },
 ];
 
+/* Opções do dropdown da função Estrutura Acadêmica */
+const EA_SELECT_OPTIONS = [
+  { value: 'alunos', label: 'Alunos' },
+  { value: 'colaboradores', label: 'Colaboradores' },
+];
+
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
+
+const emptyAlunoForm: AlunoFormData = {
+  nr_seq_pessoa_fisica: undefined,
+  nr_matricula: "",
+  dt_ingresso: "",
+  dt_desligamento: "",
+  ds_desligamento: "",
+  ie_status: 'A',
+  nr_seq_responsavel: undefined,
+  nr_telefone: "",
+  ds_email: "",
+};
 
 const emptyPjForm: PjFormData = {
   ds_razao_social: "",
@@ -308,7 +336,7 @@ type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradou
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais"];
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica"];
 
 function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
   const result = [...new Set(parsed)];
@@ -323,7 +351,7 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais") as SectionType[];
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica") as SectionType[];
     if (valid.length === 0) return null;
     return valid;
   } catch {
@@ -435,6 +463,26 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
       </svg>
     ),
   },
+  estruturaAcademica: {
+    label: "Estrutura Acadêmica",
+    labelMaxW: "max-w-[190px]",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="m2 9 10-5 10 5-10 5z" />
+        <path d="M6 11v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5" />
+        <path d="M22 9v5" />
+      </svg>
+    ),
+  },
 };
 
 /* Ordem alfabética das funções (pelos nomes do menu lateral) */
@@ -523,7 +571,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -650,6 +698,25 @@ export default function Home() {
   const pjCidadeCodeRef = useRef('');
   // Define se o lookup de cidade aberto grava no formulário ou no filtro de PJ.
   const pjCidadeLookupTargetRef = useRef<'form' | 'filter'>('form');
+  /* ── Estado de Estrutura Acadêmica (Alunos) ── */
+  const [alunoManageSelection, setAlunoManageSelection] = useState<string>('alunos');
+  const [alunos, setAlunos] = useState<Aluno[]>([]);
+  const [alunoForm, setAlunoForm] = useState<AlunoFormData>(emptyAlunoForm);
+  const [alunoEditingId, setAlunoEditingId] = useState<string | null>(null);
+  const [alunoAuditInfo, setAlunoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditAlunoIdRef = useRef<string | null>(null);
+  const [alunoSubmitting, setAlunoSubmitting] = useState(false);
+  const [alunoSortColumn, setAlunoSortColumn] = useState<number | null>(null);
+  const [alunoSortAsc, setAlunoSortAsc] = useState<boolean | null>(null);
+  const [alunoCampoErros, setAlunoCampoErros] = useState<string[]>([]);
+  const [alunoFilterModalOpen, setAlunoFilterModalOpen] = useState(false);
+  const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
+  const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
+  const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel'>('aluno');
+  const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+  const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
   const [passwordChangeConfirmValue, setPasswordChangeConfirmValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
@@ -894,6 +961,10 @@ export default function Home() {
     () => parseColunasConfig(currentUser?.config_colunas_pessoa_juridica),
     [currentUser?.config_colunas_pessoa_juridica]
   );
+  const alunoColunasConfig = useMemo(
+    () => parseColunasConfig(currentUser?.config_colunas_aluno),
+    [currentUser?.config_colunas_aluno]
+  );
   const adminColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_as_usuario),
     [currentUser?.config_colunas_as_usuario]
@@ -1015,6 +1086,15 @@ export default function Home() {
     [pfCgOptions]
   );
 
+  /* ── Lookups (nr_sequencia → nome) para as colunas de Aluno ── */
+  const alunoPessoaFisicaLookups = useMemo(
+    () => ({
+      nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+      nr_seq_responsavel: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+    }),
+    [pessoasFisicas]
+  );
+
   /* ── Carregar pessoas físicas, jurídicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
     setLoading(true);
@@ -1033,6 +1113,18 @@ export default function Home() {
     try {
       const data = await obterPessoasJuridicas();
       setPessoasJuridicas(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadAlunos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterAlunos();
+      setAlunos(data);
     } catch {
       setMessage("Erro ao carregar registros.");
     } finally {
@@ -1163,7 +1255,8 @@ export default function Home() {
     loadOrgaosEmissores();
     loadLogradouros();
     loadPessoasJuridicas();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadPessoasJuridicas]);
+    loadAlunos();
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadPessoasJuridicas, loadAlunos]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -1194,12 +1287,13 @@ export default function Home() {
           adminManageSelection,
           cgManageSelection,
           pjManageSelection,
+          alunoManageSelection,
         })
       );
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection]);
+  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -1305,6 +1399,7 @@ export default function Home() {
           adminManageSelection?: string;
           cgManageSelection?: string;
           pjManageSelection?: string;
+          alunoManageSelection?: string;
         };
 
         if (!session?.userId) return;
@@ -1319,7 +1414,7 @@ export default function Home() {
         }
 
         setCurrentUser(usuarioSalvo);
-        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais") {
+        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica") {
           setActiveSection(session.activeSection);
         }
         if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos')) {
@@ -1330,6 +1425,9 @@ export default function Home() {
         }
         if (typeof session.pjManageSelection === "string" && (session.pjManageSelection === 'pessoasFisicas' || session.pjManageSelection === 'pessoasJuridicas')) {
           setPjManageSelection(session.pjManageSelection);
+        }
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores')) {
+          setAlunoManageSelection(session.alunoManageSelection);
         }
         setView("list");
         setIsAuthenticated(true);
@@ -1439,6 +1537,27 @@ export default function Home() {
       return;
     }
     openPjNewForm();
+  }
+
+  function openAlunoNewForm() {
+    // O campo Ingresso já vem preenchido com a data atual (formato DD/MM/AAAA).
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAlunoForm({
+      ...emptyAlunoForm,
+      dt_ingresso: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+    });
+    setAlunoEditingId(null);
+    setAlunoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setAlunoCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  // Botão "Adicionar" de Alunos: sem a permissão, mostra aviso.
+  function handleAlunoNewForm() {
+    openAlunoNewForm();
   }
 
   // Botão "Adicionar" de Cadastros Gerais: sem a permissão da seção ativa, mostra aviso.
@@ -1557,6 +1676,18 @@ export default function Home() {
     setView("list");
   }
 
+  function handleAlunoManageSelectionChange(value: string) {
+    setAlunoManageSelection(value);
+    // Ao trocar entre Alunos/Colaboradores, zera o formulário em edição
+    // para nunca salvar contra a coleção errada.
+    setAlunoForm(emptyAlunoForm);
+    setAlunoEditingId(null);
+    setAlunoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setAlunoFilterModalOpen(false);
+    setMessage("");
+    setView("list");
+  }
+
   async function openAuditModal(pessoaId?: string | null) {
     if (!pessoaId) return;
     setAuditDocumentType('pessoa_fisica');
@@ -1632,6 +1763,21 @@ export default function Home() {
     }
   }
 
+  async function openAlunoAuditModal(alunoId?: string | null) {
+    if (!alunoId) return;
+    setAuditDocumentType('aluno');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('aluno', alunoId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   function closeAuditModal() {
     setAuditModalOpen(false);
     setAuditLogs([]);
@@ -1667,6 +1813,31 @@ export default function Home() {
   function handlePjFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     applyPjFilter();
+  }
+
+  function openAlunoFilterModal() {
+    setAlunoFilterForm(appliedAlunoFilterForm);
+    setAlunoFilterModalOpen(true);
+  }
+
+  function closeAlunoFilterModal() {
+    setAlunoFilterModalOpen(false);
+  }
+
+  function applyAlunoFilter() {
+    setAppliedAlunoFilterForm(alunoFilterForm);
+    setAlunoFilterModalOpen(false);
+  }
+
+  function clearAlunoFilter() {
+    const empty = { nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' };
+    setAlunoFilterForm(empty);
+    setAppliedAlunoFilterForm(empty);
+  }
+
+  function handleAlunoFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyAlunoFilter();
   }
 
   function openAdminFilterModal() {
@@ -1853,6 +2024,20 @@ export default function Home() {
     }
   }
 
+  function handleAlunoSortChange(logicalIndex: number) {
+    if (alunoSortColumn === logicalIndex) {
+      if (alunoSortAsc) {
+        setAlunoSortAsc(false);
+      } else {
+        setAlunoSortColumn(null);
+        setAlunoSortAsc(null);
+      }
+    } else {
+      setAlunoSortColumn(logicalIndex);
+      setAlunoSortAsc(true);
+    }
+  }
+
   /* ── Carregar autor da auditoria (para o rodapé do formulário) ── */
   async function carregarAutorAuditoriaPessoa(id: string) {
     try {
@@ -1940,6 +2125,25 @@ export default function Home() {
         return acao === 'update' || acao === 'password';
       });
       setCgAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  async function carregarAutorAuditoriaAluno(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('aluno', id);
+      if (auditAlunoIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => {
+        const acao = String(l.acao ?? '').toLowerCase();
+        return acao === 'update' || acao === 'password';
+      });
+      setAlunoAuditInfo((prev) => ({
         ...prev,
         createdBy: createLog?.usuarioNome ?? prev.createdBy,
         updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
@@ -2056,6 +2260,35 @@ export default function Home() {
     }
   }
 
+  function openAlunoEditForm(aluno: Aluno) {
+    setAlunoForm({
+      nr_seq_pessoa_fisica: aluno.nr_seq_pessoa_fisica,
+      nr_matricula: aluno.nr_matricula ?? '',
+      dt_ingresso: aluno.dt_ingresso ?? '',
+      dt_desligamento: aluno.dt_desligamento ?? '',
+      ds_desligamento: aluno.ds_desligamento ?? '',
+      ie_status: aluno.ie_status ?? 'A',
+      nr_seq_responsavel: aluno.nr_seq_responsavel,
+      nr_telefone: aluno.nr_telefone ?? '',
+      ds_email: aluno.ds_email ?? '',
+    });
+    setAlunoEditingId(aluno.id ?? null);
+    setAlunoAuditInfo({
+      createdAt: aluno.dt_criacao ?? '',
+      updatedAt: aluno.dt_alteracao ?? '',
+      createdBy: aluno.ds_usuario_criacao ?? '',
+      updatedBy: aluno.ds_usuario_alteracao ?? '',
+    });
+    auditAlunoIdRef.current = aluno.id ?? null;
+    setMessage("");
+    setAlunoCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+    if (aluno.id) {
+      carregarAutorAuditoriaAluno(aluno.id);
+    }
+  }
+
   function openPerfilEditForm(perfil: Perfil) {
     setPerfilForm({
       ds_perfil: perfil.ds_perfil,
@@ -2146,6 +2379,14 @@ export default function Home() {
     setMessage("");
     setView("list");
     setActiveSection("pessoaFisica");
+  }
+
+  function goToAlunoList() {
+    setAlunoForm(emptyAlunoForm);
+    setAlunoEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
   }
 
   function goToAdminList() {
@@ -2268,6 +2509,55 @@ export default function Home() {
       return 0;
     });
   }, [filteredPessoasFisicas, sortColumn, sortAsc]);
+
+  const filteredAlunos = useMemo(() => {
+    return alunos.filter((aluno) => {
+      if (appliedAlunoFilterForm.nr_sequencia) {
+        if (String(aluno.nr_sequencia) !== appliedAlunoFilterForm.nr_sequencia.trim()) return false;
+      }
+      if (appliedAlunoFilterForm.nr_matricula && !aluno.nr_matricula.toLowerCase().includes(appliedAlunoFilterForm.nr_matricula.toLowerCase())) {
+        return false;
+      }
+      if (appliedAlunoFilterForm.dt_ingresso_inicio) {
+        const startDate = parseDateInput(appliedAlunoFilterForm.dt_ingresso_inicio);
+        const alunoDate = parsePersonDateValue(aluno.dt_ingresso);
+        if (!startDate || alunoDate === null || alunoDate < startDate) return false;
+      }
+      if (appliedAlunoFilterForm.dt_ingresso_fim) {
+        const endDate = parseDateInput(appliedAlunoFilterForm.dt_ingresso_fim);
+        const alunoDate = parsePersonDateValue(aluno.dt_ingresso);
+        if (!endDate || alunoDate === null || alunoDate > endDate) return false;
+      }
+      return true;
+    });
+  }, [alunos, appliedAlunoFilterForm]);
+
+  const filteredSortedAlunos = useMemo(() => {
+    const sorted = [...filteredAlunos];
+    if (alunoSortColumn === null || alunoSortAsc === null) {
+      return sorted.sort((a, b) => {
+        const dateA = a.dt_criacao || "";
+        const dateB = b.dt_criacao || "";
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return a.nr_sequencia - b.nr_sequencia;
+      });
+    }
+
+    const key = ALUNO_COLUMNS[alunoSortColumn].key;
+    return sorted.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return alunoSortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return alunoSortAsc ? -1 : 1;
+      if (strA > strB) return alunoSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [filteredAlunos, alunoSortColumn, alunoSortAsc]);
 
   const filteredPessoasJuridicas = useMemo(() => {
     return pessoasJuridicas.filter((pessoa) => {
@@ -2481,6 +2771,11 @@ export default function Home() {
     return filteredSortedPessoasJuridicas.findIndex((p) => p.id === pjEditingId);
   }, [filteredSortedPessoasJuridicas, pjEditingId]);
 
+  const currentAlunoEditIndex = useMemo(() => {
+    if (!alunoEditingId) return -1;
+    return filteredSortedAlunos.findIndex((a) => a.id === alunoEditingId);
+  }, [filteredSortedAlunos, alunoEditingId]);
+
   const hasPrevRecord = currentEditIndex > 0;
   const hasNextRecord = currentEditIndex >= 0 && currentEditIndex < filteredSortedPessoasFisicas.length - 1;
   const hasPrevAdminRecord = currentAdminEditIndex > 0;
@@ -2495,6 +2790,8 @@ export default function Home() {
   const hasNextCgRecord = currentCgEditIndex >= 0 && currentCgEditIndex < filteredSortedCgItems.length - 1;
   const hasPrevPjRecord = currentPjEditIndex > 0;
   const hasNextPjRecord = currentPjEditIndex >= 0 && currentPjEditIndex < filteredSortedPessoasJuridicas.length - 1;
+  const hasPrevAlunoRecord = currentAlunoEditIndex > 0;
+  const hasNextAlunoRecord = currentAlunoEditIndex >= 0 && currentAlunoEditIndex < filteredSortedAlunos.length - 1;
 
   function goToPrevRecord() {
     if (!hasPrevRecord) return;
@@ -2554,6 +2851,18 @@ export default function Home() {
     if (!hasNextPjRecord) return;
     const next = filteredSortedPessoasJuridicas[currentPjEditIndex + 1];
     if (next) openPjEditForm(next);
+  }
+
+  function goToPrevAlunoRecord() {
+    if (!hasPrevAlunoRecord) return;
+    const previous = filteredSortedAlunos[currentAlunoEditIndex - 1];
+    if (previous) openAlunoEditForm(previous);
+  }
+
+  function goToNextAlunoRecord() {
+    if (!hasNextAlunoRecord) return;
+    const next = filteredSortedAlunos[currentAlunoEditIndex + 1];
+    if (next) openAlunoEditForm(next);
   }
 
   /* ── Salvar (criar ou atualizar) ── */
@@ -2624,6 +2933,66 @@ export default function Home() {
       setMessage("Erro ao salvar.");
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /* ── Salvar (criar ou atualizar) Aluno ── */
+  async function handleAlunoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const alunoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'aluno');
+    const alunoFaltantes = camposObrigatoriosVazios(alunoForm as unknown as Record<string, any>, alunoRegras);
+    if (alunoFaltantes.length > 0) {
+      setAlunoCampoErros(alunoFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setAlunoCampoErros([]);
+    setAlunoSubmitting(true);
+
+    try {
+      if (alunoEditingId) {
+        const currentAluno = alunos.find((a) => a.id === alunoEditingId);
+        const formKeys: Array<keyof AlunoFormData> = [
+          'nr_seq_pessoa_fisica',
+          'nr_matricula',
+          'dt_ingresso',
+          'dt_desligamento',
+          'ds_desligamento',
+          'ie_status',
+          'nr_seq_responsavel',
+          'nr_telefone',
+          'ds_email',
+        ];
+        const hasChanges = currentAluno
+          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? ''))
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setAlunoForm(emptyAlunoForm);
+          setAlunoEditingId(null);
+          await loadAlunos();
+          setView("list");
+          return;
+        }
+
+        await atualizarAluno(alunoEditingId, alunoForm, auditAutor);
+        setMessage("Atualizado com sucesso!");
+      } else {
+        await criarAluno(alunoForm, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+
+      setAlunoForm(emptyAlunoForm);
+      setAlunoEditingId(null);
+      await loadAlunos();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setAlunoSubmitting(false);
     }
   }
 
@@ -3101,6 +3470,68 @@ export default function Home() {
     });
   }, [pessoasFisicas, lookupFilter]);
 
+  /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel') {
+    alunoPessoaFisicaLookupTargetRef.current = target;
+    setAlunoLookupForm(alunoLookupFilter);
+    setAlunoLookupApplied(false);
+    setAlunoPessoaFisicaLookupOpen(true);
+  }
+
+  function closeAlunoPessoaFisicaLookup() {
+    setAlunoPessoaFisicaLookupOpen(false);
+  }
+
+  function handleAlunoPessoaFisicaSelect(pessoa: PessoaFisica) {
+    if (alunoPessoaFisicaLookupTargetRef.current === 'responsavel') {
+      setAlunoForm({ ...alunoForm, nr_seq_responsavel: pessoa.nr_sequencia });
+    } else {
+      setAlunoForm({ ...alunoForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
+    }
+    closeAlunoPessoaFisicaLookup();
+  }
+
+  function applyAlunoLookupFilter() {
+    setAlunoLookupFilter(alunoLookupForm);
+    setAlunoLookupApplied(true);
+  }
+
+  function clearAlunoLookupFilter() {
+    const empty = { ds_nome: '', nr_sequencia: '', nr_cpf: '' };
+    setAlunoLookupForm(empty);
+    setAlunoLookupFilter(empty);
+    setAlunoLookupApplied(false);
+  }
+
+  // Nome exibido no campo "Pessoa física" do formulário de Aluno (Identificação).
+  const selectedAlunoPessoaFisicaName = useMemo(() => {
+    if (!alunoForm.nr_seq_pessoa_fisica) return "";
+    return pessoasFisicas.find((p) => p.nr_sequencia === alunoForm.nr_seq_pessoa_fisica)?.ds_nome ?? "";
+  }, [alunoForm.nr_seq_pessoa_fisica, pessoasFisicas]);
+
+  // Nome exibido no campo "Pessoa física" de Responsáveis do formulário de Aluno.
+  const selectedAlunoResponsavelName = useMemo(() => {
+    if (!alunoForm.nr_seq_responsavel) return "";
+    return pessoasFisicas.find((p) => p.nr_sequencia === alunoForm.nr_seq_responsavel)?.ds_nome ?? "";
+  }, [alunoForm.nr_seq_responsavel, pessoasFisicas]);
+
+  const filteredAlunoLookupPessoasFisicas = useMemo(() => {
+    return pessoasFisicas.filter((pessoa) => {
+      if (alunoLookupFilter.nr_sequencia) {
+        if (String(pessoa.nr_sequencia) !== alunoLookupFilter.nr_sequencia.trim()) return false;
+      }
+      if (alunoLookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(alunoLookupFilter.ds_nome.toLowerCase())) {
+        return false;
+      }
+      if (alunoLookupFilter.nr_cpf) {
+        const queryCpf = alunoLookupFilter.nr_cpf.replace(/\D/g, '');
+        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
+        if (!pessoaCpf.includes(queryCpf)) return false;
+      }
+      return true;
+    });
+  }, [pessoasFisicas, alunoLookupFilter]);
+
   /* ── Lookup de cidades (Naturalidade — API IBGE) ── */
   async function openNaturalidadeLookup() {
     setCidadeLookupForm({ codigo: '', nome: '', uf: '' });
@@ -3273,6 +3704,8 @@ export default function Home() {
       } else {
         item = usuarios.find((u) => u.id === adminEditingId) ?? null;
       }
+    } else if (activeSection === 'estruturaAcademica') {
+      item = alunos.find((a) => a.id === alunoEditingId) ?? null;
     } else {
       item = cgItems.find((i) => i.id === cgEditingId) ?? null;
     }
@@ -3313,6 +3746,18 @@ export default function Home() {
       setMessage("Erro ao excluir.");
     }
     if (view === 'form') goToPjList();
+  }
+
+  async function handleAlunoDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirAluno(id);
+      setMessage("Excluído com sucesso!");
+      await loadAlunos();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToAlunoList();
   }
 
   async function handleAdminDelete(id: string) {
@@ -3772,6 +4217,18 @@ export default function Home() {
       });
   }
 
+  function handleAlunoColumnsChange(config: ColunasConfig) {
+    if (!currentUser?.id) return;
+    const serialized = serializeColunasConfig(config.order, config.widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_aluno: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_aluno: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Alunos)', err);
+      });
+  }
+
   function handleAdminColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
@@ -3912,6 +4369,8 @@ export default function Home() {
               } else {
                 openAdminEditForm(contextMenu.item as Usuario);
               }
+            } else if (contextMenu.section === 'estruturaAcademica') {
+              openAlunoEditForm(contextMenu.item as Aluno);
             } else {
               openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | Logradouro);
             }
@@ -3995,6 +4454,13 @@ export default function Home() {
                   setConfirmDeleteAction(() => () => handleAdminDelete(usuario.id as string));
                   setConfirmDeleteOpen(true);
                 }
+              }
+            } else if (contextMenu.section === 'estruturaAcademica') {
+              const aluno = contextMenu.item as Aluno;
+              if (aluno.id) {
+                setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${aluno.nr_sequencia}?`);
+                setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
+                setConfirmDeleteOpen(true);
               }
             } else {
               const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro;
@@ -4407,6 +4873,45 @@ export default function Home() {
                   onColumnsChange={handlePerfilColumnsChange}
                 />
               )
+            ) : activeSection === "estruturaAcademica" ? (
+              alunoManageSelection === 'alunos' ? (
+                <AlunoListView
+                  message={message}
+                  loading={loading}
+                  alunos={filteredSortedAlunos}
+                  openNewForm={handleAlunoNewForm}
+                  openEditForm={openAlunoEditForm}
+                  openFilter={openAlunoFilterModal}
+                  handleDelete={handleAlunoDelete}
+                  setContextMenu={setContextMenu}
+                  selectOptions={EA_SELECT_OPTIONS}
+                  manageSelection={alunoManageSelection}
+                  onManageSelectionChange={handleAlunoManageSelectionChange}
+                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  sortColumn={alunoSortColumn}
+                  sortAsc={alunoSortAsc}
+                  onSortChange={handleAlunoSortChange}
+                  initialColumns={alunoColunasConfig}
+                  onColumnsChange={handleAlunoColumnsChange}
+                  columnLookups={alunoPessoaFisicaLookups}
+                />
+              ) : (
+                <div className="flex flex-col min-h-0">
+                  <div className="flex items-center gap-3">
+                    <Select
+                      value={alunoManageSelection}
+                      onChange={handleAlunoManageSelectionChange}
+                      options={EA_SELECT_OPTIONS}
+                      showPlaceholder={false}
+                      className="!w-[180px]"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <h2 className="text-lg font-semibold">Colaboradores</h2>
+                    <p className="mt-2 text-sm text-slate-600">Em breve — esta opção será implementada.</p>
+                  </div>
+                </div>
+              )
             ) : (
               (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
                 <CadastroGeralListView
@@ -4570,8 +5075,55 @@ export default function Home() {
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'perfil')}
                 campoErros={perfilCampoErros}
               />
-            )
-          ) : (
+            )            ) : activeSection === "estruturaAcademica" ? (
+              alunoManageSelection === 'alunos' ? (
+                <AlunoFormView
+                  message={message}
+                  editingId={alunoEditingId}
+                  sequence={alunoEditingId ? (alunos.find((a) => a.id === alunoEditingId)?.nr_sequencia ?? null) : null}
+                  form={alunoForm}
+                  setForm={setAlunoForm}
+                  submitting={alunoSubmitting}
+                  handleSubmit={handleAlunoSubmit}
+                  goToList={goToAlunoList}
+                  createdAt={alunoAuditInfo.createdAt}
+                  updatedAt={alunoAuditInfo.updatedAt}
+                  createdBy={alunoAuditInfo.createdBy}
+                  updatedBy={alunoAuditInfo.updatedBy}
+                  onOpenAudit={openAlunoAuditModal}
+                  onPrevRecord={goToPrevAlunoRecord}
+                  onNextRecord={goToNextAlunoRecord}
+                  hasPrevRecord={hasPrevAlunoRecord}
+                  hasNextRecord={hasNextAlunoRecord}
+                  pessoaFisicaName={selectedAlunoPessoaFisicaName}
+                  onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
+                  responsavelName={selectedAlunoResponsavelName}
+                  onOpenResponsavelLookup={() => openAlunoPessoaFisicaLookup('responsavel')}
+                  selectOptions={EA_SELECT_OPTIONS}
+                  manageSelection={alunoManageSelection}
+                  onManageSelectionChange={handleAlunoManageSelectionChange}
+                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno')}
+                  campoErros={alunoCampoErros}
+                />
+              ) : (
+                <div className="flex flex-col min-h-0">
+                  <div className="flex items-center gap-3">
+                    <Select
+                      value={alunoManageSelection}
+                      onChange={handleAlunoManageSelectionChange}
+                      options={EA_SELECT_OPTIONS}
+                      showPlaceholder={false}
+                      className="!w-[180px]"
+                    />
+                  </div>
+                  <div className="p-6">
+                    <h2 className="text-lg font-semibold">Colaboradores</h2>
+                    <p className="mt-2 text-sm text-slate-600">Em breve — esta opção será implementada.</p>
+                  </div>
+                </div>
+              )
+            ) : (
             <CadastroGeralFormView
               key={cgManageSelection}
               editingId={cgEditingId}
@@ -4766,6 +5318,101 @@ export default function Home() {
               <button
                 type="button"
                 onClick={clearFilter}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Limpar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Filtrar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {alunoFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlunoFilterModal} />
+          <form onSubmit={handleAlunoFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button
+                type="button"
+                onClick={closeAlunoFilterModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar filtro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+              <div className="sm:col-span-2">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Sequência
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={alunoFilterForm.nr_sequencia}
+                  onChange={(e) => setAlunoFilterForm({ ...alunoFilterForm, nr_sequencia: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-10">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Matrícula
+                </label>
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={alunoFilterForm.nr_matricula}
+                  onChange={(e) => setAlunoFilterForm({ ...alunoFilterForm, nr_matricula: e.target.value })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Ingresso (início)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={alunoFilterForm.dt_ingresso_inicio}
+                  onChange={(e) => setAlunoFilterForm({ ...alunoFilterForm, dt_ingresso_inicio: applyDateMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Ingresso (fim)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={alunoFilterForm.dt_ingresso_fim}
+                  onChange={(e) => setAlunoFilterForm({ ...alunoFilterForm, dt_ingresso_fim: applyDateMask(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={clearAlunoFilter}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -5677,6 +6324,94 @@ export default function Home() {
         </div>
       )}
 
+      {alunoPessoaFisicaLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlunoPessoaFisicaLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
+                  <button
+                    type="button"
+                    onClick={closeAlunoPessoaFisicaLookup}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                    aria-label="Fechar localizar pessoa física"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={alunoLookupForm.nr_sequencia}
+                      onChange={(e) => setAlunoLookupForm({ ...alunoLookupForm, nr_sequencia: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={alunoLookupForm.ds_nome}
+                      onChange={(e) => setAlunoLookupForm({ ...alunoLookupForm, ds_nome: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={14}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={alunoLookupForm.nr_cpf}
+                      onChange={(e) => setAlunoLookupForm({ ...alunoLookupForm, nr_cpf: applyCpfMask(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <button
+                    type="button"
+                    onClick={clearAlunoLookupFilter}
+                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyAlunoLookupFilter}
+                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Filtrar
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+                {!alunoLookupApplied || filteredAlunoLookupPessoasFisicas.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
+                    Nenhum registro encontrado.
+                  </div>
+                ) : (
+                  <PessoaFisicaLookupTable
+                    pessoasFisicas={filteredAlunoLookupPessoasFisicas}
+                    onSelect={handleAlunoPessoaFisicaSelect}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {adminPessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
@@ -5973,6 +6708,7 @@ export default function Home() {
         const isPj = auditDocumentType === 'pessoa_juridica';
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
+        const isAluno = auditDocumentType === 'aluno';
         const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro';
         const fieldsOrder = isPj
           ? [
@@ -6008,6 +6744,20 @@ export default function Home() {
               'ie_status',
               'config_funcoes',
               'config_permissoes',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
+          : isAluno
+          ? [
+              'nr_sequencia',
+              'nr_seq_pessoa_fisica',
+              'nr_matricula',
+              'dt_ingresso',
+              'dt_desligamento',
+              'ds_desligamento',
+              'nr_seq_responsavel',
+              'nr_telefone',
+              'ds_email',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -6077,6 +6827,11 @@ export default function Home() {
                       nr_inscricao_municipal: 'Inscrição municipal',
                       dt_abertura: 'Data de abertura',
                       cd_ibge_cidade: 'Cidade',
+                      nr_matricula: 'Matrícula',
+                      dt_ingresso: 'Ingresso',
+                      dt_desligamento: 'Desligamento',
+                      ds_desligamento: 'Motivo desligamento',
+                      nr_seq_responsavel: 'Responsável',
                       ds_sexo: 'Descrição',
                       ds_estado_civil: 'Descrição',
                       ds_cor_raca: 'Descrição',
