@@ -103,6 +103,14 @@ export async function atualizarAluno(
   const currentData = snap.data() as Record<string, any>;
   const hasActualChanges = Object.entries(aluno).some(([key, value]) => {
     const currentValue = currentData[key];
+    // Arrays/objetos (ex.: responsaveis[]) precisam de comparação profunda —
+    // String() de dois arrays de objetos é sempre "[object Object],[object...]".
+    const ehObjeto =
+      (typeof value === 'object' && value !== null) ||
+      (typeof currentValue === 'object' && currentValue !== null);
+    if (ehObjeto) {
+      return JSON.stringify(currentValue ?? null) !== JSON.stringify(value ?? null);
+    }
     return String(currentValue ?? '') !== String(value ?? '');
   });
 
