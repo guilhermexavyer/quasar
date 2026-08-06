@@ -388,7 +388,7 @@ export default function AlunoFormView({
                             inputMode="numeric"
                             maxLength={10}
                             disabled={statusDe('nr_seq_responsavel') === 'D'}
-                            className={`${inputClass('nr_seq_responsavel', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} ${erroPessoa ? 'border-red-500' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                            className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${erroPessoa ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                             value={resp.nr_seq_responsavel ? String(resp.nr_seq_responsavel) : ''}
                             onChange={(e) => {
                               const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
