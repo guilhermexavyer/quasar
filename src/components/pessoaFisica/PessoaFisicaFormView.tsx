@@ -116,10 +116,12 @@ export default function PessoaFisicaFormView({
   }
 
   // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
-  // (status 'I' em Cadastros Gerais) são ocultados.
+  // (status 'I' em Cadastros Gerais) são ocultados. Itens sem descrição
+  // (dados órfãos/incompletos) são ignorados para não quebrar a ordenação.
   function cgOptions(options: CgSelectOption[]): CgSelectOption[] {
     return options
       .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => op && typeof op.descricao === 'string' && op.descricao.trim() !== '')
       .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
 
