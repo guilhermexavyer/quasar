@@ -6,6 +6,7 @@ import { FIELD_INFOS, applyDateMask, formatDate } from "@/lib/alunoUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import ViewIcon from "@/components/ui/ViewIcon";
 
 export type AlunoFormData = Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -30,9 +31,13 @@ interface FormViewProps {
   /** Nome da pessoa física vinculada ao aluno (Identificação). */
   pessoaFisicaName: string;
   onOpenPessoaFisicaLookup: () => void;
+  /** Abre o modal de visualização da pessoa física (Identificação). */
+  onViewPessoaFisica?: (nrSequencia: number | undefined) => void;
   /** Nomes das pessoas físicas responsáveis (Responsáveis), por linha. */
   responsaveisNames: string[];
   onOpenResponsavelLookup: (index: number) => void;
+  /** Abre o modal de visualização de um responsável (Responsáveis). */
+  onViewResponsavel?: (nrSequencia: number | undefined) => void;
   /** Opções do dropdown "Grau de parentesco" (Responsáveis). */
   grauParentescoOptions?: { value: string; label: string }[];
   selectOptions: { value: string; label: string }[];
@@ -66,8 +71,10 @@ export default function AlunoFormView({
   hasNextRecord,
   pessoaFisicaName,
   onOpenPessoaFisicaLookup,
+  onViewPessoaFisica,
   responsaveisNames,
   onOpenResponsavelLookup,
+  onViewResponsavel,
   grauParentescoOptions = [],
   selectOptions,
   manageSelection,
@@ -283,21 +290,34 @@ export default function AlunoFormView({
                     <label className="sr-only">Nome da pessoa física</label>
                     <input
                       readOnly
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
                       value={pessoaFisicaName}
                     />
-                    <button
-                      type="button"
-                      onClick={onOpenPessoaFisicaLookup}
-                      disabled={statusDe('nr_seq_pessoa_fisica') === 'D'}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
-                      aria-label="Localizar pessoa física"
-                    >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="7" />
-                        <path d="m21 21-4.3-4.3" />
-                      </svg>
-                    </button>
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {form.nr_seq_pessoa_fisica && (
+                        <button
+                          type="button"
+                          onClick={() => onViewPessoaFisica?.(form.nr_seq_pessoa_fisica)}
+                          className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                          aria-label="Visualizar pessoa física"
+                          title="Visualizar pessoa física"
+                        >
+                          <ViewIcon />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={onOpenPessoaFisicaLookup}
+                        disabled={statusDe('nr_seq_pessoa_fisica') === 'D'}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                        aria-label="Localizar pessoa física"
+                      >
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="11" cy="11" r="7" />
+                          <path d="m21 21-4.3-4.3" />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
               </div>
@@ -313,13 +333,13 @@ export default function AlunoFormView({
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('dt_ingresso', 'Ingresso')}
+                {renderFieldLabel('dt_ingresso', 'Data de ingresso')}
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  disabled={statusDe('dt_ingresso') === 'D'}
+                  disabled={!!editingId || statusDe('dt_ingresso') === 'D'}
                   className={`${inputClass('dt_ingresso', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.dt_ingresso}
                   onChange={(e) => setForm({ ...form, dt_ingresso: applyDateMask(e.target.value) })}
@@ -344,7 +364,7 @@ export default function AlunoFormView({
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('dt_status', 'Data status')}
+                {renderFieldLabel('dt_status', 'Data do status')}
                 <input
                   type="text"
                   inputMode="numeric"
@@ -358,7 +378,7 @@ export default function AlunoFormView({
               </div>
 
               <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_status', 'Motivo status')}
+                {renderFieldLabel('ds_status', 'Motivo do status')}
                 <textarea
                   disabled
                   className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
@@ -400,21 +420,34 @@ export default function AlunoFormView({
                           <label className="sr-only">Nome da pessoa física responsável</label>
                           <input
                             readOnly
-                            className={`w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${erroPessoa ? 'border-red-500' : ''}`}
+                            className={`w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${erroPessoa ? 'border-red-500' : ''}`}
                             value={responsaveisNames[index] ?? ''}
                           />
-                          <button
-                            type="button"
-                            onClick={() => onOpenResponsavelLookup(index)}
-                            disabled={statusDe('nr_seq_responsavel') === 'D'}
-                            className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
-                            aria-label="Localizar pessoa física responsável"
-                          >
-                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                              <circle cx="11" cy="11" r="7" />
-                              <path d="m21 21-4.3-4.3" />
-                            </svg>
-                          </button>
+                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                            {resp.nr_seq_responsavel && (
+                              <button
+                                type="button"
+                                onClick={() => onViewResponsavel?.(resp.nr_seq_responsavel)}
+                                className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                                aria-label="Visualizar pessoa física responsável"
+                                title="Visualizar pessoa física responsável"
+                              >
+                                <ViewIcon />
+                              </button>
+                            )}
+                            <button
+                              type="button"
+                              onClick={() => onOpenResponsavelLookup(index)}
+                              disabled={statusDe('nr_seq_responsavel') === 'D'}
+                              className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                              aria-label="Localizar pessoa física responsável"
+                            >
+                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="m21 21-4.3-4.3" />
+                              </svg>
+                            </button>
+                          </div>
                         </div>
                       </div>
                     </div>

@@ -6,6 +6,7 @@ import { ADMIN_FIELD_INFOS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import ViewIcon from "@/components/ui/ViewIcon";
 
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -28,6 +29,8 @@ interface FormViewProps {
   hasNextRecord: boolean;
   pessoaFisicaName: string;
   onOpenPessoaFisicaLookup: () => void;
+  /** Abre o modal de visualização da pessoa física vinculada ao usuário. */
+  onViewPessoaFisica?: (nrSequencia: number | undefined) => void;
   onOpenAudit?: (usuarioId?: string | null) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -59,6 +62,7 @@ export default function AdministracaoSistemaFormView({
   hasNextRecord,
   pessoaFisicaName,
   onOpenPessoaFisicaLookup,
+  onViewPessoaFisica,
   onOpenAudit,
   manageSelection,
   onManageSelectionChange,
@@ -272,21 +276,34 @@ export default function AdministracaoSistemaFormView({
                 <label className="sr-only">Nome da pessoa física</label>
                 <input
                   readOnly
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-10 py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
                   value={pessoaFisicaName}
                 />
-                <button
-                  type="button"
-                  onClick={onOpenPessoaFisicaLookup}
-                  disabled={readOnly || statusDe('nr_seq_pessoa_fisica') === 'D'}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
-                  aria-label="Localizar pessoa física"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
-                </button>
+                <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                  {form.nr_seq_pessoa_fisica && (
+                    <button
+                      type="button"
+                      onClick={() => onViewPessoaFisica?.(form.nr_seq_pessoa_fisica)}
+                      className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                      aria-label="Visualizar pessoa física"
+                      title="Visualizar pessoa física"
+                    >
+                      <ViewIcon />
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={onOpenPessoaFisicaLookup}
+                    disabled={readOnly || statusDe('nr_seq_pessoa_fisica') === 'D'}
+                    className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                    aria-label="Localizar pessoa física"
+                  >
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="11" cy="11" r="7" />
+                      <path d="m21 21-4.3-4.3" />
+                    </svg>
+                  </button>
+                </div>
               </div>
             </div>
           </div>

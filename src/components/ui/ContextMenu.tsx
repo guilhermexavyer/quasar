@@ -9,6 +9,7 @@ interface ContextMenuProps {
   onView: () => void;
   onChangePassword: () => void;
   onChangeStatus?: () => void;
+  onChangeIngresso?: () => void;
   onDelegateFunctions?: () => void;
   onDelegatePerfis?: () => void;
   onDuplicate?: () => void;
@@ -16,6 +17,7 @@ interface ContextMenuProps {
   customItems?: { label: string; onClick: () => void }[];
   showChangePassword?: boolean;
   showChangeStatus?: boolean;
+  showChangeIngresso?: boolean;
   showView?: boolean;
   showDelete?: boolean;
   onDelete: () => void;
@@ -28,12 +30,14 @@ export default function ContextMenu({
   onView,
   onChangePassword,
   onChangeStatus,
+  onChangeIngresso,
   onDelegateFunctions,
   onDelegatePerfis,
   onDuplicate,
   customItems,
   showChangePassword = false,
   showChangeStatus = false,
+  showChangeIngresso = false,
   showView = true,
   showDelete = true,
   onDelete,
@@ -72,6 +76,16 @@ export default function ContextMenu({
           onClick={onChangeStatus}
         >
           Alterar status
+        </button>
+      )}
+      {showChangeIngresso && onChangeIngresso && (
+        <button
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={onChangeIngresso}
+        >
+          Alterar data de ingresso
         </button>
       )}
       {onDelegateFunctions && (

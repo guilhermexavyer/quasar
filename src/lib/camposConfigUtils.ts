@@ -176,7 +176,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     // fixos: desabilitados no formulário e sempre Ativo/desligado por regra).
     { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_matricula", label: "Matrícula", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.dt_ingresso", label: "Ingresso", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Aluno", colecao: "aluno" },
   ],

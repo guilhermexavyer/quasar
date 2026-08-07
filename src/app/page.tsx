@@ -130,6 +130,7 @@ import {
 import type { PermissaoDef } from "@/lib/permissoesUtils";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
+import PessoaFisicaViewModal from "@/components/pessoaFisica/PessoaFisicaViewModal";
 import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
 import { obterEstados } from "@/services/estadoService";
 import CadastroGeralListView from "@/components/cadastrosGerais/CadastroGeralListView";
@@ -689,6 +690,8 @@ export default function Home() {
   const [adminOriginalSenhaHash, setAdminOriginalSenhaHash] = useState<string | null>(null);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
   const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
+  // Pessoa física em visualização (modal de leitura, estilo Detalhe da auditoria).
+  const [pessoaFisicaView, setPessoaFisicaView] = useState<PessoaFisica | null>(null);
   const [lookupForm, setLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupApplied, setLookupApplied] = useState(false);
@@ -743,6 +746,11 @@ export default function Home() {
   const [alterarStatusAluno, setAlterarStatusAluno] = useState<Aluno | null>(null);
   const [alterarStatusForm, setAlterarStatusForm] = useState({ dt_status: '', ie_status: '', ds_status: '' });
   const [alterarStatusSaving, setAlterarStatusSaving] = useState(false);
+  // Modal "Alterar data de ingresso" do aluno (menu de contexto de Estrutura Acadêmica).
+  const [alterarIngressoModalOpen, setAlterarIngressoModalOpen] = useState(false);
+  const [alterarIngressoAluno, setAlterarIngressoAluno] = useState<Aluno | null>(null);
+  const [alterarIngressoForm, setAlterarIngressoForm] = useState({ dt_ingresso: '' });
+  const [alterarIngressoSaving, setAlterarIngressoSaving] = useState(false);
   const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
@@ -1605,7 +1613,7 @@ export default function Home() {
   }
 
   function openAlunoNewForm() {
-    // O campo Ingresso já vem preenchido com a data atual (formato DD/MM/AAAA).
+    // O campo Data de ingresso já vem preenchido com a data atual (formato DD/MM/AAAA).
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setAlunoForm({
@@ -3617,6 +3625,13 @@ export default function Home() {
     return pessoasFisicas.find((p) => p.nr_sequencia === alunoForm.nr_seq_pessoa_fisica)?.ds_nome ?? "";
   }, [alunoForm.nr_seq_pessoa_fisica, pessoasFisicas]);
 
+  // Abre o modal de visualização de uma pessoa física pelo nr_sequencia.
+  function openPessoaFisicaView(nrSequencia: number | undefined) {
+    if (!nrSequencia) return;
+    const pessoa = pessoasFisicas.find((p) => p.nr_sequencia === nrSequencia);
+    setPessoaFisicaView(pessoa ?? null);
+  }
+
   // Nomes exibidos nos campos "Pessoa física" de Responsáveis do formulário de Aluno (por linha).
   const selectedAlunoResponsaveisNames = useMemo(() => {
     return (alunoForm.responsaveis ?? []).map((r) => {
@@ -3883,7 +3898,7 @@ export default function Home() {
 
   function openAlterarStatusModal(aluno: Aluno) {
     setAlterarStatusAluno(aluno);
-    // Data status já vem com a data atual; os demais campos começam vazios
+    // Data do status já vem com a data atual; os demais campos começam vazios
     // (o status atual NÃO fica disponível no dropdown e o motivo não é
     // preenchido mesmo se houver valor salvo no banco).
     const hoje = new Date();
@@ -3928,6 +3943,48 @@ export default function Home() {
       setMessage("Erro ao alterar o status.");
     } finally {
       setAlterarStatusSaving(false);
+    }
+  }
+
+  function openAlterarIngressoModal(aluno: Aluno) {
+    setAlterarIngressoAluno(aluno);
+    // Igual ao modal "Alterar status": a data já vem preenchida com a data atual.
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAlterarIngressoForm({
+      dt_ingresso: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+    });
+    setMessage("");
+    setAlterarIngressoModalOpen(true);
+  }
+
+  function closeAlterarIngressoModal() {
+    setAlterarIngressoModalOpen(false);
+    setAlterarIngressoAluno(null);
+  }
+
+  async function handleAlterarIngressoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!alterarIngressoAluno?.id) return;
+    setMessage("");
+    if (!alterarIngressoForm.dt_ingresso) {
+      setMessage("Informe a data de ingresso.");
+      return;
+    }
+    setAlterarIngressoSaving(true);
+    try {
+      await atualizarAluno(
+        alterarIngressoAluno.id,
+        { dt_ingresso: alterarIngressoForm.dt_ingresso },
+        auditAutor
+      );
+      setMessage("Data de ingresso alterada com sucesso!");
+      closeAlterarIngressoModal();
+      await loadAlunos();
+    } catch {
+      setMessage("Erro ao alterar a data de ingresso.");
+    } finally {
+      setAlterarIngressoSaving(false);
     }
   }
 
@@ -4565,6 +4622,13 @@ export default function Home() {
           onChangeStatus={() => {
             if (contextMenu.section === 'estruturaAcademica') {
               openAlterarStatusModal(contextMenu.item as Aluno);
+            }
+            setContextMenu(null);
+          }}
+          showChangeIngresso={contextMenu.section === 'estruturaAcademica'}
+          onChangeIngresso={() => {
+            if (contextMenu.section === 'estruturaAcademica') {
+              openAlterarIngressoModal(contextMenu.item as Aluno);
             }
             setContextMenu(null);
           }}
@@ -5221,6 +5285,7 @@ export default function Home() {
                 hasNextRecord={hasNextAdminRecord}
                 pessoaFisicaName={selectedPessoaFisicaName}
                 onOpenPessoaFisicaLookup={openPessoaFisicaLookup}
+                onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
                 onOpenAudit={openAdminAuditModal}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
@@ -5277,8 +5342,10 @@ export default function Home() {
                   hasNextRecord={hasNextAlunoRecord}
                   pessoaFisicaName={selectedAlunoPessoaFisicaName}
                   onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
+                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
                   responsaveisNames={selectedAlunoResponsaveisNames}
                   onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('responsavel', index)}
+                  onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
                   grauParentescoOptions={alunoGrauParentescoOptions}
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
@@ -5561,7 +5628,7 @@ export default function Home() {
 
               <div className="sm:col-span-6">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Ingresso (início)
+                  Data de ingresso (início)
                 </label>
                 <input
                   type="text"
@@ -5576,7 +5643,7 @@ export default function Home() {
 
               <div className="sm:col-span-6">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Ingresso (fim)
+                  Data de ingresso (fim)
                 </label>
                 <input
                   type="text"
@@ -6458,7 +6525,7 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data status
+                  Data do status
                 </label>
                 <input
                   type="text"
@@ -6472,7 +6539,7 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Motivo status
+                  Motivo do status
                 </label>
                 <textarea
                   rows={3}
@@ -6495,6 +6562,67 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={alterarStatusSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {alterarIngressoModalOpen && alterarIngressoAluno && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlterarIngressoModal} />
+          <form
+            onSubmit={handleAlterarIngressoSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar data de ingresso</h2>
+              <button
+                type="button"
+                onClick={closeAlterarIngressoModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar alterar data de ingresso"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data de ingresso
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={alterarIngressoForm.dt_ingresso}
+                  onChange={(e) => setAlterarIngressoForm({ ...alterarIngressoForm, dt_ingresso: applyDateMask(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAlterarIngressoModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={alterarIngressoSaving}
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -7022,6 +7150,7 @@ export default function Home() {
               'nr_seq_pessoa_fisica',
               'nr_matricula',
               'dt_ingresso',
+              'ie_status',
               'dt_status',
               'ds_status',
               'responsaveis',
@@ -7095,9 +7224,9 @@ export default function Home() {
                       dt_abertura: 'Data de abertura',
                       cd_ibge_cidade: 'Cidade',
                       nr_matricula: 'Matrícula',
-                      dt_ingresso: 'Ingresso',
-                      dt_status: 'Data status',
-                      ds_status: 'Motivo status',
+                      dt_ingresso: 'Data de ingresso',
+                      dt_status: 'Data do status',
+                      ds_status: 'Motivo do status',
                       responsaveis: 'Responsáveis',
                       ds_sexo: 'Descrição',
                       ds_estado_civil: 'Descrição',
@@ -7285,6 +7414,13 @@ export default function Home() {
           </div>
         );
       })()}
+
+      {/* Modal de visualização de Pessoa Física (leitura) */}
+      <PessoaFisicaViewModal
+        pessoa={pessoaFisicaView}
+        cgLookups={pfCgLookups}
+        onClose={() => setPessoaFisicaView(null)}
+      />
 
       {(submitting || pjSubmitting || adminSubmitting || cgSubmitting) && view === "form" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
