@@ -11,6 +11,7 @@
  *   - cg_orgao_emissor → órgãos emissores de documentos de identificação
  *   - cg_logradouro    → tipos de logradouro com as siglas oficiais (Correios)
  *   - cg_grau_parentesco → graus de parentesco (escolar: responsáveis)
+ *   - cg_cargo          → cargos (escolar: colaboradores)
  *   - usuario          → usuário administrador inicial (nr_sequencia 1,
  *                        senha em SHA-256, criado por 'implantacao')
  *
@@ -105,6 +106,45 @@ const GRAUS_PARENTESCO = [
   "Tutora",
   "Tutor",
   "Outro",
+];
+
+/* Cargos (funções exercidas por colaboradores/alunos no ambiente escolar).
+   Lista inicial de cargos comuns — o usuário pode cadastrar novos pela tela. */
+const CARGOS = [
+  "Administrador(a)",
+  "Analista Administrativo",
+  "Analista de Recursos Humanos",
+  "Analista de TI",
+  "Analista Financeiro",
+  "Aprendiz",
+  "Assessor(a)",
+  "Assistente Administrativo",
+  "Assistente de Recursos Humanos",
+  "Assistente de TI",
+  "Assistente Financeiro",
+  "Auxiliar Administrativo",
+  "Auxiliar de Manutenção",
+  "Auxiliar de Recursos Humanos",
+  "Auxiliar de Serviços Gerais",
+  "Auxiliar de TI",
+  "Auxiliar Financeiro",
+  "Bibliotecário(a)",
+  "Consultor(a)",
+  "Coordenador(a)",
+  "Cozinheiro(a)",
+  "Diretor(a)",
+  "Estagiário(a)",
+  "Monitor(a)",
+  "Motorista",
+  "Nutricionista",
+  "Porteiro(a)",
+  "Professor(a)",
+  "Psicólogo(a)",
+  "Recepcionista",
+  "Secretário(a)",
+  "Técnico(a) de Manutenção",
+  "Vigia",
+  "Zelador(a)",
 ];
 
 /* Órgãos emissores de documentos de identificação no Brasil
@@ -659,6 +699,7 @@ const COLECOES = [
   { nome: "cg_estado_civil",   contador: "cg_estado_civil_sequence",   campo: "ds_estado_civil",   valores: ESTADOS_CIVIS },
   { nome: "cg_cor_raca",       contador: "cg_cor_raca_sequence",       campo: "ds_cor_raca",       valores: CORES_RACAS },
   { nome: "cg_grau_parentesco", contador: "cg_grau_parentesco_sequence", campo: "ds_grau_parentesco", valores: GRAUS_PARENTESCO },
+  { nome: "cg_cargo",          contador: "cg_cargo_sequence",           campo: "ds_cargo",          valores: CARGOS },
   // O CBO é gravado sem máscara (apenas dígitos). O replace abaixo é uma
   // salvaguarda extra caso o mapa venha a receber um valor com formatação.
   { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },

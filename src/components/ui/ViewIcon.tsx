@@ -1,7 +1,8 @@
 /**
- * Ícone de visualização (Lucide "scan-eye"): um olho dentro de uma moldura
- * de inspeção. Segue o mesmo estilo dos demais ícones do sistema
- * (stroke, strokeWidth 2, pontas arredondadas).
+ * Ícone de visualização: um documento/papel com linhas de texto — a
+ * ficha/registro da pessoa. Todo desenhado com linhas retas e cantos de 90°
+ * (incluindo o canto dobrado em diagonal reta), sem nenhum arco arredondado,
+ * para um ar mais profissional. Traços retos (linecap butt / linejoin miter).
  */
 export default function ViewIcon({ size = 18 }: { size?: number }) {
   return (
@@ -12,16 +13,15 @@ export default function ViewIcon({ size = 18 }: { size?: number }) {
       fill="none"
       stroke="currentColor"
       strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
+      strokeLinecap="butt"
+      strokeLinejoin="miter"
       aria-hidden="true"
     >
-      <path d="M3 7V5a2 2 0 0 1 2-2h2" />
-      <path d="M17 3h2a2 2 0 0 1 2 2v2" />
-      <path d="M21 17v2a2 2 0 0 1-2 2h-2" />
-      <path d="M7 21H5a2 2 0 0 1-2-2v-2" />
-      <circle cx="12" cy="12" r="1" />
-      <path d="M18.944 12.33a1 1 0 0 0 0-.66 7.5 7.5 0 0 0-13.888 0 1 1 0 0 0 0 .66 7.5 7.5 0 0 0 13.888 0" />
+      <path d="M15 2H4v20h16V7Z" />
+      <path d="M15 2v5h5" />
+      <path d="M9 9H7" />
+      <path d="M17 13H7" />
+      <path d="M17 17H7" />
     </svg>
   );
 }

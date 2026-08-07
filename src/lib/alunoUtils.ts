@@ -16,10 +16,7 @@ export const ALUNO_COLUMNS: ColDef[] = [
   { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física' },
   { key: 'nr_matricula', label: 'Matrícula' },
   { key: 'dt_ingresso', label: 'Data de ingresso' },
-  { key: 'dt_status', label: 'Data do status' },
-  { key: 'ds_status', label: 'Motivo do status' },
   { key: 'ie_status', label: 'Status' },
-  { key: 'responsaveis', label: 'Responsáveis' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
 ];

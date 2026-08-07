@@ -20,6 +20,12 @@ import {
   obterAlunos,
   atualizarAluno,
 } from "@/services/alunoService";
+import {
+  criarColaborador,
+  excluirColaborador,
+  obterColaboradores,
+  atualizarColaborador,
+} from "@/services/colaboradorService";
 import { obterUsuarios } from "@/services/usuarioService";
 import {
   criarUsuario,
@@ -70,10 +76,17 @@ import {
   obterGrausParentesco,
   atualizarGrauParentesco,
 } from "@/services/grauParentescoService";
+import {
+  criarCargo,
+  excluirCargo,
+  obterCargos,
+  atualizarCargo,
+} from "@/services/cargoService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import type { Aluno, AlunoResponsavel } from "@/types/aluno";
+import type { Colaborador } from "@/types/colaborador";
 import {
   applyCpfMask,
   applyDateMask,
@@ -84,8 +97,9 @@ import {
   COLUMNS,
   formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
-import { PJ_COLUMNS } from "@/lib/pessoaJuridicaUtils";
+import { PJ_COLUMNS, applyCnpjMask } from "@/lib/pessoaJuridicaUtils";
 import { ALUNO_COLUMNS, formatCellValue as formatAlunoCellValue } from "@/lib/alunoUtils";
+import { COLABORADOR_COLUMNS, formatCellValue as formatColaboradorCellValue } from "@/lib/colaboradorUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import {
   parseColunasConfig,
@@ -102,6 +116,9 @@ import PessoaJuridicaListView from "@/components/pessoaJuridica/PessoaJuridicaLi
 import PessoaJuridicaFormView from "@/components/pessoaJuridica/PessoaJuridicaFormView";
 import AlunoListView from "@/components/estruturaAcademica/AlunoListView";
 import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademica/AlunoFormView";
+import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorListView";
+import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
+import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
@@ -131,6 +148,7 @@ import type { PermissaoDef } from "@/lib/permissoesUtils";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
 import PessoaFisicaViewModal from "@/components/pessoaFisica/PessoaFisicaViewModal";
+import PessoaJuridicaViewModal from "@/components/pessoaJuridica/PessoaJuridicaViewModal";
 import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
 import { obterEstados } from "@/services/estadoService";
 import CadastroGeralListView from "@/components/cadastrosGerais/CadastroGeralListView";
@@ -145,6 +163,7 @@ import type { Profissao } from "@/types/profissao";
 import type { OrgaoEmissor } from "@/types/orgaoEmissor";
 import type { Logradouro } from "@/types/logradouro";
 import type { GrauParentesco } from "@/types/grauParentesco";
+import type { Cargo } from "@/types/cargo";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
 import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
@@ -152,6 +171,7 @@ import { PROFISSAO_COLUMNS, PROFISSAO_FIELD_INFOS } from "@/lib/profissaoUtils";
 import { ORGAO_EMISSOR_COLUMNS, ORGAO_EMISSOR_FIELD_INFOS } from "@/lib/orgaoEmissorUtils";
 import { LOGRADOURO_COLUMNS, LOGRADOURO_FIELD_INFOS } from "@/lib/logradouroUtils";
 import { GRAU_PARENTESCO_COLUMNS, GRAU_PARENTESCO_FIELD_INFOS } from "@/lib/grauParentescoUtils";
+import { CARGO_COLUMNS, CARGO_FIELD_INFOS } from "@/lib/cargoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -256,6 +276,7 @@ const emptyCgForm: CadastroGeralFormData = {
 };
 
 const CG_SELECT_OPTIONS = [
+  { value: 'cargo', label: 'Cargo' },
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'estadoCivil', label: 'Estado civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco' },
@@ -293,6 +314,16 @@ const emptyAlunoForm: AlunoFormData = {
   ds_restricao_alimentar: [],
   ds_necessidade_especial: [],
   ds_observacao_medica: "",
+};
+
+const emptyColaboradorForm: ColaboradorFormData = {
+  nr_seq_pessoa_fisica: undefined,
+  nr_seq_pessoa_juridica: undefined,
+  nr_matricula: "",
+  dt_admissao: "",
+  dt_status: "",
+  ds_status: "",
+  ie_status: 'A',
 };
 
 /** Chaves da seção Informações médicas com lista de valores (Observações
@@ -378,7 +409,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -619,7 +650,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -652,6 +683,7 @@ export default function Home() {
   const [orgaosEmissores, setOrgaosEmissores] = useState<OrgaoEmissor[]>([]);
   const [logradouros, setLogradouros] = useState<Logradouro[]>([]);
   const [grausParentesco, setGrausParentesco] = useState<GrauParentesco[]>([]);
+  const [cargos, setCargos] = useState<Cargo[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -717,6 +749,9 @@ export default function Home() {
   const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
   // Pessoa física em visualização (modal de leitura, estilo Detalhe da auditoria).
   const [pessoaFisicaView, setPessoaFisicaView] = useState<PessoaFisica | null>(null);
+  const [pessoaJuridicaView, setPessoaJuridicaView] = useState<PessoaJuridica | null>(null);
+  const [pessoaJuridicaViewCidade, setPessoaJuridicaViewCidade] = useState('');
+  const pessoaJuridicaViewCodeRef = useRef<string>('');
   const [lookupForm, setLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [lookupApplied, setLookupApplied] = useState(false);
@@ -764,7 +799,7 @@ export default function Home() {
   const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
-  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel'>('aluno');
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador'>('aluno');
   const alunoResponsavelLookupIndexRef = useRef(0);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
@@ -776,6 +811,27 @@ export default function Home() {
   const [alterarIngressoAluno, setAlterarIngressoAluno] = useState<Aluno | null>(null);
   const [alterarIngressoForm, setAlterarIngressoForm] = useState({ dt_ingresso: '' });
   const [alterarIngressoSaving, setAlterarIngressoSaving] = useState(false);
+
+  // Colaboradores (Estrutura Acadêmica > Colaboradores).
+  const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  const [colaboradorForm, setColaboradorForm] = useState<ColaboradorFormData>(emptyColaboradorForm);
+  const [colaboradorEditingId, setColaboradorEditingId] = useState<string | null>(null);
+  const [colaboradorAuditInfo, setColaboradorAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditColaboradorIdRef = useRef<string | null>(null);
+  const [colaboradorSubmitting, setColaboradorSubmitting] = useState(false);
+  const [colaboradorSortColumn, setColaboradorSortColumn] = useState<number | null>(null);
+  const [colaboradorSortAsc, setColaboradorSortAsc] = useState<boolean | null>(null);
+  const [colaboradorCampoErros, setColaboradorCampoErros] = useState<string[]>([]);
+  // Modal "Alterar data de admissão" do colaborador (menu de contexto de Estrutura Acadêmica).
+  const [alterarAdmissaoModalOpen, setAlterarAdmissaoModalOpen] = useState(false);
+  const [alterarAdmissaoColaborador, setAlterarAdmissaoColaborador] = useState<Colaborador | null>(null);
+  const [alterarAdmissaoForm, setAlterarAdmissaoForm] = useState({ dt_admissao: '' });
+  const [alterarAdmissaoSaving, setAlterarAdmissaoSaving] = useState(false);
+  const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
+  const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
+  const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
+  const [colaboradorPjLookupFilter, setColaboradorPjLookupFilter] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
+  const [colaboradorPjLookupApplied, setColaboradorPjLookupApplied] = useState(false);
   const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
@@ -910,6 +966,7 @@ export default function Home() {
       isAdministrador || temPermissao(permissoesAtivas, 'cadastrosGerais', permissao);
     // Chave de seção (dropdown) → sufixo usado nas chaves de permissão (snake_case).
     const secoes: Record<string, string> = {
+      cargo: 'cargo',
       sexo: 'sexo',
       estadoCivil: 'estado_civil',
       corRaca: 'cor_raca',
@@ -933,7 +990,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // O administrador tem acesso total.
-    if (isAdministrador) return ['sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'profissao', 'orgaoEmissor', 'logradouro'];
+    if (isAdministrador) return ['cargo', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'profissao', 'orgaoEmissor', 'logradouro'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1100,9 +1157,18 @@ export default function Home() {
       items: (): CgItem[] => grausParentesco,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um grau de parentesco.',
     },
+    cargo: {
+      descKey: 'ds_cargo',
+      collection: 'cg_cargo',
+      configKey: 'config_colunas_cg_cargo',
+      columns: CARGO_COLUMNS,
+      fieldInfos: CARGO_FIELD_INFOS,
+      items: (): CgItem[] => cargos,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um cargo.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -1208,6 +1274,18 @@ export default function Home() {
     try {
       const data = await obterAlunos();
       setAlunos(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadColaboradores = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterColaboradores();
+      setColaboradores(data);
     } catch {
       setMessage("Erro ao carregar registros.");
     } finally {
@@ -1323,6 +1401,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadCargos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterCargos();
+      setCargos(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -1332,6 +1422,8 @@ export default function Home() {
       await loadCoresRacas();
     } else if (cgKind === 'grauParentesco') {
       await loadGrausParentesco();
+    } else if (cgKind === 'cargo') {
+      await loadCargos();
     } else if (cgKind === 'profissao') {
       await loadProfissoes();
     } else if (cgKind === 'logradouro') {
@@ -1339,7 +1431,7 @@ export default function Home() {
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -1352,9 +1444,11 @@ export default function Home() {
     loadOrgaosEmissores();
     loadLogradouros();
     loadGrausParentesco();
+    loadCargos();
     loadPessoasJuridicas();
     loadAlunos();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadPessoasJuridicas, loadAlunos]);
+    loadColaboradores();
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -1658,6 +1752,27 @@ export default function Home() {
     openAlunoNewForm();
   }
 
+  function openColaboradorNewForm() {
+    // Data de admissão já vem preenchida com a data atual (formato DD/MM/AAAA).
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setColaboradorForm({
+      ...emptyColaboradorForm,
+      dt_admissao: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+    });
+    setColaboradorEditingId(null);
+    setColaboradorAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setColaboradorCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  // Botão "Adicionar" de Colaboradores.
+  function handleColaboradorNewForm() {
+    openColaboradorNewForm();
+  }
+
   // Botão "Adicionar" de Cadastros Gerais: sem a permissão da seção ativa, mostra aviso.
   function handleCgNewForm() {
     if (!permissoesCg[cgKind]?.adicionar) {
@@ -1776,12 +1891,15 @@ export default function Home() {
 
   function handleAlunoManageSelectionChange(value: string) {
     setAlunoManageSelection(value);
-    // Ao trocar entre Alunos/Colaboradores, zera o formulário em edição
+    // Ao trocar entre Alunos/Colaboradores, zera os formulários em edição
     // para nunca salvar contra a coleção errada.
     setAlunoForm(emptyAlunoForm);
     setAlunoEditingId(null);
     setAlunoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setAlunoFilterModalOpen(false);
+    setColaboradorForm(emptyColaboradorForm);
+    setColaboradorEditingId(null);
+    setColaboradorAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setView("list");
   }
@@ -1848,7 +1966,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -1868,6 +1986,21 @@ export default function Home() {
     setAuditLoading(true);
     try {
       const logs = await fetchAuditByDocumentId('aluno', alunoId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openColaboradorAuditModal(colaboradorId?: string | null) {
+    if (!colaboradorId) return;
+    setAuditDocumentType('colaborador');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('colaborador', colaboradorId);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -2136,6 +2269,20 @@ export default function Home() {
     }
   }
 
+  function handleColaboradorSortChange(logicalIndex: number) {
+    if (colaboradorSortColumn === logicalIndex) {
+      if (colaboradorSortAsc) {
+        setColaboradorSortAsc(false);
+      } else {
+        setColaboradorSortColumn(null);
+        setColaboradorSortAsc(null);
+      }
+    } else {
+      setColaboradorSortColumn(logicalIndex);
+      setColaboradorSortAsc(true);
+    }
+  }
+
   /* ── Carregar autor da auditoria (para o rodapé do formulário) ── */
   async function carregarAutorAuditoriaPessoa(id: string) {
     try {
@@ -2391,6 +2538,30 @@ export default function Home() {
     }
   }
 
+  function openColaboradorEditForm(colaborador: Colaborador) {
+    setColaboradorForm({
+      nr_seq_pessoa_fisica: colaborador.nr_seq_pessoa_fisica,
+      nr_seq_pessoa_juridica: colaborador.nr_seq_pessoa_juridica,
+      nr_matricula: colaborador.nr_matricula ?? '',
+      dt_admissao: colaborador.dt_admissao ?? '',
+      dt_status: colaborador.dt_status ?? '',
+      ds_status: colaborador.ds_status ?? '',
+      ie_status: colaborador.ie_status ?? 'A',
+    });
+    setColaboradorEditingId(colaborador.id ?? null);
+    setColaboradorAuditInfo({
+      createdAt: colaborador.dt_criacao ?? '',
+      updatedAt: colaborador.dt_alteracao ?? '',
+      createdBy: colaborador.ds_usuario_criacao ?? '',
+      updatedBy: colaborador.ds_usuario_alteracao ?? '',
+    });
+    auditColaboradorIdRef.current = colaborador.id ?? null;
+    setMessage("");
+    setColaboradorCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
   function openPerfilEditForm(perfil: Perfil) {
     setPerfilForm({
       ds_perfil: perfil.ds_perfil,
@@ -2486,6 +2657,14 @@ export default function Home() {
   function goToAlunoList() {
     setAlunoForm(emptyAlunoForm);
     setAlunoEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
+  }
+
+  function goToColaboradorList() {
+    setColaboradorForm(emptyColaboradorForm);
+    setColaboradorEditingId(null);
     setMessage("");
     setView("list");
     setActiveSection("estruturaAcademica");
@@ -2660,6 +2839,33 @@ export default function Home() {
       return 0;
     });
   }, [filteredAlunos, alunoSortColumn, alunoSortAsc]);
+
+  const filteredSortedColaboradores = useMemo(() => {
+    const sorted = [...colaboradores];
+    if (colaboradorSortColumn === null || colaboradorSortAsc === null) {
+      return sorted.sort((a, b) => {
+        const dateA = a.dt_criacao || "";
+        const dateB = b.dt_criacao || "";
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return a.nr_sequencia - b.nr_sequencia;
+      });
+    }
+
+    const key = COLABORADOR_COLUMNS[colaboradorSortColumn].key;
+    return sorted.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return colaboradorSortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return colaboradorSortAsc ? -1 : 1;
+      if (strA > strB) return colaboradorSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [colaboradores, colaboradorSortColumn, colaboradorSortAsc]);
 
   const filteredPessoasJuridicas = useMemo(() => {
     return pessoasJuridicas.filter((pessoa) => {
@@ -2894,6 +3100,12 @@ export default function Home() {
   const hasNextPjRecord = currentPjEditIndex >= 0 && currentPjEditIndex < filteredSortedPessoasJuridicas.length - 1;
   const hasPrevAlunoRecord = currentAlunoEditIndex > 0;
   const hasNextAlunoRecord = currentAlunoEditIndex >= 0 && currentAlunoEditIndex < filteredSortedAlunos.length - 1;
+  const currentColaboradorEditIndex = useMemo(() => {
+    if (!colaboradorEditingId) return -1;
+    return filteredSortedColaboradores.findIndex((c) => c.id === colaboradorEditingId);
+  }, [filteredSortedColaboradores, colaboradorEditingId]);
+  const hasPrevColaboradorRecord = currentColaboradorEditIndex > 0;
+  const hasNextColaboradorRecord = currentColaboradorEditIndex >= 0 && currentColaboradorEditIndex < filteredSortedColaboradores.length - 1;
 
   function goToPrevRecord() {
     if (!hasPrevRecord) return;
@@ -2965,6 +3177,18 @@ export default function Home() {
     if (!hasNextAlunoRecord) return;
     const next = filteredSortedAlunos[currentAlunoEditIndex + 1];
     if (next) openAlunoEditForm(next);
+  }
+
+  function goToPrevColaboradorRecord() {
+    if (!hasPrevColaboradorRecord) return;
+    const previous = filteredSortedColaboradores[currentColaboradorEditIndex - 1];
+    if (previous) openColaboradorEditForm(previous);
+  }
+
+  function goToNextColaboradorRecord() {
+    if (!hasNextColaboradorRecord) return;
+    const next = filteredSortedColaboradores[currentColaboradorEditIndex + 1];
+    if (next) openColaboradorEditForm(next);
   }
 
   /* ── Salvar (criar ou atualizar) ── */
@@ -3139,6 +3363,61 @@ export default function Home() {
       setMessage("Erro ao salvar.");
     } finally {
       setAlunoSubmitting(false);
+    }
+  }
+
+  /* ── Salvar (criar ou atualizar) Colaborador ── */
+  async function handleColaboradorSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const colaboradorRegras = campoRegrasDaColecao(campoRegrasAtivas, 'colaborador');
+    const colaboradorFaltantes = camposObrigatoriosVazios(colaboradorForm as unknown as Record<string, any>, colaboradorRegras);
+    if (colaboradorFaltantes.length > 0) {
+      setColaboradorCampoErros(colaboradorFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setColaboradorCampoErros([]);
+    setColaboradorSubmitting(true);
+
+    try {
+      if (colaboradorEditingId) {
+        const currentColaborador = colaboradores.find((c) => c.id === colaboradorEditingId);
+        const formKeys: Array<keyof ColaboradorFormData> = [
+          'nr_seq_pessoa_fisica',
+          'nr_seq_pessoa_juridica',
+          'nr_matricula',
+          'dt_admissao',
+        ];
+        const hasChanges = currentColaborador
+          ? formKeys.some((key) => String(currentColaborador[key] ?? '') !== String(colaboradorForm[key] ?? ''))
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setColaboradorForm(emptyColaboradorForm);
+          setColaboradorEditingId(null);
+          await loadColaboradores();
+          setView("list");
+          return;
+        }
+
+        await atualizarColaborador(colaboradorEditingId, colaboradorForm, auditAutor);
+        setMessage("Atualizado com sucesso!");
+      } else {
+        await criarColaborador(colaboradorForm, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+
+      setColaboradorForm(emptyColaboradorForm);
+      setColaboradorEditingId(null);
+      await loadColaboradores();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setColaboradorSubmitting(false);
     }
   }
 
@@ -3521,6 +3800,8 @@ export default function Home() {
           await atualizarLogradouro(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'grauParentesco') {
           await atualizarGrauParentesco(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'cargo') {
+          await atualizarCargo(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -3538,6 +3819,8 @@ export default function Home() {
           await criarLogradouro(payload as any, auditAutor);
         } else if (cgKind === 'grauParentesco') {
           await criarGrauParentesco(payload as any, auditAutor);
+        } else if (cgKind === 'cargo') {
+          await criarCargo(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -3621,7 +3904,7 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel', responsavelIndex = 0) {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador', responsavelIndex = 0) {
     alunoPessoaFisicaLookupTargetRef.current = target;
     alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
@@ -3634,7 +3917,9 @@ export default function Home() {
   }
 
   function handleAlunoPessoaFisicaSelect(pessoa: PessoaFisica) {
-    if (alunoPessoaFisicaLookupTargetRef.current === 'responsavel') {
+    if (alunoPessoaFisicaLookupTargetRef.current === 'colaborador') {
+      setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
+    } else if (alunoPessoaFisicaLookupTargetRef.current === 'responsavel') {
       const index = alunoResponsavelLookupIndexRef.current;
       setAlunoForm((prev) => {
         const responsaveis = [...(prev.responsaveis ?? [])];
@@ -3671,6 +3956,82 @@ export default function Home() {
     const pessoa = pessoasFisicas.find((p) => p.nr_sequencia === nrSequencia);
     setPessoaFisicaView(pessoa ?? null);
   }
+
+  // Abre o modal de visualização de Pessoa Jurídica, resolvendo o nome da cidade.
+  function openPessoaJuridicaView(nrSequencia: number | undefined) {
+    if (!nrSequencia) return;
+    const pessoa = pessoasJuridicas.find((p) => p.nr_sequencia === nrSequencia);
+    setPessoaJuridicaView(pessoa ?? null);
+    const codigo = pessoa?.cd_ibge_cidade ?? '';
+    pessoaJuridicaViewCodeRef.current = codigo;
+    setPessoaJuridicaViewCidade('');
+    if (codigo) {
+      cidadePorCodigo(codigo)
+        .then((cidade) => {
+          if (pessoaJuridicaViewCodeRef.current === codigo && cidade) {
+            setPessoaJuridicaViewCidade(cidade.nome);
+          }
+        })
+        .catch(() => {});
+    }
+  }
+
+  // Nome exibido no campo "Pessoa física" do formulário de Colaborador.
+  const selectedColaboradorPessoaFisicaName = useMemo(() => {
+    if (!colaboradorForm.nr_seq_pessoa_fisica) return "";
+    return pessoasFisicas.find((p) => p.nr_sequencia === colaboradorForm.nr_seq_pessoa_fisica)?.ds_nome ?? "";
+  }, [colaboradorForm.nr_seq_pessoa_fisica, pessoasFisicas]);
+
+  // Nome exibido no campo "Pessoa jurídica" do formulário de Colaborador.
+  const selectedColaboradorPessoaJuridicaName = useMemo(() => {
+    if (!colaboradorForm.nr_seq_pessoa_juridica) return "";
+    return pessoasJuridicas.find((p) => p.nr_sequencia === colaboradorForm.nr_seq_pessoa_juridica)?.ds_razao_social ?? "";
+  }, [colaboradorForm.nr_seq_pessoa_juridica, pessoasJuridicas]);
+
+  /* ── Lookup de Pessoa Jurídica para Colaboradores ── */
+  function openColaboradorPessoaJuridicaLookup() {
+    setColaboradorPjLookupForm(colaboradorPjLookupFilter);
+    setColaboradorPjLookupApplied(false);
+    setColaboradorPessoaJuridicaLookupOpen(true);
+  }
+
+  function closeColaboradorPessoaJuridicaLookup() {
+    setColaboradorPessoaJuridicaLookupOpen(false);
+  }
+
+  function handleColaboradorPessoaJuridicaSelect(pessoa: PessoaJuridica) {
+    setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_juridica: pessoa.nr_sequencia });
+    closeColaboradorPessoaJuridicaLookup();
+  }
+
+  function applyColaboradorPjLookupFilter() {
+    setColaboradorPjLookupFilter(colaboradorPjLookupForm);
+    setColaboradorPjLookupApplied(true);
+  }
+
+  function clearColaboradorPjLookupFilter() {
+    const empty = { nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' };
+    setColaboradorPjLookupForm(empty);
+    setColaboradorPjLookupFilter(empty);
+    setColaboradorPjLookupApplied(false);
+  }
+
+  const filteredColaboradorPjLookupPessoasJuridicas = useMemo(() => {
+    return pessoasJuridicas.filter((pessoa) => {
+      if (colaboradorPjLookupFilter.nr_sequencia) {
+        if (String(pessoa.nr_sequencia) !== colaboradorPjLookupFilter.nr_sequencia.trim()) return false;
+      }
+      if (colaboradorPjLookupFilter.ds_razao_social && !pessoa.ds_razao_social.toLowerCase().includes(colaboradorPjLookupFilter.ds_razao_social.toLowerCase())) {
+        return false;
+      }
+      if (colaboradorPjLookupFilter.nr_cnpj) {
+        const queryCnpj = colaboradorPjLookupFilter.nr_cnpj.replace(/\D/g, '');
+        const pessoaCnpj = pessoa.nr_cnpj.replace(/\D/g, '');
+        if (!pessoaCnpj.includes(queryCnpj)) return false;
+      }
+      return true;
+    });
+  }, [pessoasJuridicas, colaboradorPjLookupFilter]);
 
   // Nomes exibidos nos campos "Pessoa física" de Responsáveis do formulário de Aluno (por linha).
   const selectedAlunoResponsaveisNames = useMemo(() => {
@@ -3936,6 +4297,18 @@ export default function Home() {
     if (view === 'form') goToAlunoList();
   }
 
+  async function handleColaboradorDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirColaborador(id);
+      setMessage("Excluído com sucesso!");
+      await loadColaboradores();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToColaboradorList();
+  }
+
   function openAlterarStatusModal(aluno: Aluno) {
     setAlterarStatusAluno(aluno);
     // Data do status já vem com a data atual; os demais campos começam vazios
@@ -4025,6 +4398,48 @@ export default function Home() {
       setMessage("Erro ao alterar a data de ingresso.");
     } finally {
       setAlterarIngressoSaving(false);
+    }
+  }
+
+  function openAlterarAdmissaoModal(colaborador: Colaborador) {
+    setAlterarAdmissaoColaborador(colaborador);
+    // Igual ao modal "Alterar data de ingresso": já vem preenchido com a data atual.
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAlterarAdmissaoForm({
+      dt_admissao: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+    });
+    setMessage("");
+    setAlterarAdmissaoModalOpen(true);
+  }
+
+  function closeAlterarAdmissaoModal() {
+    setAlterarAdmissaoModalOpen(false);
+    setAlterarAdmissaoColaborador(null);
+  }
+
+  async function handleAlterarAdmissaoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!alterarAdmissaoColaborador?.id) return;
+    setMessage("");
+    if (!alterarAdmissaoForm.dt_admissao) {
+      setMessage("Informe a data de admissão.");
+      return;
+    }
+    setAlterarAdmissaoSaving(true);
+    try {
+      await atualizarColaborador(
+        alterarAdmissaoColaborador.id,
+        { dt_admissao: alterarAdmissaoForm.dt_admissao },
+        auditAutor
+      );
+      setMessage("Data de admissão alterada com sucesso!");
+      closeAlterarAdmissaoModal();
+      await loadColaboradores();
+    } catch {
+      setMessage("Erro ao alterar a data de admissão.");
+    } finally {
+      setAlterarAdmissaoSaving(false);
     }
   }
 
@@ -4300,6 +4715,8 @@ export default function Home() {
         await excluirCorRaca(id);
       } else if (cgKind === 'grauParentesco') {
         await excluirGrauParentesco(id);
+      } else if (cgKind === 'cargo') {
+        await excluirCargo(id);
       } else if (cgKind === 'profissao') {
         await excluirProfissao(id);
       } else if (cgKind === 'logradouro') {
@@ -4640,9 +5057,13 @@ export default function Home() {
                 openAdminEditForm(contextMenu.item as Usuario);
               }
             } else if (contextMenu.section === 'estruturaAcademica') {
-              openAlunoEditForm(contextMenu.item as Aluno);
+              if (alunoManageSelection === 'colaboradores') {
+                openColaboradorEditForm(contextMenu.item as unknown as Colaborador);
+              } else {
+                openAlunoEditForm(contextMenu.item as Aluno);
+              }
             } else {
-              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco);
+              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo);
             }
             setContextMenu(null);
           }}
@@ -4658,16 +5079,16 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          showChangeStatus={contextMenu.section === 'estruturaAcademica'}
+          showChangeStatus={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos'}
           onChangeStatus={() => {
-            if (contextMenu.section === 'estruturaAcademica') {
+            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
               openAlterarStatusModal(contextMenu.item as Aluno);
             }
             setContextMenu(null);
           }}
-          showChangeIngresso={contextMenu.section === 'estruturaAcademica'}
+          showChangeIngresso={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos'}
           onChangeIngresso={() => {
-            if (contextMenu.section === 'estruturaAcademica') {
+            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
               openAlterarIngressoModal(contextMenu.item as Aluno);
             }
             setContextMenu(null);
@@ -4740,14 +5161,23 @@ export default function Home() {
                 }
               }
             } else if (contextMenu.section === 'estruturaAcademica') {
-              const aluno = contextMenu.item as Aluno;
-              if (aluno.id) {
-                setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${aluno.nr_sequencia}?`);
-                setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
-                setConfirmDeleteOpen(true);
+              if (alunoManageSelection === 'colaboradores') {
+                const colaborador = contextMenu.item as unknown as Colaborador;
+                if (colaborador.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${colaborador.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleColaboradorDelete(colaborador.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else {
+                const aluno = contextMenu.item as Aluno;
+                if (aluno.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${aluno.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
+                  setConfirmDeleteOpen(true);
+                }
               }
             } else {
-              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco;
+              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo;
               if (cg.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${cg.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleCgDelete(cg.id as string));
@@ -4756,6 +5186,19 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
+          customItems={
+            contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores'
+              ? [
+                  {
+                    label: 'Alterar data de admissão',
+                    onClick: () => {
+                      openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador);
+                      setContextMenu(null);
+                    },
+                  },
+                ]
+              : undefined
+          }
         />
       )}
 
@@ -4933,8 +5376,8 @@ export default function Home() {
                     >
                       <span className="flex h-6 w-11 shrink-0 items-center rounded-full bg-[#2cc958] p-[2px] transition-colors duration-300">
                         <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-full shadow transition-transform duration-300 ease-out ${
-                            darkMode ? "bg-white translate-x-5" : "bg-white translate-x-0"
+                          className={`flex h-5 w-5 items-center justify-center rounded-full shadow transition-transform duration-300 ease-out bg-[#27272a] ${
+                            darkMode ? "translate-x-5" : "translate-x-0"
                           }`}
                         >
                           {darkMode ? (
@@ -4942,7 +5385,7 @@ export default function Home() {
                               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                             </svg>
                           ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="#003056" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#e4e4e7]">
                               <circle cx="12" cy="12" r="4" />
                               <path d="M12 2v2" />
                               <path d="M12 20v2" />
@@ -5180,24 +5623,29 @@ export default function Home() {
                   columnLookups={alunoPessoaFisicaLookups}
                 />
               ) : (
-                <div className="flex flex-col min-h-0">
-                  <div className="flex items-center gap-3">
-                    <Select
-                      value={alunoManageSelection}
-                      onChange={handleAlunoManageSelectionChange}
-                      options={EA_SELECT_OPTIONS}
-                      showPlaceholder={false}
-                      className="!w-[180px]"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h2 className="text-lg font-semibold">Colaboradores</h2>
-                    <p className="mt-2 text-sm text-slate-600">Em breve — esta opção será implementada.</p>
-                  </div>
-                </div>
+                <ColaboradorListView
+                  message={message}
+                  loading={loading}
+                  colaboradores={filteredSortedColaboradores}
+                  openNewForm={handleColaboradorNewForm}
+                  openEditForm={openColaboradorEditForm}
+                  handleDelete={handleColaboradorDelete}
+                  setContextMenu={setContextMenu}
+                  selectOptions={EA_SELECT_OPTIONS}
+                  manageSelection={alunoManageSelection}
+                  onManageSelectionChange={handleAlunoManageSelectionChange}
+                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  sortColumn={colaboradorSortColumn}
+                  sortAsc={colaboradorSortAsc}
+                  onSortChange={handleColaboradorSortChange}
+                  columnLookups={{
+                    nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+                    nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
+                  }}
+                />
               )
             ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
                 <CadastroGeralListView
                   key={cgManageSelection}
                   loading={loading}
@@ -5395,21 +5843,37 @@ export default function Home() {
                   campoErros={alunoCampoErros}
                 />
               ) : (
-                <div className="flex flex-col min-h-0">
-                  <div className="flex items-center gap-3">
-                    <Select
-                      value={alunoManageSelection}
-                      onChange={handleAlunoManageSelectionChange}
-                      options={EA_SELECT_OPTIONS}
-                      showPlaceholder={false}
-                      className="!w-[180px]"
-                    />
-                  </div>
-                  <div className="p-6">
-                    <h2 className="text-lg font-semibold">Colaboradores</h2>
-                    <p className="mt-2 text-sm text-slate-600">Em breve — esta opção será implementada.</p>
-                  </div>
-                </div>
+                <ColaboradorFormView
+                  message={message}
+                  editingId={colaboradorEditingId}
+                  sequence={colaboradorEditingId ? (colaboradores.find((c) => c.id === colaboradorEditingId)?.nr_sequencia ?? null) : null}
+                  form={colaboradorForm}
+                  setForm={setColaboradorForm}
+                  submitting={colaboradorSubmitting}
+                  handleSubmit={handleColaboradorSubmit}
+                  goToList={goToColaboradorList}
+                  createdAt={colaboradorAuditInfo.createdAt}
+                  updatedAt={colaboradorAuditInfo.updatedAt}
+                  createdBy={colaboradorAuditInfo.createdBy}
+                  updatedBy={colaboradorAuditInfo.updatedBy}
+                  onOpenAudit={openColaboradorAuditModal}
+                  onPrevRecord={goToPrevColaboradorRecord}
+                  onNextRecord={goToNextColaboradorRecord}
+                  hasPrevRecord={hasPrevColaboradorRecord}
+                  hasNextRecord={hasNextColaboradorRecord}
+                  pessoaFisicaName={selectedColaboradorPessoaFisicaName}
+                  onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('colaborador')}
+                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                  pessoaJuridicaName={selectedColaboradorPessoaJuridicaName}
+                  onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
+                  onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
+                  selectOptions={EA_SELECT_OPTIONS}
+                  manageSelection={alunoManageSelection}
+                  onManageSelectionChange={handleAlunoManageSelectionChange}
+                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
+                  campoErros={colaboradorCampoErros}
+                />
               )
             ) : (
             <CadastroGeralFormView
@@ -6673,12 +7137,73 @@ export default function Home() {
         </div>
       )}
 
+      {alterarAdmissaoModalOpen && alterarAdmissaoColaborador && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlterarAdmissaoModal} />
+          <form
+            onSubmit={handleAlterarAdmissaoSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar data de admissão</h2>
+              <button
+                type="button"
+                onClick={closeAlterarAdmissaoModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar alterar data de admissão"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data de admissão
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={alterarAdmissaoForm.dt_admissao}
+                  onChange={(e) => setAlterarAdmissaoForm({ ...alterarAdmissaoForm, dt_admissao: applyDateMask(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAlterarAdmissaoModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={alterarAdmissaoSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {pessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
           <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
@@ -6730,7 +7255,7 @@ export default function Home() {
                     type="button"
                     onClick={clearLookupFilter}
                     className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
                   >
                     Limpar
                   </button>
@@ -6744,7 +7269,7 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {!lookupApplied || filteredLookupPessoasFisicas.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
                     Nenhum registro encontrado.
@@ -6766,7 +7291,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeAlunoPessoaFisicaLookup} />
           <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
@@ -6818,7 +7343,7 @@ export default function Home() {
                     type="button"
                     onClick={clearAlunoLookupFilter}
                     className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
                   >
                     Limpar
                   </button>
@@ -6832,7 +7357,7 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {!alunoLookupApplied || filteredAlunoLookupPessoasFisicas.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
                     Nenhum registro encontrado.
@@ -6849,12 +7374,100 @@ export default function Home() {
         </div>
       )}
 
+      {colaboradorPessoaJuridicaLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorPessoaJuridicaLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
+                <div className="flex items-center justify-between gap-2 mb-4">
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa jurídica</h2>
+                  <button
+                    type="button"
+                    onClick={closeColaboradorPessoaJuridicaLookup}
+                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                    aria-label="Fechar localizar pessoa jurídica"
+                  >
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </button>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={colaboradorPjLookupForm.nr_sequencia}
+                      onChange={(e) => setColaboradorPjLookupForm({ ...colaboradorPjLookupForm, nr_sequencia: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Razão social</label>
+                    <input
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={colaboradorPjLookupForm.ds_razao_social}
+                      onChange={(e) => setColaboradorPjLookupForm({ ...colaboradorPjLookupForm, ds_razao_social: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CNPJ</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={18}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                      value={colaboradorPjLookupForm.nr_cnpj}
+                      onChange={(e) => setColaboradorPjLookupForm({ ...colaboradorPjLookupForm, nr_cnpj: applyCnpjMask(e.target.value) })}
+                    />
+                  </div>
+                </div>
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <button
+                    type="button"
+                    onClick={clearColaboradorPjLookupFilter}
+                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Limpar
+                  </button>
+                  <button
+                    type="button"
+                    onClick={applyColaboradorPjLookupFilter}
+                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                  >
+                    Filtrar
+                  </button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
+                {!colaboradorPjLookupApplied || filteredColaboradorPjLookupPessoasJuridicas.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
+                    Nenhum registro encontrado.
+                  </div>
+                ) : (
+                  <PessoaJuridicaLookupTable
+                    pessoasJuridicas={filteredColaboradorPjLookupPessoasJuridicas}
+                    onSelect={handleColaboradorPessoaJuridicaSelect}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {adminPessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
           <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
@@ -6906,7 +7519,7 @@ export default function Home() {
                     type="button"
                     onClick={clearAdminPessoaFisicaLookupFilter}
                     className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
                   >
                     Limpar
                   </button>
@@ -6920,7 +7533,7 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {!adminPessoaFisicaLookupApplied || pessoasFisicas.filter((pessoa) => {
                   if (adminPessoaFisicaLookupFilter.nr_sequencia) {
                     if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
@@ -6964,7 +7577,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeNaturalidadeLookup} />
           <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar cidade</h2>
@@ -7014,7 +7627,7 @@ export default function Home() {
                     type="button"
                     onClick={clearCidadeLookup}
                     className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
                   >
                     Limpar
                   </button>
@@ -7028,7 +7641,7 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {cidadeLoading ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
                     Carregando cidades...
@@ -7054,7 +7667,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closePjCidadeLookup} />
           <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] border-r border-slate-300 bg-[#fafafa] flex flex-col min-h-0">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar cidade</h2>
@@ -7104,7 +7717,7 @@ export default function Home() {
                     type="button"
                     onClick={clearPjCidadeLookup}
                     className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
                   >
                     Limpar
                   </button>
@@ -7118,7 +7731,7 @@ export default function Home() {
                   </button>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col">
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {pjCidadeLoading ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
                     Carregando cidades...
@@ -7146,7 +7759,8 @@ export default function Home() {
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco';
+        const isColaborador = auditDocumentType === 'colaborador';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -7184,6 +7798,19 @@ export default function Home() {
               'dt_criacao',
               'dt_alteracao',
             ]
+          : isColaborador
+          ? [
+              'nr_sequencia',
+              'nr_seq_pessoa_fisica',
+              'nr_seq_pessoa_juridica',
+              'nr_matricula',
+              'dt_admissao',
+              'ie_status',
+              'dt_status',
+              'ds_status',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
           : isAluno
           ? [
               'nr_sequencia',
@@ -7206,7 +7833,7 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               'ie_status',
               'dt_criacao',
@@ -7247,6 +7874,8 @@ export default function Home() {
                     const FIELD_LABELS: Record<string, string> = {
                       nr_sequencia: 'Sequência',
                       nr_seq_pessoa_fisica: 'Pessoa física',
+                      nr_seq_pessoa_juridica: 'Pessoa jurídica',
+                      dt_admissao: 'Data de admissão',
                       ds_usuario: 'Usuário',
                       ds_usuario_alternativo: 'Usuário alternativo',
                       ie_status: 'Status',
@@ -7311,7 +7940,10 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
-                      if (field === 'ie_status') return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
+                      if (field === 'ie_status') {
+                        if (isColaborador) return formatColaboradorCellValue('ie_status', normalized);
+                        return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
+                      }
                       // Responsáveis: array de { nr_seq_responsavel, nr_seq_grau_parentesco }.
                       if (field === 'responsaveis' && Array.isArray(normalized)) {
                         const nomePessoa = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
@@ -7410,6 +8042,20 @@ export default function Home() {
                       getPermissoesRows((after as any).config_permissoes)
                     );
 
+                    // Campos com múltiplos valores (responsáveis, alergias, etc.):
+                    // um valor por linha, com a mesma altura nas colunas Antes/Depois.
+                    const maxArrayRows = (field: string): number => {
+                      const linhas = (v: any) =>
+                        getDisplay(field, v)
+                          .split('\n')
+                          .filter((l) => l !== '').length;
+                      return Math.max(
+                        linhas(before ? (before as any)[field] : undefined),
+                        linhas((after as any)[field]),
+                        1
+                      );
+                    };
+
                     const renderFieldValue = (field: string, val: any) => {
                       if (field === 'config_funcoes') {
                         return (
@@ -7427,6 +8073,17 @@ export default function Home() {
                             disabled
                             rows={maxPermissoesRows}
                             value={getPermissoesDisplay(val)}
+                            className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none"
+                          />
+                        );
+                      }
+                      // Valores múltiplos (arrays) são exibidos um em cima do outro.
+                      if (Array.isArray(normalizeAuditValue(val))) {
+                        return (
+                          <textarea
+                            disabled
+                            rows={maxArrayRows(field)}
+                            value={getDisplay(field, val)}
                             className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none"
                           />
                         );
@@ -7479,6 +8136,14 @@ export default function Home() {
         pessoa={pessoaFisicaView}
         cgLookups={pfCgLookups}
         onClose={() => setPessoaFisicaView(null)}
+      />
+
+      {/* Modal de visualização de Pessoa Jurídica (leitura) */}
+      <PessoaJuridicaViewModal
+        pessoa={pessoaJuridicaView}
+        cgLookups={pjCgLookups}
+        cidadeNome={pessoaJuridicaViewCidade}
+        onClose={() => setPessoaJuridicaView(null)}
       />
 
       {(submitting || pjSubmitting || adminSubmitting || cgSubmitting) && view === "form" && (

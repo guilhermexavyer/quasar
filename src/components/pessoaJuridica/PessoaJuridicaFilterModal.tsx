@@ -6,6 +6,7 @@ import { applyCnpjMask } from "@/lib/pessoaJuridicaUtils";
 import { applyDateMask, applyPhoneMask } from "@/lib/pessoaFisicaUtils";
 import { cidadePorCodigo } from "@/services/cidadeService";
 import Select from "@/components/ui/Select";
+import SearchIcon from "@/components/ui/SearchIcon";
 
 export interface PessoaJuridicaFilterForm {
   nr_sequencia: string;
@@ -246,13 +247,9 @@ export default function PessoaJuridicaFilterModal({
                 <button
                   type="button"
                   onClick={onOpenCidadeLookup}
-                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black"
+                  className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
                   aria-label="Localizar cidade"
-                >
-                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <circle cx="11" cy="11" r="7" />
-                    <path d="m21 21-4.3-4.3" />
-                  </svg>
+                >                    <SearchIcon />
                 </button>
               </div>
             </div>

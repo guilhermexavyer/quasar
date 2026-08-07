@@ -6,7 +6,9 @@ import { FIELD_INFOS, applyDateMask, formatDate } from "@/lib/alunoUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import ViewIcon from "@/components/ui/ViewIcon";
+import SearchIcon from "@/components/ui/SearchIcon";
 
 export type AlunoFormData = Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -112,7 +114,7 @@ export default function AlunoFormView({
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
-  const infoPopupRef = useRef<HTMLDivElement | null>(null);
+  const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
 
   function statusDe(campo: string): CampoStatus {
     return campoRegras?.[campo] ?? 'N';
@@ -189,6 +191,7 @@ export default function AlunoFormView({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              setInfoAnchor(event.currentTarget);
               setInfoPopupField((current) => (current === fieldKey ? null : fieldKey));
             }}
             aria-label={`Informações do campo ${label}`}
@@ -201,22 +204,11 @@ export default function AlunoFormView({
             </svg>
           </button>
           {infoPopupField === fieldKey && (
-            <div
-              ref={infoPopupRef}
-              className="absolute left-full bottom-0 z-10 ml-1 w-[240px] bg-white p-[10px] text-xs border border-[#ccc] shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <span
-                aria-hidden="true"
-                className="absolute left-[-4px] bottom-[6px] h-[8px] w-[8px] rotate-45 border-l border-b border-[#ccc] bg-white"
-              />
-              <div className="font-semibold text-slate-900 mb-2">Informações do campo</div>
-              <div className="space-y-1">
-                <div><span className="font-semibold">Tipo:</span> {meta.type}</div>
-                <div><span className="font-semibold">Campo:</span> {meta.field}</div>
-                <div><span className="font-semibold">Coleção:</span> {meta.collection}</div>
-              </div>
-            </div>
+            <FieldInfoPopup
+              anchor={infoAnchor}
+              meta={{ type: meta.type, field: meta.field, collection: meta.collection }}
+              onClose={() => setInfoPopupField(null)}
+            />
           )}
         </div>
       </div>
@@ -243,18 +235,7 @@ export default function AlunoFormView({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [submitting]);
 
-  useEffect(() => {
-    if (!infoPopupField) return;
-    function handleClose(event: MouseEvent) {
-      // Cliques dentro da pop-up não a fecham — permite selecionar/copiar o texto.
-      if (infoPopupRef.current && infoPopupRef.current.contains(event.target as Node)) {
-        return;
-      }
-      setInfoPopupField(null);
-    }
-    document.addEventListener('click', handleClose);
-    return () => document.removeEventListener('click', handleClose);
-  }, [infoPopupField]);
+
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -352,7 +333,7 @@ export default function AlunoFormView({
                         <button
                           type="button"
                           onClick={() => onViewPessoaFisica?.(form.nr_seq_pessoa_fisica)}
-                          className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                          className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                           aria-label="Visualizar pessoa física"
                         >
                           <ViewIcon />
@@ -362,13 +343,10 @@ export default function AlunoFormView({
                         type="button"
                         onClick={onOpenPessoaFisicaLookup}
                         disabled={statusDe('nr_seq_pessoa_fisica') === 'D'}
-                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                         aria-label="Localizar pessoa física"
                       >
-                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="11" cy="11" r="7" />
-                          <path d="m21 21-4.3-4.3" />
-                        </svg>
+                        <SearchIcon />
                       </button>
                     </div>
                   </div>
@@ -378,10 +356,9 @@ export default function AlunoFormView({
               <div className="sm:col-span-5 group">
                 {renderFieldLabel('nr_matricula', 'Matrícula')}
                 <input
-                  disabled={statusDe('nr_matricula') === 'D'}
-                  className={`${inputClass('nr_matricula')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
                   value={form.nr_matricula}
-                  onChange={(e) => setForm({ ...form, nr_matricula: e.target.value })}
                 />
               </div>
 
@@ -481,7 +458,7 @@ export default function AlunoFormView({
                               <button
                                 type="button"
                                 onClick={() => onViewResponsavel?.(resp.nr_seq_responsavel)}
-                                className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                                className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                                 aria-label="Visualizar pessoa física responsável"
                               >
                                 <ViewIcon />
@@ -491,13 +468,10 @@ export default function AlunoFormView({
                               type="button"
                               onClick={() => onOpenResponsavelLookup(index)}
                               disabled={statusDe('nr_seq_responsavel') === 'D'}
-                              className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                              className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                               aria-label="Localizar pessoa física responsável"
                             >
-                              <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <circle cx="11" cy="11" r="7" />
-                                <path d="m21 21-4.3-4.3" />
-                              </svg>
+                              <SearchIcon />
                             </button>
                           </div>
                         </div>

@@ -1,0 +1,18 @@
+/** Colaborador (Estrutura Acadêmica > Colaboradores). */
+export interface Colaborador {
+  id?: string;
+  nr_sequencia: number;
+  /** Pessoa física vinculada (Identificação). */
+  nr_seq_pessoa_fisica?: number;
+  /** Pessoa jurídica vinculada (Identificação). */
+  nr_seq_pessoa_juridica?: number;
+  nr_matricula?: string;
+  dt_admissao: string;
+  ie_status?: string;
+  dt_status?: string;
+  ds_status?: string;
+  dt_criacao: string;
+  dt_alteracao: string;
+  ds_usuario_criacao?: string;
+  ds_usuario_alteracao?: string;
+}

@@ -9,7 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined } from "@/lib/firestoreUtils";
+import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 export interface CadastroGeralRecord {
@@ -123,18 +123,21 @@ export function createCadastroGeralService<T extends CadastroGeralRecord>(
         return;
       }
 
-      const dados = removerUndefined(item);
+      const { updates, removidos } = montarUpdateComRemocoes(currentData, item);
       const agora = new Date().toISOString();
       const nomeAutor = autor?.usuarioNome?.trim() || '-';
       await updateDoc(docRef, {
-        ...dados,
+        ...updates,
         dt_alteracao: agora,
         ds_usuario_alteracao: nomeAutor,
       });
 
       try {
         const auditCol = collection(db, collectionName, id, "auditoria");
-        const full = removerUndefined({ ...currentData, ...dados, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor });
+        // Estado final do documento para a auditoria (sem os campos removidos).
+        const estadoFinal: Record<string, any> = { ...currentData, ...updates, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+        for (const key of removidos) delete estadoFinal[key];
+        const full = estadoFinal;
         await addDoc(auditCol, {
           usuarioId: autor?.usuarioId ?? null,
           usuarioNome: autor?.usuarioNome ?? '-',

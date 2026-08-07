@@ -79,6 +79,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_grau_parentesco", label: "Permite adicionar" },
     { key: "ver_grau_parentesco", label: "Permite ver" },
     { key: "excluir_grau_parentesco", label: "Permite excluir" },
+    // Cargo
+    { key: "acessar_cargo", label: "Permite acessar Cargo" },
+    { key: "adicionar_cargo", label: "Permite adicionar" },
+    { key: "ver_cargo", label: "Permite ver" },
+    { key: "excluir_cargo", label: "Permite excluir" },
   ],
 };
 
@@ -139,6 +144,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     {
       titulo: 'Grau de parentesco',
       chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'excluir_grau_parentesco'],
+    },
+    {
+      titulo: 'Cargo',
+      chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
     },
   ],
 };
@@ -280,6 +289,7 @@ export function pessoaSubmodulosPermitidos(config: PermissoesConfig | undefined)
  * libera o acesso a cada um deles.
  */
 export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'cargo', label: 'Cargo', permissao: 'acessar_cargo' },
   { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
   { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco', permissao: 'acessar_grau_parentesco' },

@@ -170,12 +170,14 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
     { key: "cg_grau_parentesco.ie_status", label: "Status", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
+
+    { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
+    { key: "cg_cargo.ie_status", label: "Status", tipo: "Cargo", colecao: "cg_cargo" },
   ],
   estruturaAcademica: [
-    // Desligamento, Status e Motivo desligamento não são configuráveis (campos
-    // fixos: desabilitados no formulário e sempre Ativo/desligado por regra).
+    // Matrícula, Desligamento, Status e Motivo desligamento não são
+    // configuráveis (campos fixos: desabilitados no formulário).
     { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Aluno", colecao: "aluno" },
-    { key: "aluno.nr_matricula", label: "Matrícula", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Aluno", colecao: "aluno" },

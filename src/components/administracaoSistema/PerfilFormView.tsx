@@ -6,6 +6,7 @@ import { PERFIL_FIELD_INFOS, formatPerfilCellValue } from "@/lib/perfilUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 
 export type PerfilFormData = Omit<Perfil, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -65,7 +66,7 @@ export default function PerfilFormView({
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof PERFIL_FIELD_INFOS | null>(null);
-  const infoPopupRef = useRef<HTMLDivElement | null>(null);
+  const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
 
   function statusDe(campo: string): CampoStatus {
     return campoRegras?.[campo] ?? 'N';
@@ -95,6 +96,7 @@ export default function PerfilFormView({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              setInfoAnchor(event.currentTarget);
               setInfoPopupField((current) => (current === fieldKey ? null : fieldKey));
             }}
             aria-label={`Informações do campo ${label}`}
@@ -107,22 +109,11 @@ export default function PerfilFormView({
             </svg>
           </button>
           {infoPopupField === fieldKey && (
-            <div
-              ref={infoPopupRef}
-              className="absolute left-full bottom-0 z-10 ml-1 w-[240px] bg-white p-[10px] text-xs border border-[#ccc] shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <span
-                aria-hidden="true"
-                className="absolute left-[-4px] bottom-[6px] h-[8px] w-[8px] rotate-45 border-l border-b border-[#ccc] bg-white"
-              />
-              <div className="font-semibold text-slate-900 mb-2">Informações do campo</div>
-              <div className="space-y-1">
-                <div><span className="font-semibold">Tipo:</span> {meta.type}</div>
-                <div><span className="font-semibold">Campo:</span> {meta.field}</div>
-                <div><span className="font-semibold">Coleção:</span> {meta.collection}</div>
-              </div>
-            </div>
+            <FieldInfoPopup
+              anchor={infoAnchor}
+              meta={{ type: meta.type, field: meta.field, collection: meta.collection }}
+              onClose={() => setInfoPopupField(null)}
+            />
           )}
         </div>
       </div>
@@ -149,18 +140,7 @@ export default function PerfilFormView({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [submitting]);
 
-  useEffect(() => {
-    if (!infoPopupField) return;
-    function handleClose(event: MouseEvent) {
-      // Cliques dentro da pop-up não a fecham — permite selecionar/copiar o texto.
-      if (infoPopupRef.current && infoPopupRef.current.contains(event.target as Node)) {
-        return;
-      }
-      setInfoPopupField(null);
-    }
-    document.addEventListener('click', handleClose);
-    return () => document.removeEventListener('click', handleClose);
-  }, [infoPopupField]);
+
 
   return (
     <div className="flex-1 flex flex-col min-h-0">

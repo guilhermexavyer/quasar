@@ -7,6 +7,8 @@ import {
   applyCnpjMask,
 } from "@/lib/pessoaJuridicaUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
+import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
+import SearchIcon from "@/components/ui/SearchIcon";
 import {
   applyCepMask,
   applyDateMask,
@@ -93,7 +95,7 @@ export default function PessoaJuridicaFormView({
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof PJ_FIELD_INFOS | null>(null);
-  const infoPopupRef = useRef<HTMLDivElement | null>(null);
+  const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
   const [cepLoading, setCepLoading] = useState(false);
   const prevCepRef = useRef(form.nr_cep ?? '');
 
@@ -159,6 +161,7 @@ export default function PessoaJuridicaFormView({
             type="button"
             onClick={(event) => {
               event.stopPropagation();
+              setInfoAnchor(event.currentTarget);
               setInfoPopupField((current) => (current === fieldKey ? null : fieldKey));
             }}
             aria-label={`Informações do campo ${label}`}
@@ -171,22 +174,11 @@ export default function PessoaJuridicaFormView({
             </svg>
           </button>
           {infoPopupField === fieldKey && (
-            <div
-              ref={infoPopupRef}
-              className="absolute left-full bottom-0 z-10 ml-1 w-[240px] bg-white p-[10px] text-xs border border-[#ccc] shadow-[0_4px_10px_rgba(0,0,0,0.18)]"
-              onClick={(event) => event.stopPropagation()}
-            >
-              <span
-                aria-hidden="true"
-                className="absolute left-[-4px] bottom-[6px] h-[8px] w-[8px] rotate-45 border-l border-b border-[#ccc] bg-white"
-              />
-              <div className="font-semibold text-slate-900 mb-2">Informações do campo</div>
-              <div className="space-y-1">
-                <div><span className="font-semibold">Tipo:</span> {meta.type}</div>
-                <div><span className="font-semibold">Campo:</span> {meta.field}</div>
-                <div><span className="font-semibold">Coleção:</span> {meta.collection}</div>
-              </div>
-            </div>
+            <FieldInfoPopup
+              anchor={infoAnchor}
+              meta={{ type: meta.type, field: meta.field, collection: meta.collection }}
+              onClose={() => setInfoPopupField(null)}
+            />
           )}
         </div>
       </div>
@@ -213,18 +205,7 @@ export default function PessoaJuridicaFormView({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [submitting]);
 
-  useEffect(() => {
-    if (!infoPopupField) return;
-    function handleClose(event: MouseEvent) {
-      // Cliques dentro da pop-up não a fecham — permite selecionar/copiar o texto.
-      if (infoPopupRef.current && infoPopupRef.current.contains(event.target as Node)) {
-        return;
-      }
-      setInfoPopupField(null);
-    }
-    document.addEventListener('click', handleClose);
-    return () => document.removeEventListener('click', handleClose);
-  }, [infoPopupField]);
+
 
   // Ao informar/altera um CEP completo (8 dígitos), consulta o ViaCEP e preenche
   // Rua, Bairro, Logradouro e UF. Não busca ao abrir um registro já salvo —
@@ -546,13 +527,10 @@ export default function PessoaJuridicaFormView({
                       type="button"
                       onClick={onOpenCidadeLookup}
                       disabled={statusDe('cd_ibge_cidade') === 'D'}
-                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
+                      className="absolute right-1 top-1/2 -translate-y-1/2 inline-flex h-[34px] w-[34px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                       aria-label="Localizar cidade"
                     >
-                      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                        <circle cx="11" cy="11" r="7" />
-                        <path d="m21 21-4.3-4.3" />
-                      </svg>
+                      <SearchIcon />
                     </button>
                   </div>
                 </div>

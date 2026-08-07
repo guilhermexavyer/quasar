@@ -118,16 +118,6 @@ export default function ContextMenu({
           Duplicar
         </button>
       )}
-      {showDelete && (
-        <button
-          type="button"
-          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
-          style={{ padding: "0.2rem 0.4rem" }}
-          onClick={onDelete}
-        >
-          Excluir
-        </button>
-      )}
       {customItems?.map((item) => (
         <button
           key={item.label}
@@ -139,6 +129,16 @@ export default function ContextMenu({
           {item.label}
         </button>
       ))}
+      {showDelete && (
+        <button
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={onDelete}
+        >
+          Excluir
+        </button>
+      )}
     </div>
   );
 }

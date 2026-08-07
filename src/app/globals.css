@@ -148,6 +148,14 @@ select:disabled {
   color: #666;
 }
 
+/* Read-only lookup name fields (nome resolvido de PF, PJ, Cidade...) usam o
+   mesmo fundo dos campos desabilitados, nos dois temas. */
+input:read-only,
+textarea:read-only {
+  background-color: #ededed;
+  color: #666;
+}
+
 .button-cancel,
 .button-save {
   outline: 2px solid transparent;
@@ -281,6 +289,11 @@ select:disabled {
   background-color: #27272a !important;
   color: #71717a !important;
 }
+.dark input:read-only,
+.dark textarea:read-only {
+  background-color: #27272a !important;
+  color: #71717a !important;
+}
 
 /* Foco — borda #999 em todos os campos do sistema (modo escuro) */
 .dark input:focus,
@@ -317,6 +330,16 @@ select:disabled {
   color: #e4e4e7 !important;
   border-bottom-color: #27272a !important;
 }
+
+/* Botões de seta (registro anterior/próximo) ao lado do dropdown pai —
+   no modo escuro mantêm apenas a borda inferior. */
+.dark button[aria-label="Registro anterior"],
+.dark button[aria-label="Próximo registro"] {
+  border-top-color: transparent !important;
+  border-left-color: transparent !important;
+  border-right-color: transparent !important;
+  border-bottom-color: #777 !important;
+}
 .dark .button-cancel:focus,
 .dark .button-cancel:active,
 .dark .button-cancel:focus-visible {
@@ -350,6 +373,13 @@ select:disabled {
   border-left-color: #066fc5;
   border-right-color: #066fc5;
   border-bottom-color: #066fc5;
+}
+
+/* O gatilho do dropdown é um <button>, então a regra global input:disabled
+   não o alcança — aplica o mesmo fundo dos campos desabilitados no claro. */
+.cg-select-trigger:disabled {
+  background-color: #ededed;
+  color: #666;
 }
 
 .dark .cg-select-trigger {
@@ -480,5 +510,49 @@ select:disabled {
    vermelho das bordas dos campos obrigatórios vazios (#ef4444). */
 .dark .required-asterisk {
   color: #ef4444;
+}
+
+/* Ícones de lupa/visualizar dos campos de localização: #777 no modo claro;
+   no escuro permanecem claros como os demais ícones do sistema. */
+.icon-lookup {
+  color: #777;
+}
+.dark .icon-lookup {
+  color: #ccc !important;
+}
+
+/* Remove o outline de foco dos botões de ícone (lupa/visualizar) e dos
+   infobuttons de informação dos campos — o foco fica apenas no hover/cursor. */
+.icon-lookup:focus,
+.icon-lookup:focus-visible,
+button[aria-label^="Informações do campo"]:focus,
+button[aria-label^="Informações do campo"]:focus-visible {
+  outline: none;
+}
+
+/* ============================================================
+   MODAIS DE LOCALIZAR (LOOKUP) — PAINEL ESQUERDO/DIREITO
+   Esquerdo: #f4f4f4 no claro / #18181b no escuro. Direito: branco no
+   claro / #1f1f24 no escuro. Sem borda divisória entre os painéis.
+   ============================================================ */
+.lookup-left {
+  background-color: #f4f4f4;
+}
+.lookup-left input,
+.lookup-left .cg-select-trigger {
+  background-color: #f4f4f4;
+}
+.lookup-right {
+  background-color: #fff;
+}
+.dark .lookup-left {
+  background-color: #18181b !important;
+}
+.dark .lookup-left input,
+.dark .lookup-left .cg-select-trigger {
+  background-color: #18181b !important;
+}
+.dark .lookup-right {
+  background-color: #1f1f24 !important;
 }
 

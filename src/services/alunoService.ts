@@ -9,7 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined } from "@/lib/firestoreUtils";
+import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { Aluno } from "@/types/aluno";
 import type { AuditAutor } from "@/services/auditService";
 
@@ -118,18 +118,21 @@ export async function atualizarAluno(
     return;
   }
 
-  const dados = removerUndefined(aluno);
+  const { updates, removidos } = montarUpdateComRemocoes(currentData, aluno);
   const agora = new Date().toISOString();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
   await updateDoc(docRef, {
-    ...dados,
+    ...updates,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,
   });
 
   try {
     const auditCol = collection(db, "aluno", id, "auditoria");
-    const full = removerUndefined({ ...currentData, ...dados, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor });
+    // Estado final do documento para a auditoria (sem os campos removidos).
+    const estadoFinal: Record<string, any> = { ...currentData, ...updates, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+    for (const key of removidos) delete estadoFinal[key];
+    const full = estadoFinal;
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? '-',
