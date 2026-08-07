@@ -179,5 +179,11 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Aluno", colecao: "aluno" },
     { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_tipo_sanguineo", label: "Tipo sanguíneo", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_alergia", label: "Alergia", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_medicamento_continuo", label: "Medicamento de uso contínuo", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_restricao_alimentar", label: "Restrição alimentar", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_necessidade_especial", label: "Necessidade especial", tipo: "Aluno", colecao: "aluno" },
+    { key: "aluno.ds_observacao_medica", label: "Observações médicas", tipo: "Aluno", colecao: "aluno" },
   ],
 };

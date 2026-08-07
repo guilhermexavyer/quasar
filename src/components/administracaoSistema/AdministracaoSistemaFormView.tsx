@@ -286,7 +286,6 @@ export default function AdministracaoSistemaFormView({
                       onClick={() => onViewPessoaFisica?.(form.nr_seq_pessoa_fisica)}
                       className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
                       aria-label="Visualizar pessoa física"
-                      title="Visualizar pessoa física"
                     >
                       <ViewIcon />
                     </button>

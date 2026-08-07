@@ -18,6 +18,15 @@ export interface Aluno {
   ie_status?: string;
   /** Responsáveis do aluno (seção Responsáveis). */
   responsaveis?: AlunoResponsavel[];
+  /** Tipo sanguíneo (seção Informações médicas) — dropdown. */
+  ds_tipo_sanguineo?: string;
+  /** Informações médicas (seção Informações médicas) — listas de valores. */
+  ds_alergia?: string[];
+  ds_medicamento_continuo?: string[];
+  ds_restricao_alimentar?: string[];
+  ds_necessidade_especial?: string[];
+  /** Observações médicas — campo único (sem lista). */
+  ds_observacao_medica?: string;
   /* Campos legados (pré-responsaveis): lidos na migração para o array. */
   nr_seq_responsavel?: number;
   nr_seq_grau_parentesco?: number;

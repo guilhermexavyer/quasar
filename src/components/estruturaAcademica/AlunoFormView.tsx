@@ -10,6 +10,33 @@ import ViewIcon from "@/components/ui/ViewIcon";
 
 export type AlunoFormData = Omit<Aluno, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
+/** Campos da seção Informações médicas (cada um é uma lista de valores).
+ * Observações médicas (ds_observacao_medica) é um campo único, fora desta lista. */
+type CampoMedico =
+  | 'ds_alergia'
+  | 'ds_medicamento_continuo'
+  | 'ds_restricao_alimentar'
+  | 'ds_necessidade_especial';
+
+const CAMPOS_MEDICOS: { campo: CampoMedico; label: string }[] = [
+  { campo: 'ds_alergia', label: 'Alergia' },
+  { campo: 'ds_medicamento_continuo', label: 'Medicamento de uso contínuo' },
+  { campo: 'ds_restricao_alimentar', label: 'Restrição alimentar' },
+  { campo: 'ds_necessidade_especial', label: 'Necessidade especial' },
+];
+
+/** Opções do dropdown Tipo sanguíneo (seção Informações médicas). */
+const TIPOS_SANGUINEOS = [
+  { value: 'A+', label: 'A+' },
+  { value: 'A-', label: 'A-' },
+  { value: 'B+', label: 'B+' },
+  { value: 'B-', label: 'B-' },
+  { value: 'AB+', label: 'AB+' },
+  { value: 'AB-', label: 'AB-' },
+  { value: 'O+', label: 'O+' },
+  { value: 'O-', label: 'O-' },
+];
+
 interface FormViewProps {
   message: string;
   editingId: string | null;
@@ -119,6 +146,33 @@ export default function AlunoFormView({
       responsaveis.push({ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined });
     }
     return { ...form, responsaveis };
+  }
+
+  /** Atualiza um valor da lista de informações médicas pelo índice. */
+  function atualizarValorMedico(campo: CampoMedico, index: number, valor: string): AlunoFormData {
+    const lista = [...(form[campo] ?? [])];
+    lista[index] = valor;
+    return { ...form, [campo]: lista };
+  }
+
+  /** Adiciona um valor vazio à lista de informações médicas logo abaixo do atual. */
+  function adicionarValorMedico(campo: CampoMedico, index: number): AlunoFormData {
+    const lista = [...(form[campo] ?? [])];
+    lista.splice(index + 1, 0, '');
+    return { ...form, [campo]: lista };
+  }
+
+  /** Remove um valor da lista de informações médicas (mantém ao menos um vazio). */
+  function removerValorMedico(campo: CampoMedico, index: number): AlunoFormData {
+    const lista = [...(form[campo] ?? [])];
+    lista.splice(index, 1);
+    return { ...form, [campo]: lista.length > 0 ? lista : [''] };
+  }
+
+  /** Lista normalizada de um campo médico: sempre com ao menos um item vazio. */
+  function listaDe(campo: CampoMedico): string[] {
+    const lista = form[campo] ?? [];
+    return lista.length > 0 ? lista : [''];
   }
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
@@ -300,7 +354,6 @@ export default function AlunoFormView({
                           onClick={() => onViewPessoaFisica?.(form.nr_seq_pessoa_fisica)}
                           className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
                           aria-label="Visualizar pessoa física"
-                          title="Visualizar pessoa física"
                         >
                           <ViewIcon />
                         </button>
@@ -430,7 +483,6 @@ export default function AlunoFormView({
                                 onClick={() => onViewResponsavel?.(resp.nr_seq_responsavel)}
                                 className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer text-black disabled:cursor-default disabled:opacity-40"
                                 aria-label="Visualizar pessoa física responsável"
-                                title="Visualizar pessoa física responsável"
                               >
                                 <ViewIcon />
                               </button>
@@ -472,7 +524,6 @@ export default function AlunoFormView({
                           onClick={() => setForm(adicionarResponsavel(index))}
                           className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]"
                           aria-label={`Adicionar responsável após o ${index + 1}`}
-                          title="Adicionar responsável"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                             <path d="M12 5v14" />
@@ -485,7 +536,6 @@ export default function AlunoFormView({
                           disabled={(form.responsaveis ?? []).length <= 1}
                           className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
                           aria-label={`Remover responsável ${index + 1}`}
-                          title="Remover responsável"
                         >
                           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                             <path d="M5 12h14" />
@@ -499,6 +549,85 @@ export default function AlunoFormView({
               {(form.responsaveis ?? []).length === 0 && (
                 <p className="text-sm text-slate-500">Nenhum responsável cadastrado.</p>
               )}
+            </div>
+          </section>
+
+          {/* ── Informações médicas ── */}
+          <section>
+            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Informações médicas</h2>
+            <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+              {/* Tipo sanguíneo — dropdown acima de Alergia e Medicamento. */}
+              <div className="sm:col-span-12 group">
+                {renderFieldLabel('ds_tipo_sanguineo', 'Tipo sanguíneo')}
+                <Select
+                  disabled={statusDe('ds_tipo_sanguineo') === 'D'}
+                  error={campoErros.includes('ds_tipo_sanguineo')}
+                  value={form.ds_tipo_sanguineo ?? ''}
+                  onChange={(v) => setForm({ ...form, ds_tipo_sanguineo: v })}
+                  options={TIPOS_SANGUINEOS}
+                  visibleOptions={5}
+                  showPlaceholder
+                />
+              </div>
+
+              {CAMPOS_MEDICOS.map((cfg) => {
+                const desabilitado = statusDe(cfg.campo) === 'D';
+                const erroMedico = campoErros.includes(cfg.campo) && listaDe(cfg.campo).every((v) => v.trim() === '');
+                return (
+                  <div key={cfg.campo} className="sm:col-span-6 group">
+                    {renderFieldLabel(cfg.campo, cfg.label)}
+                    <div className="space-y-[8px]">
+                      {listaDe(cfg.campo).map((valor, index) => (
+                        <div key={index} className="flex items-center gap-1">
+                          <div className="flex-1 min-w-0">
+                            <input
+                              disabled={desabilitado}
+                              className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${erroMedico ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                              value={valor}
+                              onChange={(e) => setForm(atualizarValorMedico(cfg.campo, index, e.target.value))}
+                            />
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setForm(adicionarValorMedico(cfg.campo, index))}
+                            disabled={desabilitado}
+                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
+                            aria-label={`Adicionar ${cfg.label} após o ${index + 1}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <path d="M12 5v14" />
+                              <path d="M5 12h14" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setForm(removerValorMedico(cfg.campo, index))}
+                            disabled={desabilitado || listaDe(cfg.campo).length <= 1}
+                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
+                            aria-label={`Remover ${cfg.label} ${index + 1}`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                              <path d="M5 12h14" />
+                            </svg>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                );
+              })}
+
+              {/* Observações médicas — campo único, sem adicionar/remover. */}
+              <div className="sm:col-span-12 group">
+                {renderFieldLabel('ds_observacao_medica', 'Observações médicas')}
+                <textarea
+                  rows={3}
+                  disabled={statusDe('ds_observacao_medica') === 'D'}
+                  className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none ${campoErros.includes('ds_observacao_medica') ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  value={form.ds_observacao_medica ?? ''}
+                  onChange={(e) => setForm({ ...form, ds_observacao_medica: e.target.value })}
+                />
+              </div>
             </div>
           </section>
         </div>

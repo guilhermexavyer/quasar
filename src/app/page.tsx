@@ -287,7 +287,32 @@ const emptyAlunoForm: AlunoFormData = {
   ds_status: "",
   ie_status: 'A',
   responsaveis: [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }],
+  ds_tipo_sanguineo: '',
+  ds_alergia: [],
+  ds_medicamento_continuo: [],
+  ds_restricao_alimentar: [],
+  ds_necessidade_especial: [],
+  ds_observacao_medica: "",
 };
+
+/** Chaves da seção Informações médicas com lista de valores (Observações
+ * médicas é campo único e fica de fora). */
+const CAMPOS_MEDICOS_ALUNO = [
+  'ds_alergia',
+  'ds_medicamento_continuo',
+  'ds_restricao_alimentar',
+  'ds_necessidade_especial',
+] as const;
+
+/** Extrai os valores preenchidos das listas de informações médicas (descarta vazios). */
+function filtroValoresMedicos(aluno: Partial<Aluno>): Record<string, string[]> {
+  const result: Record<string, string[]> = {};
+  for (const campo of CAMPOS_MEDICOS_ALUNO) {
+    const lista = aluno[campo];
+    result[campo] = Array.isArray(lista) ? lista.filter((v) => v && v.trim() !== '') : [];
+  }
+  return result;
+}
 
 /** Converte um aluno salvo para o formato responsaveis[] (migra campos legados). */
 function migrarResponsaveis(aluno: Aluno): AlunoResponsavel[] {
@@ -2342,6 +2367,12 @@ export default function Home() {
       ds_status: aluno.ds_status ?? '',
       ie_status: aluno.ie_status ?? 'A',
       responsaveis: migrarResponsaveis(aluno),
+      ds_tipo_sanguineo: aluno.ds_tipo_sanguineo ?? '',
+      ds_alergia: Array.isArray(aluno.ds_alergia) ? [...aluno.ds_alergia] : [],
+      ds_medicamento_continuo: Array.isArray(aluno.ds_medicamento_continuo) ? [...aluno.ds_medicamento_continuo] : [],
+      ds_restricao_alimentar: Array.isArray(aluno.ds_restricao_alimentar) ? [...aluno.ds_restricao_alimentar] : [],
+      ds_necessidade_especial: Array.isArray(aluno.ds_necessidade_especial) ? [...aluno.ds_necessidade_especial] : [],
+      ds_observacao_medica: aluno.ds_observacao_medica ?? '',
     });
     setAlunoEditingId(aluno.id ?? null);
     setAlunoAuditInfo({
@@ -3052,7 +3083,11 @@ export default function Home() {
     setAlunoCampoErros([]);
     setAlunoSubmitting(true);
 
-    const payloadAluno = { ...alunoForm, responsaveis: responsaveisFiltrados };
+    const payloadAluno = {
+      ...alunoForm,
+      responsaveis: responsaveisFiltrados,
+      ...filtroValoresMedicos(alunoForm),
+    };
 
     try {
       if (alunoEditingId) {
@@ -3064,6 +3099,8 @@ export default function Home() {
           'dt_status',
           'ds_status',
           'ie_status',
+          'ds_observacao_medica',
+          'ds_tipo_sanguineo',
         ];
         const responsaveisAtuais = migrarResponsaveis(currentAluno ?? ({} as Aluno)).filter(
           (r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco
@@ -3071,8 +3108,11 @@ export default function Home() {
         const responsaveisForm = (alunoForm.responsaveis ?? []).filter((r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco);
         const responsaveisMudaram =
           JSON.stringify(responsaveisAtuais) !== JSON.stringify(responsaveisForm);
+        const medicasMudaram =
+          JSON.stringify(filtroValoresMedicos(currentAluno ?? ({} as Aluno))) !==
+          JSON.stringify(filtroValoresMedicos(alunoForm));
         const hasChanges = currentAluno
-          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? '')) || responsaveisMudaram
+          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? '')) || responsaveisMudaram || medicasMudaram
           : true;
 
         if (!hasChanges) {
@@ -7154,6 +7194,12 @@ export default function Home() {
               'dt_status',
               'ds_status',
               'responsaveis',
+              'ds_tipo_sanguineo',
+              'ds_alergia',
+              'ds_medicamento_continuo',
+              'ds_restricao_alimentar',
+              'ds_necessidade_especial',
+              'ds_observacao_medica',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -7228,6 +7274,12 @@ export default function Home() {
                       dt_status: 'Data do status',
                       ds_status: 'Motivo do status',
                       responsaveis: 'Responsáveis',
+                      ds_tipo_sanguineo: 'Tipo sanguíneo',
+                      ds_alergia: 'Alergia',
+                      ds_medicamento_continuo: 'Medicamento de uso contínuo',
+                      ds_restricao_alimentar: 'Restrição alimentar',
+                      ds_necessidade_especial: 'Necessidade especial',
+                      ds_observacao_medica: 'Observações médicas',
                       ds_sexo: 'Descrição',
                       ds_estado_civil: 'Descrição',
                       ds_cor_raca: 'Descrição',
@@ -7272,6 +7324,13 @@ export default function Home() {
                             const grau = r.nr_seq_grau_parentesco ? (nomeGrau[r.nr_seq_grau_parentesco] ?? '') : '';
                             return grau ? `${nome} (${grau})` : nome;
                           })
+                          .join('\n');
+                      }
+                      // Informações médicas e demais arrays de strings: um valor por linha.
+                      if (Array.isArray(normalized)) {
+                        return (normalized as unknown[])
+                          .filter((v) => v !== null && v !== undefined && String(v).trim() !== '')
+                          .map((v) => String(v))
                           .join('\n');
                       }
                       return String(normalized);
