@@ -27,6 +27,7 @@ export interface Usuario {
   config_colunas_cg_logradouro?: string;
   config_colunas_cg_grau_parentesco?: string;
   config_colunas_cg_cargo?: string;
+  config_colunas_cg_vinculo_contratual?: string;
   config_ordem_menu_lateral?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;

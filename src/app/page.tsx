@@ -82,6 +82,12 @@ import {
   obterCargos,
   atualizarCargo,
 } from "@/services/cargoService";
+import {
+  criarVinculoContratual,
+  excluirVinculoContratual,
+  obterVinculosContratuais,
+  atualizarVinculoContratual,
+} from "@/services/vinculoContratualService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -164,6 +170,7 @@ import type { OrgaoEmissor } from "@/types/orgaoEmissor";
 import type { Logradouro } from "@/types/logradouro";
 import type { GrauParentesco } from "@/types/grauParentesco";
 import type { Cargo } from "@/types/cargo";
+import type { VinculoContratual } from "@/types/vinculoContratual";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
 import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
@@ -172,6 +179,7 @@ import { ORGAO_EMISSOR_COLUMNS, ORGAO_EMISSOR_FIELD_INFOS } from "@/lib/orgaoEmi
 import { LOGRADOURO_COLUMNS, LOGRADOURO_FIELD_INFOS } from "@/lib/logradouroUtils";
 import { GRAU_PARENTESCO_COLUMNS, GRAU_PARENTESCO_FIELD_INFOS } from "@/lib/grauParentescoUtils";
 import { CARGO_COLUMNS, CARGO_FIELD_INFOS } from "@/lib/cargoUtils";
+import { VINCULO_CONTRATUAL_COLUMNS, VINCULO_CONTRATUAL_FIELD_INFOS } from "@/lib/vinculoContratualUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -284,6 +292,7 @@ const CG_SELECT_OPTIONS = [
   { value: 'orgaoEmissor', label: 'Órgão emissor' },
   { value: 'profissao', label: 'Profissão' },
   { value: 'sexo', label: 'Sexo' },
+  { value: 'vinculoContratual', label: 'Vínculo contratual' },
 ];
 
 /* Opções do dropdown da função Pessoas Físicas / Pessoas Jurídicas */
@@ -409,7 +418,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -650,7 +659,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -684,6 +693,7 @@ export default function Home() {
   const [logradouros, setLogradouros] = useState<Logradouro[]>([]);
   const [grausParentesco, setGrausParentesco] = useState<GrauParentesco[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
+  const [vinculosContratuais, setVinculosContratuais] = useState<VinculoContratual[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -967,6 +977,7 @@ export default function Home() {
     // Chave de seção (dropdown) → sufixo usado nas chaves de permissão (snake_case).
     const secoes: Record<string, string> = {
       cargo: 'cargo',
+      vinculoContratual: 'vinculo_contratual',
       sexo: 'sexo',
       estadoCivil: 'estado_civil',
       corRaca: 'cor_raca',
@@ -990,7 +1001,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // O administrador tem acesso total.
-    if (isAdministrador) return ['cargo', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'profissao', 'orgaoEmissor', 'logradouro'];
+    if (isAdministrador) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'profissao', 'orgaoEmissor', 'logradouro'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1166,9 +1177,18 @@ export default function Home() {
       items: (): CgItem[] => cargos,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um cargo.',
     },
+    vinculoContratual: {
+      descKey: 'ds_vinculo_contratual',
+      collection: 'cg_vinculo_contratual',
+      configKey: 'config_colunas_cg_vinculo_contratual',
+      columns: VINCULO_CONTRATUAL_COLUMNS,
+      fieldInfos: VINCULO_CONTRATUAL_FIELD_INFOS,
+      items: (): CgItem[] => vinculosContratuais,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um vínculo contratual.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -1413,6 +1433,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadVinculosContratuais = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterVinculosContratuais();
+      setVinculosContratuais(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -1424,6 +1456,8 @@ export default function Home() {
       await loadGrausParentesco();
     } else if (cgKind === 'cargo') {
       await loadCargos();
+    } else if (cgKind === 'vinculoContratual') {
+      await loadVinculosContratuais();
     } else if (cgKind === 'profissao') {
       await loadProfissoes();
     } else if (cgKind === 'logradouro') {
@@ -1431,7 +1465,7 @@ export default function Home() {
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -1445,10 +1479,11 @@ export default function Home() {
     loadLogradouros();
     loadGrausParentesco();
     loadCargos();
+    loadVinculosContratuais();
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -1966,7 +2001,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -3802,6 +3837,8 @@ export default function Home() {
           await atualizarGrauParentesco(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'cargo') {
           await atualizarCargo(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'vinculoContratual') {
+          await atualizarVinculoContratual(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -3821,6 +3858,8 @@ export default function Home() {
           await criarGrauParentesco(payload as any, auditAutor);
         } else if (cgKind === 'cargo') {
           await criarCargo(payload as any, auditAutor);
+        } else if (cgKind === 'vinculoContratual') {
+          await criarVinculoContratual(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -4717,6 +4756,8 @@ export default function Home() {
         await excluirGrauParentesco(id);
       } else if (cgKind === 'cargo') {
         await excluirCargo(id);
+      } else if (cgKind === 'vinculoContratual') {
+        await excluirVinculoContratual(id);
       } else if (cgKind === 'profissao') {
         await excluirProfissao(id);
       } else if (cgKind === 'logradouro') {
@@ -5063,7 +5104,7 @@ export default function Home() {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
             } else {
-              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo);
+              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual);
             }
             setContextMenu(null);
           }}
@@ -5177,7 +5218,7 @@ export default function Home() {
                 }
               }
             } else {
-              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo;
+              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual;
               if (cg.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${cg.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleCgDelete(cg.id as string));
@@ -5645,7 +5686,7 @@ export default function Home() {
                 />
               )
             ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
                 <CadastroGeralListView
                   key={cgManageSelection}
                   loading={loading}
@@ -7760,7 +7801,7 @@ export default function Home() {
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -7833,7 +7874,7 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               'ie_status',
               'dt_criacao',

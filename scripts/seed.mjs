@@ -147,6 +147,13 @@ const CARGOS = [
   "Zelador(a)",
 ];
 
+/* Vínculos contratuais (forma de contratação de colaboradores). */
+const VINCULOS_CONTRATUAIS = [
+  "CLT",
+  "Estágio",
+  "Prestador de Serviço",
+];
+
 /* Órgãos emissores de documentos de identificação no Brasil
    (RG, CTPS, CNH, passaporte, registros profissionais etc.).
    Cada item é { sg_orgao_emissor, ds_orgao_emissor } — a sigla fica em
@@ -700,6 +707,7 @@ const COLECOES = [
   { nome: "cg_cor_raca",       contador: "cg_cor_raca_sequence",       campo: "ds_cor_raca",       valores: CORES_RACAS },
   { nome: "cg_grau_parentesco", contador: "cg_grau_parentesco_sequence", campo: "ds_grau_parentesco", valores: GRAUS_PARENTESCO },
   { nome: "cg_cargo",          contador: "cg_cargo_sequence",           campo: "ds_cargo",          valores: CARGOS },
+  { nome: "cg_vinculo_contratual", contador: "cg_vinculo_contratual_sequence", campo: "ds_vinculo_contratual", valores: VINCULOS_CONTRATUAIS },
   // O CBO é gravado sem máscara (apenas dígitos). O replace abaixo é uma
   // salvaguarda extra caso o mapa venha a receber um valor com formatação.
   { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },

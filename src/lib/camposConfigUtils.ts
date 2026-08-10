@@ -173,6 +173,9 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
     { key: "cg_cargo.ie_status", label: "Status", tipo: "Cargo", colecao: "cg_cargo" },
+
+    { key: "cg_vinculo_contratual.ds_vinculo_contratual", label: "Descrição", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
+    { key: "cg_vinculo_contratual.ie_status", label: "Status", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
   ],
   estruturaAcademica: [
     // Matrícula, Desligamento, Status e Motivo desligamento não são

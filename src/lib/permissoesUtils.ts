@@ -84,6 +84,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_cargo", label: "Permite adicionar" },
     { key: "ver_cargo", label: "Permite ver" },
     { key: "excluir_cargo", label: "Permite excluir" },
+    // Vínculo contratual
+    { key: "acessar_vinculo_contratual", label: "Permite acessar Vínculo contratual" },
+    { key: "adicionar_vinculo_contratual", label: "Permite adicionar" },
+    { key: "ver_vinculo_contratual", label: "Permite ver" },
+    { key: "excluir_vinculo_contratual", label: "Permite excluir" },
   ],
 };
 
@@ -149,6 +154,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Cargo',
       chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
     },
+    {
+      titulo: 'Vínculo contratual',
+      chaves: ['acessar_vinculo_contratual', 'adicionar_vinculo_contratual', 'ver_vinculo_contratual', 'excluir_vinculo_contratual'],
+    },
   ],
 };
 
@@ -180,7 +189,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 2;
+export const PERMISSOES_CONFIG_VERSION = 3;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -297,6 +306,7 @@ export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'orgaoEmissor', label: 'Órgão emissor', permissao: 'acessar_orgao_emissor' },
   { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
   { value: 'sexo', label: 'Sexo', permissao: 'acessar_sexo' },
+  { value: 'vinculoContratual', label: 'Vínculo contratual', permissao: 'acessar_vinculo_contratual' },
 ];
 
 /**
