@@ -6,6 +6,8 @@ export interface Colaborador {
   nr_seq_pessoa_fisica?: number;
   /** Pessoa jurídica vinculada (Identificação). */
   nr_seq_pessoa_juridica?: number;
+  /** Vínculo contratual (Cadastros Gerais > Vínculo contratual). */
+  nr_seq_vinculo_contratual?: number;
   nr_matricula?: string;
   dt_admissao: string;
   ie_status?: string;

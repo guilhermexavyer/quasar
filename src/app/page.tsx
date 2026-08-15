@@ -329,6 +329,7 @@ const emptyAlunoForm: AlunoFormData = {
 const emptyColaboradorForm: ColaboradorFormData = {
   nr_seq_pessoa_fisica: undefined,
   nr_seq_pessoa_juridica: undefined,
+  nr_seq_vinculo_contratual: undefined,
   nr_matricula: "",
   dt_admissao: "",
   dt_status: "",
@@ -1263,6 +1264,12 @@ export default function Home() {
       usuarioNome: currentUserPersonName || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "-",
     };
   }, [currentUser, currentUserPersonName]);
+
+  /* ── Opções de Cadastros Gerais para o dropdown de Vínculo contratual (Colaborador) ── */
+  const colaboradorVinculosOptions = useMemo(
+    () => vinculosContratuais.map((v) => ({ nr_sequencia: v.nr_sequencia, descricao: v.ds_vinculo_contratual, ie_status: v.ie_status })),
+    [vinculosContratuais]
+  );
 
   /* ── Opções de Cadastros Gerais para os dropdowns de Pessoa Física ── */
   const pfCgOptions = useMemo(
@@ -2647,6 +2654,7 @@ export default function Home() {
     setColaboradorForm({
       nr_seq_pessoa_fisica: colaborador.nr_seq_pessoa_fisica,
       nr_seq_pessoa_juridica: colaborador.nr_seq_pessoa_juridica,
+      nr_seq_vinculo_contratual: colaborador.nr_seq_vinculo_contratual,
       nr_matricula: colaborador.nr_matricula ?? '',
       dt_admissao: colaborador.dt_admissao ?? '',
       dt_status: colaborador.dt_status ?? '',
@@ -3492,6 +3500,7 @@ export default function Home() {
         const formKeys: Array<keyof ColaboradorFormData> = [
           'nr_seq_pessoa_fisica',
           'nr_seq_pessoa_juridica',
+          'nr_seq_vinculo_contratual',
           'nr_matricula',
           'dt_admissao',
         ];
@@ -6055,6 +6064,7 @@ export default function Home() {
                   pessoaJuridicaName={selectedColaboradorPessoaJuridicaName}
                   onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
                   onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
+                  vinculosContratuais={colaboradorVinculosOptions}
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
                   onManageSelectionChange={handleAlunoManageSelectionChange}
@@ -6678,11 +6688,11 @@ export default function Home() {
                       key={section}
                       role="button"
                       tabIndex={0}
-                      onClick={() => delegateFuncoesPerfil && openPermissoesModal(delegateFuncoesPerfil, section)}
+                      onClick={() => toggleDelegateFuncao(section)}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault();
-                          if (delegateFuncoesPerfil) openPermissoesModal(delegateFuncoesPerfil, section);
+                          toggleDelegateFuncao(section);
                         }
                       }}
                       className="flex cursor-pointer border bg-white transition focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
@@ -6700,20 +6710,41 @@ export default function Home() {
                         <div className="min-w-0 flex-1 text-sm truncate text-[#444]">{SECTION_DEFS[section].label}</div>
                         <button
                           type="button"
-                          role="switch"
-                          aria-checked={enabled}
                           onClick={(e) => {
-                            // O clique no switch só liga/desliga a função,
-                            // sem abrir o modal de permissões.
+                            // O clique no ícone abre o modal de permissões da
+                            // função, sem marcar/desmarcar a função.
                             e.stopPropagation();
-                            toggleDelegateFuncao(section);
+                            if (delegateFuncoesPerfil) openPermissoesModal(delegateFuncoesPerfil, section);
                           }}
-                          className={`flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full p-[2px] transition-colors duration-300 ${enabled ? 'bg-[#2cc958]' : 'bg-[#bbb]'}`}
+                          className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[3px] text-[#bbb] hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                          aria-label={`Permissões da função ${SECTION_DEFS[section].label}`}
                         >
-                          <span
-                            className={`flex h-3 w-3 items-center justify-center rounded-full bg-white shadow transition-transform duration-300 ease-out ${enabled ? 'translate-x-3' : 'translate-x-0'}`}
-                          />
+                          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                            <line x1="21" x2="14" y1="4" y2="4" />
+                            <line x1="10" x2="3" y1="4" y2="4" />
+                            <line x1="21" x2="12" y1="12" y2="12" />
+                            <line x1="8" x2="3" y1="12" y2="12" />
+                            <line x1="21" x2="16" y1="20" y2="20" />
+                            <line x1="12" x2="3" y1="20" y2="20" />
+                            <line x1="14" x2="14" y1="2" y2="6" />
+                            <line x1="8" x2="8" y1="10" y2="14" />
+                            <line x1="16" x2="16" y1="18" y2="22" />
+                          </svg>
                         </button>
+                        <label
+                          className="flex shrink-0 cursor-pointer items-center"
+                          onClick={(e) => {
+                            // O clique no checkbox só liga/desliga a função.
+                            e.stopPropagation();
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={enabled}
+                            onChange={() => toggleDelegateFuncao(section)}
+                            className="cg-checkbox"
+                          />
+                        </label>
                       </div>
                     </div>
                   );
@@ -6790,7 +6821,10 @@ export default function Home() {
                     </label>
                   );
                 };
-                const grupos = PERMISSOES_GRUPOS[permissoesFuncao] ?? [];
+                // Seções em ordem alfabética pelo título (igual ao Detalhe da auditoria).
+                const grupos = [...(PERMISSOES_GRUPOS[permissoesFuncao] ?? [])].sort((a, b) =>
+                  a.titulo.localeCompare(b.titulo, 'pt-BR')
+                );
                 if (grupos.length > 0) {
                   return (
                     <div className="grid gap-4">
@@ -6888,17 +6922,14 @@ export default function Home() {
                       >
                         <div className="flex w-full items-center justify-between">
                           <div className="text-sm truncate text-slate-900">{perfil.ds_perfil}</div>
-                          <button
-                            type="button"
-                            role="switch"
-                            aria-checked={enabled}
-                            onClick={() => toggleDelegatePerfil(perfil.nr_sequencia)}
-                            className={`flex h-4 w-7 shrink-0 cursor-pointer items-center rounded-full p-[2px] transition-colors duration-300 ${enabled ? 'bg-[#2cc958]' : 'bg-[#bbb]'}`}
-                          >
-                            <span
-                              className={`flex h-3 w-3 items-center justify-center rounded-full bg-white shadow transition-transform duration-300 ease-out ${enabled ? 'translate-x-3' : 'translate-x-0'}`}
+                          <label className="flex shrink-0 cursor-pointer items-center">
+                            <input
+                              type="checkbox"
+                              checked={enabled}
+                              onChange={() => toggleDelegatePerfil(perfil.nr_sequencia)}
+                              className="cg-checkbox"
                             />
-                          </button>
+                          </label>
                         </div>
                       </div>
                     );

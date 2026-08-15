@@ -475,9 +475,10 @@ textarea:read-only {
   background-color: #18181b;
   border-color: #3f3f46;
 }
-.dark .cg-checkbox:checked {
-  background-color: #066fc5;
-  border-color: #066fc5;
+.dark .cg-checkbox:checked,
+.dark input[type="checkbox"]:checked {
+  background-color: #066fc5 !important;
+  border-color: #066fc5 !important;
 }
 
 /* ============================================================

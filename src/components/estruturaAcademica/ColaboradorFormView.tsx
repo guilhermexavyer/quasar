@@ -40,6 +40,8 @@ interface FormViewProps {
   onOpenPessoaJuridicaLookup: () => void;
   /** Abre o modal de visualização da pessoa jurídica (Identificação). */
   onViewPessoaJuridica?: (nrSequencia: number | undefined) => void;
+  /** Opções de Cadastros Gerais > Vínculo contratual. */
+  vinculosContratuais?: { nr_sequencia: number; descricao: string; ie_status?: string }[];
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -75,6 +77,7 @@ export default function ColaboradorFormView({
   pessoaJuridicaName,
   onOpenPessoaJuridicaLookup,
   onViewPessoaJuridica,
+  vinculosContratuais = [],
   selectOptions,
   manageSelection,
   onManageSelectionChange,
@@ -94,6 +97,16 @@ export default function ColaboradorFormView({
     return campoErros.includes(campo)
       ? `${base} border-red-500`
       : `${base} border-slate-300`;
+  }
+
+  // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
+  // (status 'I' em Cadastros Gerais) são ocultados, e a lista é ordenada
+  // alfabeticamente pela descrição.
+  function cgOptions(options: { nr_sequencia: number; descricao: string; ie_status?: string }[]): { nr_sequencia: number; descricao: string }[] {
+    return options
+      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => op && typeof op.descricao === 'string' && op.descricao.trim() !== '')
+      .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
 
   // Quando um dos campos de pessoa (física ou jurídica) está preenchido,
@@ -328,53 +341,66 @@ export default function ColaboradorFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_matricula', 'Matrícula')}
-                <input
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  value={form.nr_matricula ?? ''}
-                />
-              </div>
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-5">
+                <div className="group">
+                  {renderFieldLabel('nr_seq_vinculo_contratual', 'Vínculo contratual')}
+                  <Select
+                    disabled={statusDe('nr_seq_vinculo_contratual') === 'D'}
+                    error={campoErros.includes('nr_seq_vinculo_contratual')}
+                    value={form.nr_seq_vinculo_contratual ? String(form.nr_seq_vinculo_contratual) : ''}
+                    onChange={(v) => setForm({ ...form, nr_seq_vinculo_contratual: v ? Number(v) : undefined })}
+                    options={cgOptions(vinculosContratuais).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  />
+                </div>
 
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('dt_admissao', 'Data de admissão')}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD/MM/AAAA"
-                  disabled={!!editingId || statusDe('dt_admissao') === 'D'}
-                  className={`${inputClass('dt_admissao', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.dt_admissao}
-                  onChange={(e) => setForm({ ...form, dt_admissao: applyDateMask(e.target.value) })}
-                />
-              </div>
+                <div className="group">
+                  {renderFieldLabel('nr_matricula', 'Matrícula')}
+                  <input
+                    disabled
+                    className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                    value={form.nr_matricula ?? ''}
+                  />
+                </div>
 
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('ie_status', 'Status')}
-                <Select
-                  disabled
-                  error={campoErros.includes('ie_status')}
-                  value={form.ie_status ?? 'A'}
-                  onChange={(v) => setForm({ ...form, ie_status: v })}
-                  options={STATUS_OPTIONS}
-                  showPlaceholder={false}
-                />
-              </div>
+                <div className="group">
+                  {renderFieldLabel('dt_admissao', 'Data de admissão')}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="DD/MM/AAAA"
+                    disabled={!!editingId || statusDe('dt_admissao') === 'D'}
+                    className={`${inputClass('dt_admissao', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                    value={form.dt_admissao}
+                    onChange={(e) => setForm({ ...form, dt_admissao: applyDateMask(e.target.value) })}
+                  />
+                </div>
 
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('dt_status', 'Data do status')}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD/MM/AAAA"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none placeholder:text-[#aaa] disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  value={form.dt_status ?? ''}
-                  onChange={(e) => setForm({ ...form, dt_status: applyDateMask(e.target.value) })}
-                />
+                <div className="group">
+                  {renderFieldLabel('ie_status', 'Status')}
+                  <Select
+                    disabled
+                    error={campoErros.includes('ie_status')}
+                    value={form.ie_status ?? 'A'}
+                    onChange={(v) => setForm({ ...form, ie_status: v })}
+                    options={STATUS_OPTIONS}
+                    showPlaceholder={false}
+                  />
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('dt_status', 'Data do status')}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="DD/MM/AAAA"
+                    disabled
+                    className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none placeholder:text-[#aaa] disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                    value={form.dt_status ?? ''}
+                    onChange={(e) => setForm({ ...form, dt_status: applyDateMask(e.target.value) })}
+                  />
+                </div>
               </div>
 
               <div className="sm:col-span-12 group">

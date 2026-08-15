@@ -149,12 +149,20 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   ],
   cadastrosGerais: [
     {
+      titulo: 'Cargo',
+      chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
+    },
+    {
       titulo: 'Cor/Raça',
       chaves: ['acessar_cor_raca', 'adicionar_cor_raca', 'ver_cor_raca', 'excluir_cor_raca'],
     },
     {
       titulo: 'Estado civil',
       chaves: ['acessar_estado_civil', 'adicionar_estado_civil', 'ver_estado_civil', 'excluir_estado_civil'],
+    },
+    {
+      titulo: 'Grau de parentesco',
+      chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'excluir_grau_parentesco'],
     },
     {
       titulo: 'Logradouro',
@@ -171,14 +179,6 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     {
       titulo: 'Sexo',
       chaves: ['acessar_sexo', 'adicionar_sexo', 'ver_sexo', 'excluir_sexo'],
-    },
-    {
-      titulo: 'Grau de parentesco',
-      chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'excluir_grau_parentesco'],
-    },
-    {
-      titulo: 'Cargo',
-      chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
     },
     {
       titulo: 'Vínculo contratual',
