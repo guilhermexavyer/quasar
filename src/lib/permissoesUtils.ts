@@ -43,6 +43,22 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "ver_pessoa_juridica", label: "Permite ver" },
     { key: "excluir_pessoa_juridica", label: "Permite excluir" },
   ],
+  estruturaAcademica: [
+    // Alunos
+    { key: "acessar_aluno", label: "Permite acessar Alunos" },
+    { key: "adicionar_aluno", label: "Permite adicionar" },
+    { key: "ver_aluno", label: "Permite ver" },
+    { key: "alterar_data_ingresso_aluno", label: "Permite alterar data de ingresso" },
+    { key: "alterar_status_aluno", label: "Permite alterar status" },
+    { key: "excluir_aluno", label: "Permite excluir" },
+    // Colaboradores
+    { key: "acessar_colaborador", label: "Permite acessar Colaboradores" },
+    { key: "adicionar_colaborador", label: "Permite adicionar" },
+    { key: "ver_colaborador", label: "Permite ver" },
+    { key: "alterar_data_admissao_colaborador", label: "Permite alterar data de admissão" },
+    { key: "alterar_status_colaborador", label: "Permite alterar status" },
+    { key: "excluir_colaborador", label: "Permite excluir" },
+  ],
   cadastrosGerais: [
     // Cor/Raça
     { key: "acessar_cor_raca", label: "Permite acessar Cor/Raça" },
@@ -121,6 +137,16 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_pessoa_juridica', 'adicionar_pessoa_juridica', 'ver_pessoa_juridica', 'excluir_pessoa_juridica'],
     },
   ],
+  estruturaAcademica: [
+    {
+      titulo: 'Alunos',
+      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'excluir_aluno'],
+    },
+    {
+      titulo: 'Colaboradores',
+      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
+    },
+  ],
   cadastrosGerais: [
     {
       titulo: 'Cor/Raça',
@@ -180,6 +206,15 @@ export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: strin
   { value: 'pessoasJuridicas', label: 'Pessoas Jurídicas', permissao: 'acessar_pessoa_juridica' },
 ];
 
+/**
+ * Submódulos da função Estrutura Acadêmica (dropdown PAI) e a permissão
+ * que libera o acesso a cada um deles.
+ */
+export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
+  { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
+];
+
 /** Configuração de permissões: `funcao` → lista de chaves de permissão concedidas. */
 export type PermissoesConfig = Record<string, string[]>;
 
@@ -189,7 +224,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 3;
+export const PERMISSOES_CONFIG_VERSION = 4;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -291,6 +326,19 @@ export function pessoaSubmodulosPermitidos(config: PermissoesConfig | undefined)
   if (!salvos) return PESSOA_SUBMODULOS.map((s) => s.value);
   // Configuração salva (mesmo vazia): libera apenas o que está marcado.
   return PESSOA_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
+}
+
+/**
+ * Valores do dropdown PAI da função Estrutura Acadêmica (Alunos /
+ * Colaboradores) liberados conforme as permissões salvas. Sem configuração
+ * (lista vazia) = tudo liberado (comportamento padrão).
+ */
+export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
+  const salvos = config?.["estruturaAcademica"];
+  // Sem configuração salva para a função: comportamento padrão (tudo liberado).
+  if (!salvos) return EA_SUBMODULOS.map((s) => s.value);
+  // Configuração salva (mesmo vazia): libera apenas o que está marcado.
+  return EA_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
 }
 
 /**

@@ -608,6 +608,7 @@ export default function AlunoFormView({
 
         <div className="mt-auto pt-4">
           <div className="flex items-center justify-between gap-3">
+            {editingId && (
             <div className="text-[13px] text-slate-500">
               <div className="relative group flex items-center gap-2">
                 <span>Criado por {createdBy || '-'} em {createdAt ? formatDate(createdAt) : '-'}</span>
@@ -640,7 +641,8 @@ export default function AlunoFormView({
                 </button>
               </div>
             </div>
-            <div className="flex items-center justify-end gap-3">
+            )}
+            <div className="flex items-center justify-end gap-3 ml-auto">
               <button
                 type="button"
                 onClick={goToList}

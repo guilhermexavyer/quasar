@@ -105,7 +105,7 @@ import {
 } from "@/lib/pessoaFisicaUtils";
 import { PJ_COLUMNS, applyCnpjMask } from "@/lib/pessoaJuridicaUtils";
 import { ALUNO_COLUMNS, formatCellValue as formatAlunoCellValue } from "@/lib/alunoUtils";
-import { COLABORADOR_COLUMNS, formatCellValue as formatColaboradorCellValue } from "@/lib/colaboradorUtils";
+import { COLABORADOR_COLUMNS, STATUS_OPTIONS, formatCellValue as formatColaboradorCellValue } from "@/lib/colaboradorUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import {
   parseColunasConfig,
@@ -148,6 +148,7 @@ import {
   adminSubmodulosPermitidos,
   pessoaSubmodulosPermitidos,
   cgSubmodulosPermitidos,
+  eaSubmodulosPermitidos,
   temPermissao,
 } from "@/lib/permissoesUtils";
 import type { PermissaoDef } from "@/lib/permissoesUtils";
@@ -674,6 +675,15 @@ export default function Home() {
   const [loginWarning, setLoginWarning] = useState<string | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
   const [view, setView] = useState<ViewType>("list");
+  // Lembra em que tela (lista ou formulário) o usuário estava em cada função do
+  // menu lateral, para restaurar ao voltar — mesma tela de antes da navegação.
+  const [sectionViews, setSectionViews] = useState<Partial<Record<SectionType, ViewType>>>({});
+  useEffect(() => {
+    setSectionViews((prev) => {
+      if (prev[activeSection] === view) return prev;
+      return { ...prev, [activeSection]: view };
+    });
+  }, [activeSection, view]);
   const [adminManageSelection, setAdminManageSelection] = useState<string>('usuarios');
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMounted, setToastMounted] = useState(false);
@@ -837,6 +847,11 @@ export default function Home() {
   const [alterarAdmissaoColaborador, setAlterarAdmissaoColaborador] = useState<Colaborador | null>(null);
   const [alterarAdmissaoForm, setAlterarAdmissaoForm] = useState({ dt_admissao: '' });
   const [alterarAdmissaoSaving, setAlterarAdmissaoSaving] = useState(false);
+  // Modal "Alterar status" do colaborador (menu de contexto de Estrutura Acadêmica).
+  const [alterarStatusColaboradorModalOpen, setAlterarStatusColaboradorModalOpen] = useState(false);
+  const [alterarStatusColaborador, setAlterarStatusColaborador] = useState<Colaborador | null>(null);
+  const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_status: '' });
+  const [alterarStatusColaboradorSaving, setAlterarStatusColaboradorSaving] = useState(false);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
@@ -1031,6 +1046,45 @@ export default function Home() {
       setCgManageSelection(allowedCgSubmodulos[0] ?? 'sexo');
     }
   }, [allowedCgSubmodulos, cgManageSelection, currentUser]);
+
+  // Submódulos da função Estrutura Acadêmica (Alunos/Colaboradores) liberados
+  // ao usuário logado conforme as permissões do perfil ativo.
+  const allowedAlunoSubmodulos = useMemo(() => {
+    // O administrador tem acesso total.
+    if (isAdministrador) return ['alunos', 'colaboradores'];
+    return eaSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Permissões da função Estrutura Acadêmica (Alunos/Colaboradores) para o
+  // usuário logado: o administrador tem tudo liberado; os demais seguem o
+  // perfil ativo (sem configuração salva = tudo liberado).
+  const permissoesEA = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdministrador || temPermissao(permissoesAtivas, 'estruturaAcademica', permissao);
+    return {
+      acessarAluno: permitida('acessar_aluno'),
+      adicionarAluno: permitida('adicionar_aluno'),
+      verAluno: permitida('ver_aluno'),
+      alterarDataIngresso: permitida('alterar_data_ingresso_aluno'),
+      alterarStatusAluno: permitida('alterar_status_aluno'),
+      excluirAluno: permitida('excluir_aluno'),
+      acessarColaborador: permitida('acessar_colaborador'),
+      adicionarColaborador: permitida('adicionar_colaborador'),
+      verColaborador: permitida('ver_colaborador'),
+      alterarDataAdmissao: permitida('alterar_data_admissao_colaborador'),
+      alterarStatusColaborador: permitida('alterar_status_colaborador'),
+      excluirColaborador: permitida('excluir_colaborador'),
+    };
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Se o submódulo ativo de Estrutura Acadêmica deixar de ser permitido,
+  // volta para o primeiro submódulo permitido.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!allowedAlunoSubmodulos.includes(alunoManageSelection)) {
+      setAlunoManageSelection(allowedAlunoSubmodulos[0] ?? 'alunos');
+    }
+  }, [allowedAlunoSubmodulos, alunoManageSelection, currentUser]);
 
   // Migração única de config_permissoes antigas: perfis salvos antes da adição
   // das permissões granulares ganham as permissões novas como concedidas (a
@@ -1784,6 +1838,10 @@ export default function Home() {
 
   // Botão "Adicionar" de Alunos: sem a permissão, mostra aviso.
   function handleAlunoNewForm() {
+    if (!permissoesEA.adicionarAluno) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
     openAlunoNewForm();
   }
 
@@ -1803,8 +1861,12 @@ export default function Home() {
     setActiveSection("estruturaAcademica");
   }
 
-  // Botão "Adicionar" de Colaboradores.
+  // Botão "Adicionar" de Colaboradores: sem a permissão, mostra aviso.
   function handleColaboradorNewForm() {
+    if (!permissoesEA.adicionarColaborador) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
     openColaboradorNewForm();
   }
 
@@ -1834,6 +1896,10 @@ export default function Home() {
     if (s === 'cadastrosGerais') {
       return permissoesCg[cgKind]?.ver ?? true;
     }
+    if (s === 'estruturaAcademica') {
+      if (alunoManageSelection === 'colaboradores') return permissoesEA.verColaborador;
+      return permissoesEA.verAluno;
+    }
     return true;
   }
 
@@ -1853,6 +1919,10 @@ export default function Home() {
     }
     if (s === 'cadastrosGerais') {
       return permissoesCg[cgKind]?.excluir ?? true;
+    }
+    if (s === 'estruturaAcademica') {
+      if (alunoManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
+      return permissoesEA.excluirAluno;
     }
     return true;
   }
@@ -4281,7 +4351,11 @@ export default function Home() {
         item = usuarios.find((u) => u.id === adminEditingId) ?? null;
       }
     } else if (activeSection === 'estruturaAcademica') {
-      item = alunos.find((a) => a.id === alunoEditingId) ?? null;
+      if (alunoManageSelection === 'colaboradores') {
+        item = colaboradores.find((c) => c.id === colaboradorEditingId) ?? null;
+      } else {
+        item = alunos.find((a) => a.id === alunoEditingId) ?? null;
+      }
     } else {
       item = cgItems.find((i) => i.id === cgEditingId) ?? null;
     }
@@ -4479,6 +4553,56 @@ export default function Home() {
       setMessage("Erro ao alterar a data de admissão.");
     } finally {
       setAlterarAdmissaoSaving(false);
+    }
+  }
+
+  function openAlterarStatusColaboradorModal(colaborador: Colaborador) {
+    setAlterarStatusColaborador(colaborador);
+    // Igual ao modal "Alterar status" do aluno: a data já vem com a data atual,
+    // os demais campos começam vazios (o status atual NÃO fica disponível no
+    // dropdown e o motivo não é preenchido mesmo se houver valor salvo no banco).
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAlterarStatusColaboradorForm({
+      dt_status: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+      ie_status: '',
+      ds_status: '',
+    });
+    setMessage("");
+    setAlterarStatusColaboradorModalOpen(true);
+  }
+
+  function closeAlterarStatusColaboradorModal() {
+    setAlterarStatusColaboradorModalOpen(false);
+    setAlterarStatusColaborador(null);
+  }
+
+  async function handleAlterarStatusColaboradorSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!alterarStatusColaborador?.id) return;
+    setMessage("");
+    if (!alterarStatusColaboradorForm.ie_status) {
+      setMessage("Selecione um status.");
+      return;
+    }
+    setAlterarStatusColaboradorSaving(true);
+    try {
+      await atualizarColaborador(
+        alterarStatusColaborador.id,
+        {
+          dt_status: alterarStatusColaboradorForm.dt_status,
+          ie_status: alterarStatusColaboradorForm.ie_status,
+          ds_status: alterarStatusColaboradorForm.ds_status,
+        },
+        auditAutor
+      );
+      setMessage("Status alterado com sucesso!");
+      closeAlterarStatusColaboradorModal();
+      await loadColaboradores();
+    } catch {
+      setMessage("Erro ao alterar o status.");
+    } finally {
+      setAlterarStatusColaboradorSaving(false);
     }
   }
 
@@ -5120,17 +5244,17 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          showChangeStatus={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos'}
-          onChangeStatus={() => {
-            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
-              openAlterarStatusModal(contextMenu.item as Aluno);
-            }
-            setContextMenu(null);
-          }}
-          showChangeIngresso={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos'}
+          showChangeIngresso={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarDataIngresso}
           onChangeIngresso={() => {
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
               openAlterarIngressoModal(contextMenu.item as Aluno);
+            }
+            setContextMenu(null);
+          }}
+          showChangeStatus={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarStatusAluno}
+          onChangeStatus={() => {
+            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
+              openAlterarStatusModal(contextMenu.item as Aluno);
             }
             setContextMenu(null);
           }}
@@ -5230,13 +5354,28 @@ export default function Home() {
           customItems={
             contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores'
               ? [
-                  {
-                    label: 'Alterar data de admissão',
-                    onClick: () => {
-                      openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador);
-                      setContextMenu(null);
-                    },
-                  },
+                  ...(permissoesEA.alterarDataAdmissao
+                    ? [
+                        {
+                          label: 'Alterar data de admissão',
+                          onClick: () => {
+                            openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador);
+                            setContextMenu(null);
+                          },
+                        },
+                      ]
+                    : []),
+                  ...(permissoesEA.alterarStatusColaborador
+                    ? [
+                        {
+                          label: 'Alterar status',
+                          onClick: () => {
+                            openAlterarStatusColaboradorModal(contextMenu.item as unknown as Colaborador);
+                            setContextMenu(null);
+                          },
+                        },
+                      ]
+                    : []),
                 ]
               : undefined
           }
@@ -5316,9 +5455,17 @@ export default function Home() {
                 } ${isActive ? 'bg-[#004a7a]' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-inset ring-[#2cc958]' : ''}`}
                 onClick={() => {
                   if (draggedRef.current) return;
-                  setActiveSection(section);
-                  setView('list');
                   setContextMenu(null);
+                  if (section === activeSection) {
+                    // Clique na função já ativa: volta para a listagem.
+                    setView('list');
+                    return;
+                  }
+                  setActiveSection(section);
+                  // Ao voltar para uma função, restaura a tela em que o usuário
+                  // estava (formulário aberto, se houver) em vez de sempre cair
+                  // na listagem de registros.
+                  setView(sectionViews[section] ?? 'list');
                 }}
                 aria-label={def.label}
               >
@@ -5655,7 +5802,7 @@ export default function Home() {
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
                   onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  allowedSubmodulos={allowedAlunoSubmodulos}
                   sortColumn={alunoSortColumn}
                   sortAsc={alunoSortAsc}
                   onSortChange={handleAlunoSortChange}
@@ -5675,7 +5822,7 @@ export default function Home() {
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
                   onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  allowedSubmodulos={allowedAlunoSubmodulos}
                   sortColumn={colaboradorSortColumn}
                   sortAsc={colaboradorSortAsc}
                   onSortChange={handleColaboradorSortChange}
@@ -5879,7 +6026,7 @@ export default function Home() {
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
                   onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  allowedSubmodulos={allowedAlunoSubmodulos}
                   campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno')}
                   campoErros={alunoCampoErros}
                 />
@@ -5911,7 +6058,7 @@ export default function Home() {
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
                   onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={['alunos', 'colaboradores']}
+                  allowedSubmodulos={allowedAlunoSubmodulos}
                   campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
                   campoErros={colaboradorCampoErros}
                 />
@@ -7229,6 +7376,88 @@ export default function Home() {
               <button
                 type="submit"
                 disabled={alterarAdmissaoSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {alterarStatusColaboradorModalOpen && alterarStatusColaborador && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlterarStatusColaboradorModal} />
+          <form
+            onSubmit={handleAlterarStatusColaboradorSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status</h2>
+              <button
+                type="button"
+                onClick={closeAlterarStatusColaboradorModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar alterar status"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Status
+                </label>
+                <Select
+                  value={alterarStatusColaboradorForm.ie_status}
+                  onChange={(v) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ie_status: v })}
+                  options={STATUS_OPTIONS.filter((o) => o.value !== (alterarStatusColaborador?.ie_status ?? ''))}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data do status
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={alterarStatusColaboradorForm.dt_status}
+                  onChange={(e) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, dt_status: applyDateMask(e.target.value) })}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Motivo do status
+                </label>
+                <textarea
+                  rows={3}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  value={alterarStatusColaboradorForm.ds_status}
+                  onChange={(e) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ds_status: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAlterarStatusColaboradorModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={alterarStatusColaboradorSaving}
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >

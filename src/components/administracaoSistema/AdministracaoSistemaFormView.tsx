@@ -350,6 +350,7 @@ export default function AdministracaoSistemaFormView({
 
         <div className="mt-auto pt-4">
           <div className="flex items-center justify-between gap-3">
+            {editingId && (
             <div className="text-[13px] text-slate-500">
               <div className="relative group flex items-center gap-2">
                 <span>Criado por {createdBy || '-'} em {createdAt ? formatAdminCellValue('dt_criacao', createdAt) : '-'}</span>
@@ -382,7 +383,8 @@ export default function AdministracaoSistemaFormView({
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            )}
+            <div className="flex items-center gap-3 ml-auto">
               <button
                 type="button"
                 onClick={goToList}

@@ -257,6 +257,7 @@ export default function PerfilFormView({
 
         <div className="mt-auto pt-4">
           <div className="flex items-center justify-between gap-3">
+            {editingId && (
             <div className="text-[13px] text-slate-500">
               <div className="relative group flex items-center gap-2">
                 <span>Criado por {createdBy || '-'} em {createdAt ? formatPerfilCellValue('dt_criacao', createdAt) : '-'}</span>
@@ -289,7 +290,8 @@ export default function PerfilFormView({
                 </button>
               </div>
             </div>
-            <div className="flex items-center gap-3">
+            )}
+            <div className="flex items-center gap-3 ml-auto">
               <button
                 type="button"
                 onClick={goToList}

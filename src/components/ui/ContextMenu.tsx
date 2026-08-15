@@ -68,16 +68,6 @@ export default function ContextMenu({
           Alterar senha
         </button>
       )}
-      {showChangeStatus && onChangeStatus && (
-        <button
-          type="button"
-          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
-          style={{ padding: "0.2rem 0.4rem" }}
-          onClick={onChangeStatus}
-        >
-          Alterar status
-        </button>
-      )}
       {showChangeIngresso && onChangeIngresso && (
         <button
           type="button"
@@ -86,6 +76,16 @@ export default function ContextMenu({
           onClick={onChangeIngresso}
         >
           Alterar data de ingresso
+        </button>
+      )}
+      {showChangeStatus && onChangeStatus && (
+        <button
+          type="button"
+          className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+          style={{ padding: "0.2rem 0.4rem" }}
+          onClick={onChangeStatus}
+        >
+          Alterar status
         </button>
       )}
       {onDelegateFunctions && (
