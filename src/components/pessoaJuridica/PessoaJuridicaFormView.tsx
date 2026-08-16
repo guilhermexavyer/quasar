@@ -491,7 +491,7 @@ export default function PessoaJuridicaFormView({
                 />
               </div>
 
-              <div className="sm:col-span-3 group">
+              <div className="sm:col-span-6 group">
                 {renderFieldLabel('sg_estado', 'UF')}
                 <Select
                   disabled={statusDe('sg_estado') === 'D'}
@@ -502,7 +502,7 @@ export default function PessoaJuridicaFormView({
                 />
               </div>
 
-              <div className="sm:col-span-9 group">
+              <div className="sm:col-span-6 group">
                 {renderFieldLabel('cd_ibge_cidade', 'Cidade')}
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 100 }}>

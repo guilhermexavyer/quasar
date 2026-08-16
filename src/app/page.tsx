@@ -88,6 +88,24 @@ import {
   obterVinculosContratuais,
   atualizarVinculoContratual,
 } from "@/services/vinculoContratualService";
+import {
+  criarLocalizacao,
+  excluirLocalizacao,
+  obterLocalizacoes,
+  atualizarLocalizacao,
+} from "@/services/localizacaoService";
+import {
+  criarMarca,
+  excluirMarca,
+  obterMarcas,
+  atualizarMarca,
+} from "@/services/marcaService";
+import {
+  criarCategoriaAtivo,
+  excluirCategoriaAtivo,
+  obterCategoriasAtivos,
+  atualizarCategoriaAtivo,
+} from "@/services/categoriaAtivoService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -154,6 +172,8 @@ import {
 import type { PermissaoDef } from "@/lib/permissoesUtils";
 import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
+import SearchIcon from "@/components/ui/SearchIcon";
+import ViewIcon from "@/components/ui/ViewIcon";
 import PessoaFisicaViewModal from "@/components/pessoaFisica/PessoaFisicaViewModal";
 import PessoaJuridicaViewModal from "@/components/pessoaJuridica/PessoaJuridicaViewModal";
 import { buscarCidades, cidadePorCodigo, type Cidade } from "@/services/cidadeService";
@@ -172,6 +192,9 @@ import type { Logradouro } from "@/types/logradouro";
 import type { GrauParentesco } from "@/types/grauParentesco";
 import type { Cargo } from "@/types/cargo";
 import type { VinculoContratual } from "@/types/vinculoContratual";
+import type { Localizacao } from "@/types/localizacao";
+import type { Marca } from "@/types/marca";
+import type { CategoriaAtivo } from "@/types/categoriaAtivo";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
 import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
@@ -181,6 +204,9 @@ import { LOGRADOURO_COLUMNS, LOGRADOURO_FIELD_INFOS } from "@/lib/logradouroUtil
 import { GRAU_PARENTESCO_COLUMNS, GRAU_PARENTESCO_FIELD_INFOS } from "@/lib/grauParentescoUtils";
 import { CARGO_COLUMNS, CARGO_FIELD_INFOS } from "@/lib/cargoUtils";
 import { VINCULO_CONTRATUAL_COLUMNS, VINCULO_CONTRATUAL_FIELD_INFOS } from "@/lib/vinculoContratualUtils";
+import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoUtils";
+import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
+import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -286,10 +312,13 @@ const emptyCgForm: CadastroGeralFormData = {
 
 const CG_SELECT_OPTIONS = [
   { value: 'cargo', label: 'Cargo' },
+  { value: 'categoriaAtivo', label: 'Categoria (ativo)' },
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'estadoCivil', label: 'Estado civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco' },
+  { value: 'localizacao', label: 'Localização' },
   { value: 'logradouro', label: 'Logradouro' },
+  { value: 'marca', label: 'Marca' },
   { value: 'orgaoEmissor', label: 'Órgão emissor' },
   { value: 'profissao', label: 'Profissão' },
   { value: 'sexo', label: 'Sexo' },
@@ -330,6 +359,7 @@ const emptyColaboradorForm: ColaboradorFormData = {
   nr_seq_pessoa_fisica: undefined,
   nr_seq_pessoa_juridica: undefined,
   nr_seq_vinculo_contratual: undefined,
+  ie_fornecedor: 'N',
   nr_matricula: "",
   dt_admissao: "",
   dt_status: "",
@@ -420,7 +450,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -661,7 +691,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -705,6 +735,9 @@ export default function Home() {
   const [grausParentesco, setGrausParentesco] = useState<GrauParentesco[]>([]);
   const [cargos, setCargos] = useState<Cargo[]>([]);
   const [vinculosContratuais, setVinculosContratuais] = useState<VinculoContratual[]>([]);
+  const [localizacoes, setLocalizacoes] = useState<Localizacao[]>([]);
+  const [marcas, setMarcas] = useState<Marca[]>([]);
+  const [categoriasAtivos, setCategoriasAtivos] = useState<CategoriaAtivo[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -817,10 +850,10 @@ export default function Home() {
   const [alunoSortAsc, setAlunoSortAsc] = useState<boolean | null>(null);
   const [alunoCampoErros, setAlunoCampoErros] = useState<string[]>([]);
   const [alunoFilterModalOpen, setAlunoFilterModalOpen] = useState(false);
-  const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
-  const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
+  const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
+  const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
-  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador'>('aluno');
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter'>('aluno');
   const alunoResponsavelLookupIndexRef = useRef(0);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
@@ -843,6 +876,9 @@ export default function Home() {
   const [colaboradorSortColumn, setColaboradorSortColumn] = useState<number | null>(null);
   const [colaboradorSortAsc, setColaboradorSortAsc] = useState<boolean | null>(null);
   const [colaboradorCampoErros, setColaboradorCampoErros] = useState<string[]>([]);
+  const [colaboradorFilterModalOpen, setColaboradorFilterModalOpen] = useState(false);
+  const [colaboradorFilterForm, setColaboradorFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', nr_seq_pessoa_juridica: '', dt_admissao_inicio: '', dt_admissao_fim: '' });
+  const [appliedColaboradorFilterForm, setAppliedColaboradorFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', nr_seq_pessoa_juridica: '', dt_admissao_inicio: '', dt_admissao_fim: '' });
   // Modal "Alterar data de admissão" do colaborador (menu de contexto de Estrutura Acadêmica).
   const [alterarAdmissaoModalOpen, setAlterarAdmissaoModalOpen] = useState(false);
   const [alterarAdmissaoColaborador, setAlterarAdmissaoColaborador] = useState<Colaborador | null>(null);
@@ -858,6 +894,7 @@ export default function Home() {
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
   const [colaboradorPjLookupFilter, setColaboradorPjLookupFilter] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
   const [colaboradorPjLookupApplied, setColaboradorPjLookupApplied] = useState(false);
+  const colaboradorPjLookupTargetRef = useRef<'form' | 'filter'>('form');
   const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
@@ -998,6 +1035,9 @@ export default function Home() {
       estadoCivil: 'estado_civil',
       corRaca: 'cor_raca',
       grauParentesco: 'grau_parentesco',
+      localizacao: 'localizacao',
+      marca: 'marca',
+      categoriaAtivo: 'categoria_ativo',
       profissao: 'profissao',
       orgaoEmissor: 'orgao_emissor',
       logradouro: 'logradouro',
@@ -1017,7 +1057,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // O administrador tem acesso total.
-    if (isAdministrador) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'profissao', 'orgaoEmissor', 'logradouro'];
+    if (isAdministrador) return ['cargo', 'categoriaAtivo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1223,6 +1263,33 @@ export default function Home() {
       items: (): CgItem[] => grausParentesco,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um grau de parentesco.',
     },
+    localizacao: {
+      descKey: 'ds_localizacao',
+      collection: 'cg_localizacao',
+      configKey: 'config_colunas_cg_localizacao',
+      columns: LOCALIZACAO_COLUMNS,
+      fieldInfos: LOCALIZACAO_FIELD_INFOS,
+      items: (): CgItem[] => localizacoes,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar uma localização.',
+    },
+    marca: {
+      descKey: 'ds_marca',
+      collection: 'cg_marca',
+      configKey: 'config_colunas_cg_marca',
+      columns: MARCA_COLUMNS,
+      fieldInfos: MARCA_FIELD_INFOS,
+      items: (): CgItem[] => marcas,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar uma marca.',
+    },
+    categoriaAtivo: {
+      descKey: 'ds_categoria',
+      collection: 'cg_categoria_ativo',
+      configKey: 'config_colunas_cg_categoria_ativo',
+      columns: CATEGORIA_ATIVO_COLUMNS,
+      fieldInfos: CATEGORIA_ATIVO_FIELD_INFOS,
+      items: (): CgItem[] => categoriasAtivos,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar uma categoria.',
+    },
     cargo: {
       descKey: 'ds_cargo',
       collection: 'cg_cargo',
@@ -1243,7 +1310,7 @@ export default function Home() {
     },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'categoriaAtivo' ? 'categoriaAtivo' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -1506,6 +1573,42 @@ export default function Home() {
     }
   }, []);
 
+  const loadLocalizacoes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterLocalizacoes();
+      setLocalizacoes(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadMarcas = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterMarcas();
+      setMarcas(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCategoriasAtivos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterCategoriasAtivos();
+      setCategoriasAtivos(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -1519,6 +1622,12 @@ export default function Home() {
       await loadCargos();
     } else if (cgKind === 'vinculoContratual') {
       await loadVinculosContratuais();
+    } else if (cgKind === 'localizacao') {
+      await loadLocalizacoes();
+    } else if (cgKind === 'marca') {
+      await loadMarcas();
+    } else if (cgKind === 'categoriaAtivo') {
+      await loadCategoriasAtivos();
     } else if (cgKind === 'profissao') {
       await loadProfissoes();
     } else if (cgKind === 'logradouro') {
@@ -1526,7 +1635,7 @@ export default function Home() {
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -1541,10 +1650,13 @@ export default function Home() {
     loadGrausParentesco();
     loadCargos();
     loadVinculosContratuais();
+    loadLocalizacoes();
+    loadMarcas();
+    loadCategoriasAtivos();
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -2078,7 +2190,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -2173,7 +2285,7 @@ export default function Home() {
   }
 
   function clearAlunoFilter() {
-    const empty = { nr_sequencia: '', nr_matricula: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' };
+    const empty = { nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' };
     setAlunoFilterForm(empty);
     setAppliedAlunoFilterForm(empty);
   }
@@ -2181,6 +2293,31 @@ export default function Home() {
   function handleAlunoFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     applyAlunoFilter();
+  }
+
+  function openColaboradorFilterModal() {
+    setColaboradorFilterForm(appliedColaboradorFilterForm);
+    setColaboradorFilterModalOpen(true);
+  }
+
+  function closeColaboradorFilterModal() {
+    setColaboradorFilterModalOpen(false);
+  }
+
+  function applyColaboradorFilter() {
+    setAppliedColaboradorFilterForm(colaboradorFilterForm);
+    setColaboradorFilterModalOpen(false);
+  }
+
+  function clearColaboradorFilter() {
+    const empty = { nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', nr_seq_pessoa_juridica: '', dt_admissao_inicio: '', dt_admissao_fim: '' };
+    setColaboradorFilterForm(empty);
+    setAppliedColaboradorFilterForm(empty);
+  }
+
+  function handleColaboradorFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    applyColaboradorFilter();
   }
 
   function openAdminFilterModal() {
@@ -2655,6 +2792,7 @@ export default function Home() {
       nr_seq_pessoa_fisica: colaborador.nr_seq_pessoa_fisica,
       nr_seq_pessoa_juridica: colaborador.nr_seq_pessoa_juridica,
       nr_seq_vinculo_contratual: colaborador.nr_seq_vinculo_contratual,
+      ie_fornecedor: colaborador.ie_fornecedor ?? 'N',
       nr_matricula: colaborador.nr_matricula ?? '',
       dt_admissao: colaborador.dt_admissao ?? '',
       dt_status: colaborador.dt_status ?? '',
@@ -2912,6 +3050,9 @@ export default function Home() {
       if (appliedAlunoFilterForm.nr_matricula && !aluno.nr_matricula.toLowerCase().includes(appliedAlunoFilterForm.nr_matricula.toLowerCase())) {
         return false;
       }
+      if (appliedAlunoFilterForm.nr_seq_pessoa_fisica) {
+        if (String(aluno.nr_seq_pessoa_fisica ?? '') !== appliedAlunoFilterForm.nr_seq_pessoa_fisica.trim()) return false;
+      }
       if (appliedAlunoFilterForm.dt_ingresso_inicio) {
         const startDate = parseDateInput(appliedAlunoFilterForm.dt_ingresso_inicio);
         const alunoDate = parsePersonDateValue(aluno.dt_ingresso);
@@ -2953,8 +3094,36 @@ export default function Home() {
     });
   }, [filteredAlunos, alunoSortColumn, alunoSortAsc]);
 
+  const filteredColaboradores = useMemo(() => {
+    return colaboradores.filter((colaborador) => {
+      if (appliedColaboradorFilterForm.nr_sequencia) {
+        if (String(colaborador.nr_sequencia) !== appliedColaboradorFilterForm.nr_sequencia.trim()) return false;
+      }
+      if (appliedColaboradorFilterForm.nr_matricula && !(colaborador.nr_matricula ?? '').toLowerCase().includes(appliedColaboradorFilterForm.nr_matricula.toLowerCase())) {
+        return false;
+      }
+      if (appliedColaboradorFilterForm.nr_seq_pessoa_fisica) {
+        if (String(colaborador.nr_seq_pessoa_fisica ?? '') !== appliedColaboradorFilterForm.nr_seq_pessoa_fisica.trim()) return false;
+      }
+      if (appliedColaboradorFilterForm.nr_seq_pessoa_juridica) {
+        if (String(colaborador.nr_seq_pessoa_juridica ?? '') !== appliedColaboradorFilterForm.nr_seq_pessoa_juridica.trim()) return false;
+      }
+      if (appliedColaboradorFilterForm.dt_admissao_inicio) {
+        const startDate = parseDateInput(appliedColaboradorFilterForm.dt_admissao_inicio);
+        const colaboradorDate = parsePersonDateValue(colaborador.dt_admissao);
+        if (!startDate || colaboradorDate === null || colaboradorDate < startDate) return false;
+      }
+      if (appliedColaboradorFilterForm.dt_admissao_fim) {
+        const endDate = parseDateInput(appliedColaboradorFilterForm.dt_admissao_fim);
+        const colaboradorDate = parsePersonDateValue(colaborador.dt_admissao);
+        if (!endDate || colaboradorDate === null || colaboradorDate > endDate) return false;
+      }
+      return true;
+    });
+  }, [colaboradores, appliedColaboradorFilterForm]);
+
   const filteredSortedColaboradores = useMemo(() => {
-    const sorted = [...colaboradores];
+    const sorted = [...filteredColaboradores];
     if (colaboradorSortColumn === null || colaboradorSortAsc === null) {
       return sorted.sort((a, b) => {
         const dateA = a.dt_criacao || "";
@@ -2978,7 +3147,7 @@ export default function Home() {
       if (strA > strB) return colaboradorSortAsc ? 1 : -1;
       return 0;
     });
-  }, [colaboradores, colaboradorSortColumn, colaboradorSortAsc]);
+  }, [filteredColaboradores, colaboradorSortColumn, colaboradorSortAsc]);
 
   const filteredPessoasJuridicas = useMemo(() => {
     return pessoasJuridicas.filter((pessoa) => {
@@ -3501,6 +3670,7 @@ export default function Home() {
           'nr_seq_pessoa_fisica',
           'nr_seq_pessoa_juridica',
           'nr_seq_vinculo_contratual',
+          'ie_fornecedor',
           'nr_matricula',
           'dt_admissao',
         ];
@@ -3918,6 +4088,12 @@ export default function Home() {
           await atualizarCargo(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'vinculoContratual') {
           await atualizarVinculoContratual(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'localizacao') {
+          await atualizarLocalizacao(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'marca') {
+          await atualizarMarca(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'categoriaAtivo') {
+          await atualizarCategoriaAtivo(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -3939,6 +4115,12 @@ export default function Home() {
           await criarCargo(payload as any, auditAutor);
         } else if (cgKind === 'vinculoContratual') {
           await criarVinculoContratual(payload as any, auditAutor);
+        } else if (cgKind === 'localizacao') {
+          await criarLocalizacao(payload as any, auditAutor);
+        } else if (cgKind === 'marca') {
+          await criarMarca(payload as any, auditAutor);
+        } else if (cgKind === 'categoriaAtivo') {
+          await criarCategoriaAtivo(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -4022,7 +4204,7 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador', responsavelIndex = 0) {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter', responsavelIndex = 0) {
     alunoPessoaFisicaLookupTargetRef.current = target;
     alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
@@ -4035,9 +4217,14 @@ export default function Home() {
   }
 
   function handleAlunoPessoaFisicaSelect(pessoa: PessoaFisica) {
-    if (alunoPessoaFisicaLookupTargetRef.current === 'colaborador') {
+    const target = alunoPessoaFisicaLookupTargetRef.current;
+    if (target === 'alunoFilter') {
+      setAlunoFilterForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) }));
+    } else if (target === 'colaboradorFilter') {
+      setColaboradorFilterForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) }));
+    } else if (target === 'colaborador') {
       setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
-    } else if (alunoPessoaFisicaLookupTargetRef.current === 'responsavel') {
+    } else if (target === 'responsavel') {
       const index = alunoResponsavelLookupIndexRef.current;
       setAlunoForm((prev) => {
         const responsaveis = [...(prev.responsaveis ?? [])];
@@ -4048,6 +4235,16 @@ export default function Home() {
       setAlunoForm({ ...alunoForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
     }
     closeAlunoPessoaFisicaLookup();
+  }
+
+  // Abre o lookup de Pessoa Física a partir do filtro de Alunos.
+  function openAlunoFilterPessoaFisicaLookup() {
+    openAlunoPessoaFisicaLookup('alunoFilter');
+  }
+
+  // Abre o lookup de Pessoa Física a partir do filtro de Colaboradores.
+  function openColaboradorFilterPessoaFisicaLookup() {
+    openAlunoPessoaFisicaLookup('colaboradorFilter');
   }
 
   function applyAlunoLookupFilter() {
@@ -4108,6 +4305,15 @@ export default function Home() {
 
   /* ── Lookup de Pessoa Jurídica para Colaboradores ── */
   function openColaboradorPessoaJuridicaLookup() {
+    colaboradorPjLookupTargetRef.current = 'form';
+    setColaboradorPjLookupForm(colaboradorPjLookupFilter);
+    setColaboradorPjLookupApplied(false);
+    setColaboradorPessoaJuridicaLookupOpen(true);
+  }
+
+  // Abre o lookup de Pessoa Jurídica a partir do filtro de Colaboradores.
+  function openColaboradorFilterPessoaJuridicaLookup() {
+    colaboradorPjLookupTargetRef.current = 'filter';
     setColaboradorPjLookupForm(colaboradorPjLookupFilter);
     setColaboradorPjLookupApplied(false);
     setColaboradorPessoaJuridicaLookupOpen(true);
@@ -4118,7 +4324,11 @@ export default function Home() {
   }
 
   function handleColaboradorPessoaJuridicaSelect(pessoa: PessoaJuridica) {
-    setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_juridica: pessoa.nr_sequencia });
+    if (colaboradorPjLookupTargetRef.current === 'filter') {
+      setColaboradorFilterForm((prev) => ({ ...prev, nr_seq_pessoa_juridica: String(pessoa.nr_sequencia) }));
+    } else {
+      setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_juridica: pessoa.nr_sequencia });
+    }
     closeColaboradorPessoaJuridicaLookup();
   }
 
@@ -4891,6 +5101,12 @@ export default function Home() {
         await excluirCargo(id);
       } else if (cgKind === 'vinculoContratual') {
         await excluirVinculoContratual(id);
+      } else if (cgKind === 'localizacao') {
+        await excluirLocalizacao(id);
+      } else if (cgKind === 'marca') {
+        await excluirMarca(id);
+      } else if (cgKind === 'categoriaAtivo') {
+        await excluirCategoriaAtivo(id);
       } else if (cgKind === 'profissao') {
         await excluirProfissao(id);
       } else if (cgKind === 'logradouro') {
@@ -5237,7 +5453,7 @@ export default function Home() {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
             } else {
-              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual);
+              openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo);
             }
             setContextMenu(null);
           }}
@@ -5351,7 +5567,7 @@ export default function Home() {
                 }
               }
             } else {
-              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual;
+              const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo;
               if (cg.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${cg.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleCgDelete(cg.id as string));
@@ -5826,6 +6042,7 @@ export default function Home() {
                   colaboradores={filteredSortedColaboradores}
                   openNewForm={handleColaboradorNewForm}
                   openEditForm={openColaboradorEditForm}
+                  openFilter={openColaboradorFilterModal}
                   handleDelete={handleColaboradorDelete}
                   setContextMenu={setContextMenu}
                   selectOptions={EA_SELECT_OPTIONS}
@@ -5842,7 +6059,7 @@ export default function Home() {
                 />
               )
             ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro') ? (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro' || cgManageSelection === 'localizacao' || cgManageSelection === 'marca' || cgManageSelection === 'categoriaAtivo') ? (
                 <CadastroGeralListView
                   key={cgManageSelection}
                   loading={loading}
@@ -6328,6 +6545,52 @@ export default function Home() {
                 />
               </div>
 
+              <div className="sm:col-span-12">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Pessoa física
+                </label>
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <label className="sr-only">Sequência da pessoa física</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none"
+                      value={alunoFilterForm.nr_seq_pessoa_fisica}
+                      onChange={(e) => setAlunoFilterForm({ ...alunoFilterForm, nr_seq_pessoa_fisica: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <label className="sr-only">Nome da pessoa física</label>
+                    <input
+                      readOnly
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      value={pessoasFisicas.find((p) => String(p.nr_sequencia) === alunoFilterForm.nr_seq_pessoa_fisica)?.ds_nome ?? ''}
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {alunoFilterForm.nr_seq_pessoa_fisica && (
+                        <button
+                          type="button"
+                          onClick={() => openPessoaFisicaView(Number(alunoFilterForm.nr_seq_pessoa_fisica))}
+                          className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                          aria-label="Visualizar pessoa física"
+                        >
+                          <ViewIcon size={16} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={openAlunoFilterPessoaFisicaLookup}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                        aria-label="Localizar pessoa física"
+                      >
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               <div className="sm:col-span-6">
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
                   Data de ingresso (início)
@@ -6363,6 +6626,193 @@ export default function Home() {
               <button
                 type="button"
                 onClick={clearAlunoFilter}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Limpar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Filtrar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {colaboradorFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'colaboradores' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorFilterModal} />
+          <form onSubmit={handleColaboradorFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button
+                type="button"
+                onClick={closeColaboradorFilterModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar filtro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+              <div className="sm:col-span-2">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Sequência
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={colaboradorFilterForm.nr_sequencia}
+                  onChange={(e) => setColaboradorFilterForm({ ...colaboradorFilterForm, nr_sequencia: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-10">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Matrícula
+                </label>
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={colaboradorFilterForm.nr_matricula}
+                  onChange={(e) => setColaboradorFilterForm({ ...colaboradorFilterForm, nr_matricula: e.target.value })}
+                />
+              </div>
+
+              <div className="sm:col-span-12">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Pessoa física
+                </label>
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <label className="sr-only">Sequência da pessoa física</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none"
+                      value={colaboradorFilterForm.nr_seq_pessoa_fisica}
+                      onChange={(e) => setColaboradorFilterForm({ ...colaboradorFilterForm, nr_seq_pessoa_fisica: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <label className="sr-only">Nome da pessoa física</label>
+                    <input
+                      readOnly
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      value={pessoasFisicas.find((p) => String(p.nr_sequencia) === colaboradorFilterForm.nr_seq_pessoa_fisica)?.ds_nome ?? ''}
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {colaboradorFilterForm.nr_seq_pessoa_fisica && (
+                        <button
+                          type="button"
+                          onClick={() => openPessoaFisicaView(Number(colaboradorFilterForm.nr_seq_pessoa_fisica))}
+                          className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                          aria-label="Visualizar pessoa física"
+                        >
+                          <ViewIcon size={16} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={openColaboradorFilterPessoaFisicaLookup}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                        aria-label="Localizar pessoa física"
+                      >
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:col-span-12">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Pessoa jurídica
+                </label>
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <label className="sr-only">Sequência da pessoa jurídica</label>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none"
+                      value={colaboradorFilterForm.nr_seq_pessoa_juridica}
+                      onChange={(e) => setColaboradorFilterForm({ ...colaboradorFilterForm, nr_seq_pessoa_juridica: e.target.value.replace(/\D/g, '') })}
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <label className="sr-only">Razão social da pessoa jurídica</label>
+                    <input
+                      readOnly
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      value={pessoasJuridicas.find((p) => String(p.nr_sequencia) === colaboradorFilterForm.nr_seq_pessoa_juridica)?.ds_razao_social ?? ''}
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {colaboradorFilterForm.nr_seq_pessoa_juridica && (
+                        <button
+                          type="button"
+                          onClick={() => openPessoaJuridicaView(Number(colaboradorFilterForm.nr_seq_pessoa_juridica))}
+                          className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                          aria-label="Visualizar pessoa jurídica"
+                        >
+                          <ViewIcon size={16} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={openColaboradorFilterPessoaJuridicaLookup}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                        aria-label="Localizar pessoa jurídica"
+                      >
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data de admissão (início)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={colaboradorFilterForm.dt_admissao_inicio}
+                  onChange={(e) => setColaboradorFilterForm({ ...colaboradorFilterForm, dt_admissao_inicio: applyDateMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-6">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data de admissão (fim)
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={colaboradorFilterForm.dt_admissao_fim}
+                  onChange={(e) => setColaboradorFilterForm({ ...colaboradorFilterForm, dt_admissao_fim: applyDateMask(e.target.value) })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={clearColaboradorFilter}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -6716,7 +7166,7 @@ export default function Home() {
                             e.stopPropagation();
                             if (delegateFuncoesPerfil) openPermissoesModal(delegateFuncoesPerfil, section);
                           }}
-                          className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[3px] text-[#bbb] hover:text-white focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                          className="inline-flex h-7 w-7 shrink-0 cursor-pointer items-center justify-center rounded-[3px] text-[#999] hover:text-[#666] focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
                           aria-label={`Permissões da função ${SECTION_DEFS[section].label}`}
                         >
                           <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -6909,7 +7359,16 @@ export default function Home() {
                     return (
                       <div
                         key={perfil.id}
-                        className="flex border bg-white"
+                        role="button"
+                        tabIndex={0}
+                        onClick={() => toggleDelegatePerfil(perfil.nr_sequencia)}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            toggleDelegatePerfil(perfil.nr_sequencia);
+                          }
+                        }}
+                        className="flex cursor-pointer border bg-white transition focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
                         style={{
                           padding: '10px',
                           borderStyle: 'solid',
@@ -6922,7 +7381,13 @@ export default function Home() {
                       >
                         <div className="flex w-full items-center justify-between">
                           <div className="text-sm truncate text-slate-900">{perfil.ds_perfil}</div>
-                          <label className="flex shrink-0 cursor-pointer items-center">
+                          <label
+                            className="flex shrink-0 cursor-pointer items-center"
+                            onClick={(e) => {
+                              // O clique no checkbox só liga/desliga o perfil.
+                              e.stopPropagation();
+                            }}
+                          >
                             <input
                               type="checkbox"
                               checked={enabled}
@@ -8061,7 +8526,7 @@ export default function Home() {
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -8134,7 +8599,7 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'cg_categoria_ativo' ? 'ds_categoria' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               'ie_status',
               'dt_criacao',
@@ -8219,6 +8684,9 @@ export default function Home() {
                       ds_logradouro: 'Descrição',
                       sg_logradouro: 'Sigla',
                       ds_grau_parentesco: 'Descrição',
+                      ds_localizacao: 'Descrição',
+                      ds_marca: 'Descrição',
+                      ds_categoria: 'Descrição',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
                     };

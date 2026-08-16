@@ -17,6 +17,7 @@ export const ALUNO_COLUMNS: ColDef[] = [
   { key: 'nr_matricula', label: 'Matrícula' },
   { key: 'dt_ingresso', label: 'Data de ingresso' },
   { key: 'ie_status', label: 'Status' },
+  { key: 'dt_status', label: 'Data do status' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
 ];

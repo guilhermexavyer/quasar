@@ -168,8 +168,17 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_logradouro.ds_logradouro", label: "Descrição", tipo: "Logradouro", colecao: "cg_logradouro" },
     { key: "cg_logradouro.ie_status", label: "Status", tipo: "Logradouro", colecao: "cg_logradouro" },
 
+    { key: "cg_marca.ds_marca", label: "Descrição", tipo: "Marca", colecao: "cg_marca" },
+    { key: "cg_marca.ie_status", label: "Status", tipo: "Marca", colecao: "cg_marca" },
+
+    { key: "cg_categoria_ativo.ds_categoria", label: "Descrição", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
+    { key: "cg_categoria_ativo.ie_status", label: "Status", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
+
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
     { key: "cg_grau_parentesco.ie_status", label: "Status", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
+
+    { key: "cg_localizacao.ds_localizacao", label: "Descrição", tipo: "Localização", colecao: "cg_localizacao" },
+    { key: "cg_localizacao.ie_status", label: "Status", tipo: "Localização", colecao: "cg_localizacao" },
 
     { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
     { key: "cg_cargo.ie_status", label: "Status", tipo: "Cargo", colecao: "cg_cargo" },

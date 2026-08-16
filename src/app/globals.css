@@ -270,6 +270,16 @@ textarea:read-only {
   border-bottom-color: #38383e;
   border-width: 1px;
 }
+
+/* Ícone de Permissões da função (Delegar funções): no modo claro o estado
+   normal é #999 e o hover é #666; no modo escuro o normal vira #bbb e o
+   hover vira #fff. */
+.dark .text-\[\#999\] {
+  color: #bbb !important;
+}
+.dark .hover\:text-\[\#666\]:hover {
+  color: #fff !important;
+}
 .dark input.bg-white,
 .dark textarea.bg-white,
 .dark select.bg-white {

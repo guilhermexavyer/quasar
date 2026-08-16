@@ -13,6 +13,9 @@ import type { Colaborador } from "@/types/colaborador";
 import type { GrauParentesco } from "@/types/grauParentesco";
 import type { Cargo } from "@/types/cargo";
 import type { VinculoContratual } from "@/types/vinculoContratual";
+import type { Localizacao } from "@/types/localizacao";
+import type { Marca } from "@/types/marca";
+import type { CategoriaAtivo } from "@/types/categoriaAtivo";
 
 export type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica";
 
@@ -20,5 +23,5 @@ export interface ContextMenuState {
   x: number;
   y: number;
   section: SectionType;
-  item: PessoaFisica | PessoaJuridica | Usuario | Perfil | Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | Aluno | GrauParentesco | Colaborador | Cargo | VinculoContratual;
+  item: PessoaFisica | PessoaJuridica | Usuario | Perfil | Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | Aluno | GrauParentesco | Colaborador | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo;
 }

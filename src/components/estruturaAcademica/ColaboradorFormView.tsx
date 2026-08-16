@@ -341,7 +341,7 @@ export default function ColaboradorFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-5">
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-6">
                 <div className="group">
                   {renderFieldLabel('nr_seq_vinculo_contratual', 'Vínculo contratual')}
                   <Select
@@ -400,6 +400,34 @@ export default function ColaboradorFormView({
                     value={form.dt_status ?? ''}
                     onChange={(e) => setForm({ ...form, dt_status: applyDateMask(e.target.value) })}
                   />
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
+                  <div className="flex items-center gap-4 pt-0.5">
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="ie_fornecedor"
+                        value="S"
+                        disabled={statusDe('ie_fornecedor') === 'D'}
+                        checked={form.ie_fornecedor === 'S'}
+                        onChange={() => setForm({ ...form, ie_fornecedor: 'S' })}
+                      />
+                      <span>Sim</span>
+                    </label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="radio"
+                        name="ie_fornecedor"
+                        value="N"
+                        disabled={statusDe('ie_fornecedor') === 'D'}
+                        checked={form.ie_fornecedor === 'N' || !form.ie_fornecedor}
+                        onChange={() => setForm({ ...form, ie_fornecedor: 'N' })}
+                      />
+                      <span>Não</span>
+                    </label>
+                  </div>
                 </div>
               </div>
 

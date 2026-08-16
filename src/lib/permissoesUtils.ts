@@ -75,6 +75,16 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_logradouro", label: "Permite adicionar" },
     { key: "ver_logradouro", label: "Permite ver" },
     { key: "excluir_logradouro", label: "Permite excluir" },
+    // Marca
+    { key: "acessar_marca", label: "Permite acessar Marca" },
+    { key: "adicionar_marca", label: "Permite adicionar" },
+    { key: "ver_marca", label: "Permite ver" },
+    { key: "excluir_marca", label: "Permite excluir" },
+    // Categoria
+    { key: "acessar_categoria_ativo", label: "Permite acessar Categoria (ativo)" },
+    { key: "adicionar_categoria_ativo", label: "Permite adicionar" },
+    { key: "ver_categoria_ativo", label: "Permite ver" },
+    { key: "excluir_categoria_ativo", label: "Permite excluir" },
     // Órgão emissor
     { key: "acessar_orgao_emissor", label: "Permite acessar Órgão emissor" },
     { key: "adicionar_orgao_emissor", label: "Permite adicionar" },
@@ -95,6 +105,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_grau_parentesco", label: "Permite adicionar" },
     { key: "ver_grau_parentesco", label: "Permite ver" },
     { key: "excluir_grau_parentesco", label: "Permite excluir" },
+    // Localização
+    { key: "acessar_localizacao", label: "Permite acessar Localização" },
+    { key: "adicionar_localizacao", label: "Permite adicionar" },
+    { key: "ver_localizacao", label: "Permite ver" },
+    { key: "excluir_localizacao", label: "Permite excluir" },
     // Cargo
     { key: "acessar_cargo", label: "Permite acessar Cargo" },
     { key: "adicionar_cargo", label: "Permite adicionar" },
@@ -153,6 +168,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
     },
     {
+      titulo: 'Categoria (ativo)',
+      chaves: ['acessar_categoria_ativo', 'adicionar_categoria_ativo', 'ver_categoria_ativo', 'excluir_categoria_ativo'],
+    },
+    {
       titulo: 'Cor/Raça',
       chaves: ['acessar_cor_raca', 'adicionar_cor_raca', 'ver_cor_raca', 'excluir_cor_raca'],
     },
@@ -165,8 +184,16 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'excluir_grau_parentesco'],
     },
     {
+      titulo: 'Localização',
+      chaves: ['acessar_localizacao', 'adicionar_localizacao', 'ver_localizacao', 'excluir_localizacao'],
+    },
+    {
       titulo: 'Logradouro',
       chaves: ['acessar_logradouro', 'adicionar_logradouro', 'ver_logradouro', 'excluir_logradouro'],
+    },
+    {
+      titulo: 'Marca',
+      chaves: ['acessar_marca', 'adicionar_marca', 'ver_marca', 'excluir_marca'],
     },
     {
       titulo: 'Órgão emissor',
@@ -224,7 +251,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 4;
+export const PERMISSOES_CONFIG_VERSION = 7;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -347,10 +374,13 @@ export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): st
  */
 export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'cargo', label: 'Cargo', permissao: 'acessar_cargo' },
+  { value: 'categoriaAtivo', label: 'Categoria (ativo)', permissao: 'acessar_categoria_ativo' },
   { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
   { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco', permissao: 'acessar_grau_parentesco' },
+  { value: 'localizacao', label: 'Localização', permissao: 'acessar_localizacao' },
   { value: 'logradouro', label: 'Logradouro', permissao: 'acessar_logradouro' },
+  { value: 'marca', label: 'Marca', permissao: 'acessar_marca' },
   { value: 'orgaoEmissor', label: 'Órgão emissor', permissao: 'acessar_orgao_emissor' },
   { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
   { value: 'sexo', label: 'Sexo', permissao: 'acessar_sexo' },

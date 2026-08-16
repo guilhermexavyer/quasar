@@ -14,6 +14,7 @@ interface ListViewProps {
   colaboradores: Colaborador[];
   openNewForm: () => void;
   openEditForm: (colaborador: Colaborador) => void;
+  openFilter: () => void;
   handleDelete: (id: string) => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   selectOptions: { value: string; label: string }[];
@@ -36,6 +37,7 @@ export default function ColaboradorListView({
   colaboradores,
   openNewForm,
   openEditForm,
+  openFilter,
   handleDelete,
   setContextMenu,
   selectOptions,
@@ -463,6 +465,16 @@ export default function ColaboradorListView({
               showPlaceholder={false}
               className="!w-[180px]"
             />
+            <button
+              type="button"
+              onClick={openFilter}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+              aria-label="Abrir filtro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
+              </svg>
+            </button>
           </div>
           <button
             type="button"

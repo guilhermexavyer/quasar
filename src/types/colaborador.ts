@@ -8,6 +8,8 @@ export interface Colaborador {
   nr_seq_pessoa_juridica?: number;
   /** Vínculo contratual (Cadastros Gerais > Vínculo contratual). */
   nr_seq_vinculo_contratual?: number;
+  /** Indica se o colaborador é fornecedor (S/N). */
+  ie_fornecedor?: string;
   nr_matricula?: string;
   dt_admissao: string;
   ie_status?: string;
