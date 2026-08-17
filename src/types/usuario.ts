@@ -31,6 +31,7 @@ export interface Usuario {
   config_colunas_cg_localizacao?: string;
   config_colunas_cg_marca?: string;
   config_colunas_cg_categoria_ativo?: string;
+  config_colunas_pat_ativos?: string;
   config_ordem_menu_lateral?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;

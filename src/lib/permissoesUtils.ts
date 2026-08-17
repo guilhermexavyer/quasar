@@ -59,6 +59,13 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
     { key: "excluir_colaborador", label: "Permite excluir" },
   ],
+  patrimonio: [
+    // Ativos
+    { key: "acessar_ativo", label: "Permite acessar Ativos" },
+    { key: "adicionar_ativo", label: "Permite adicionar" },
+    { key: "ver_ativo", label: "Permite ver" },
+    { key: "excluir_ativo", label: "Permite excluir" },
+  ],
   cadastrosGerais: [
     // Cor/Raça
     { key: "acessar_cor_raca", label: "Permite acessar Cor/Raça" },
@@ -162,6 +169,12 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
     },
   ],
+  patrimonio: [
+    {
+      titulo: 'Ativos',
+      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'excluir_ativo'],
+    },
+  ],
   cadastrosGerais: [
     {
       titulo: 'Cargo',
@@ -251,7 +264,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 7;
+export const PERMISSOES_CONFIG_VERSION = 8;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -366,6 +379,26 @@ export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): st
   if (!salvos) return EA_SUBMODULOS.map((s) => s.value);
   // Configuração salva (mesmo vazia): libera apenas o que está marcado.
   return EA_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
+}
+
+/**
+ * Submódulos da função Patrimônio (dropdown PAI) e a permissão que
+ * libera o acesso a cada um deles.
+ */
+export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'ativos', label: 'Ativos', permissao: 'acessar_ativo' },
+];
+
+/**
+ * Valores do dropdown PAI da função Patrimônio (Ativos/...) liberados conforme
+ * as permissões salvas. Sem configuração (lista vazia) = tudo liberado.
+ */
+export function patrimonioSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
+  const salvos = config?.["patrimonio"];
+  // Sem configuração salva para a função: comportamento padrão (tudo liberado).
+  if (!salvos) return PATRIMONIO_SUBMODULOS.map((s) => s.value);
+  // Configuração salva (mesmo vazia): libera apenas o que está marcado.
+  return PATRIMONIO_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
 }
 
 /**

@@ -185,6 +185,17 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     { key: "cg_vinculo_contratual.ds_vinculo_contratual", label: "Descrição", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
     { key: "cg_vinculo_contratual.ie_status", label: "Status", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
+
+    { key: "pat_ativos.cd_patrimonio", label: "Patrimônio", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_ativo", label: "Descrição", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_categoria", label: "Categoria", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_localizacao", label: "Localização", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_marca", label: "Marca", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_modelo", label: "Modelo", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_qr_code", label: "QR Code", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_codigo_barras", label: "Código de barras", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ie_status", label: "Status", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_observacao", label: "Observação", tipo: "Ativo", colecao: "pat_ativos" },
   ],
   estruturaAcademica: [
     // Matrícula, Desligamento, Status e Motivo desligamento não são

@@ -106,6 +106,12 @@ import {
   obterCategoriasAtivos,
   atualizarCategoriaAtivo,
 } from "@/services/categoriaAtivoService";
+import {
+  criarAtivo,
+  excluirAtivo,
+  obterAtivos,
+  atualizarAtivo,
+} from "@/services/ativoService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -142,6 +148,8 @@ import AlunoListView from "@/components/estruturaAcademica/AlunoListView";
 import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademica/AlunoFormView";
 import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorListView";
 import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
+import AtivoListView from "@/components/patrimonio/AtivoListView";
+import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
@@ -167,6 +175,7 @@ import {
   pessoaSubmodulosPermitidos,
   cgSubmodulosPermitidos,
   eaSubmodulosPermitidos,
+  patrimonioSubmodulosPermitidos,
   temPermissao,
 } from "@/lib/permissoesUtils";
 import type { PermissaoDef } from "@/lib/permissoesUtils";
@@ -195,6 +204,7 @@ import type { VinculoContratual } from "@/types/vinculoContratual";
 import type { Localizacao } from "@/types/localizacao";
 import type { Marca } from "@/types/marca";
 import type { CategoriaAtivo } from "@/types/categoriaAtivo";
+import type { Ativo } from "@/types/ativo";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
 import { COR_RACA_COLUMNS, COR_RACA_FIELD_INFOS } from "@/lib/corRacaUtils";
@@ -207,6 +217,7 @@ import { VINCULO_CONTRATUAL_COLUMNS, VINCULO_CONTRATUAL_FIELD_INFOS } from "@/li
 import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoUtils";
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
+import { ATIVO_COLUMNS } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -267,7 +278,7 @@ function getActivePerfilKey(userId?: string | null): string {
 }
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica";
+type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio";
 
 type FilterFormData = Omit<
   FormData,
@@ -337,6 +348,11 @@ const EA_SELECT_OPTIONS = [
   { value: 'colaboradores', label: 'Colaboradores' },
 ];
 
+/* Opções do dropdown da função Patrimônio */
+const PATRIMONIO_SELECT_OPTIONS = [
+  { value: 'ativos', label: 'Ativos' },
+];
+
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 const emptyAlunoForm: AlunoFormData = {
@@ -365,6 +381,19 @@ const emptyColaboradorForm: ColaboradorFormData = {
   dt_status: "",
   ds_status: "",
   ie_status: 'A',
+};
+
+const emptyAtivoForm: AtivoFormData = {
+  cd_patrimonio: "",
+  ds_ativo: "",
+  nr_seq_categoria: undefined,
+  nr_seq_localizacao: undefined,
+  nr_seq_marca: undefined,
+  ds_modelo: "",
+  ds_qr_code: "",
+  ds_codigo_barras: "",
+  ie_status: 'O',
+  ds_observacao: "",
 };
 
 /** Chaves da seção Informações médicas com lista de valores (Observações
@@ -456,7 +485,7 @@ type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradou
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica"];
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio"];
 
 function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
   const result = [...new Set(parsed)];
@@ -471,7 +500,7 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica") as SectionType[];
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio") as SectionType[];
     if (valid.length === 0) return null;
     return valid;
   } catch {
@@ -603,6 +632,26 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
       </svg>
     ),
   },
+  patrimonio: {
+    label: "Patrimônio",
+    labelMaxW: "max-w-[150px]",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
+        <path d="m3.3 7 8.7 5 8.7-5" />
+        <path d="M12 22V12" />
+      </svg>
+    ),
+  },
 };
 
 /* Ordem alfabética das funções (pelos nomes do menu lateral) */
@@ -691,7 +740,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -895,6 +944,18 @@ export default function Home() {
   const [colaboradorPjLookupFilter, setColaboradorPjLookupFilter] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
   const [colaboradorPjLookupApplied, setColaboradorPjLookupApplied] = useState(false);
   const colaboradorPjLookupTargetRef = useRef<'form' | 'filter'>('form');
+
+  // Patrimônio > Ativos.
+  const [ativoManageSelection, setAtivoManageSelection] = useState<string>('ativos');
+  const [ativos, setAtivos] = useState<Ativo[]>([]);
+  const [ativoForm, setAtivoForm] = useState<AtivoFormData>(emptyAtivoForm);
+  const [ativoEditingId, setAtivoEditingId] = useState<string | null>(null);
+  const [ativoAuditInfo, setAtivoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditAtivoIdRef = useRef<string | null>(null);
+  const [ativoSubmitting, setAtivoSubmitting] = useState(false);
+  const [ativoSortColumn, setAtivoSortColumn] = useState<number | null>(null);
+  const [ativoSortAsc, setAtivoSortAsc] = useState<boolean | null>(null);
+  const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
   const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
@@ -1127,6 +1188,36 @@ export default function Home() {
     }
   }, [allowedAlunoSubmodulos, alunoManageSelection, currentUser]);
 
+  // Submódulos da função Patrimônio (Ativos/...) liberados ao usuário logado
+  // conforme as permissões do perfil ativo.
+  const allowedPatrimonioSubmodulos = useMemo(() => {
+    // O administrador tem acesso total.
+    if (isAdministrador) return ['ativos'];
+    return patrimonioSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Permissões da função Patrimônio (Ativos) para o usuário logado: o
+  // administrador tem tudo liberado; os demais seguem o perfil ativo.
+  const permissoesPatrimonio = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdministrador || temPermissao(permissoesAtivas, 'patrimonio', permissao);
+    return {
+      acessarAtivo: permitida('acessar_ativo'),
+      adicionarAtivo: permitida('adicionar_ativo'),
+      verAtivo: permitida('ver_ativo'),
+      excluirAtivo: permitida('excluir_ativo'),
+    };
+  }, [isAdministrador, permissoesAtivas]);
+
+  // Se o submódulo ativo de Patrimônio deixar de ser permitido, volta para
+  // o primeiro submódulo permitido.
+  useEffect(() => {
+    if (!currentUser) return;
+    if (!allowedPatrimonioSubmodulos.includes(ativoManageSelection)) {
+      setAtivoManageSelection(allowedPatrimonioSubmodulos[0] ?? 'ativos');
+    }
+  }, [allowedPatrimonioSubmodulos, ativoManageSelection, currentUser]);
+
   // Migração única de config_permissoes antigas: perfis salvos antes da adição
   // das permissões granulares ganham as permissões novas como concedidas (a
   // runtime já usa a configuração migrada via permissoesAtivas).
@@ -1190,6 +1281,10 @@ export default function Home() {
   const alunoColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_aluno),
     [currentUser?.config_colunas_aluno]
+  );
+  const ativoColunasConfig = useMemo(
+    () => parseColunasConfig(currentUser?.config_colunas_pat_ativos),
+    [currentUser?.config_colunas_pat_ativos]
   );
   const adminColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_as_usuario),
@@ -1609,6 +1704,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadAtivos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterAtivos();
+      setAtivos(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -1653,10 +1760,11 @@ export default function Home() {
     loadLocalizacoes();
     loadMarcas();
     loadCategoriasAtivos();
+    loadAtivos();
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -1688,12 +1796,13 @@ export default function Home() {
           cgManageSelection,
           pjManageSelection,
           alunoManageSelection,
+          patrimonioManageSelection: ativoManageSelection,
         })
       );
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection]);
+  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -1800,6 +1909,7 @@ export default function Home() {
           cgManageSelection?: string;
           pjManageSelection?: string;
           alunoManageSelection?: string;
+          patrimonioManageSelection?: string;
         };
 
         if (!session?.userId) return;
@@ -1814,7 +1924,7 @@ export default function Home() {
         }
 
         setCurrentUser(usuarioSalvo);
-        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica") {
+        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica" || session.activeSection === "patrimonio") {
           setActiveSection(session.activeSection);
         }
         if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos')) {
@@ -1828,6 +1938,9 @@ export default function Home() {
         }
         if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores')) {
           setAlunoManageSelection(session.alunoManageSelection);
+        }
+        if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
+          setAtivoManageSelection(session.patrimonioManageSelection);
         }
         setView("list");
         setIsAuthenticated(true);
@@ -1989,6 +2102,25 @@ export default function Home() {
     openColaboradorNewForm();
   }
 
+  function openAtivoNewForm() {
+    setAtivoForm(emptyAtivoForm);
+    setAtivoEditingId(null);
+    setAtivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setAtivoCampoErros([]);
+    setView("form");
+    setActiveSection("patrimonio");
+  }
+
+  // Botão "Adicionar" de Ativos: sem a permissão, mostra aviso.
+  function handleAtivoNewForm() {
+    if (!permissoesPatrimonio.adicionarAtivo) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openAtivoNewForm();
+  }
+
   // Botão "Adicionar" de Cadastros Gerais: sem a permissão da seção ativa, mostra aviso.
   function handleCgNewForm() {
     if (!permissoesCg[cgKind]?.adicionar) {
@@ -2019,6 +2151,9 @@ export default function Home() {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.verColaborador;
       return permissoesEA.verAluno;
     }
+    if (s === 'patrimonio') {
+      return permissoesPatrimonio.verAtivo;
+    }
     return true;
   }
 
@@ -2042,6 +2177,9 @@ export default function Home() {
     if (s === 'estruturaAcademica') {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
       return permissoesEA.excluirAluno;
+    }
+    if (s === 'patrimonio') {
+      return permissoesPatrimonio.excluirAtivo;
     }
     return true;
   }
@@ -2124,6 +2262,17 @@ export default function Home() {
     setColaboradorForm(emptyColaboradorForm);
     setColaboradorEditingId(null);
     setColaboradorAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setView("list");
+  }
+
+  function handlePatrimonioManageSelectionChange(value: string) {
+    setAtivoManageSelection(value);
+    // Ao trocar a seleção no meio da edição, zera o registro em edição
+    // para nunca salvar contra a coleção errada.
+    setAtivoForm(emptyAtivoForm);
+    setAtivoEditingId(null);
+    setAtivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setView("list");
   }
@@ -2225,6 +2374,21 @@ export default function Home() {
     setAuditLoading(true);
     try {
       const logs = await fetchAuditByDocumentId('colaborador', colaboradorId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openAtivoAuditModal(ativoId?: string | null) {
+    if (!ativoId) return;
+    setAuditDocumentType('pat_ativo');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('pat_ativos', ativoId);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -2532,6 +2696,20 @@ export default function Home() {
     }
   }
 
+  function handleAtivoSortChange(logicalIndex: number) {
+    if (ativoSortColumn === logicalIndex) {
+      if (ativoSortAsc) {
+        setAtivoSortAsc(false);
+      } else {
+        setAtivoSortColumn(null);
+        setAtivoSortAsc(null);
+      }
+    } else {
+      setAtivoSortColumn(logicalIndex);
+      setAtivoSortAsc(true);
+    }
+  }
+
   /* ── Carregar autor da auditoria (para o rodapé do formulário) ── */
   async function carregarAutorAuditoriaPessoa(id: string) {
     try {
@@ -2638,6 +2816,25 @@ export default function Home() {
         return acao === 'update' || acao === 'password';
       });
       setAlunoAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  async function carregarAutorAuditoriaAtivo(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('pat_ativos', id);
+      if (auditAtivoIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => {
+        const acao = String(l.acao ?? '').toLowerCase();
+        return acao === 'update' || acao === 'password';
+      });
+      setAtivoAuditInfo((prev) => ({
         ...prev,
         createdBy: createLog?.usuarioNome ?? prev.createdBy,
         updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
@@ -2813,6 +3010,36 @@ export default function Home() {
     setActiveSection("estruturaAcademica");
   }
 
+  function openAtivoEditForm(ativo: Ativo) {
+    setAtivoForm({
+      cd_patrimonio: ativo.cd_patrimonio ?? '',
+      ds_ativo: ativo.ds_ativo ?? '',
+      nr_seq_categoria: ativo.nr_seq_categoria,
+      nr_seq_localizacao: ativo.nr_seq_localizacao,
+      nr_seq_marca: ativo.nr_seq_marca,
+      ds_modelo: ativo.ds_modelo ?? '',
+      ds_qr_code: ativo.ds_qr_code ?? '',
+      ds_codigo_barras: ativo.ds_codigo_barras ?? '',
+      ie_status: ativo.ie_status ?? 'O',
+      ds_observacao: ativo.ds_observacao ?? '',
+    });
+    setAtivoEditingId(ativo.id ?? null);
+    setAtivoAuditInfo({
+      createdAt: ativo.dt_criacao ?? '',
+      updatedAt: ativo.dt_alteracao ?? '',
+      createdBy: ativo.ds_usuario_criacao ?? '',
+      updatedBy: ativo.ds_usuario_alteracao ?? '',
+    });
+    auditAtivoIdRef.current = ativo.id ?? null;
+    setMessage("");
+    setAtivoCampoErros([]);
+    setView("form");
+    setActiveSection("patrimonio");
+    if (ativo.id) {
+      carregarAutorAuditoriaAtivo(ativo.id);
+    }
+  }
+
   function openPerfilEditForm(perfil: Perfil) {
     setPerfilForm({
       ds_perfil: perfil.ds_perfil,
@@ -2919,6 +3146,14 @@ export default function Home() {
     setMessage("");
     setView("list");
     setActiveSection("estruturaAcademica");
+  }
+
+  function goToAtivoList() {
+    setAtivoForm(emptyAtivoForm);
+    setAtivoEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("patrimonio");
   }
 
   function goToAdminList() {
@@ -3148,6 +3383,33 @@ export default function Home() {
       return 0;
     });
   }, [filteredColaboradores, colaboradorSortColumn, colaboradorSortAsc]);
+
+  const filteredSortedAtivos = useMemo(() => {
+    const sorted = [...ativos];
+    if (ativoSortColumn === null || ativoSortAsc === null) {
+      return sorted.sort((a, b) => {
+        const dateA = a.dt_criacao || "";
+        const dateB = b.dt_criacao || "";
+        if (dateA < dateB) return -1;
+        if (dateA > dateB) return 1;
+        return a.nr_sequencia - b.nr_sequencia;
+      });
+    }
+
+    const key = ATIVO_COLUMNS[ativoSortColumn].key;
+    return sorted.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return ativoSortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return ativoSortAsc ? -1 : 1;
+      if (strA > strB) return ativoSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [ativos, ativoSortColumn, ativoSortAsc]);
 
   const filteredPessoasJuridicas = useMemo(() => {
     return pessoasJuridicas.filter((pessoa) => {
@@ -3389,6 +3651,13 @@ export default function Home() {
   const hasPrevColaboradorRecord = currentColaboradorEditIndex > 0;
   const hasNextColaboradorRecord = currentColaboradorEditIndex >= 0 && currentColaboradorEditIndex < filteredSortedColaboradores.length - 1;
 
+  const currentAtivoEditIndex = useMemo(() => {
+    if (!ativoEditingId) return -1;
+    return filteredSortedAtivos.findIndex((a) => a.id === ativoEditingId);
+  }, [filteredSortedAtivos, ativoEditingId]);
+  const hasPrevAtivoRecord = currentAtivoEditIndex > 0;
+  const hasNextAtivoRecord = currentAtivoEditIndex >= 0 && currentAtivoEditIndex < filteredSortedAtivos.length - 1;
+
   function goToPrevRecord() {
     if (!hasPrevRecord) return;
     const previous = filteredSortedPessoasFisicas[currentEditIndex - 1];
@@ -3471,6 +3740,18 @@ export default function Home() {
     if (!hasNextColaboradorRecord) return;
     const next = filteredSortedColaboradores[currentColaboradorEditIndex + 1];
     if (next) openColaboradorEditForm(next);
+  }
+
+  function goToPrevAtivoRecord() {
+    if (!hasPrevAtivoRecord) return;
+    const previous = filteredSortedAtivos[currentAtivoEditIndex - 1];
+    if (previous) openAtivoEditForm(previous);
+  }
+
+  function goToNextAtivoRecord() {
+    if (!hasNextAtivoRecord) return;
+    const next = filteredSortedAtivos[currentAtivoEditIndex + 1];
+    if (next) openAtivoEditForm(next);
   }
 
   /* ── Salvar (criar ou atualizar) ── */
@@ -3702,6 +3983,67 @@ export default function Home() {
       setMessage("Erro ao salvar.");
     } finally {
       setColaboradorSubmitting(false);
+    }
+  }
+
+  /* ── Salvar (criar ou atualizar) Ativo ── */
+  async function handleAtivoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativos');
+    const ativoFaltantes = camposObrigatoriosVazios(ativoForm as unknown as Record<string, any>, ativoRegras);
+    if (ativoFaltantes.length > 0) {
+      setAtivoCampoErros(ativoFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setAtivoCampoErros([]);
+    setAtivoSubmitting(true);
+
+    try {
+      if (ativoEditingId) {
+        const currentAtivo = ativos.find((a) => a.id === ativoEditingId);
+        const formKeys: Array<keyof AtivoFormData> = [
+          'cd_patrimonio',
+          'ds_ativo',
+          'nr_seq_categoria',
+          'nr_seq_localizacao',
+          'nr_seq_marca',
+          'ds_modelo',
+          'ds_qr_code',
+          'ds_codigo_barras',
+          'ie_status',
+          'ds_observacao',
+        ];
+        const hasChanges = currentAtivo
+          ? formKeys.some((key) => String(currentAtivo[key] ?? '') !== String(ativoForm[key] ?? ''))
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setAtivoForm(emptyAtivoForm);
+          setAtivoEditingId(null);
+          await loadAtivos();
+          setView("list");
+          return;
+        }
+
+        await atualizarAtivo(ativoEditingId, ativoForm, auditAutor);
+        setMessage("Atualizado com sucesso!");
+      } else {
+        await criarAtivo(ativoForm, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+
+      setAtivoForm(emptyAtivoForm);
+      setAtivoEditingId(null);
+      await loadAtivos();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setAtivoSubmitting(false);
     }
   }
 
@@ -4575,6 +4917,8 @@ export default function Home() {
       } else {
         item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
+    } else if (activeSection === 'patrimonio') {
+      item = ativos.find((a) => a.id === ativoEditingId) ?? null;
     } else {
       item = cgItems.find((i) => i.id === cgEditingId) ?? null;
     }
@@ -4639,6 +4983,18 @@ export default function Home() {
       setMessage("Erro ao excluir.");
     }
     if (view === 'form') goToColaboradorList();
+  }
+
+  async function handleAtivoDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirAtivo(id);
+      setMessage("Excluído com sucesso!");
+      await loadAtivos();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToAtivoList();
   }
 
   function openAlterarStatusModal(aluno: Aluno) {
@@ -5306,6 +5662,18 @@ export default function Home() {
       });
   }
 
+  function handleAtivoColumnsChange(config: ColunasConfig) {
+    if (!currentUser?.id) return;
+    const serialized = serializeColunasConfig(config.order, config.widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_ativos: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_pat_ativos: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Ativos)', err);
+      });
+  }
+
   function handleAdminColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
@@ -5452,6 +5820,8 @@ export default function Home() {
               } else {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
+            } else if (contextMenu.section === 'patrimonio') {
+              openAtivoEditForm(contextMenu.item as Ativo);
             } else {
               openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo);
             }
@@ -5565,6 +5935,13 @@ export default function Home() {
                   setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
                   setConfirmDeleteOpen(true);
                 }
+              }
+            } else if (contextMenu.section === 'patrimonio') {
+              const ativo = contextMenu.item as Ativo;
+              if (ativo.id) {
+                setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${ativo.nr_sequencia}?`);
+                setConfirmDeleteAction(() => () => handleAtivoDelete(ativo.id as string));
+                setConfirmDeleteOpen(true);
               }
             } else {
               const cg = contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo;
@@ -6058,6 +6435,30 @@ export default function Home() {
                   }}
                 />
               )
+            ) : activeSection === "patrimonio" ? (
+              <AtivoListView
+                message={message}
+                loading={loading}
+                ativos={filteredSortedAtivos}
+                openNewForm={handleAtivoNewForm}
+                openEditForm={openAtivoEditForm}
+                handleDelete={handleAtivoDelete}
+                setContextMenu={setContextMenu}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS}
+                manageSelection={ativoManageSelection}
+                onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                allowedSubmodulos={allowedPatrimonioSubmodulos}
+                sortColumn={ativoSortColumn}
+                sortAsc={ativoSortAsc}
+                onSortChange={handleAtivoSortChange}
+                initialColumns={ativoColunasConfig}
+                onColumnsChange={handleAtivoColumnsChange}
+                columnLookups={{
+                  nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria])),
+                  nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
+                  nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
+                }}
+              />
             ) : (
               (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro' || cgManageSelection === 'localizacao' || cgManageSelection === 'marca' || cgManageSelection === 'categoriaAtivo') ? (
                 <CadastroGeralListView
@@ -6290,6 +6691,35 @@ export default function Home() {
                   campoErros={colaboradorCampoErros}
                 />
               )
+            ) : activeSection === "patrimonio" ? (
+              <AtivoFormView
+                message={message}
+                editingId={ativoEditingId}
+                sequence={ativoEditingId ? (ativos.find((a) => a.id === ativoEditingId)?.nr_sequencia ?? null) : null}
+                form={ativoForm}
+                setForm={setAtivoForm}
+                submitting={ativoSubmitting}
+                handleSubmit={handleAtivoSubmit}
+                goToList={goToAtivoList}
+                createdAt={ativoAuditInfo.createdAt}
+                updatedAt={ativoAuditInfo.updatedAt}
+                createdBy={ativoAuditInfo.createdBy}
+                updatedBy={ativoAuditInfo.updatedBy}
+                onOpenAudit={openAtivoAuditModal}
+                onPrevRecord={goToPrevAtivoRecord}
+                onNextRecord={goToNextAtivoRecord}
+                hasPrevRecord={hasPrevAtivoRecord}
+                hasNextRecord={hasNextAtivoRecord}
+                categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))}
+                localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
+                marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS}
+                manageSelection={ativoManageSelection}
+                onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                allowedSubmodulos={allowedPatrimonioSubmodulos}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativos')}
+                campoErros={ativoCampoErros}
+              />
             ) : (
             <CadastroGeralFormView
               key={cgManageSelection}
@@ -8526,6 +8956,7 @@ export default function Home() {
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
+        const isAtivo = auditDocumentType === 'pat_ativo';
         const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo';
         const fieldsOrder = isPj
           ? [
@@ -8593,6 +9024,22 @@ export default function Home() {
               'ds_restricao_alimentar',
               'ds_necessidade_especial',
               'ds_observacao_medica',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
+          : isAtivo
+          ? [
+              'nr_sequencia',
+              'cd_patrimonio',
+              'ds_ativo',
+              'nr_seq_categoria',
+              'nr_seq_localizacao',
+              'nr_seq_marca',
+              'ds_modelo',
+              'ds_qr_code',
+              'ds_codigo_barras',
+              'ie_status',
+              'ds_observacao',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -8687,8 +9134,14 @@ export default function Home() {
                       ds_localizacao: 'Descrição',
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
-                      dt_criacao: 'Criação',
-                      dt_alteracao: 'Alteração',
+                      cd_patrimonio: 'Patrimônio',
+                      ds_ativo: 'Descrição',
+                      nr_seq_categoria: 'Categoria',
+                      nr_seq_localizacao: 'Localização',
+                      nr_seq_marca: 'Marca',
+                      ds_modelo: 'Modelo',
+                      ds_qr_code: 'QR Code',
+                      ds_codigo_barras: 'Código de barras',
                     };
 
                     const normalizeAuditValue = (val: any): string | number | null => {
