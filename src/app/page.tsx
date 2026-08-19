@@ -993,6 +993,7 @@ export default function Home() {
   const auditAtivoIdRef = useRef<string | null>(null);
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
   const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
+  const [parametrosSaving, setParametrosSaving] = useState(false);
   const [ativoSortColumn, setAtivoSortColumn] = useState<number | null>(null);
   const [ativoSortAsc, setAtivoSortAsc] = useState<boolean | null>(null);
   const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
@@ -5226,7 +5227,16 @@ export default function Home() {
               partes.push(String(ativo.nr_sequencia));
               break;
             default:
-              partes.push(seg);
+              if (seg.toLowerCase().startsWith("sequencia_digitos:")) {
+                const digitos = parseInt(seg.slice(18), 10);
+                if (!isNaN(digitos) && digitos > 0) {
+                  partes.push(String(ativo.nr_sequencia).padStart(digitos, "0"));
+                } else {
+                  partes.push(String(ativo.nr_sequencia));
+                }
+              } else {
+                partes.push(seg);
+              }
               break;
           }
         }
@@ -6766,6 +6776,7 @@ export default function Home() {
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
                   onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
                 />
               ) : (
               <AtivoListView
@@ -9808,7 +9819,7 @@ export default function Home() {
         </div>
       )}
 
-      {gerandoCodigoPatrimonio && <LoadingModal open message="Carregando..." />}
+      {(gerandoCodigoPatrimonio || parametrosSaving) && <LoadingModal open message="Carregando..." />}
 
       {toastMounted && (
         <Toast

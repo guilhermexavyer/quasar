@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import Select from "@/components/ui/Select";
-import LoadingModal from "@/components/ui/LoadingModal";
 import ResizableTable from "@/components/ui/ResizableTable";
 import {
   obterParamCodigoPatrimonio,
@@ -41,6 +40,7 @@ const OPCOES_CODIGO = [
   { value: "sequencial_ano", label: "Sequencial (por ano)" },
   { value: "sequencial_mes", label: "Sequencial (por mês)" },
   { value: "sequencia", label: "Sequência" },
+  { value: "sequencia_digitos", label: "Sequência (dígitos)" },
   { value: "texto", label: "Texto" },
 ];
 
@@ -59,6 +59,7 @@ interface ParametrosDaFuncaoViewProps {
   onManageSelectionChange: (v: string) => void;
   allowedSubmodulos?: string[];
   onSaveSuccess?: (message: string) => void;
+  onSavingChange?: (saving: boolean) => void;
 }
 
 export default function ParametrosDaFuncaoView({
@@ -66,6 +67,7 @@ export default function ParametrosDaFuncaoView({
   onManageSelectionChange,
   allowedSubmodulos = ["parametrosFuncao"],
   onSaveSuccess,
+  onSavingChange,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
@@ -97,7 +99,11 @@ export default function ParametrosDaFuncaoView({
   function serializarRegra(segs: Segmento[]): string {
     return segs
       .filter((s) => s.tipo !== "")
-      .map((s) => s.tipo === "texto" && s.texto ? `texto:${s.texto}` : s.tipo)
+      .map((s) => {
+        if (s.tipo === "texto" && s.texto) return `texto:${s.texto}`;
+        if (s.tipo === "sequencia_digitos" && s.texto) return `sequencia_digitos:${s.texto}`;
+        return s.tipo;
+      })
       .join("-");
   }
 
@@ -107,6 +113,9 @@ export default function ParametrosDaFuncaoView({
     return regra.split("-").filter((v) => v.trim() !== "").map((parte) => {
       if (parte.toLowerCase().startsWith("texto:")) {
         return { tipo: "texto", texto: parte.slice(6) };
+      }
+      if (parte.toLowerCase().startsWith("sequencia_digitos:")) {
+        return { tipo: "sequencia_digitos", texto: parte.slice(18) };
       }
       return { tipo: parte, texto: "" };
     });
@@ -147,6 +156,7 @@ export default function ParametrosDaFuncaoView({
     setSegmentos(salvos);
     setSegmentosDraft(null);
     setSaving(true);
+    onSavingChange?.(true);
     try {
       await salvarParamCodigoPatrimonio(serializarRegra(salvos));
       onSaveSuccess?.("Parâmetro salvo com sucesso");
@@ -154,13 +164,12 @@ export default function ParametrosDaFuncaoView({
       console.error("Erro ao salvar regra de código de patrimônio", e);
     } finally {
       setSaving(false);
+      onSavingChange?.(false);
     }
   }
 
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
-      {saving && <LoadingModal open message="Carregando..." />}
-
       {/* Header replicando o padrão das listagens */}
       <div className="flex min-h-[42px] items-center gap-2">
         <Select
@@ -225,9 +234,11 @@ export default function ParametrosDaFuncaoView({
                   <div className="space-y-2 w-full">
                     {segmentosEmEdicao.map((seg, index) => {
                       const isTexto = seg.tipo === "texto";
+                      const isSequenciaDigitos = seg.tipo === "sequencia_digitos";
+                      const mostraInputExtra = isTexto || isSequenciaDigitos;
                       return (
                         <div key={index} className="flex items-center gap-2 w-full">
-                          <div className={isTexto ? "w-1/2 min-w-0" : "flex-1 min-w-0"}>
+                          <div className={mostraInputExtra ? "w-1/2 min-w-0" : "flex-1 min-w-0"}>
                             <Select
                               value={seg.tipo}
                               onChange={(v) => atualizarSegmentoTipo(index, v)}
@@ -236,13 +247,17 @@ export default function ParametrosDaFuncaoView({
                               visibleOptions={7}
                             />
                           </div>
-                          {isTexto && (
+                          {mostraInputExtra && (
                             <div className="w-1/2 min-w-0">
                               <input
                                 type="text"
+                                inputMode="numeric"
+                                pattern="[0-9]*"
                                 value={seg.texto}
-                                onChange={(e) => atualizarSegmentoTexto(index, e.target.value)}
-
+                                onChange={(e) => {
+                                  const val = e.target.value.replace(/[^0-9]/g, "");
+                                  atualizarSegmentoTexto(index, val);
+                                }}
                                 className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                               />
                             </div>
