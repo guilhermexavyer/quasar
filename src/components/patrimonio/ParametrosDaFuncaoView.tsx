@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import { formatDate } from "@/lib/ativoUtils";
 import {
   obterParamCodigoPatrimonio,
   salvarParamCodigoPatrimonio,
 } from "@/services/paramCodigoPatrimonioService";
+import type { AuditAutor } from "@/services/auditService";
 
 /** Parâmetros de configuração da função Patrimônio. */
 const PARAMETROS_PATRIMONIO = [
@@ -60,6 +62,14 @@ interface ParametrosDaFuncaoViewProps {
   allowedSubmodulos?: string[];
   onSaveSuccess?: (message: string) => void;
   onSavingChange?: (saving: boolean) => void;
+  createdAt?: string;
+  updatedAt?: string;
+  createdBy?: string;
+  updatedBy?: string;
+  onOpenAudit?: () => void;
+  auditHasDocument?: boolean;
+  auditAutor?: AuditAutor;
+  onAfterSave?: (auditInfo: { createdAt: string; updatedAt: string; createdBy: string; updatedBy: string }) => void;
 }
 
 export default function ParametrosDaFuncaoView({
@@ -68,11 +78,20 @@ export default function ParametrosDaFuncaoView({
   allowedSubmodulos = ["parametrosFuncao"],
   onSaveSuccess,
   onSavingChange,
+  createdAt,
+  updatedAt,
+  createdBy,
+  updatedBy,
+  onOpenAudit,
+  auditHasDocument,
+  auditAutor,
+  onAfterSave,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
   const [segmentosDraft, setSegmentosDraft] = useState<Segmento[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const handleSalvarRef = useRef<() => void>(() => {});
 
   const selectedParametro = PARAMETROS_PATRIMONIO.find((p) => p.id === selectedParametroId) ?? null;
   const segmentosEmEdicao = segmentosDraft ?? segmentos;
@@ -150,7 +169,7 @@ export default function ParametrosDaFuncaoView({
     setSegmentosDraft(null);
   }
 
-  async function handleSalvar() {
+  const handleSalvar = useCallback(async () => {
     const limpos = segmentosEmEdicao.filter((s) => s.tipo !== "");
     const salvos = limpos.length > 0 ? limpos : [segmentoVazio()];
     setSegmentos(salvos);
@@ -158,15 +177,42 @@ export default function ParametrosDaFuncaoView({
     setSaving(true);
     onSavingChange?.(true);
     try {
-      await salvarParamCodigoPatrimonio(serializarRegra(salvos));
+      await salvarParamCodigoPatrimonio(serializarRegra(salvos), auditAutor);
       onSaveSuccess?.("Parâmetro salvo com sucesso");
+      // Atualizar info de auditoria
+      const docAtualizado = await obterParamCodigoPatrimonio();
+      if (docAtualizado?.id) {
+        onAfterSave?.({
+          createdAt: docAtualizado.dt_criacao ?? '',
+          updatedAt: docAtualizado.dt_alteracao ?? '',
+          createdBy: docAtualizado.ds_usuario_criacao ?? '',
+          updatedBy: docAtualizado.ds_usuario_alteracao ?? '',
+        });
+      }
     } catch (e) {
       console.error("Erro ao salvar regra de código de patrimônio", e);
     } finally {
       setSaving(false);
       onSavingChange?.(false);
     }
-  }
+  }, [segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave]);
+
+  // Manter ref atualizado
+  useEffect(() => {
+    handleSalvarRef.current = handleSalvar;
+  }, [handleSalvar]);
+
+  // Atalho Ctrl+S
+  useEffect(() => {
+    function onKeyDown(e: KeyboardEvent) {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        if (!saving) handleSalvarRef.current();
+      }
+    }
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [saving]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
@@ -291,24 +337,45 @@ export default function ParametrosDaFuncaoView({
                 </div>
 
                 {/* Botões Cancelar / Salvar — canto inferior direito */}
-                <div className="flex items-center justify-end gap-2 pt-[5px]">
-                  <button
-                    type="button"
-                    onClick={handleCancelar}
-                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleSalvar}
-                    disabled={saving}
-                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:opacity-50"
-                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Salvar
-                  </button>
+                <div className="flex items-end justify-between gap-3 pt-[5px]">
+                  {auditHasDocument && (
+                  <div className="text-[13px] text-slate-500">
+                    <div className="relative group flex items-center gap-2">
+                      <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatDate(updatedAt) : '-'}</span>
+                      <button
+                        type="button"
+                        aria-hidden="true"
+                        onClick={onOpenAudit}
+                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v4" />
+                          <circle cx="12" cy="16" r="0.5" />
+                        </svg>
+                      </button>
+                    </div>
+                  </div>
+                  )}
+                  <div className="flex items-center justify-end gap-2 ml-auto">
+                    <button
+                      type="button"
+                      onClick={handleCancelar}
+                      className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                      style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                    >
+                      Cancelar
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleSalvar}
+                      disabled={saving}
+                      className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:opacity-50"
+                      style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                    >
+                      Salvar
+                    </button>
+                  </div>
                 </div>
               </div>
             ) : (

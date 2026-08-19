@@ -389,6 +389,7 @@ const emptyColaboradorForm: ColaboradorFormData = {
   nr_seq_pessoa_juridica: undefined,
   nr_seq_vinculo_contratual: undefined,
   ie_fornecedor: 'N',
+  ie_prestador_servico: 'N',
   nr_matricula: "",
   dt_admissao: "",
   dt_status: "",
@@ -769,7 +770,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -994,6 +995,8 @@ export default function Home() {
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
   const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
   const [parametrosSaving, setParametrosSaving] = useState(false);
+  const [parametrosAuditInfo, setParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const [parametrosHasDocument, setParametrosHasDocument] = useState(false);
   const [ativoSortColumn, setAtivoSortColumn] = useState<number | null>(null);
   const [ativoSortAsc, setAtivoSortAsc] = useState<boolean | null>(null);
   const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
@@ -1837,6 +1840,23 @@ export default function Home() {
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
+    // Carregar auditoria dos parâmetros de Patrimônio
+    (async () => {
+      try {
+        const paramDoc = await obterParamCodigoPatrimonio();
+        if (paramDoc?.id) {
+          setParametrosHasDocument(true);
+          setParametrosAuditInfo({
+            createdAt: paramDoc.dt_criacao ?? '',
+            updatedAt: paramDoc.dt_alteracao ?? '',
+            createdBy: paramDoc.ds_usuario_criacao ?? '',
+            updatedBy: paramDoc.ds_usuario_alteracao ?? '',
+          });
+        }
+      } catch {
+        // mantém vazio em caso de falha
+      }
+    })();
   }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
@@ -2470,6 +2490,25 @@ export default function Home() {
     }
   }
 
+  async function openParametrosAuditModal() {
+    setAuditDocumentType('pat_parametros');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const paramDoc = await obterParamCodigoPatrimonio();
+      if (paramDoc?.id) {
+        const logs = await fetchAuditByDocumentId('pat_param_codigo_patrimonio', paramDoc.id);
+        setAuditLogs(logs);
+      } else {
+        setAuditLogs([]);
+      }
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   function closeAuditModal() {
     setAuditModalOpen(false);
     setAuditLogs([]);
@@ -3063,6 +3102,7 @@ export default function Home() {
       nr_seq_pessoa_juridica: colaborador.nr_seq_pessoa_juridica,
       nr_seq_vinculo_contratual: colaborador.nr_seq_vinculo_contratual,
       ie_fornecedor: colaborador.ie_fornecedor ?? 'N',
+      ie_prestador_servico: colaborador.ie_prestador_servico ?? 'N',
       nr_matricula: colaborador.nr_matricula ?? '',
       dt_admissao: colaborador.dt_admissao ?? '',
       dt_status: colaborador.dt_status ?? '',
@@ -4042,6 +4082,7 @@ export default function Home() {
           'nr_seq_pessoa_juridica',
           'nr_seq_vinculo_contratual',
           'ie_fornecedor',
+          'ie_prestador_servico',
           'nr_matricula',
           'dt_admissao',
         ];
@@ -6777,6 +6818,17 @@ export default function Home() {
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
                   onSaveSuccess={(msg) => setMessage(msg)}
                   onSavingChange={setParametrosSaving}
+                  createdAt={parametrosAuditInfo.createdAt}
+                  updatedAt={parametrosAuditInfo.updatedAt}
+                  createdBy={parametrosAuditInfo.createdBy}
+                  updatedBy={parametrosAuditInfo.updatedBy}
+                  onOpenAudit={openParametrosAuditModal}
+                  auditHasDocument={parametrosHasDocument}
+                  auditAutor={auditAutor}
+                  onAfterSave={(info) => {
+                    setParametrosAuditInfo(info);
+                    setParametrosHasDocument(true);
+                  }}
                 />
               ) : (
               <AtivoListView
@@ -9387,6 +9439,7 @@ export default function Home() {
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
         const isAtivo = auditDocumentType === 'pat_ativo';
+        const isParametros = auditDocumentType === 'pat_parametros';
         const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo';
         const fieldsOrder = isPj
           ? [
@@ -9466,6 +9519,11 @@ export default function Home() {
               'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
               'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional',
               'responsaveis', 'ds_observacao',
+              'dt_criacao', 'dt_alteracao',
+            ]
+          : isParametros
+          ? [
+              'ds_regra',
               'dt_criacao', 'dt_alteracao',
             ]
           : isCg
@@ -9566,6 +9624,7 @@ export default function Home() {
                       ds_localizacao: 'Descrição',
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
+                      ds_regra: 'Regra',
                       cd_patrimonio: 'Patrimônio',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',

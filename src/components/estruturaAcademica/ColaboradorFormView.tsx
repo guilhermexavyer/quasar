@@ -402,31 +402,34 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="group">
-                  {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
-                  <div className="flex items-center gap-4 pt-0.5">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name="ie_fornecedor"
-                        value="S"
-                        disabled={statusDe('ie_fornecedor') === 'D'}
-                        checked={form.ie_fornecedor === 'S'}
-                        onChange={() => setForm({ ...form, ie_fornecedor: 'S' })}
-                      />
-                      <span>Sim</span>
-                    </label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="radio"
-                        name="ie_fornecedor"
-                        value="N"
-                        disabled={statusDe('ie_fornecedor') === 'D'}
-                        checked={form.ie_fornecedor === 'N' || !form.ie_fornecedor}
-                        onChange={() => setForm({ ...form, ie_fornecedor: 'N' })}
-                      />
-                      <span>Não</span>
-                    </label>
+                <div className="h-full flex flex-col justify-center">
+                  <div className="flex gap-6">
+                    <div className="group">
+                      {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
+                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="cg-checkbox"
+                          disabled={statusDe('ie_fornecedor') === 'D'}
+                          checked={form.ie_fornecedor === 'S'}
+                          onChange={() => setForm({ ...form, ie_fornecedor: form.ie_fornecedor === 'S' ? 'N' : 'S' })}
+                        />
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('ie_prestador_servico', 'Prestador de serviço')}
+                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="cg-checkbox"
+                          disabled={statusDe('ie_prestador_servico') === 'D'}
+                          checked={form.ie_prestador_servico === 'S'}
+                          onChange={() => setForm({ ...form, ie_prestador_servico: form.ie_prestador_servico === 'S' ? 'N' : 'S' })}
+                        />
+                        <span>Sim</span>
+                      </label>
+                    </div>
                   </div>
                 </div>
               </div>
