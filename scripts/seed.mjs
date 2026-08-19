@@ -12,6 +12,7 @@
  *   - cg_logradouro    → tipos de logradouro com as siglas oficiais (Correios)
  *   - cg_grau_parentesco → graus de parentesco (escolar: responsáveis)
  *   - cg_cargo          → cargos (escolar: colaboradores)
+ *   - cg_sistema_operacional → sistemas operacionais (Windows, Linux, etc.)
  *   - usuario          → usuário administrador inicial (nr_sequencia 1,
  *                        senha em SHA-256, criado por 'implantacao')
  *
@@ -38,6 +39,7 @@ import {
   getDocs,
   doc,
   setDoc,
+  addDoc,
   writeBatch,
 } from "firebase/firestore";
 
@@ -214,6 +216,24 @@ const ORGAOS_EMISSORES = [
   { sg_orgao_emissor: "CRESS",   ds_orgao_emissor: "Conselho Regional de Serviço Social" },
   { sg_orgao_emissor: "CRN",     ds_orgao_emissor: "Conselho Regional de Nutrição" },
   { sg_orgao_emissor: "CRBio",   ds_orgao_emissor: "Conselho Regional de Biologia" },
+];
+
+/* Sistemas operacionais — lista inicial de SOs comuns. */
+const SISTEMAS_OPERACIONAIS = [
+  "AlmaLinux",
+  "Android",
+  "ChromeOS",
+  "Debian",
+  "Fedora",
+  "iPadOS",
+  "iOS",
+  "macOS",
+  "Mint",
+  "Ubuntu",
+  "Windows 10",
+  "Windows 11",
+  "Windows 7",
+  "Windows Server",
 ];
 
 /* Tipos de logradouro usados em endereços no Brasil, com as siglas
@@ -713,6 +733,7 @@ const COLECOES = [
   { nome: "cg_profissao",      contador: "cg_profissao_sequence",      campo: "ds_profissao",      valores: PROFISSOES.map((p) => ({ ds_profissao: p, ...(PROFISSOES_CBO[p] ? { nr_cbo: PROFISSOES_CBO[p].replace(/\D/g, '') } : {}) })) },
   { nome: "cg_orgao_emissor",  contador: "cg_orgao_emissor_sequence",  campo: "ds_orgao_emissor",  valores: ORGAOS_EMISSORES },
   { nome: "cg_logradouro",     contador: "cg_logradouro_sequence",     campo: "ds_logradouro",     valores: LOGRADOUROS },
+  { nome: "cg_sistema_operacional", contador: "cg_sistema_operacional_sequence", campo: "ds_sistema_operacional", valores: SISTEMAS_OPERACIONAIS },
 ];
 
 const RESET = process.argv.includes("--reset");
@@ -726,7 +747,7 @@ const DATA_IMPLANTACAO = "2026-01-01T00:00:00";
 const USUARIO_ADMIN = {
   ds_usuario: "administrador",
   ds_usuario_alternativo: "administrador",
-  senha: "quasar.123456",
+  senha: "administrador.quasar",
   ie_status: "A",
 };
 
@@ -734,29 +755,62 @@ const USUARIO_ADMIN = {
 /*  Reset (opcional)                                                  */
 /* ------------------------------------------------------------------ */
 
-async function resetar() {
-  console.log("♻️  Modo --reset: apagando coleções e contadores...\n");
-  for (const cfg of COLECOES) {
-    const colRef = collection(db, cfg.nome);
-    const snap = await getDocs(colRef);
+async function apagarColecao(nome) {
+  const colRef = collection(db, nome);
+  const snap = await getDocs(colRef);
+  if (snap.size === 0) {
+    console.log(`🗑️  ${nome}: 0 registros (vazio)`);
+    return 0;
+  }
+  // Firestore limita batch a 500 operações — processar em lotes
+  const BATCH_SIZE = 450;
+  for (let i = 0; i < snap.docs.length; i += BATCH_SIZE) {
     const batch = writeBatch(db);
-    for (const d of snap.docs) {
-      batch.delete(doc(db, cfg.nome, d.id));
-      // também apaga a subcoleção de auditoria se existir
+    const lote = snap.docs.slice(i, i + BATCH_SIZE);
+    for (const d of lote) {
+      batch.delete(doc(db, nome, d.id));
+      // apaga subcoleção de auditoria se existir
       try {
-        const audRef = collection(db, cfg.nome, d.id, "auditoria");
+        const audRef = collection(db, nome, d.id, "auditoria");
         const audSnap = await getDocs(audRef);
         for (const a of audSnap.docs) {
-          batch.delete(doc(db, cfg.nome, d.id, "auditoria", a.id));
+          batch.delete(doc(db, nome, d.id, "auditoria", a.id));
         }
       } catch {
         /* subcoleção não existe */
       }
     }
-    if (snap.size > 0) await batch.commit();
-    await setDoc(doc(db, "_counters", cfg.contador), { current: 0 }, { merge: true });
-    console.log(`🗑️  ${cfg.nome}: ${snap.size} registros apagados`);
+    await batch.commit();
   }
+  console.log(`🗑️  ${nome}: ${snap.size} registros apagados`);
+  return snap.size;
+}
+
+async function resetar() {
+  console.log("♻️  Modo --reset: apagando TODAS as coleções e contadores...\n");
+
+  // 1) Coleções de Cadastros Gerais
+  for (const cfg of COLECOES) {
+    await apagarColecao(cfg.nome);
+  }
+
+  // 2) Coleções de gestão
+  const colecoesExtras = ["usuario", "perfil", "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador", "pat_ativos"];
+  for (const nome of colecoesExtras) {
+    await apagarColecao(nome);
+  }
+
+  // 3) Limpa todos os contadores (_counters)
+  const countersSnap = await getDocs(collection(db, "_counters"));
+  const counterBatch = writeBatch(db);
+  let countersApagados = 0;
+  for (const c of countersSnap.docs) {
+    counterBatch.delete(doc(db, "_counters", c.id));
+    countersApagados++;
+  }
+  if (countersApagados > 0) await counterBatch.commit();
+  console.log(`🗑️  _counters: ${countersApagados} contadores apagados`);
+
   console.log("");
 }
 
@@ -867,6 +921,7 @@ async function semearColecao(cfg) {
 
   const batch = writeBatch(db);
   let ultimaSeq = proximaSeq - 1;
+  const refsCriados = [];
   for (const valor of novos) {
     const ref = doc(colRef);
     const extras =
@@ -875,7 +930,7 @@ async function semearColecao(cfg) {
             Object.entries(valor).filter(([k]) => k !== cfg.campo && k !== "id")
           )
         : {};
-    batch.set(ref, {
+    const dadosDoc = {
       [cfg.campo]: nomeDe(valor),
       ...extras,
       nr_sequencia: proximaSeq,
@@ -884,11 +939,29 @@ async function semearColecao(cfg) {
       dt_alteracao: DATA_IMPLANTACAO,
       ds_usuario_criacao: USUARIO_IMPLANTACAO,
       ds_usuario_alteracao: USUARIO_IMPLANTACAO,
-    });
+    };
+    batch.set(ref, dadosDoc);
+    refsCriados.push({ ref, dados: dadosDoc });
     ultimaSeq = proximaSeq;
     proximaSeq += 1;
   }
   await batch.commit();
+
+  // Registrar auditoria de criação para cada registro inserido
+  for (const { ref, dados } of refsCriados) {
+    try {
+      const auditCol = collection(db, cfg.nome, ref.id, "auditoria");
+      await addDoc(auditCol, {
+        usuarioId: null,
+        usuarioNome: USUARIO_IMPLANTACAO,
+        acao: "create",
+        timestamp: DATA_IMPLANTACAO,
+        detalhes: dados,
+      });
+    } catch (e) {
+      console.error(`  ⚠️ Erro ao registrar auditoria em ${cfg.nome}:`, e.message);
+    }
+  }
 
   // Sincroniza o contador para o próximo cadastro pela tela continuar correto
   await setDoc(doc(db, "_counters", cfg.contador), { current: ultimaSeq }, { merge: true });
@@ -942,7 +1015,7 @@ async function semearUsuario() {
   // SHA-256 em hexadecimal — mesmo formato que o hashPassword do login
   const senhaHash = createHash("sha256").update(USUARIO_ADMIN.senha).digest("hex");
 
-  await setDoc(doc(colRef), {
+  const dadosUsuario = {
     nr_sequencia: seqAdmin,
     ds_usuario: USUARIO_ADMIN.ds_usuario,
     ds_usuario_alternativo: USUARIO_ADMIN.ds_usuario_alternativo,
@@ -953,7 +1026,23 @@ async function semearUsuario() {
     dt_alteracao: DATA_IMPLANTACAO,
     ds_usuario_criacao: USUARIO_IMPLANTACAO,
     ds_usuario_alteracao: USUARIO_IMPLANTACAO,
-  });
+  };
+  const usuarioRef = doc(colRef);
+  await setDoc(usuarioRef, dadosUsuario);
+
+  // Registrar auditoria de criação do usuário
+  try {
+    const auditCol = collection(db, "usuario", usuarioRef.id, "auditoria");
+    await addDoc(auditCol, {
+      usuarioId: null,
+      usuarioNome: USUARIO_IMPLANTACAO,
+      acao: "create",
+      timestamp: DATA_IMPLANTACAO,
+      detalhes: dadosUsuario,
+    });
+  } catch (e) {
+    console.error("  ⚠️ Erro ao registrar auditoria do usuário:", e.message);
+  }
 
   // Sincroniza o contador para o próximo cadastro pela tela continuar correto
   await setDoc(
@@ -973,6 +1062,8 @@ async function semearUsuario() {
 /* Funções do sistema (mesmas chaves usadas pelo menu lateral) */
 const TODAS_FUNCOES = [
   "pessoaFisica",
+  "estruturaAcademica",
+  "patrimonio",
   "administracaoSistema",
   "cadastrosGerais",
 ];
@@ -1022,7 +1113,7 @@ async function semearPerfilAdministrador() {
       perfilSeq = novaSeq;
     } else {
       const ref = doc(colRef);
-      await setDoc(ref, {
+      const dadosPerfil = {
         nr_sequencia: novaSeq,
         ds_perfil: "Administrador",
         ds_observacao: "Perfil padrão do sistema com acesso a todas as funções.",
@@ -1032,10 +1123,25 @@ async function semearPerfilAdministrador() {
         dt_alteracao: DATA_IMPLANTACAO,
         ds_usuario_criacao: USUARIO_IMPLANTACAO,
         ds_usuario_alteracao: USUARIO_IMPLANTACAO,
-      });
+      };
+      await setDoc(ref, dadosPerfil);
       perfilId = ref.id;
       perfilSeq = novaSeq;
       console.log(`✅ perfil: administrador inserido (nr_sequencia: ${novaSeq})`);
+
+      // Registrar auditoria de criação do perfil
+      try {
+        const auditCol = collection(db, "perfil", ref.id, "auditoria");
+        await addDoc(auditCol, {
+          usuarioId: null,
+          usuarioNome: USUARIO_IMPLANTACAO,
+          acao: "create",
+          timestamp: DATA_IMPLANTACAO,
+          detalhes: dadosPerfil,
+        });
+      } catch (e) {
+        console.error("  ⚠️ Erro ao registrar auditoria do perfil:", e.message);
+      }
 
       // Sincroniza o contador para o próximo cadastro pela tela continuar correto
       await setDoc(

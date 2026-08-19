@@ -1,8 +1,7 @@
-export interface CategoriaAtivo {
+export interface SistemaOperacional {
   id?: string;
   nr_sequencia: number;
-  ds_categoria: string;
-  ds_observacao?: string;
+  ds_sistema_operacional: string;
   ie_status?: string;
   dt_criacao: string;
   dt_alteracao: string;

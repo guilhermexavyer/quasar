@@ -172,6 +172,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_marca.ie_status", label: "Status", tipo: "Marca", colecao: "cg_marca" },
 
     { key: "cg_categoria_ativo.ds_categoria", label: "Descrição", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
+    { key: "cg_categoria_ativo.ds_observacao", label: "Observação", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
     { key: "cg_categoria_ativo.ie_status", label: "Status", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
 
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
@@ -185,17 +186,33 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     { key: "cg_vinculo_contratual.ds_vinculo_contratual", label: "Descrição", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
     { key: "cg_vinculo_contratual.ie_status", label: "Status", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
+  ],
+  patrimonio: [
+    { key: "pat_ativos.ds_ativo", label: "Descrição", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_categoria", label: "Categoria", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_localizacao", label: "Localização", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_marca", label: "Marca", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_modelo", label: "Modelo", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_serie", label: "Número de série", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_qr_code", label: "QR Code", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_codigo_barras", label: "Código de barras", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.dt_aquisicao", label: "Data de aquisição", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.dt_garantia", label: "Data de garantia", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.dt_reativacao", label: "Reativação", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.dt_ultima_manutencao", label: "Última manutenção", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.dt_descarte", label: "Descarte", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_descarte", label: "Motivo descarte", tipo: "Ativos", colecao: "pat_ativos" },
 
-    { key: "pat_ativos.cd_patrimonio", label: "Patrimônio", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_ativo", label: "Descrição", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.nr_seq_categoria", label: "Categoria", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.nr_seq_localizacao", label: "Localização", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.nr_seq_marca", label: "Marca", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_modelo", label: "Modelo", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_qr_code", label: "QR Code", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_codigo_barras", label: "Código de barras", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.ie_status", label: "Status", tipo: "Ativo", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_observacao", label: "Observação", tipo: "Ativo", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_processador", label: "Processador", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.qt_ram", label: "Memória RAM", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ie_ram", label: "Unidade (RAM)", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.qt_armazenamento", label: "Armazenamento", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ie_armazenamento", label: "Unidade", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_endereco_mac", label: "Endereço MAC", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_ip", label: "IP", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.nr_seq_sistema_operacional", label: "Sistema operacional", tipo: "Ativos", colecao: "pat_ativos" },
+
+    { key: "pat_ativos.ds_observacao", label: "Observação", tipo: "Ativos", colecao: "pat_ativos" },
   ],
   estruturaAcademica: [
     // Matrícula, Desligamento, Status e Motivo desligamento não são

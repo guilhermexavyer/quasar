@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   criarPessoaFisica,
   excluirPessoaFisica,
@@ -107,11 +107,18 @@ import {
   atualizarCategoriaAtivo,
 } from "@/services/categoriaAtivoService";
 import {
+  criarSistemaOperacional,
+  excluirSistemaOperacional,
+  obterSistemasOperacionais,
+  atualizarSistemaOperacional,
+} from "@/services/sistemaOperacionalService";
+import {
   criarAtivo,
   excluirAtivo,
   obterAtivos,
   atualizarAtivo,
 } from "@/services/ativoService";
+import { obterParamCodigoPatrimonio } from "@/services/paramCodigoPatrimonioService";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -150,6 +157,7 @@ import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorList
 import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
+import ParametrosDaFuncaoView from "@/components/patrimonio/ParametrosDaFuncaoView";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
@@ -204,6 +212,7 @@ import type { VinculoContratual } from "@/types/vinculoContratual";
 import type { Localizacao } from "@/types/localizacao";
 import type { Marca } from "@/types/marca";
 import type { CategoriaAtivo } from "@/types/categoriaAtivo";
+import type { SistemaOperacional } from "@/types/sistemaOperacional";
 import type { Ativo } from "@/types/ativo";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
@@ -217,6 +226,7 @@ import { VINCULO_CONTRATUAL_COLUMNS, VINCULO_CONTRATUAL_FIELD_INFOS } from "@/li
 import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoUtils";
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
+import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { ATIVO_COLUMNS } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
@@ -319,6 +329,7 @@ const emptyCgForm: CadastroGeralFormData = {
   ie_status: 'A',
   nr_cbo: '',
   sg_sigla: '',
+  ds_observacao: '',
 };
 
 const CG_SELECT_OPTIONS = [
@@ -333,6 +344,7 @@ const CG_SELECT_OPTIONS = [
   { value: 'orgaoEmissor', label: 'Órgão emissor' },
   { value: 'profissao', label: 'Profissão' },
   { value: 'sexo', label: 'Sexo' },
+  { value: 'sistemaOperacional', label: 'Sistema operacional' },
   { value: 'vinculoContratual', label: 'Vínculo contratual' },
 ];
 
@@ -351,6 +363,7 @@ const EA_SELECT_OPTIONS = [
 /* Opções do dropdown da função Patrimônio */
 const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'ativos', label: 'Ativos' },
+  { value: 'parametrosFuncao', label: 'Parâmetros da função' },
 ];
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -390,9 +403,25 @@ const emptyAtivoForm: AtivoFormData = {
   nr_seq_localizacao: undefined,
   nr_seq_marca: undefined,
   ds_modelo: "",
+  nr_serie: "",
   ds_qr_code: "",
   ds_codigo_barras: "",
   ie_status: 'O',
+  dt_reativacao: '',
+  dt_ultima_manutencao: '',
+  dt_descarte: '',
+  ds_descarte: '',
+  dt_aquisicao: '',
+  dt_garantia: '',
+  ds_processador: "",
+  qt_ram: undefined,
+  ie_ram: '',
+  qt_armazenamento: undefined,
+  ie_armazenamento: "",
+  ds_endereco_mac: "",
+  ds_ip: "",
+  nr_seq_sistema_operacional: undefined,
+  responsaveis: [{ nr_seq_responsavel: undefined }],
   ds_observacao: "",
 };
 
@@ -479,7 +508,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -765,6 +794,9 @@ export default function Home() {
     });
   }, [activeSection, view]);
   const [adminManageSelection, setAdminManageSelection] = useState<string>('usuarios');
+  const [camposPerfilId, setCamposPerfilId] = useState<string | null>(null);
+  const [camposFuncao, setCamposFuncao] = useState<string | null>(null);
+  const [camposFuncaoJaSelecionada, setCamposFuncaoJaSelecionada] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMounted, setToastMounted] = useState(false);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
@@ -787,6 +819,7 @@ export default function Home() {
   const [localizacoes, setLocalizacoes] = useState<Localizacao[]>([]);
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [categoriasAtivos, setCategoriasAtivos] = useState<CategoriaAtivo[]>([]);
+  const [sistemasOperacionais, setSistemasOperacionais] = useState<SistemaOperacional[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -902,7 +935,7 @@ export default function Home() {
   const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
-  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter'>('aluno');
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo'>('aluno');
   const alunoResponsavelLookupIndexRef = useRef(0);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
@@ -938,6 +971,12 @@ export default function Home() {
   const [alterarStatusColaborador, setAlterarStatusColaborador] = useState<Colaborador | null>(null);
   const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_status: '' });
   const [alterarStatusColaboradorSaving, setAlterarStatusColaboradorSaving] = useState(false);
+  // Modal "Alterar status" do ativo (menu de contexto de Patrimônio).
+  const [ativoStatusModalOpen, setAtivoStatusModalOpen] = useState(false);
+  const [ativoStatusTarget, setAtivoStatusTarget] = useState<Ativo | null>(null);
+  const [ativoStatusValue, setAtivoStatusValue] = useState('');
+  const [ativoStatusForm, setAtivoStatusForm] = useState({ dt_data: '', ds_descarte: '' });
+  const [ativoStatusSaving, setAtivoStatusSaving] = useState(false);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
@@ -953,6 +992,7 @@ export default function Home() {
   const [ativoAuditInfo, setAtivoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditAtivoIdRef = useRef<string | null>(null);
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
+  const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
   const [ativoSortColumn, setAtivoSortColumn] = useState<number | null>(null);
   const [ativoSortAsc, setAtivoSortAsc] = useState<boolean | null>(null);
   const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
@@ -1102,6 +1142,7 @@ export default function Home() {
       profissao: 'profissao',
       orgaoEmissor: 'orgao_emissor',
       logradouro: 'logradouro',
+      sistemaOperacional: 'sistema_operacional',
     };
     const resultado: Record<string, { adicionar: boolean; ver: boolean; excluir: boolean }> = {};
     for (const [chave, sufixo] of Object.entries(secoes)) {
@@ -1118,7 +1159,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // O administrador tem acesso total.
-    if (isAdministrador) return ['cargo', 'categoriaAtivo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro'];
+    if (isAdministrador) return ['cargo', 'categoriaAtivo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1192,7 +1233,7 @@ export default function Home() {
   // conforme as permissões do perfil ativo.
   const allowedPatrimonioSubmodulos = useMemo(() => {
     // O administrador tem acesso total.
-    if (isAdministrador) return ['ativos'];
+    if (isAdministrador) return ['ativos', 'parametrosFuncao'];
     return patrimonioSubmodulosPermitidos(permissoesAtivas);
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1205,7 +1246,14 @@ export default function Home() {
       acessarAtivo: permitida('acessar_ativo'),
       adicionarAtivo: permitida('adicionar_ativo'),
       verAtivo: permitida('ver_ativo'),
+      mudarParaOperacional: permitida('mudar_para_operacional'),
+      enviarParaManutencao: permitida('enviar_para_manutencao'),
+      moverParaEstoque: permitida('mover_para_estoque'),
+      descartarAtivo: permitida('descartar_ativo'),
       excluirAtivo: permitida('excluir_ativo'),
+      gerarCodigoPatrimonio: permitida('gerar_codigo_patrimonio'),
+      alterarStatusDescartado: permitida('alterar_status_descartado'),
+      acessarParametrosFuncao: permitida('acessar_parametros_funcao'),
     };
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1403,9 +1451,18 @@ export default function Home() {
       items: (): CgItem[] => vinculosContratuais,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um vínculo contratual.',
     },
+    sistemaOperacional: {
+      descKey: 'ds_sistema_operacional',
+      collection: 'cg_sistema_operacional',
+      configKey: 'config_colunas_cg_sistema_operacional',
+      columns: SISTEMA_OPERACIONAL_COLUMNS,
+      fieldInfos: SISTEMA_OPERACIONAL_FIELD_INFOS,
+      items: (): CgItem[] => sistemasOperacionais,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um sistema operacional.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'categoriaAtivo' ? 'categoriaAtivo' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'categoriaAtivo' ? 'categoriaAtivo' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -1704,6 +1761,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadSistemasOperacionais = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterSistemasOperacionais();
+      setSistemasOperacionais(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadAtivos = useCallback(async () => {
     setLoading(true);
     try {
@@ -1739,10 +1808,12 @@ export default function Home() {
       await loadProfissoes();
     } else if (cgKind === 'logradouro') {
       await loadLogradouros();
+    } else if (cgKind === 'sistemaOperacional') {
+      await loadSistemasOperacionais();
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadProfissoes, loadLogradouros, loadOrgaosEmissores]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -1760,11 +1831,12 @@ export default function Home() {
     loadLocalizacoes();
     loadMarcas();
     loadCategoriasAtivos();
+    loadSistemasOperacionais();
     loadAtivos();
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -1830,7 +1902,7 @@ export default function Home() {
   useEffect(() => {
     if (!currentUser) return;
     const parsed = parseMenuOrder(currentUser.config_ordem_menu_lateral);
-    setMenuOrder(parsed ? normalizeMenuOrder(parsed) : DEFAULT_SECTION_ORDER);
+    setMenuOrder(parsed ? normalizeMenuOrder(parsed) : SECTION_ORDER_ALPHABETICAL);
   }, [currentUser]);
 
   /* ── Perfil ativo do usuário logado (selecionado na pop-up) ── */
@@ -3018,9 +3090,25 @@ export default function Home() {
       nr_seq_localizacao: ativo.nr_seq_localizacao,
       nr_seq_marca: ativo.nr_seq_marca,
       ds_modelo: ativo.ds_modelo ?? '',
+      nr_serie: ativo.nr_serie ?? '',
       ds_qr_code: ativo.ds_qr_code ?? '',
       ds_codigo_barras: ativo.ds_codigo_barras ?? '',
       ie_status: ativo.ie_status ?? 'O',
+      dt_reativacao: ativo.dt_reativacao ?? '',
+      dt_ultima_manutencao: ativo.dt_ultima_manutencao ?? '',
+      dt_descarte: ativo.dt_descarte ?? '',
+      ds_descarte: ativo.ds_descarte ?? '',
+      dt_aquisicao: ativo.dt_aquisicao ?? '',
+      dt_garantia: ativo.dt_garantia ?? '',
+      ds_processador: ativo.ds_processador ?? '',
+      qt_ram: ativo.qt_ram,
+      ie_ram: ativo.ie_ram ?? '',
+      qt_armazenamento: ativo.qt_armazenamento,
+      ie_armazenamento: ativo.ie_armazenamento ?? '',
+      ds_endereco_mac: ativo.ds_endereco_mac ?? '',
+      ds_ip: ativo.ds_ip ?? '',
+      nr_seq_sistema_operacional: ativo.nr_seq_sistema_operacional,
+      responsaveis: ativo.responsaveis?.length ? ativo.responsaveis : [{ nr_seq_responsavel: undefined }],
       ds_observacao: ativo.ds_observacao ?? '',
     });
     setAtivoEditingId(ativo.id ?? null);
@@ -3097,6 +3185,7 @@ export default function Home() {
       ie_status: item.ie_status ?? 'A',
       nr_cbo: String((item as unknown as Record<string, unknown>).nr_cbo ?? ''),
       sg_sigla: String((item as unknown as Record<string, unknown>).sg_orgao_emissor ?? (item as unknown as Record<string, unknown>).sg_logradouro ?? ''),
+      ds_observacao: String((item as unknown as Record<string, unknown>).ds_observacao ?? ''),
     });
     setCgEditingId(item.id ?? null);
     setCgAuditInfo({
@@ -4005,19 +4094,15 @@ export default function Home() {
       if (ativoEditingId) {
         const currentAtivo = ativos.find((a) => a.id === ativoEditingId);
         const formKeys: Array<keyof AtivoFormData> = [
-          'cd_patrimonio',
-          'ds_ativo',
-          'nr_seq_categoria',
-          'nr_seq_localizacao',
-          'nr_seq_marca',
-          'ds_modelo',
-          'ds_qr_code',
-          'ds_codigo_barras',
-          'ie_status',
-          'ds_observacao',
+          'cd_patrimonio', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
+          'nr_seq_marca', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
+          'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
+          'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
+          'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional', 'ds_observacao',
         ];
         const hasChanges = currentAtivo
           ? formKeys.some((key) => String(currentAtivo[key] ?? '') !== String(ativoForm[key] ?? ''))
+            || JSON.stringify(ativoForm.responsaveis ?? []) !== JSON.stringify(currentAtivo.responsaveis ?? [])
           : true;
 
         if (!hasChanges) {
@@ -4396,11 +4481,12 @@ export default function Home() {
         ...(cgKind === 'profissao' ? { nr_cbo: cgForm.nr_cbo ?? '' } : {}),
         ...(cgKind === 'orgaoEmissor' ? { sg_orgao_emissor: cgForm.sg_sigla ?? '' } : {}),
         ...(cgKind === 'logradouro' ? { sg_logradouro: cgForm.sg_sigla ?? '' } : {}),
+        ...(cgKind === 'categoriaAtivo' ? { ds_observacao: cgForm.ds_observacao ?? '' } : {}),
       } as Record<string, unknown>;
 
       if (cgEditingId) {
         const currentItem = cgItems.find((s) => s.id === cgEditingId);
-        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : cgKind === 'logradouro' ? [cgDescKey, 'ie_status', 'sg_logradouro'] : [cgDescKey, 'ie_status'];
+        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : cgKind === 'logradouro' ? [cgDescKey, 'ie_status', 'sg_logradouro'] : cgKind === 'categoriaAtivo' ? [cgDescKey, 'ie_status', 'ds_observacao'] : [cgDescKey, 'ie_status'];
         const hasChanges = currentItem
           ? changeKeys.some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
           : true;
@@ -4436,6 +4522,8 @@ export default function Home() {
           await atualizarMarca(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'categoriaAtivo') {
           await atualizarCategoriaAtivo(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'sistemaOperacional') {
+          await atualizarSistemaOperacional(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -4463,6 +4551,8 @@ export default function Home() {
           await criarMarca(payload as any, auditAutor);
         } else if (cgKind === 'categoriaAtivo') {
           await criarCategoriaAtivo(payload as any, auditAutor);
+        } else if (cgKind === 'sistemaOperacional') {
+          await criarSistemaOperacional(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -4546,7 +4636,7 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter', responsavelIndex = 0) {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo', responsavelIndex = 0) {
     alunoPessoaFisicaLookupTargetRef.current = target;
     alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
@@ -4571,6 +4661,13 @@ export default function Home() {
       setAlunoForm((prev) => {
         const responsaveis = [...(prev.responsaveis ?? [])];
         responsaveis[index] = { ...(responsaveis[index] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
+        return { ...prev, responsaveis };
+      });
+    } else if (target === 'ativo') {
+      const idx = alunoResponsavelLookupIndexRef.current;
+      setAtivoForm((prev) => {
+        const responsaveis = [...(prev.responsaveis ?? [])];
+        responsaveis[idx] = { ...(responsaveis[idx] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
         return { ...prev, responsaveis };
       });
     } else {
@@ -4710,6 +4807,14 @@ export default function Home() {
       return pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_responsavel)?.ds_nome ?? "";
     });
   }, [alunoForm.responsaveis, pessoasFisicas]);
+
+  // Nomes exibidos nos campos "Responsável" do formulário de Ativo (Classificação).
+  const selectedAtivoResponsaveisNames = useMemo(() => {
+    return (ativoForm.responsaveis ?? []).map((r) => {
+      if (!r.nr_seq_responsavel) return "";
+      return pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_responsavel)?.ds_nome ?? "";
+    });
+  }, [ativoForm.responsaveis, pessoasFisicas]);
 
   // Opções do dropdown "Grau de parentesco" (Responsáveis) — apenas os ativos,
   // em ordem alfabética (pt-BR).
@@ -4997,6 +5102,154 @@ export default function Home() {
     if (view === 'form') goToAtivoList();
   }
 
+  /** Gera o código de patrimônio de um ativo com base na regra salva. */
+  async function handleGerarCodigoPatrimonio(ativo: Ativo) {
+    setMessage("");
+    setGerandoCodigoPatrimonio(true);
+    try {
+      const doc = await obterParamCodigoPatrimonio();
+      if (!doc?.ds_regra) {
+        setMessage("Nenhuma regra de geração de patrimônio configurada.");
+        return;
+      }
+
+      const segmentos = doc.ds_regra.split("-").filter((v) => v.trim() !== "");
+      if (segmentos.length === 0) {
+        setMessage("Regra de patrimônio vazia.");
+        return;
+      }
+
+      const agora = new Date();
+      const pad2 = (n: number) => String(n).padStart(2, "0");
+
+      // Encontra o último número sequencial entre todos os ativos
+      const todosAtivos = [...ativos];
+      const numerosPatrimonio = todosAtivos
+        .map((a) => {
+          const m = (a.cd_patrimonio ?? "").match(/(\d+)$/);
+          return m ? parseInt(m[1], 10) : 0;
+        })
+        .filter((n) => !isNaN(n));
+      const ultimoSequencial = numerosPatrimonio.length > 0 ? Math.max(...numerosPatrimonio) : 0;
+
+      // Encontra o último número sequencial do mês atual
+      const mesAtual = pad2(agora.getMonth() + 1);
+      const anoAtual = String(agora.getFullYear());
+      const numerosSequencialMes = todosAtivos
+        .map((a) => {
+          const m = (a.cd_patrimonio ?? "").match(new RegExp(`${anoAtual}${mesAtual}(\d+)$`));
+          return m ? parseInt(m[1], 10) : 0;
+        })
+        .filter((n) => !isNaN(n));
+      const ultimoSequencialMes = numerosSequencialMes.length > 0 ? Math.max(...numerosSequencialMes) : 0;
+
+      // Encontra o último número sequencial do ano atual
+      const prefixoAno = String(agora.getFullYear()).slice(-2);
+      const numerosSequencialAno = todosAtivos
+        .map((a) => {
+          const m = (a.cd_patrimonio ?? "").match(new RegExp(`${prefixoAno}(\d+)$`));
+          return m ? parseInt(m[1], 10) : 0;
+        })
+        .filter((n) => !isNaN(n));
+      const ultimoSequencialAno = numerosSequencialAno.length > 0 ? Math.max(...numerosSequencialAno) : 0;
+
+      const partes: string[] = [];
+      let textoCustomizado = "";
+
+      for (const seg of segmentos) {
+        if (seg.toLowerCase().startsWith("texto:")) {
+          textoCustomizado = seg.slice(6);
+          partes.push(textoCustomizado);
+        } else {
+          switch (seg.toLowerCase()) {
+            case "ano_atual":
+              partes.push(String(agora.getFullYear()));
+              break;
+            case "ano_atual_2":
+              partes.push(String(agora.getFullYear()).slice(-2));
+              break;
+            case "chave_esquerda":
+              partes.push("{");
+              break;
+            case "chave_direita":
+              partes.push("}");
+              break;
+            case "colchete_esquerdo":
+              partes.push("[");
+              break;
+            case "colchete_direito":
+              partes.push("]");
+              break;
+            case "data_atual":
+              partes.push(`${pad2(agora.getDate())}${pad2(agora.getMonth() + 1)}${agora.getFullYear()}`);
+              break;
+            case "data_atual_2digitos":
+              partes.push(`${pad2(agora.getDate())}${pad2(agora.getMonth() + 1)}${String(agora.getFullYear()).slice(-2)}`);
+              break;
+            case "data_atual_2digitos_mascara":
+              partes.push(`${pad2(agora.getDate())}/${pad2(agora.getMonth() + 1)}/${String(agora.getFullYear()).slice(-2)}`);
+              break;
+            case "data_atual_mascara":
+              partes.push(`${pad2(agora.getDate())}/${pad2(agora.getMonth() + 1)}/${agora.getFullYear()}`);
+              break;
+            case "dia_atual":
+              partes.push(pad2(agora.getDate()));
+              break;
+            case "dois_pontos":
+              partes.push(":");
+              break;
+            case "hifen":
+              partes.push("-");
+              break;
+            case "mes_atual":
+              partes.push(pad2(agora.getMonth() + 1));
+              break;
+            case "parentese_esquerdo":
+              partes.push("(");
+              break;
+            case "parentese_direito":
+              partes.push(")");
+              break;
+            case "ponto":
+              partes.push(".");
+              break;
+            case "sequencial":
+              partes.push(String(ultimoSequencial + 1));
+              break;
+            case "sequencial_mes":
+              partes.push(String(ultimoSequencialMes + 1));
+              break;
+            case "sequencial_ano":
+              partes.push(String(ultimoSequencialAno + 1));
+              break;
+            case "sequencia":
+              partes.push(String(ativo.nr_sequencia));
+              break;
+            default:
+              partes.push(seg);
+              break;
+          }
+        }
+      }
+
+      const codigo = partes.join("");
+
+      if (!ativo.id) {
+        setMessage("Erro: ativo sem ID.");
+        return;
+      }
+
+      await atualizarAtivo(ativo.id, { cd_patrimonio: codigo }, auditAutor);
+      await loadAtivos();
+      setMessage("Código de patrimônio gerado.");
+    } catch (e) {
+      console.error("Erro ao gerar código de patrimônio", e);
+      setMessage("Erro ao gerar código de patrimônio.");
+    } finally {
+      setGerandoCodigoPatrimonio(false);
+    }
+  }
+
   function openAlterarStatusModal(aluno: Aluno) {
     setAlterarStatusAluno(aluno);
     // Data do status já vem com a data atual; os demais campos começam vazios
@@ -5044,6 +5297,51 @@ export default function Home() {
       setMessage("Erro ao alterar o status.");
     } finally {
       setAlterarStatusSaving(false);
+    }
+  }
+
+  function openAtivoStatusModal(ativo: Ativo, statusValue: string) {
+    setAtivoStatusTarget(ativo);
+    setAtivoStatusValue(statusValue);
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAtivoStatusForm({
+      dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+      ds_descarte: '',
+    });
+    setMessage("");
+    setAtivoStatusModalOpen(true);
+  }
+
+  function closeAtivoStatusModal() {
+    setAtivoStatusModalOpen(false);
+    setAtivoStatusTarget(null);
+    setAtivoStatusValue('');
+  }
+
+  async function handleAtivoStatusSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!ativoStatusTarget?.id || !ativoStatusValue) return;
+    setMessage("");
+    setAtivoStatusSaving(true);
+    try {
+      const updates: Record<string, unknown> = { ie_status: ativoStatusValue };
+      if (ativoStatusValue === 'O') {
+        updates.dt_reativacao = ativoStatusForm.dt_data;
+      } else if (ativoStatusValue === 'M') {
+        updates.dt_ultima_manutencao = ativoStatusForm.dt_data;
+      } else if (ativoStatusValue === 'D') {
+        updates.dt_descarte = ativoStatusForm.dt_data;
+        updates.ds_descarte = ativoStatusForm.ds_descarte;
+      }
+      await atualizarAtivo(ativoStatusTarget.id, updates as any, auditAutor);
+      setMessage("Status alterado com sucesso!");
+      closeAtivoStatusModal();
+      await loadAtivos();
+    } catch {
+      setMessage("Erro ao alterar o status.");
+    } finally {
+      setAtivoStatusSaving(false);
     }
   }
 
@@ -5467,6 +5765,8 @@ export default function Home() {
         await excluirProfissao(id);
       } else if (cgKind === 'logradouro') {
         await excluirLogradouro(id);
+      } else if (cgKind === 'sistemaOperacional') {
+        await excluirSistemaOperacional(id);
       } else {
         await excluirOrgaoEmissor(id);
       }
@@ -5479,7 +5779,7 @@ export default function Home() {
   }
 
   function getMessageStatus(message: string) {
-    if (message.toLowerCase().includes("sucesso")) return "success";
+    if (message.toLowerCase().includes("sucesso") || message.toLowerCase().includes("gerado")) return "success";
     if (
       message.toLowerCase().includes("erro") ||
       message.toLowerCase().includes("não coincidem") ||
@@ -5565,6 +5865,15 @@ export default function Home() {
             usuarioStatus,
           });
           setLoginWarning(usuarioStatus === 'B' ? "Usuário bloqueado." : "Usuário inativo.");
+          setIsLoginLoading(false);
+          return;
+        }
+
+        // Verifica se o usuário possui ao menos um perfil vinculado.
+        const perfisVinculados = parsePerfisConfig(usuarioValido.config_perfis);
+        if (perfisVinculados.length === 0) {
+          console.warn("[Login] usuário sem perfil vinculado", { normalizedUsername });
+          setLoginError("O usuário não possui um perfil.");
           setIsLoginLoading(false);
           return;
         }
@@ -5846,13 +6155,50 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          showChangeStatus={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarStatusAluno}
+          showChangeStatus={
+            contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarStatusAluno
+          }
           onChangeStatus={() => {
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
               openAlterarStatusModal(contextMenu.item as Aluno);
             }
             setContextMenu(null);
           }}
+          customItems={(() => {
+            if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'ativos') {
+              const currentStatus = (contextMenu.item as Ativo)?.ie_status ?? '';
+              const items: { label: string; onClick: () => void }[] = [];
+              if (permissoesPatrimonio.gerarCodigoPatrimonio) {
+                items.push({ label: 'Gerar código de patrimônio', onClick: () => { handleGerarCodigoPatrimonio(contextMenu.item as Ativo); setContextMenu(null); } });
+              }
+              const isDescartado = currentStatus === 'D';
+              const podeAlterarStatus = !isDescartado || permissoesPatrimonio.alterarStatusDescartado;
+              if (podeAlterarStatus && permissoesPatrimonio.mudarParaOperacional && currentStatus !== 'O') {
+                items.push({ label: 'Mudar para Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
+              }
+              if (podeAlterarStatus && permissoesPatrimonio.enviarParaManutencao && currentStatus !== 'M') {
+                items.push({ label: 'Enviar para manutenção', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'M'); setContextMenu(null); } });
+              }
+              if (podeAlterarStatus && permissoesPatrimonio.moverParaEstoque && currentStatus !== 'E') {
+                items.push({ label: 'Mover para o estoque', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'E'); setContextMenu(null); } });
+              }
+              if (permissoesPatrimonio.descartarAtivo && !isDescartado) {
+                items.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'D'); setContextMenu(null); } });
+              }
+              return items.length > 0 ? items : undefined;
+            }
+            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores') {
+              const items: { label: string; onClick: () => void }[] = [];
+              if (permissoesEA.alterarDataAdmissao) {
+                items.push({ label: 'Alterar data de admissão', onClick: () => { openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador); setContextMenu(null); } });
+              }
+              if (permissoesEA.alterarStatusColaborador) {
+                items.push({ label: 'Alterar status', onClick: () => { openAlterarStatusColaboradorModal(contextMenu.item as unknown as Colaborador); setContextMenu(null); } });
+              }
+              return items.length > 0 ? items : undefined;
+            }
+            return undefined;
+          })()}
           onDelegateFunctions={
             contextMenu.section === 'administracaoSistema' &&
             adminManageSelection === 'perfis' &&
@@ -5953,34 +6299,6 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          customItems={
-            contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores'
-              ? [
-                  ...(permissoesEA.alterarDataAdmissao
-                    ? [
-                        {
-                          label: 'Alterar data de admissão',
-                          onClick: () => {
-                            openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador);
-                            setContextMenu(null);
-                          },
-                        },
-                      ]
-                    : []),
-                  ...(permissoesEA.alterarStatusColaborador
-                    ? [
-                        {
-                          label: 'Alterar status',
-                          onClick: () => {
-                            openAlterarStatusColaboradorModal(contextMenu.item as unknown as Colaborador);
-                            setContextMenu(null);
-                          },
-                        },
-                      ]
-                    : []),
-                ]
-              : undefined
-          }
         />
       )}
 
@@ -6343,16 +6661,22 @@ export default function Home() {
                 />
               )
             ) : activeSection === "administracaoSistema" ? (
-              adminManageSelection === 'campos' ? (
-                <CamposView
-                  perfis={perfis}
-                  onChangeStatus={handleCamposStatusChange}
-                  manageSelection={adminManageSelection}
-                  onManageSelectionChange={handleAdminManageSelectionChange}
-                  allowedSubmodulos={allowedAdminSubmodulos}
-                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
-                />
-              ) : adminManageSelection === 'usuarios' ? (
+            adminManageSelection === 'campos' ? (
+              <CamposView
+                perfis={perfis}
+                onChangeStatus={handleCamposStatusChange}
+                manageSelection={adminManageSelection}
+                onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
+                podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
+                selectedPerfilId={camposPerfilId}
+                onSelectedPerfilIdChange={setCamposPerfilId}
+                selectedFuncao={camposFuncao}
+                onSelectedFuncaoChange={setCamposFuncao}
+                funcaoJaSelecionada={camposFuncaoJaSelecionada}
+                onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
+              />
+            ) : adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaListView
                   message={message}
                   loading={loading}
@@ -6436,6 +6760,14 @@ export default function Home() {
                 />
               )
             ) : activeSection === "patrimonio" ? (
+              ativoManageSelection === 'parametrosFuncao' ? (
+                <ParametrosDaFuncaoView
+                  manageSelection={ativoManageSelection}
+                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  allowedSubmodulos={allowedPatrimonioSubmodulos}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                />
+              ) : (
               <AtivoListView
                 message={message}
                 loading={loading}
@@ -6444,7 +6776,7 @@ export default function Home() {
                 openEditForm={openAtivoEditForm}
                 handleDelete={handleAtivoDelete}
                 setContextMenu={setContextMenu}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao)}
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
                 allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -6459,8 +6791,9 @@ export default function Home() {
                   nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
                 }}
               />
+              )
             ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro' || cgManageSelection === 'localizacao' || cgManageSelection === 'marca' || cgManageSelection === 'categoriaAtivo') ? (
+              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro' || cgManageSelection === 'localizacao' || cgManageSelection === 'marca' || cgManageSelection === 'categoriaAtivo' || cgManageSelection === 'sistemaOperacional') ? (
                 <CadastroGeralListView
                   key={cgManageSelection}
                   loading={loading}
@@ -6558,18 +6891,23 @@ export default function Home() {
                 campoErros={pfCampoErros}
               />
             )
-          ) : activeSection === "administracaoSistema" ? (
-            adminManageSelection === 'campos' ? (
-              <CamposView
-                perfis={perfis}
-                onChangeStatus={handleCamposStatusChange}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-                podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
-              />
-            ) : adminManageSelection === 'usuarios' ? (
-              <AdministracaoSistemaFormView
+          ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'campos' ? (
+                <CamposView
+                  perfis={perfis}
+                  onChangeStatus={handleCamposStatusChange}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
+                  selectedPerfilId={camposPerfilId}
+                  onSelectedPerfilIdChange={setCamposPerfilId}
+                  selectedFuncao={camposFuncao}
+                  onSelectedFuncaoChange={setCamposFuncao}
+                  funcaoJaSelecionada={camposFuncaoJaSelecionada}
+                  onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
+                />
+              ) : adminManageSelection === 'usuarios' ? (
+                <AdministracaoSistemaFormView
                 message={message}
                 editingId={adminEditingId}
                 sequence={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.nr_sequencia ?? null) : null}
@@ -6713,12 +7051,16 @@ export default function Home() {
                 categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))}
                 localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
                 marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS}
+                sistemasOperacionais={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao)}
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
                 allowedSubmodulos={allowedPatrimonioSubmodulos}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativos')}
                 campoErros={ativoCampoErros}
+                responsaveisNames={selectedAtivoResponsaveisNames}
+                onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('ativo', index)}
+                onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
               />
             ) : (
             <CadastroGeralFormView
@@ -6748,6 +7090,7 @@ export default function Home() {
               collectionName={cgCollection}
               showCbo={cgKind === 'profissao'}
               showSigla={cgKind === 'orgaoEmissor' || cgKind === 'logradouro'}
+              showObservacao={cgKind === 'categoriaAtivo'}
               siglaFieldKey={cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : undefined}
               campoRegras={campoRegrasDaColecao(campoRegrasAtivas, cgCollection)}
               campoErros={cgCampoErros}
@@ -8394,6 +8737,82 @@ export default function Home() {
         </div>
       )}
 
+      {ativoStatusModalOpen && ativoStatusTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAtivoStatusModal} />
+          <form
+            onSubmit={handleAtivoStatusSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>
+                {ativoStatusValue === 'O' ? 'Mudar para Operacional' : ativoStatusValue === 'M' ? 'Enviar para manutenção' : ativoStatusValue === 'E' ? 'Mover para o estoque' : 'Descartar'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeAtivoStatusModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Data
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={ativoStatusForm.dt_data}
+                  onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, dt_data: applyDateMask(e.target.value) })}
+                />
+              </div>
+              {ativoStatusValue === 'D' && (
+                <div>
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                    Motivo descarte
+                  </label>
+                  <textarea
+                    rows={3}
+                    className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                    value={ativoStatusForm.ds_descarte}
+                    onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, ds_descarte: e.target.value })}
+                  />
+                </div>
+              )}
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAtivoStatusModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={ativoStatusSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {pessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
@@ -9029,19 +9448,14 @@ export default function Home() {
             ]
           : isAtivo
           ? [
-              'nr_sequencia',
-              'cd_patrimonio',
-              'ds_ativo',
-              'nr_seq_categoria',
-              'nr_seq_localizacao',
-              'nr_seq_marca',
-              'ds_modelo',
-              'ds_qr_code',
-              'ds_codigo_barras',
-              'ie_status',
-              'ds_observacao',
-              'dt_criacao',
-              'dt_alteracao',
+              'nr_sequencia', 'cd_patrimonio', 'ds_ativo', 'nr_seq_categoria',
+              'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
+              'ds_qr_code', 'ds_codigo_barras', 'dt_aquisicao', 'dt_garantia',
+              'ie_status', 'dt_reativacao', 'dt_ultima_manutencao', 'dt_descarte', 'ds_descarte',
+              'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
+              'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional',
+              'responsaveis', 'ds_observacao',
+              'dt_criacao', 'dt_alteracao',
             ]
           : isCg
           ? [
@@ -9082,7 +9496,7 @@ export default function Home() {
               </div>
 
               <div className="p-[15px] overflow-auto">
-                <div className="grid grid-cols-2 gap-4">
+                <div>
                   {(() => {
                     const FIELD_LABELS: Record<string, string> = {
                       nr_sequencia: 'Sequência',
@@ -9115,6 +9529,10 @@ export default function Home() {
                       dt_ingresso: 'Data de ingresso',
                       dt_status: 'Data do status',
                       ds_status: 'Motivo do status',
+                      dt_reativacao: 'Reativação',
+                      dt_ultima_manutencao: 'Última manutenção',
+                      dt_descarte: 'Descarte',
+                      ds_descarte: 'Motivo descarte',
                       responsaveis: 'Responsáveis',
                       ds_tipo_sanguineo: 'Tipo sanguíneo',
                       ds_alergia: 'Alergia',
@@ -9130,6 +9548,9 @@ export default function Home() {
                       sg_orgao_emissor: 'Sigla',
                       ds_logradouro: 'Descrição',
                       sg_logradouro: 'Sigla',
+                      ds_cargo: 'Descrição',
+                      ds_vinculo_contratual: 'Descrição',
+                      ds_sistema_operacional: 'Descrição',
                       ds_grau_parentesco: 'Descrição',
                       ds_localizacao: 'Descrição',
                       ds_marca: 'Descrição',
@@ -9140,8 +9561,21 @@ export default function Home() {
                       nr_seq_localizacao: 'Localização',
                       nr_seq_marca: 'Marca',
                       ds_modelo: 'Modelo',
+                      nr_serie: 'Número de série',
                       ds_qr_code: 'QR Code',
                       ds_codigo_barras: 'Código de barras',
+                      dt_aquisicao: 'Data de aquisição',
+                      dt_garantia: 'Data de garantia',
+                      ds_processador: 'Processador',
+                      qt_ram: 'Memória RAM',
+                      ie_ram: 'Unidade (RAM)',
+                      qt_armazenamento: 'Armazenamento',
+                      ie_armazenamento: 'Unidade',
+                      ds_endereco_mac: 'Endereço MAC',
+                      ds_ip: 'IP',
+                      nr_seq_sistema_operacional: 'Sistema operacional',
+                      dt_criacao: 'Data de criação',
+                      dt_alteracao: 'Data de alteração',
                     };
 
                     const normalizeAuditValue = (val: any): string | number | null => {
@@ -9320,30 +9754,22 @@ export default function Home() {
                     };
 
                     return (
-                      <>
-                        <div>
-                          <div className="text-sm font-medium mb-2" style={{ color: '#000' }}>Antes</div>
-                          <div className="space-y-3 text-sm">
-                            {fieldsOrder.map((field) => (
-                              <div key={field}>
-                                <label className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</label>
-                                {renderFieldValue(field, before ? (before as any)[field] : undefined)}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                        <div>
-                          <div className="text-sm font-medium mb-2" style={{ color: '#000' }}>Depois</div>
-                          <div className="space-y-3 text-sm">
-                            {fieldsOrder.map((field) => (
-                              <div key={field}>
-                                <label className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</label>
-                                {renderFieldValue(field, (after as any)[field])}
-                              </div>
-                            ))}
-                          </div>
-                        </div>
-                      </>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-4 w-full">
+                        <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Antes</div>
+                        <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Depois</div>
+                        {fieldsOrder.map((field) => (
+                          <React.Fragment key={field}>
+                            <div className="w-full min-w-0">
+                              <div className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</div>
+                              {renderFieldValue(field, before ? (before as any)[field] : undefined)}
+                            </div>
+                            <div className="w-full min-w-0">
+                              <div className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</div>
+                              {renderFieldValue(field, (after as any)[field])}
+                            </div>
+                          </React.Fragment>
+                        ))}
+                      </div>
                     );
                   })()}
                 </div>
@@ -9381,6 +9807,8 @@ export default function Home() {
           </div>
         </div>
       )}
+
+      {gerandoCodigoPatrimonio && <LoadingModal open message="Carregando..." />}
 
       {toastMounted && (
         <Toast

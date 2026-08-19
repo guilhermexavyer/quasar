@@ -42,6 +42,15 @@ interface CamposViewProps {
   allowedSubmodulos?: string[];
   /** Permite ao usuário alterar o status dos campos (menu de contexto). */
   podeAlterarStatusCampo?: boolean;
+  /** Seleção de perfil (controlada pelo pai para persistir entre navegações). */
+  selectedPerfilId?: string | null;
+  onSelectedPerfilIdChange?: (id: string | null) => void;
+  /** Seleção de função (controlada pelo pai para persistir entre navegações). */
+  selectedFuncao?: string | null;
+  onSelectedFuncaoChange?: (fn: string | null) => void;
+  /** Indica se uma função já foi selecionada pelo menos uma vez. */
+  funcaoJaSelecionada?: boolean;
+  onFuncaoJaSelecionadaChange?: (v: boolean) => void;
 }
 
 export default function CamposView({
@@ -51,13 +60,22 @@ export default function CamposView({
   onManageSelectionChange,
   allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
   podeAlterarStatusCampo = true,
+  selectedPerfilId: selectedPerfilIdProp,
+  onSelectedPerfilIdChange,
+  selectedFuncao: selectedFuncaoProp,
+  onSelectedFuncaoChange,
+  funcaoJaSelecionada: funcaoJaSelecionadaProp,
+  onFuncaoJaSelecionadaChange,
 }: CamposViewProps) {
-  const [selectedPerfilId, setSelectedPerfilId] = useState<string | null>(null);
-  const [selectedFuncao, setSelectedFuncao] = useState<string | null>(null);
+  // Estado controlado pelo pai (persiste entre navegações dentro da mesma seção).
+  // Fallback para estado local caso as props não sejam fornecidas.
+  const selectedPerfilId = selectedPerfilIdProp ?? null;
+  const setSelectedPerfilId = onSelectedPerfilIdChange ?? (() => {});
+  const selectedFuncao = selectedFuncaoProp ?? null;
+  const setSelectedFuncao = onSelectedFuncaoChange ?? (() => {});
+  const funcaoJaSelecionada = funcaoJaSelecionadaProp ?? false;
+  const setFuncaoJaSelecionada = onFuncaoJaSelecionadaChange ?? (() => {});
   const [selectedCampoKey, setSelectedCampoKey] = useState<string | null>(null);
-  // True após o usuário clicar numa função pela primeira vez (campos já exibidos).
-  // A partir daí, ao trocar de perfil os campos já podem aparecer automaticamente.
-  const [funcaoJaSelecionada, setFuncaoJaSelecionada] = useState(false);
 
   // Ordenação em 3 estados (mesma lógica das tabelas de registro):
   // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).

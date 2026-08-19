@@ -60,10 +60,18 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "excluir_colaborador", label: "Permite excluir" },
   ],
   patrimonio: [
+    // Parâmetros da função
+    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros da função" },
     // Ativos
     { key: "acessar_ativo", label: "Permite acessar Ativos" },
     { key: "adicionar_ativo", label: "Permite adicionar" },
     { key: "ver_ativo", label: "Permite ver" },
+    { key: "gerar_codigo_patrimonio", label: "Permite gerar código de patrimônio" },
+    { key: "mudar_para_operacional", label: "Permite mudar para Operacional" },
+    { key: "enviar_para_manutencao", label: "Permite enviar para manutenção" },
+    { key: "mover_para_estoque", label: "Permite mover para o estoque" },
+    { key: "descartar_ativo", label: "Permite descartar" },
+    { key: "alterar_status_descartado", label: "Permite alterar status de um ativo descartado" },
     { key: "excluir_ativo", label: "Permite excluir" },
   ],
   cadastrosGerais: [
@@ -127,6 +135,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_vinculo_contratual", label: "Permite adicionar" },
     { key: "ver_vinculo_contratual", label: "Permite ver" },
     { key: "excluir_vinculo_contratual", label: "Permite excluir" },
+    // Sistema operacional
+    { key: "acessar_sistema_operacional", label: "Permite acessar Sistema operacional" },
+    { key: "adicionar_sistema_operacional", label: "Permite adicionar" },
+    { key: "ver_sistema_operacional", label: "Permite ver" },
+    { key: "excluir_sistema_operacional", label: "Permite excluir" },
   ],
 };
 
@@ -172,7 +185,11 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   patrimonio: [
     {
       titulo: 'Ativos',
-      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'excluir_ativo'],
+      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'gerar_codigo_patrimonio', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
+    },
+    {
+      titulo: 'Parâmetros da função',
+      chaves: ['acessar_parametros_funcao'],
     },
   ],
   cadastrosGerais: [
@@ -224,6 +241,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Vínculo contratual',
       chaves: ['acessar_vinculo_contratual', 'adicionar_vinculo_contratual', 'ver_vinculo_contratual', 'excluir_vinculo_contratual'],
     },
+    {
+      titulo: 'Sistema operacional',
+      chaves: ['acessar_sistema_operacional', 'adicionar_sistema_operacional', 'ver_sistema_operacional', 'excluir_sistema_operacional'],
+    },
   ],
 };
 
@@ -264,7 +285,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 8;
+export const PERMISSOES_CONFIG_VERSION = 10;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -387,6 +408,7 @@ export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): st
  */
 export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'ativos', label: 'Ativos', permissao: 'acessar_ativo' },
+  { value: 'parametrosFuncao', label: 'Parâmetros da função', permissao: 'acessar_parametros_funcao' },
 ];
 
 /**
@@ -417,6 +439,7 @@ export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'orgaoEmissor', label: 'Órgão emissor', permissao: 'acessar_orgao_emissor' },
   { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
   { value: 'sexo', label: 'Sexo', permissao: 'acessar_sexo' },
+  { value: 'sistemaOperacional', label: 'Sistema operacional', permissao: 'acessar_sistema_operacional' },
   { value: 'vinculoContratual', label: 'Vínculo contratual', permissao: 'acessar_vinculo_contratual' },
 ];
 

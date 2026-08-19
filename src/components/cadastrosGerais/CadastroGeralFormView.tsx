@@ -14,6 +14,8 @@ export interface CadastroGeralFormData {
   nr_cbo?: string;
   /** Sigla genérica (funções Órgão emissor e Logradouro). */
   sg_sigla?: string;
+  /** Observação (ex.: Categoria ativo). */
+  ds_observacao?: string;
 }
 
 interface FormViewProps {
@@ -45,6 +47,8 @@ interface FormViewProps {
   showCbo?: boolean;
   /** Exibe o campo extra Sigla (funções Órgão emissor e Logradouro). */
   showSigla?: boolean;
+  /** Exibe o campo extra Observação (ex.: Categoria ativo). */
+  showObservacao?: boolean;
   /** Chave do campo de sigla na coleção atual (ex.: sg_orgao_emissor, sg_logradouro). */
   siglaFieldKey?: string;
   /** Regras de campos por perfil (colecao = collectionName): campo → status. */
@@ -79,6 +83,7 @@ export default function CadastroGeralFormView({
   collectionName,
   showCbo = false,
   showSigla = false,
+  showObservacao = false,
   siglaFieldKey = 'sg_sigla',
   campoRegras = {},
   campoErros = [],
@@ -257,6 +262,19 @@ export default function CadastroGeralFormView({
                 className={`${inputClass(siglaFieldKey)} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                 value={form.sg_sigla ?? ''}
                 onChange={(e) => setForm({ ...form, sg_sigla: e.target.value })}
+              />
+            </div>
+          )}
+
+          {showObservacao && (
+            <div className="sm:col-span-12 group">
+              {renderFieldLabel('ds_observacao', 'Observação')}
+              <textarea
+                rows={3}
+                disabled={statusDe('ds_observacao') === 'D'}
+                className={`${inputClass('ds_observacao')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 resize-none`}
+                value={form.ds_observacao ?? ''}
+                onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
               />
             </div>
           )}
