@@ -59,6 +59,7 @@ function segmentoVazio(): Segmento {
 interface ParametrosDaFuncaoViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
+  selectOptions?: { value: string; label: string }[];
   allowedSubmodulos?: string[];
   onSaveSuccess?: (message: string) => void;
   onSavingChange?: (saving: boolean) => void;
@@ -75,6 +76,7 @@ interface ParametrosDaFuncaoViewProps {
 export default function ParametrosDaFuncaoView({
   manageSelection,
   onManageSelectionChange,
+  selectOptions = [],
   allowedSubmodulos = ["parametrosFuncao"],
   onSaveSuccess,
   onSavingChange,
@@ -221,10 +223,7 @@ export default function ParametrosDaFuncaoView({
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
-          options={[
-            { value: "ativos", label: "Ativos" },
-            { value: "parametrosFuncao", label: "Parâmetros da função" },
-          ].filter((o) => allowedSubmodulos.includes(o.value))}
+          options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={false}
           className="!w-[180px]"
         />

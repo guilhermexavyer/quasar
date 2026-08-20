@@ -10,11 +10,11 @@ import {
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
 import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
-import type { Ativo } from "@/types/ativo";
+import type { Manutencao } from "@/types/manutencao";
 import type { AuditAutor } from "@/services/auditService";
 
-const ativoColecao = collection(db, "pat_ativos");
-const contadorDoc = doc(db, "_counters", "pat_ativos_sequence");
+const colecao = collection(db, "pat_manutencao");
+const contadorDoc = doc(db, "_counters", "pat_manutencao_sequence");
 
 async function obterProximoSequencia(): Promise<number> {
   try {
@@ -43,87 +43,79 @@ async function obterProximoSequencia(): Promise<number> {
   }
 }
 
-export async function obterAtivos(): Promise<Ativo[]> {
-  const snapshot = await getDocs(ativoColecao);
-  return snapshot.docs.map((doc) => {
-    const data = doc.data();
+export async function obterManutencoes(): Promise<Manutencao[]> {
+  const snapshot = await getDocs(colecao);
+  return snapshot.docs.map((d) => {
+    const data = d.data();
     const { id, ...rest } = data as Record<string, any>;
-    return { id: doc.id, ...rest } as Ativo;
+    return { id: d.id, ...rest } as Manutencao;
   });
 }
 
-export async function criarAtivo(
-  ativo: Omit<Ativo, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
+export async function criarManutencao(
+  dados: Omit<Manutencao, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
   autor?: AuditAutor
 ): Promise<string> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequencia();
-  const nomeAutor = autor?.usuarioNome?.trim() || '-';
+  const nomeAutor = autor?.usuarioNome?.trim() || "-";
 
-  const dados = removerUndefined(ativo);
-  // Limpar responsaveis: remover objetos com nr_seq_responsavel undefined.
-  if (Array.isArray(dados.responsaveis)) {
-    const limpos = dados.responsaveis.filter((r: any) => r?.nr_seq_responsavel !== undefined);
-    dados.responsaveis = limpos.length > 0 ? limpos : [];
-  }
+  const limpos = removerUndefined(dados);
 
-  const docRef = await addDoc(ativoColecao, {
-    ...dados,
+  const docRef = await addDoc(colecao, {
+    ...limpos,
     nr_sequencia,
     dt_criacao: agora,
     dt_alteracao: agora,
     ds_usuario_criacao: nomeAutor,
     ds_usuario_alteracao: nomeAutor,
   });
+
   try {
-    // registrar auditoria na subcollection pat_ativos/{id}/auditoria
-    const auditCol = collection(db, "pat_ativos", docRef.id, "auditoria");
+    const auditCol = collection(db, "pat_manutencao", docRef.id, "auditoria");
     const snap = await getDoc(docRef);
-    const full = snap.exists() ? snap.data() : { ...dados, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
+    const full = snap.exists() ? snap.data() : { ...limpos, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: autor?.usuarioNome ?? '-',
-      acao: 'create',
+      usuarioNome: nomeAutor,
+      acao: "create",
       timestamp: agora,
       detalhes: full,
     });
   } catch (e) {
-    // não impedir criação se auditoria falhar
-    console.error('Erro ao registrar auditoria de criação', e);
+    console.error("Erro ao registrar auditoria de criação", e);
   }
+
   return docRef.id;
 }
 
-export async function atualizarAtivo(
+export async function atualizarManutencao(
   id: string,
-  ativo: Partial<Omit<Ativo, "id" | "nr_sequencia" | "dt_criacao" | "ds_usuario_criacao" | "ds_usuario_alteracao">>,
+  dados: Partial<Omit<Manutencao, "id" | "nr_sequencia" | "dt_criacao" | "ds_usuario_criacao" | "ds_usuario_alteracao">>,
   autor?: AuditAutor
 ): Promise<void> {
-  const docRef = doc(db, "pat_ativos", id);
+  const docRef = doc(db, "pat_manutencao", id);
   const snap = await getDoc(docRef);
-  if (!snap.exists()) {
-    return;
-  }
+  if (!snap.exists()) return;
 
   const currentData = snap.data() as Record<string, any>;
-  const hasActualChanges = Object.entries(ativo).some(([key, value]) => {
+  const hasActualChanges = Object.entries(dados).some(([key, value]) => {
     const currentValue = currentData[key];
     const ehObjeto =
-      (typeof value === 'object' && value !== null) ||
-      (typeof currentValue === 'object' && currentValue !== null);
+      (typeof value === "object" && value !== null) ||
+      (typeof currentValue === "object" && currentValue !== null);
     if (ehObjeto) {
       return JSON.stringify(currentValue ?? null) !== JSON.stringify(value ?? null);
     }
-    return String(currentValue ?? '') !== String(value ?? '');
+    return String(currentValue ?? "") !== String(value ?? "");
   });
 
-  if (!hasActualChanges) {
-    return;
-  }
+  if (!hasActualChanges) return;
 
-  const { updates, removidos } = montarUpdateComRemocoes(currentData, ativo);
+  const { updates, removidos } = montarUpdateComRemocoes(currentData, dados);
   const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || '-';
+  const nomeAutor = autor?.usuarioNome?.trim() || "-";
+
   await updateDoc(docRef, {
     ...updates,
     dt_alteracao: agora,
@@ -131,23 +123,22 @@ export async function atualizarAtivo(
   });
 
   try {
-    const auditCol = collection(db, "pat_ativos", id, "auditoria");
+    const auditCol = collection(db, "pat_manutencao", id, "auditoria");
     const estadoFinal: Record<string, any> = { ...currentData, ...updates, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
     for (const key of removidos) delete estadoFinal[key];
-    const full = estadoFinal;
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: autor?.usuarioNome ?? '-',
-      acao: 'update',
+      usuarioNome: nomeAutor,
+      acao: "update",
       timestamp: agora,
-      detalhes: full,
+      detalhes: estadoFinal,
     });
   } catch (e) {
-    console.error('Erro ao registrar auditoria de atualização', e);
+    console.error("Erro ao registrar auditoria de atualização", e);
   }
 }
 
-export async function excluirAtivo(id: string): Promise<void> {
-  const docRef = doc(db, "pat_ativos", id);
+export async function excluirManutencao(id: string): Promise<void> {
+  const docRef = doc(db, "pat_manutencao", id);
   await deleteDoc(docRef);
 }

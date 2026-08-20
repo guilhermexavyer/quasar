@@ -73,6 +73,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "descartar_ativo", label: "Permite descartar" },
     { key: "alterar_status_descartado", label: "Permite alterar status de um ativo descartado" },
     { key: "excluir_ativo", label: "Permite excluir" },
+    // Manutenções
+    { key: "acessar_manutencao", label: "Permite acessar Manutenções" },
+    { key: "adicionar_manutencao", label: "Permite adicionar" },
+    { key: "ver_manutencao", label: "Permite ver" },
+    { key: "excluir_manutencao", label: "Permite excluir" },
   ],
   cadastrosGerais: [
     // Cor/Raça
@@ -188,6 +193,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'gerar_codigo_patrimonio', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
     },
     {
+      titulo: 'Manutenções',
+      chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'excluir_manutencao'],
+    },
+    {
       titulo: 'Parâmetros da função',
       chaves: ['acessar_parametros_funcao'],
     },
@@ -285,7 +294,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 10;
+export const PERMISSOES_CONFIG_VERSION = 11;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -408,6 +417,7 @@ export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): st
  */
 export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'ativos', label: 'Ativos', permissao: 'acessar_ativo' },
+  { value: 'manutencoes', label: 'Manutenções', permissao: 'acessar_manutencao' },
   { value: 'parametrosFuncao', label: 'Parâmetros da função', permissao: 'acessar_parametros_funcao' },
 ];
 

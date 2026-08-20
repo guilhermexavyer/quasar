@@ -158,6 +158,13 @@ import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estr
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import ParametrosDaFuncaoView from "@/components/patrimonio/ParametrosDaFuncaoView";
+import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
+import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
+import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
+import AtivoLookupTable from "@/components/patrimonio/AtivoLookupTable";
+import type { Manutencao } from "@/types/manutencao";
+import { obterManutencoes, criarManutencao, atualizarManutencao, excluirManutencao } from "@/services/manutencaoService";
+import { MANUTENCAO_COLUMNS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
@@ -227,7 +234,7 @@ import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoU
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
-import { ATIVO_COLUMNS } from "@/lib/ativoUtils";
+import { ATIVO_COLUMNS, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -363,6 +370,7 @@ const EA_SELECT_OPTIONS = [
 /* Opções do dropdown da função Patrimônio */
 const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'ativos', label: 'Ativos' },
+  { value: 'manutencoes', label: 'Manutenções' },
   { value: 'parametrosFuncao', label: 'Parâmetros da função' },
 ];
 
@@ -770,7 +778,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -886,6 +894,7 @@ export default function Home() {
   const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
   // Pessoa física em visualização (modal de leitura, estilo Detalhe da auditoria).
   const [pessoaFisicaView, setPessoaFisicaView] = useState<PessoaFisica | null>(null);
+  const [ativoView, setAtivoView] = useState<Ativo | null>(null);
   const [pessoaJuridicaView, setPessoaJuridicaView] = useState<PessoaJuridica | null>(null);
   const [pessoaJuridicaViewCidade, setPessoaJuridicaViewCidade] = useState('');
   const pessoaJuridicaViewCodeRef = useRef<string>('');
@@ -978,6 +987,52 @@ export default function Home() {
   const [ativoStatusValue, setAtivoStatusValue] = useState('');
   const [ativoStatusForm, setAtivoStatusForm] = useState({ dt_data: '', ds_descarte: '' });
   const [ativoStatusSaving, setAtivoStatusSaving] = useState(false);
+  // Modal "Enviar para manutenção" (menu de contexto de Ativos).
+  const [enviarManutModalOpen, setEnviarManutModalOpen] = useState(false);
+  const [enviarManutTarget, setEnviarManutTarget] = useState<Ativo | null>(null);
+  const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_pessoa_fisica: undefined as number | undefined });
+  const [enviarManutSaving, setEnviarManutSaving] = useState(false);
+  // Lookup de prestador de serviço (filtra colaboradores com ie_prestador_servico='S').
+  const [enviarManutPrestadorLookupOpen, setEnviarManutPrestadorLookupOpen] = useState(false);
+  const [enviarManutPrestLookupForm, setEnviarManutPrestLookupForm] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
+  const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
+  const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
+  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form'>('modal');
+  const enviarManutPrestadores = useMemo(() => {
+    // Apenas colaboradores com ie_prestador_servico === 'S'.
+    return colaboradores.filter((c) => c.ie_prestador_servico === 'S');
+  }, [colaboradores]);
+  const enviarManutFilteredPrestadores = useMemo(() => {
+    if (!enviarManutPrestLookupApplied) return [];
+    return enviarManutPrestadores.filter((c) => {
+      const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
+      if (enviarManutPrestLookupFilter.nr_sequencia && String(c.nr_sequencia ?? '') !== enviarManutPrestLookupFilter.nr_sequencia.trim()) return false;
+      if (enviarManutPrestLookupFilter.ds_nome && pf && !pf.ds_nome.toLowerCase().includes(enviarManutPrestLookupFilter.ds_nome.toLowerCase())) return false;
+      if (enviarManutPrestLookupFilter.nr_cpf && pf) {
+        const queryCpf = enviarManutPrestLookupFilter.nr_cpf.replace(/\D/g, '');
+        const pessoaCpf = (pf.nr_cpf ?? '').replace(/\D/g, '');
+        if (!pessoaCpf.includes(queryCpf)) return false;
+      }
+      if (enviarManutPrestLookupFilter.nr_cnpj && c.nr_seq_pessoa_juridica) {
+        const pj = pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica);
+        if (pj) {
+          const queryCnpj = enviarManutPrestLookupFilter.nr_cnpj.replace(/\D/g, '');
+          const pessoaCnpj = (pj.nr_cnpj ?? '').replace(/\D/g, '');
+          if (!pessoaCnpj.includes(queryCnpj)) return false;
+        } else {
+          return false;
+        }
+      } else if (enviarManutPrestLookupFilter.nr_cnpj) {
+        return false;
+      }
+      return true;
+    });
+  }, [enviarManutPrestadores, enviarManutPrestLookupFilter, enviarManutPrestLookupApplied, pessoasFisicas]);
+  // Nome do prestador derivado do nr_seq_pessoa_fisica selecionado.
+  const enviarManutPrestadorName = useMemo(() => {
+    if (!enviarManutForm.nr_seq_pessoa_fisica) return '';
+    return pessoasFisicas.find((p) => p.nr_sequencia === enviarManutForm.nr_seq_pessoa_fisica)?.ds_nome ?? '';
+  }, [enviarManutForm.nr_seq_pessoa_fisica, pessoasFisicas]);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
@@ -997,6 +1052,58 @@ export default function Home() {
   const [parametrosSaving, setParametrosSaving] = useState(false);
   const [parametrosAuditInfo, setParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const [parametrosHasDocument, setParametrosHasDocument] = useState(false);
+
+  // Patrimônio > Manutenções.
+  const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
+  const [manutencaoForm, setManutencaoForm] = useState<ManutencaoFormData>({ nr_seq_ativo: undefined, dt_envio: '', dt_retorno: '', vl_total: undefined, ds_observacao: '' });
+  const [manutencaoEditingId, setManutencaoEditingId] = useState<string | null>(null);
+  const [manutencaoAuditInfo, setManutencaoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditManutencaoIdRef = useRef<string | null>(null);
+  const [manutencaoSubmitting, setManutencaoSubmitting] = useState(false);
+  const [manutencaoSortColumn, setManutencaoSortColumn] = useState<number | null>(null);
+  const [manutencaoSortAsc, setManutencaoSortAsc] = useState<boolean | null>(null);
+  const [manutencaoCampoErros, setManutencaoCampoErros] = useState<string[]>([]);
+  // Lookup de ativo no formulário de manutenção.
+  const [manutencaoAtivoLookupOpen, setManutencaoAtivoLookupOpen] = useState(false);
+  const [manutencaoAtivoLookupForm, setManutencaoAtivoLookupForm] = useState({ nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' });
+  const [manutencaoAtivoLookupFilter, setManutencaoAtivoLookupFilter] = useState({ nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' });
+  const [manutencaoAtivoLookupApplied, setManutencaoAtivoLookupApplied] = useState(false);
+  const manutencaoAtivoName = useMemo(() => {
+    if (!manutencaoForm.nr_seq_ativo) return '';
+    return ativos.find((a) => a.nr_sequencia === manutencaoForm.nr_seq_ativo)?.ds_ativo ?? '';
+  }, [manutencaoForm.nr_seq_ativo, ativos]);
+  const manutencaoPrestadorName = useMemo(() => {
+    if (!manutencaoForm.nr_seq_pessoa_fisica) return '';
+    const seq = manutencaoForm.nr_seq_pessoa_fisica;
+    // Busca o colaborador que tem esse nr_sequencia (o campo armazena a sequência do colaborador).
+    const col = colaboradores.find((c) => c.nr_sequencia === seq);
+    if (col) {
+      if (col.nr_seq_pessoa_juridica) {
+        const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
+        if (pj) return pj.ds_razao_social ?? '';
+      }
+      const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica);
+      return pf?.ds_nome ?? '';
+    }
+    // Fallback: busca direta na PF (para dados legados).
+    return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
+  }, [manutencaoForm.nr_seq_pessoa_fisica, pessoasFisicas, colaboradores, pessoasJuridicas]);
+  const manutencaoFilteredAtivos = useMemo(() => {
+    if (!manutencaoAtivoLookupApplied) return [];
+    return ativos.filter((a) => {
+      if (manutencaoAtivoLookupFilter.nr_sequencia && String(a.nr_sequencia) !== manutencaoAtivoLookupFilter.nr_sequencia.trim()) return false;
+      if (manutencaoAtivoLookupFilter.ds_ativo && !a.ds_ativo?.toLowerCase().includes(manutencaoAtivoLookupFilter.ds_ativo.toLowerCase())) return false;
+      if (manutencaoAtivoLookupFilter.cd_patrimonio && !a.cd_patrimonio?.toLowerCase().includes(manutencaoAtivoLookupFilter.cd_patrimonio.toLowerCase())) return false;
+      if (manutencaoAtivoLookupFilter.ds_modelo && !a.ds_modelo?.toLowerCase().includes(manutencaoAtivoLookupFilter.ds_modelo.toLowerCase())) return false;
+      if (manutencaoAtivoLookupFilter.ie_status) {
+        if (a.ie_status !== manutencaoAtivoLookupFilter.ie_status) return false;
+      } else {
+        // Por padrão, exibir apenas ativos Operacionais e em Estoque.
+        if (a.ie_status !== 'O' && a.ie_status !== 'E') return false;
+      }
+      return true;
+    });
+  }, [ativos, manutencaoAtivoLookupFilter, manutencaoAtivoLookupApplied]);
   const [ativoSortColumn, setAtivoSortColumn] = useState<number | null>(null);
   const [ativoSortAsc, setAtivoSortAsc] = useState<boolean | null>(null);
   const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
@@ -1258,6 +1365,10 @@ export default function Home() {
       gerarCodigoPatrimonio: permitida('gerar_codigo_patrimonio'),
       alterarStatusDescartado: permitida('alterar_status_descartado'),
       acessarParametrosFuncao: permitida('acessar_parametros_funcao'),
+      acessarManutencao: permitida('acessar_manutencao'),
+      adicionarManutencao: permitida('adicionar_manutencao'),
+      verManutencao: permitida('ver_manutencao'),
+      excluirManutencao: permitida('excluir_manutencao'),
     };
   }, [isAdministrador, permissoesAtivas]);
 
@@ -1789,6 +1900,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadManutencoes = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterManutencoes();
+      setManutencoes(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -1837,6 +1960,7 @@ export default function Home() {
     loadCategoriasAtivos();
     loadSistemasOperacionais();
     loadAtivos();
+    loadManutencoes();
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
@@ -1857,7 +1981,7 @@ export default function Home() {
         // mantém vazio em caso de falha
       }
     })();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -2245,6 +2369,7 @@ export default function Home() {
       return permissoesEA.verAluno;
     }
     if (s === 'patrimonio') {
+      if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
       return permissoesPatrimonio.verAtivo;
     }
     return true;
@@ -2272,6 +2397,7 @@ export default function Home() {
       return permissoesEA.excluirAluno;
     }
     if (s === 'patrimonio') {
+      if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
       return permissoesPatrimonio.excluirAtivo;
     }
     return true;
@@ -4167,7 +4293,8 @@ export default function Home() {
       setAtivoEditingId(null);
       await loadAtivos();
       setView("list");
-    } catch {
+    } catch (e) {
+      console.error('Erro ao salvar ativo:', e);
       setMessage("Erro ao salvar.");
     } finally {
       setAtivoSubmitting(false);
@@ -5396,6 +5523,302 @@ export default function Home() {
     }
   }
 
+  /* ── Enviar para manutenção (modal) ── */
+
+  function openEnviarManutModal(ativo: Ativo) {
+    setEnviarManutTarget(ativo);
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_pessoa_fisica: undefined });
+    setEnviarManutPrestLookupForm({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
+    setEnviarManutPrestLookupFilter({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
+    setEnviarManutPrestLookupApplied(false);
+    setMessage('');
+    setEnviarManutModalOpen(true);
+  }
+
+  function closeEnviarManutModal() {
+    setEnviarManutModalOpen(false);
+    setEnviarManutTarget(null);
+  }
+
+  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' = 'modal') {
+    enviarManutPrestadorLookupTargetRef.current = target;
+    setEnviarManutPrestLookupForm(enviarManutPrestLookupFilter);
+    setEnviarManutPrestLookupApplied(false);
+    setEnviarManutPrestadorLookupOpen(true);
+  }
+
+  function closeEnviarManutPrestadorLookup() {
+    setEnviarManutPrestadorLookupOpen(false);
+  }
+
+  function applyEnviarManutPrestadorLookup() {
+    setEnviarManutPrestLookupFilter(enviarManutPrestLookupForm);
+    setEnviarManutPrestLookupApplied(true);
+  }
+
+  function clearEnviarManutPrestadorLookup() {
+    const empty = { nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' };
+    setEnviarManutPrestLookupForm(empty);
+    setEnviarManutPrestLookupFilter(empty);
+    setEnviarManutPrestLookupApplied(false);
+  }
+
+  function handleEnviarManutPrestadorSelect(colaborador: Colaborador) {
+    const target = enviarManutPrestadorLookupTargetRef.current;
+    if (target === 'form') {
+      setManutencaoForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: colaborador.nr_sequencia }));
+    } else {
+      setEnviarManutForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: colaborador.nr_sequencia }));
+    }
+    closeEnviarManutPrestadorLookup();
+  }
+
+  async function handleEnviarManutSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!enviarManutTarget?.id) return;
+    setMessage('');
+    setEnviarManutSaving(true);
+    try {
+      await criarManutencao({
+        nr_seq_ativo: enviarManutTarget.nr_sequencia,
+        nr_seq_pessoa_fisica: enviarManutForm.nr_seq_pessoa_fisica,
+        dt_envio: enviarManutForm.dt_data,
+        dt_retorno: '',
+        vl_total: undefined,
+        ds_observacao: ''
+      }, auditAutor);
+      await atualizarAtivo(enviarManutTarget.id, { ie_status: 'M', dt_ultima_manutencao: enviarManutForm.dt_data } as any, auditAutor);
+      setMessage('Ativo enviado para manutenção com sucesso.');
+      closeEnviarManutModal();
+      await loadAtivos();
+      await loadManutencoes();
+    } catch {
+      setMessage('Erro ao enviar para manutenção.');
+    } finally {
+      setEnviarManutSaving(false);
+    }
+  }
+
+  /* ── Manutenções: CRUD ── */
+
+  const emptyManutencaoForm: ManutencaoFormData = {
+    nr_seq_ativo: undefined,
+    nr_seq_pessoa_fisica: undefined,
+    dt_envio: '',
+    dt_retorno: '',
+    vl_total: undefined,
+    ds_observacao: '',
+  };
+
+  function goToManutencaoList() {
+    setView('list');
+    setManutencaoEditingId(null);
+    setManutencaoForm(emptyManutencaoForm);
+    setManutencaoCampoErros([]);
+    setMessage('');
+  }
+
+  function handleManutencaoNewForm() {
+    setManutencaoForm(emptyManutencaoForm);
+    setManutencaoEditingId(null);
+    setManutencaoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    auditManutencaoIdRef.current = null;
+    setMessage('');
+    setManutencaoCampoErros([]);
+    setView('form');
+    setActiveSection('patrimonio');
+    setAtivoManageSelection('manutencoes');
+  }
+
+  /* ── Lookup de ativo no formulário de manutenção ── */
+  function openManutencaoAtivoLookup() {
+    setManutencaoAtivoLookupForm(manutencaoAtivoLookupFilter);
+    setManutencaoAtivoLookupApplied(false);
+    setManutencaoAtivoLookupOpen(true);
+  }
+  function closeManutencaoAtivoLookup() {
+    setManutencaoAtivoLookupOpen(false);
+  }
+  function applyManutencaoAtivoLookup() {
+    setManutencaoAtivoLookupFilter(manutencaoAtivoLookupForm);
+    setManutencaoAtivoLookupApplied(true);
+  }
+  function clearManutencaoAtivoLookup() {
+    const empty = { nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' };
+    setManutencaoAtivoLookupForm(empty);
+    setManutencaoAtivoLookupFilter(empty);
+    setManutencaoAtivoLookupApplied(false);
+  }
+  function handleManutencaoAtivoSelect(ativo: Ativo) {
+    setManutencaoForm((prev) => ({ ...prev, nr_seq_ativo: ativo.nr_sequencia }));
+    closeManutencaoAtivoLookup();
+  }
+
+  function openManutencaoEditForm(m: Manutencao) {
+    setManutencaoForm({
+      nr_seq_ativo: m.nr_seq_ativo,
+      nr_seq_pessoa_fisica: m.nr_seq_pessoa_fisica,
+      dt_envio: m.dt_envio ?? '',
+      dt_retorno: m.dt_retorno ?? '',
+      vl_total: m.vl_total,
+      ds_observacao: m.ds_observacao ?? '',
+    });
+    setManutencaoEditingId(m.id ?? null);
+    setManutencaoAuditInfo({
+      createdAt: m.dt_criacao ?? '',
+      updatedAt: m.dt_alteracao ?? '',
+      createdBy: m.ds_usuario_criacao ?? '',
+      updatedBy: m.ds_usuario_alteracao ?? '',
+    });
+    auditManutencaoIdRef.current = m.id ?? null;
+    setMessage('');
+    setManutencaoCampoErros([]);
+    setView('form');
+    setActiveSection('patrimonio');
+    if (m.id) carregarAutorAuditoriaManutencao(m.id);
+  }
+
+  const filteredManutencoes = useMemo(() => manutencoes, [manutencoes]);
+
+  const filteredSortedManutencoes = useMemo(() => {
+    const list = [...filteredManutencoes];
+    if (manutencaoSortColumn !== null && manutencaoSortAsc !== null) {
+      list.sort((a, b) => {
+        const colKey = MANUTENCAO_COLUMNS[manutencaoSortColumn]?.key;
+        if (!colKey) return 0;
+        const av = (a as unknown as Record<string, unknown>)[colKey];
+        const bv = (b as unknown as Record<string, unknown>)[colKey];
+        if (av == null && bv == null) return 0;
+        if (av == null) return 1;
+        if (bv == null) return -1;
+        const an = Number(av);
+        const bn = Number(bv);
+        if (!isNaN(an) && !isNaN(bn)) return manutencaoSortAsc ? an - bn : bn - an;
+        return manutencaoSortAsc ? String(av).localeCompare(String(bv)) : String(bv).localeCompare(String(av));
+      });
+    }
+    return list;
+  }, [filteredManutencoes, manutencaoSortColumn, manutencaoSortAsc]);
+
+  const currentManutencaoEditIndex = useMemo(() => {
+    if (!manutencaoEditingId) return -1;
+    return filteredSortedManutencoes.findIndex((m) => m.id === manutencaoEditingId);
+  }, [manutencaoEditingId, filteredSortedManutencoes]);
+
+  const hasPrevManutencaoRecord = currentManutencaoEditIndex > 0;
+  const hasNextManutencaoRecord = currentManutencaoEditIndex >= 0 && currentManutencaoEditIndex < filteredSortedManutencoes.length - 1;
+
+  function goToPrevManutencaoRecord() {
+    if (currentManutencaoEditIndex > 0) {
+      openManutencaoEditForm(filteredSortedManutencoes[currentManutencaoEditIndex - 1]);
+    }
+  }
+
+  function goToNextManutencaoRecord() {
+    if (currentManutencaoEditIndex >= 0 && currentManutencaoEditIndex < filteredSortedManutencoes.length - 1) {
+      openManutencaoEditForm(filteredSortedManutencoes[currentManutencaoEditIndex + 1]);
+    }
+  }
+
+  function handleManutencaoDelete(id: string) {
+    const m = manutencoes.find((man) => man.id === id);
+    setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${m?.nr_sequencia ?? ''}?`);
+    setConfirmDeleteAction(() => async () => {
+      try {
+        await excluirManutencao(id);
+        await loadManutencoes();
+      } catch {
+        setMessage('Erro ao excluir.');
+      }
+    });
+    setConfirmDeleteOpen(true);
+  }
+
+  async function handleManutencaoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage('');
+    setManutencaoCampoErros([]);
+    const obrigatorios: string[] = [];
+    if (obrigatorios.length > 0) {
+      setManutencaoCampoErros(obrigatorios);
+      setMessage('Preencha os campos obrigatórios.');
+      return;
+    }
+    setManutencaoSubmitting(true);
+    try {
+      if (manutencaoEditingId) {
+        const current = manutencoes.find((m) => m.id === manutencaoEditingId);
+        const formKeys: Array<keyof ManutencaoFormData> = ['nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_retorno', 'vl_total', 'ds_observacao'];
+        const hasChanges = current ? formKeys.some((k) => String((current as unknown as Record<string, unknown>)[k] ?? '') !== String((manutencaoForm as unknown as Record<string, unknown>)[k] ?? '')) : true;
+        if (!hasChanges) {
+          setMessage('Nenhuma alteração detectada.');
+          setManutencaoForm(emptyManutencaoForm);
+          setManutencaoEditingId(null);
+          await loadManutencoes();
+          setView('list');
+          return;
+        }
+        await atualizarManutencao(manutencaoEditingId, manutencaoForm, auditAutor);
+      } else {
+        await criarManutencao(manutencaoForm, auditAutor);
+      }
+      await loadManutencoes();
+      setView('list');
+    } catch {
+      setMessage('Erro ao salvar.');
+    } finally {
+      setManutencaoSubmitting(false);
+    }
+  }
+
+  function handleManutencaoSortChange(logicalIndex: number) {
+    if (manutencaoSortColumn === logicalIndex) {
+      setManutencaoSortAsc((prev) => (prev === null ? true : prev ? false : null));
+      if (manutencaoSortAsc === false) {
+        setManutencaoSortColumn(null);
+      }
+    } else {
+      setManutencaoSortColumn(logicalIndex);
+      setManutencaoSortAsc(true);
+    }
+  }
+
+  async function carregarAutorAuditoriaManutencao(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('pat_manutencao', id);
+      if (auditManutencaoIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => {
+        const acao = String(l.acao ?? '').toLowerCase();
+        return acao === 'update';
+      });
+      setManutencaoAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio
+    }
+  }
+
+  async function openManutencaoAuditModal(manutencaoId?: string | null) {
+    if (!manutencaoId) return;
+    setAuditDocumentType('pat_manutencao');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('pat_manutencao', manutencaoId);
+      setAuditLogs(logs);
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   function openAlterarIngressoModal(aluno: Aluno) {
     setAlterarIngressoAluno(aluno);
     // Igual ao modal "Alterar status": a data já vem preenchida com a data atual.
@@ -6228,13 +6651,23 @@ export default function Home() {
                 items.push({ label: 'Mudar para Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
               }
               if (podeAlterarStatus && permissoesPatrimonio.enviarParaManutencao && currentStatus !== 'M') {
-                items.push({ label: 'Enviar para manutenção', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'M'); setContextMenu(null); } });
+                items.push({ label: 'Enviar para manutenção', onClick: () => { openEnviarManutModal(contextMenu.item as Ativo); setContextMenu(null); } });
               }
               if (podeAlterarStatus && permissoesPatrimonio.moverParaEstoque && currentStatus !== 'E') {
                 items.push({ label: 'Mover para o estoque', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'E'); setContextMenu(null); } });
               }
               if (permissoesPatrimonio.descartarAtivo && !isDescartado) {
                 items.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'D'); setContextMenu(null); } });
+              }
+              return items.length > 0 ? items : undefined;
+            }
+            if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'manutencoes') {
+              const items: { label: string; onClick: () => void }[] = [];
+              if (permissoesPatrimonio.verManutencao) {
+                items.push({ label: 'Ver', onClick: () => { openManutencaoEditForm(contextMenu.item as Manutencao); setContextMenu(null); } });
+              }
+              if (permissoesPatrimonio.excluirManutencao) {
+                items.push({ label: 'Excluir', onClick: () => { handleManutencaoDelete((contextMenu.item as Manutencao).id!); setContextMenu(null); } });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -6815,6 +7248,7 @@ export default function Home() {
                 <ParametrosDaFuncaoView
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
                   onSaveSuccess={(msg) => setMessage(msg)}
                   onSavingChange={setParametrosSaving}
@@ -6830,6 +7264,34 @@ export default function Home() {
                     setParametrosHasDocument(true);
                   }}
                 />
+              ) : ativoManageSelection === 'manutencoes' ? (
+                <ManutencaoListView
+                  message={message}
+                  loading={loading}
+                  manutencoes={filteredSortedManutencoes}
+                  openNewForm={handleManutencaoNewForm}
+                  openEditForm={openManutencaoEditForm}
+                  handleDelete={handleManutencaoDelete}
+                  setContextMenu={setContextMenu}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  manageSelection={ativoManageSelection}
+                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  allowedSubmodulos={allowedPatrimonioSubmodulos}
+                  sortColumn={manutencaoSortColumn}
+                  sortAsc={manutencaoSortAsc}
+                  onSortChange={handleManutencaoSortChange}
+                  columnLookups={{
+                    nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? `#${a.nr_sequencia}`])),
+                    nr_seq_pessoa_fisica: Object.fromEntries(
+                      colaboradores.map((c) => {
+                        const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
+                        const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
+                        const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
+                        return [c.nr_sequencia, nome];
+                      })
+                    ),
+                  }}
+                />
               ) : (
               <AtivoListView
                 message={message}
@@ -6839,7 +7301,7 @@ export default function Home() {
                 openEditForm={openAtivoEditForm}
                 handleDelete={handleAtivoDelete}
                 setContextMenu={setContextMenu}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao)}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
                 allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -7092,6 +7554,39 @@ export default function Home() {
                   campoErros={colaboradorCampoErros}
                 />
               )
+            ) : activeSection === "patrimonio" && ativoManageSelection === 'manutencoes' ? (
+              <ManutencaoFormView
+                message={message}
+                editingId={manutencaoEditingId}
+                sequence={manutencaoEditingId ? (manutencoes.find((m) => m.id === manutencaoEditingId)?.nr_sequencia ?? null) : null}
+                form={manutencaoForm}
+                setForm={setManutencaoForm}
+                submitting={manutencaoSubmitting}
+                handleSubmit={handleManutencaoSubmit}
+                goToList={goToManutencaoList}
+                createdAt={manutencaoAuditInfo.createdAt}
+                updatedAt={manutencaoAuditInfo.updatedAt}
+                createdBy={manutencaoAuditInfo.createdBy}
+                updatedBy={manutencaoAuditInfo.updatedBy}
+                onOpenAudit={openManutencaoAuditModal}
+                onPrevRecord={goToPrevManutencaoRecord}
+                onNextRecord={goToNextManutencaoRecord}
+                hasPrevRecord={hasPrevManutencaoRecord}
+                hasNextRecord={hasNextManutencaoRecord}
+                ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))}
+                ativoName={manutencaoAtivoName}
+                onOpenAtivoLookup={openManutencaoAtivoLookup}
+                onViewAtivo={(seq) => { const a = ativos.find((at) => at.nr_sequencia === seq); if (a) setAtivoView(a); }}
+                prestadorName={manutencaoPrestadorName}
+                onOpenPrestadorLookup={() => openEnviarManutPrestadorLookup('form')}
+                onViewPrestador={(seq) => openPessoaFisicaView(seq)}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                manageSelection={ativoManageSelection}
+                onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                allowedSubmodulos={allowedPatrimonioSubmodulos}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao')}
+                campoErros={manutencaoCampoErros}
+              />
             ) : activeSection === "patrimonio" ? (
               <AtivoFormView
                 message={message}
@@ -7115,7 +7610,7 @@ export default function Home() {
                 localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
                 marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
                 sistemasOperacionais={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao)}
+                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
                 allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -8876,6 +9371,181 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── Modal: Enviar para manutenção ── */}
+      {enviarManutModalOpen && enviarManutTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeEnviarManutModal} />
+          <form onSubmit={handleEnviarManutSubmit} className="relative w-full max-w-[560px] min-h-[280px] bg-white modal-dark p-0 shadow-xl shadow-black/20 flex flex-col">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Enviar para manutenção</h2>
+              <button type="button" onClick={closeEnviarManutModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Data</label>
+                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]" value={enviarManutForm.dt_data} onChange={(e) => setEnviarManutForm({ ...enviarManutForm, dt_data: applyDateMask(e.target.value) })} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Prestador de serviço</label>
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={enviarManutForm.nr_seq_pessoa_fisica ? String(enviarManutForm.nr_seq_pessoa_fisica) : ''} onChange={(e) => { const raw = e.target.value.replace(/\D/g, '').slice(0, 10); setEnviarManutForm({ ...enviarManutForm, nr_seq_pessoa_fisica: raw ? Number(raw) : undefined }); }} />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestadorName} />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {enviarManutForm.nr_seq_pessoa_fisica && (
+                        <button type="button" onClick={() => openPessoaFisicaView(enviarManutForm.nr_seq_pessoa_fisica)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                          <ViewIcon size={16} />
+                        </button>
+                      )}
+                      <button type="button" onClick={() => openEnviarManutPrestadorLookup('modal')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar prestador de serviço">
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px] mt-auto">
+              <button type="button" onClick={closeEnviarManutModal} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
+              <button type="submit" disabled={enviarManutSaving} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Lookup: Localizar prestador de serviço ── */}
+      {enviarManutPrestadorLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeEnviarManutPrestadorLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar prestador de serviço</h2>
+                    <button type="button" onClick={closeEnviarManutPrestadorLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar prestador">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_sequencia} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_sequencia: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.ds_nome} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, ds_nome: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                      <input inputMode="numeric" maxLength={14} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_cpf} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_cpf: applyCpfMask(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>CNPJ</label>
+                      <input inputMode="numeric" maxLength={18} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_cnpj} onChange={(e) => {
+                        const digits = e.target.value.replace(/\D/g, '').slice(0, 14);
+                        let masked = digits;
+                        if (digits.length > 2) masked = `${digits.slice(0, 2)}.${digits.slice(2)}`;
+                        if (digits.length > 5) masked = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
+                        if (digits.length > 8) masked = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
+                        if (digits.length > 12) masked = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
+                        setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_cnpj: masked });
+                      }} />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <button type="button" onClick={clearEnviarManutPrestadorLookup} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}>Limpar</button>
+                  <button type="button" onClick={applyEnviarManutPrestadorLookup} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Filtrar</button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
+                {!enviarManutPrestLookupApplied || enviarManutFilteredPrestadores.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
+                ) : (                   <PrestadorLookupTable
+                     prestadores={enviarManutFilteredPrestadores}
+                     pessoasFisicas={pessoasFisicas}
+                     pessoasJuridicas={pessoasJuridicas}
+                     onSelect={handleEnviarManutPrestadorSelect}
+                   />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── Lookup: Localizar ativo (manutenções) ── */}
+      {manutencaoAtivoLookupOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeManutencaoAtivoLookup} />
+          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+            <div className="flex h-full">
+              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+                <div className="p-[15px] overflow-auto flex-1 min-h-0">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar ativo</h2>
+                    <button type="button" onClick={closeManutencaoAtivoLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar ativo">
+                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                    </button>
+                  </div>
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.nr_sequencia} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, nr_sequencia: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.cd_patrimonio} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, cd_patrimonio: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_ativo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_ativo: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Modelo</label>
+                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_modelo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_modelo: e.target.value })} />
+                    </div>
+                    <div>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                      <Select
+                        value={manutencaoAtivoLookupForm.ie_status}
+                        onChange={(v) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ie_status: v })}
+                        options={[
+                          { value: '', label: '---' },
+                          { value: 'E', label: 'Estoque' },
+                          { value: 'O', label: 'Operacional' },
+                        ]}
+                        showPlaceholder={false}
+                      />
+                    </div>
+                  </div>
+                </div>
+                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <button type="button" onClick={clearManutencaoAtivoLookup} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}>Limpar</button>
+                  <button type="button" onClick={applyManutencaoAtivoLookup} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Filtrar</button>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
+                {!manutencaoAtivoLookupApplied || manutencaoFilteredAtivos.length === 0 ? (
+                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
+                ) : (                   <AtivoLookupTable
+                     ativos={manutencaoFilteredAtivos}
+                     onSelect={handleManutencaoAtivoSelect}
+                     categoriasAtivos={categoriasAtivos}
+                     marcas={marcas}
+                   />
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {pessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
@@ -9440,6 +10110,7 @@ export default function Home() {
         const isColaborador = auditDocumentType === 'colaborador';
         const isAtivo = auditDocumentType === 'pat_ativo';
         const isParametros = auditDocumentType === 'pat_parametros';
+        const isManutencao = auditDocumentType === 'pat_manutencao';
         const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo';
         const fieldsOrder = isPj
           ? [
@@ -9524,6 +10195,11 @@ export default function Home() {
           : isParametros
           ? [
               'ds_regra',
+              'dt_criacao', 'dt_alteracao',
+            ]
+          : isManutencao
+          ? [
+              'nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_retorno', 'vl_total', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
             ]
           : isCg
@@ -9625,6 +10301,10 @@ export default function Home() {
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
                       ds_regra: 'Regra',
+                      nr_seq_ativo: 'Ativo',
+                      dt_envio: 'Data de envio',
+                      dt_retorno: 'Data de retorno',
+                      vl_total: 'Valor total',
                       cd_patrimonio: 'Patrimônio',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
@@ -9647,6 +10327,8 @@ export default function Home() {
                       dt_criacao: 'Data de criação',
                       dt_alteracao: 'Data de alteração',
                     };
+                    // Em Manutenções, o campo nr_seq_pessoa_fisica é o Prestador.
+                    if (isManutencao) FIELD_LABELS['nr_seq_pessoa_fisica'] = 'Prestador';
 
                     const normalizeAuditValue = (val: any): string | number | null => {
                       if (val === null || val === undefined || val === '') return null;
@@ -9855,6 +10537,165 @@ export default function Home() {
         cgLookups={pfCgLookups}
         onClose={() => setPessoaFisicaView(null)}
       />
+
+      {/* Modal de visualização de Ativo (leitura) */}
+      {ativoView && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="absolute inset-0" onClick={() => setAtivoView(null)} />
+          <div className="relative w-full max-w-[1000px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h3 className="text-base font-semibold" style={{ color: '#000' }}>Ativo</h3>
+              <button
+                type="button"
+                onClick={() => setAtivoView(null)}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="p-[15px] overflow-auto">
+              <div className="space-y-8">
+                {/* ── Identificação ── */}
+                <section>
+                  <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Identificação</h2>
+                  <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+                    <div className="sm:col-span-1 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={String(ativoView.nr_sequencia ?? '')} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio ?? ''} />
+                    </div>
+                    <div className="sm:col-span-8 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ativo ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Modelo</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_modelo ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Número de série</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_serie ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>QR Code</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_qr_code ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Código de barras</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_codigo_barras ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de aquisição</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_aquisicao ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de garantia</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_garantia ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ATIVO_STATUS_OPTIONS.find((s) => s.value === ativoView.ie_status)?.label ?? ativoView.ie_status ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Reativação</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_reativacao ?? ''} />
+                    </div>
+                    <div className="sm:col-span-6 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Última manutenção</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_ultima_manutencao ?? ''} />
+                    </div>
+                    <div className="sm:col-span-6 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Descarte</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_descarte ?? ''} />
+                    </div>
+                    <div className="sm:col-span-12 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo descarte</label>
+                      <textarea disabled readOnly rows={2} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_descarte ?? ''} />
+                    </div>
+                  </div>
+                </section>
+                {/* ── Classificação ── */}
+                <section>
+                  <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Classificação</h2>
+                  <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Categoria</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_categoria ? (categoriasAtivos.find((c) => c.nr_sequencia === ativoView.nr_seq_categoria)?.ds_categoria ?? String(ativoView.nr_seq_categoria)) : ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Localização</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_localizacao ? (localizacoes.find((l) => l.nr_sequencia === ativoView.nr_seq_localizacao)?.ds_localizacao ?? String(ativoView.nr_seq_localizacao)) : ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Marca</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_marca ? (marcas.find((m) => m.nr_sequencia === ativoView.nr_seq_marca)?.ds_marca ?? String(ativoView.nr_seq_marca)) : ''} />
+                    </div>
+                    {(ativoView.responsaveis ?? []).length > 0 && (
+                      <div className="sm:col-span-12 group">
+                        <label className="block text-sm mb-1" style={{ color: '#666' }}>Responsável</label>
+                        {(ativoView.responsaveis ?? []).map((resp, idx) => (
+                          <input key={idx} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={resp.nr_seq_responsavel ? (pessoasFisicas.find((p) => p.nr_sequencia === resp.nr_seq_responsavel)?.ds_nome ?? String(resp.nr_seq_responsavel)) : ''} />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </section>
+                {/* ── Dispositivo ── */}
+                <section>
+                  <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dispositivo</h2>
+                  <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Processador</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_processador ?? ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Memória RAM</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.qt_ram != null ? `${ativoView.qt_ram} ${ativoView.ie_ram ?? ''}` : ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Armazenamento</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.qt_armazenamento != null ? `${ativoView.qt_armazenamento} ${ativoView.ie_armazenamento ?? ''}` : ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Endereço MAC</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_endereco_mac ?? ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>IP</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ip ?? ''} />
+                    </div>
+                    <div className="sm:col-span-4 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sistema operacional</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_sistema_operacional ? (sistemasOperacionais.find((s) => s.nr_sequencia === ativoView.nr_seq_sistema_operacional)?.ds_sistema_operacional ?? String(ativoView.nr_seq_sistema_operacional)) : ''} />
+                    </div>
+                  </div>
+                </section>
+                {/* ── Observações ── */}
+                <section>
+                  <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Observações</h2>
+                  <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+                    <div className="sm:col-span-12 group">
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Observação</label>
+                      <textarea disabled readOnly rows={4} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_observacao ?? ''} />
+                    </div>
+                  </div>
+                </section>
+                <div className="text-[13px] text-slate-500">
+                  <div>Criado por {ativoView.ds_usuario_criacao || '-'} em {ativoView.dt_criacao ? formatDate(ativoView.dt_criacao) : '-'}</div>
+                  <div className="mt-1">Alterado por {ativoView.ds_usuario_alteracao || '-'} em {ativoView.dt_alteracao ? formatDate(ativoView.dt_alteracao) : '-'}</div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal de visualização de Pessoa Jurídica (leitura) */}
       <PessoaJuridicaViewModal

@@ -213,6 +213,11 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativos.nr_seq_sistema_operacional", label: "Sistema operacional", tipo: "Ativos", colecao: "pat_ativos" },
 
     { key: "pat_ativos.ds_observacao", label: "Observação", tipo: "Ativos", colecao: "pat_ativos" },
+
+    // Manutenções
+    // Ativo, Prestador, Data de envio e Valor total são campos fixos (sempre desabilitados).
+    { key: "pat_manutencao.dt_retorno", label: "Data de retorno", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
   ],
   estruturaAcademica: [
     // Matrícula, Desligamento, Status e Motivo desligamento não são
