@@ -19,6 +19,8 @@ interface SelectProps {
   showPlaceholder?: boolean;
   /** Borda vermelha — campo obrigatório vazio ao salvar. */
   error?: boolean;
+  /** Força o dropdown a abrir sempre para cima. */
+  forceOpenUp?: boolean;
 }
 
 const ROW_HEIGHT = 32; // altura aproximada de cada linha (px)
@@ -32,6 +34,7 @@ export default function Select({
   visibleOptions = 10,
   showPlaceholder = true,
   error = false,
+  forceOpenUp = false,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -71,7 +74,7 @@ export default function Select({
     if (!open || !rootRef.current) return;
     const triggerRect = rootRef.current.getBoundingClientRect();
     const listHeight = Math.min(items.length, visibleOptions) * ROW_HEIGHT;
-    setOpenUp(window.innerHeight - triggerRect.bottom < listHeight + 12);
+    setOpenUp(forceOpenUp || window.innerHeight - triggerRect.bottom < listHeight + 12);
 
     const list = listRef.current;
     if (!list) return;
@@ -84,7 +87,7 @@ export default function Select({
     } else if (itemEl.offsetTop + itemEl.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight - list.clientHeight;
     }
-  }, [open, items, value, visibleOptions]);
+  }, [open, items, value, visibleOptions, forceOpenUp]);
 
   // Ao fechar, limpa o buffer da busca por digitação.
   useEffect(() => {

@@ -201,7 +201,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativos.dt_reativacao", label: "Reativação", tipo: "Ativos", colecao: "pat_ativos" },
     { key: "pat_ativos.dt_ultima_manutencao", label: "Última manutenção", tipo: "Ativos", colecao: "pat_ativos" },
     { key: "pat_ativos.dt_descarte", label: "Descarte", tipo: "Ativos", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_descarte", label: "Motivo descarte", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_descarte", label: "Motivo do descarte", tipo: "Ativos", colecao: "pat_ativos" },
 
     { key: "pat_ativos.ds_processador", label: "Processador", tipo: "Ativos", colecao: "pat_ativos" },
     { key: "pat_ativos.qt_ram", label: "Memória RAM", tipo: "Ativos", colecao: "pat_ativos" },
@@ -209,14 +209,17 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativos.qt_armazenamento", label: "Armazenamento", tipo: "Ativos", colecao: "pat_ativos" },
     { key: "pat_ativos.ie_armazenamento", label: "Unidade", tipo: "Ativos", colecao: "pat_ativos" },
     { key: "pat_ativos.ds_endereco_mac", label: "Endereço MAC", tipo: "Ativos", colecao: "pat_ativos" },
-    { key: "pat_ativos.ds_ip", label: "IP", tipo: "Ativos", colecao: "pat_ativos" },
+    { key: "pat_ativos.ds_ip", label: "IPv4", tipo: "Ativos", colecao: "pat_ativos" },
     { key: "pat_ativos.nr_seq_sistema_operacional", label: "Sistema operacional", tipo: "Ativos", colecao: "pat_ativos" },
 
     { key: "pat_ativos.ds_observacao", label: "Observação", tipo: "Ativos", colecao: "pat_ativos" },
 
     // Manutenções
     // Ativo, Prestador, Data de envio e Valor total são campos fixos (sempre desabilitados).
-    { key: "pat_manutencao.dt_retorno", label: "Data de retorno", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.dt_termino", label: "Data de término", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.ie_status_manutencao", label: "Status", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.ds_motivo_manutencao", label: "Motivo da manutenção", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.ds_correcoes", label: "Correções", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
   ],
   estruturaAcademica: [

@@ -155,6 +155,7 @@ import AlunoListView from "@/components/estruturaAcademica/AlunoListView";
 import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademica/AlunoFormView";
 import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorListView";
 import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
+import ColaboradorViewModal from "@/components/estruturaAcademica/ColaboradorViewModal";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import ParametrosDaFuncaoView from "@/components/patrimonio/ParametrosDaFuncaoView";
@@ -162,9 +163,10 @@ import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
 import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
 import AtivoLookupTable from "@/components/patrimonio/AtivoLookupTable";
+import ManutencaoViewModal from "@/components/patrimonio/ManutencaoViewModal";
 import type { Manutencao } from "@/types/manutencao";
 import { obterManutencoes, criarManutencao, atualizarManutencao, excluirManutencao } from "@/services/manutencaoService";
-import { MANUTENCAO_COLUMNS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
+import { MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
@@ -234,7 +236,7 @@ import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoU
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
-import { ATIVO_COLUMNS, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS } from "@/lib/ativoUtils";
+import { ATIVO_COLUMNS, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -418,6 +420,7 @@ const emptyAtivoForm: AtivoFormData = {
   ie_status: 'O',
   dt_reativacao: '',
   dt_ultima_manutencao: '',
+  nr_seq_ultima_manutencao: undefined,
   dt_descarte: '',
   ds_descarte: '',
   dt_aquisicao: '',
@@ -895,6 +898,10 @@ export default function Home() {
   // Pessoa física em visualização (modal de leitura, estilo Detalhe da auditoria).
   const [pessoaFisicaView, setPessoaFisicaView] = useState<PessoaFisica | null>(null);
   const [ativoView, setAtivoView] = useState<Ativo | null>(null);
+  // Manutenção em visualização (modal de leitura).
+  const [manutencaoView, setManutencaoView] = useState<Manutencao | null>(null);
+  // Colaborador em visualização (modal de leitura).
+  const [colaboradorView, setColaboradorView] = useState<Colaborador | null>(null);
   const [pessoaJuridicaView, setPessoaJuridicaView] = useState<PessoaJuridica | null>(null);
   const [pessoaJuridicaViewCidade, setPessoaJuridicaViewCidade] = useState('');
   const pessoaJuridicaViewCodeRef = useRef<string>('');
@@ -945,7 +952,7 @@ export default function Home() {
   const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
-  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo'>('aluno');
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo' | 'ativoFilter' | 'manutencaoFilter'>('aluno');
   const alunoResponsavelLookupIndexRef = useRef(0);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
@@ -990,7 +997,7 @@ export default function Home() {
   // Modal "Enviar para manutenção" (menu de contexto de Ativos).
   const [enviarManutModalOpen, setEnviarManutModalOpen] = useState(false);
   const [enviarManutTarget, setEnviarManutTarget] = useState<Ativo | null>(null);
-  const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_pessoa_fisica: undefined as number | undefined });
+  const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_pessoa_fisica: undefined as number | undefined, ds_motivo_manutencao: '' });
   const [enviarManutSaving, setEnviarManutSaving] = useState(false);
   // Lookup de prestador de serviço (filtra colaboradores com ie_prestador_servico='S').
   const [enviarManutPrestadorLookupOpen, setEnviarManutPrestadorLookupOpen] = useState(false);
@@ -998,6 +1005,13 @@ export default function Home() {
   const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
   const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form'>('modal');
+  // Modal "Concluir manutenção" (menu de contexto de Ativos).
+  const [concluirManutModalOpen, setConcluirManutModalOpen] = useState(false);
+  const [concluirManutTarget, setConcluirManutTarget] = useState<{ ativo: Ativo | null; manutencao: Manutencao } | null>(null);
+  const [concluirManutForm, setConcluirManutForm] = useState({ dt_termino: '', vl_total: '', ds_correcoes: '', ie_status_ativo: 'O' });
+  const [concluirManutSaving, setConcluirManutSaving] = useState(false);
+  const [cancelarManutOpen, setCancelarManutOpen] = useState(false);
+  const [cancelarManutTarget, setCancelarManutTarget] = useState<Manutencao | null>(null);
   const enviarManutPrestadores = useMemo(() => {
     // Apenas colaboradores com ie_prestador_servico === 'S'.
     return colaboradores.filter((c) => c.ie_prestador_servico === 'S');
@@ -1031,8 +1045,18 @@ export default function Home() {
   // Nome do prestador derivado do nr_seq_pessoa_fisica selecionado.
   const enviarManutPrestadorName = useMemo(() => {
     if (!enviarManutForm.nr_seq_pessoa_fisica) return '';
-    return pessoasFisicas.find((p) => p.nr_sequencia === enviarManutForm.nr_seq_pessoa_fisica)?.ds_nome ?? '';
-  }, [enviarManutForm.nr_seq_pessoa_fisica, pessoasFisicas]);
+    const seq = enviarManutForm.nr_seq_pessoa_fisica;
+    const col = colaboradores.find((c) => c.nr_sequencia === seq);
+    if (col) {
+      if (col.nr_seq_pessoa_juridica) {
+        const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
+        if (pj) return pj.ds_razao_social ?? '';
+      }
+      const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica);
+      if (pf) return pf.ds_nome ?? '';
+    }
+    return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
+  }, [enviarManutForm.nr_seq_pessoa_fisica, pessoasFisicas, colaboradores, pessoasJuridicas]);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
@@ -1049,13 +1073,48 @@ export default function Home() {
   const auditAtivoIdRef = useRef<string | null>(null);
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
   const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
+
+  // Filtro de Ativos.
+  type AtivoFilterFormData = {
+    // Identificação
+    nr_sequencia: string;
+    cd_patrimonio: string;
+    ds_ativo: string;
+    ds_modelo: string;
+    nr_serie: string;
+    ds_qr_code: string;
+    ds_codigo_barras: string;
+    dt_aquisicao_inicio: string;
+    dt_aquisicao_fim: string;
+    dt_garantia_inicio: string;
+    dt_garantia_fim: string;
+    ie_status: string;
+    // Classificação
+    nr_seq_categoria: string;
+    nr_seq_localizacao: string;
+    nr_seq_marca: string;
+    nr_seq_responsavel: string;
+    // Dispositivo
+    ds_endereco_mac: string;
+    ds_ip: string;
+    nr_seq_sistema_operacional: string;
+  };
+  const emptyAtivoFilterForm: AtivoFilterFormData = {
+    nr_sequencia: '', cd_patrimonio: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
+    dt_aquisicao_inicio: '', dt_aquisicao_fim: '', dt_garantia_inicio: '', dt_garantia_fim: '', ie_status: 'T',
+    nr_seq_categoria: '', nr_seq_localizacao: '', nr_seq_marca: '', nr_seq_responsavel: '',
+    ds_endereco_mac: '', ds_ip: '', nr_seq_sistema_operacional: '',
+  };
+  const [ativoFilterForm, setAtivoFilterForm] = useState<AtivoFilterFormData>(emptyAtivoFilterForm);
+  const [appliedAtivoFilterForm, setAppliedAtivoFilterForm] = useState<AtivoFilterFormData>(emptyAtivoFilterForm);
+  const [ativoFilterModalOpen, setAtivoFilterModalOpen] = useState(false);
   const [parametrosSaving, setParametrosSaving] = useState(false);
   const [parametrosAuditInfo, setParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const [parametrosHasDocument, setParametrosHasDocument] = useState(false);
 
   // Patrimônio > Manutenções.
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
-  const [manutencaoForm, setManutencaoForm] = useState<ManutencaoFormData>({ nr_seq_ativo: undefined, dt_envio: '', dt_retorno: '', vl_total: undefined, ds_observacao: '' });
+  const [manutencaoForm, setManutencaoForm] = useState<ManutencaoFormData>({ nr_seq_ativo: undefined, dt_envio: '', dt_termino: '', vl_total: undefined, ds_observacao: '', ie_status_manutencao: 'E' });
   const [manutencaoEditingId, setManutencaoEditingId] = useState<string | null>(null);
   const [manutencaoAuditInfo, setManutencaoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditManutencaoIdRef = useRef<string | null>(null);
@@ -1063,8 +1122,34 @@ export default function Home() {
   const [manutencaoSortColumn, setManutencaoSortColumn] = useState<number | null>(null);
   const [manutencaoSortAsc, setManutencaoSortAsc] = useState<boolean | null>(null);
   const [manutencaoCampoErros, setManutencaoCampoErros] = useState<string[]>([]);
+
+  // Filtro de Manutenções.
+  type ManutencaoFilterFormData = {
+    // Identificação
+    nr_sequencia: string;
+    nr_seq_ativo: string;
+    // Dados da manutenção
+    nr_seq_pessoa_fisica: string;
+    dt_envio_inicio: string;
+    dt_envio_fim: string;
+    dt_termino_inicio: string;
+    dt_termino_fim: string;
+    vl_total_menor: string;
+    vl_total_maior: string;
+    ie_status_manutencao: string;
+  };
+  const emptyManutencaoFilterForm: ManutencaoFilterFormData = {
+    nr_sequencia: '', nr_seq_ativo: '',
+    nr_seq_pessoa_fisica: '', dt_envio_inicio: '', dt_envio_fim: '', dt_termino_inicio: '', dt_termino_fim: '',
+    vl_total_menor: '', vl_total_maior: '', ie_status_manutencao: 'T',
+  };
+  const [manutencaoFilterForm, setManutencaoFilterForm] = useState<ManutencaoFilterFormData>(emptyManutencaoFilterForm);
+  const [appliedManutencaoFilterForm, setAppliedManutencaoFilterForm] = useState<ManutencaoFilterFormData>(emptyManutencaoFilterForm);
+  const [manutencaoFilterModalOpen, setManutencaoFilterModalOpen] = useState(false);
+
   // Lookup de ativo no formulário de manutenção.
   const [manutencaoAtivoLookupOpen, setManutencaoAtivoLookupOpen] = useState(false);
+  const manutencaoAtivoLookupTargetRef = useRef<'manutencao' | 'manutencaoFilter'>('manutencao');
   const [manutencaoAtivoLookupForm, setManutencaoAtivoLookupForm] = useState({ nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' });
   const [manutencaoAtivoLookupFilter, setManutencaoAtivoLookupFilter] = useState({ nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' });
   const [manutencaoAtivoLookupApplied, setManutencaoAtivoLookupApplied] = useState(false);
@@ -1368,6 +1453,9 @@ export default function Home() {
       acessarManutencao: permitida('acessar_manutencao'),
       adicionarManutencao: permitida('adicionar_manutencao'),
       verManutencao: permitida('ver_manutencao'),
+      concluirManutencao: permitida('concluir_manutencao'),
+      concluirManutencaoRegistro: permitida('concluir_manutencao_registro'),
+      cancelarManutencao: permitida('cancelar_manutencao'),
       excluirManutencao: permitida('excluir_manutencao'),
     };
   }, [isAdministrador, permissoesAtivas]);
@@ -1448,6 +1536,10 @@ export default function Home() {
   const ativoColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_pat_ativos),
     [currentUser?.config_colunas_pat_ativos]
+  );
+  const manutencaoColunasConfig = useMemo(
+    () => parseColunasConfig(currentUser?.config_colunas_pat_manutencao),
+    [currentUser?.config_colunas_pat_manutencao]
   );
   const adminColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_as_usuario),
@@ -2648,6 +2740,44 @@ export default function Home() {
     setFilterModalOpen(false);
   }
 
+  function openAtivoFilterModal() {
+    setAtivoFilterForm(appliedAtivoFilterForm);
+    setAtivoFilterModalOpen(true);
+  }
+
+  function closeAtivoFilterModal() {
+    setAtivoFilterModalOpen(false);
+  }
+
+  function applyAtivoFilter() {
+    setAppliedAtivoFilterForm(ativoFilterForm);
+    setAtivoFilterModalOpen(false);
+  }
+
+  function clearAtivoFilter() {
+    setAtivoFilterForm(emptyAtivoFilterForm);
+    setAppliedAtivoFilterForm(emptyAtivoFilterForm);
+  }
+
+  function openManutencaoFilterModal() {
+    setManutencaoFilterForm(appliedManutencaoFilterForm);
+    setManutencaoFilterModalOpen(true);
+  }
+
+  function closeManutencaoFilterModal() {
+    setManutencaoFilterModalOpen(false);
+  }
+
+  function applyManutencaoFilter() {
+    setAppliedManutencaoFilterForm(manutencaoFilterForm);
+    setManutencaoFilterModalOpen(false);
+  }
+
+  function clearManutencaoFilter() {
+    setManutencaoFilterForm(emptyManutencaoFilterForm);
+    setAppliedManutencaoFilterForm(emptyManutencaoFilterForm);
+  }
+
   function openPjFilterModal() {
     setPjFilterForm(appliedPjFilterForm);
     setPjFilterModalOpen(true);
@@ -3263,6 +3393,7 @@ export default function Home() {
       ie_status: ativo.ie_status ?? 'O',
       dt_reativacao: ativo.dt_reativacao ?? '',
       dt_ultima_manutencao: ativo.dt_ultima_manutencao ?? '',
+      nr_seq_ultima_manutencao: ativo.nr_seq_ultima_manutencao,
       dt_descarte: ativo.dt_descarte ?? '',
       ds_descarte: ativo.ds_descarte ?? '',
       dt_aquisicao: ativo.dt_aquisicao ?? '',
@@ -3641,7 +3772,49 @@ export default function Home() {
   }, [filteredColaboradores, colaboradorSortColumn, colaboradorSortAsc]);
 
   const filteredSortedAtivos = useMemo(() => {
-    const sorted = [...ativos];
+    let sorted = [...ativos].filter((a) => {
+      // Identificação
+      if (appliedAtivoFilterForm.nr_sequencia) {
+        const q = appliedAtivoFilterForm.nr_sequencia.replace(/\D/g, '');
+        if (q && String(a.nr_sequencia) !== q) return false;
+      }
+      if (appliedAtivoFilterForm.cd_patrimonio && !(a.cd_patrimonio ?? '').toLowerCase().includes(appliedAtivoFilterForm.cd_patrimonio.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.ds_ativo && !(a.ds_ativo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ativo.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.ds_modelo && !(a.ds_modelo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_modelo.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.nr_serie && !(a.nr_serie ?? '').toLowerCase().includes(appliedAtivoFilterForm.nr_serie.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.ds_qr_code && !(a.ds_qr_code ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_qr_code.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.ds_codigo_barras && !(a.ds_codigo_barras ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_codigo_barras.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.dt_aquisicao_inicio && a.dt_aquisicao && a.dt_aquisicao < appliedAtivoFilterForm.dt_aquisicao_inicio) return false;
+      if (appliedAtivoFilterForm.dt_aquisicao_fim && a.dt_aquisicao && a.dt_aquisicao > appliedAtivoFilterForm.dt_aquisicao_fim) return false;
+      if (appliedAtivoFilterForm.dt_garantia_inicio && a.dt_garantia && a.dt_garantia < appliedAtivoFilterForm.dt_garantia_inicio) return false;
+      if (appliedAtivoFilterForm.dt_garantia_fim && a.dt_garantia && a.dt_garantia > appliedAtivoFilterForm.dt_garantia_fim) return false;
+      if (appliedAtivoFilterForm.ie_status !== 'T' && a.ie_status !== appliedAtivoFilterForm.ie_status) return false;
+      // Classificação
+      if (appliedAtivoFilterForm.nr_seq_categoria) {
+        const q = appliedAtivoFilterForm.nr_seq_categoria.replace(/\D/g, '');
+        if (q && String(a.nr_seq_categoria ?? '') !== q) return false;
+      }
+      if (appliedAtivoFilterForm.nr_seq_localizacao) {
+        const q = appliedAtivoFilterForm.nr_seq_localizacao.replace(/\D/g, '');
+        if (q && String(a.nr_seq_localizacao ?? '') !== q) return false;
+      }
+      if (appliedAtivoFilterForm.nr_seq_marca) {
+        const q = appliedAtivoFilterForm.nr_seq_marca.replace(/\D/g, '');
+        if (q && String(a.nr_seq_marca ?? '') !== q) return false;
+      }
+      if (appliedAtivoFilterForm.nr_seq_responsavel) {
+        const q = appliedAtivoFilterForm.nr_seq_responsavel.replace(/\D/g, '');
+        if (q && !(a.responsaveis ?? []).some((r) => String(r.nr_seq_responsavel ?? '') === q)) return false;
+      }
+      // Dispositivo
+      if (appliedAtivoFilterForm.ds_endereco_mac && !(a.ds_endereco_mac ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_endereco_mac.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.ds_ip && !(a.ds_ip ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ip.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.nr_seq_sistema_operacional) {
+        const q = appliedAtivoFilterForm.nr_seq_sistema_operacional.replace(/\D/g, '');
+        if (q && String(a.nr_seq_sistema_operacional ?? '') !== q) return false;
+      }
+      return true;
+    });
     if (ativoSortColumn === null || ativoSortAsc === null) {
       return sorted.sort((a, b) => {
         const dateA = a.dt_criacao || "";
@@ -3665,7 +3838,7 @@ export default function Home() {
       if (strA > strB) return ativoSortAsc ? 1 : -1;
       return 0;
     });
-  }, [ativos, ativoSortColumn, ativoSortAsc]);
+  }, [ativos, ativoSortColumn, ativoSortAsc, appliedAtivoFilterForm]);
 
   const filteredPessoasJuridicas = useMemo(() => {
     return pessoasJuridicas.filter((pessoa) => {
@@ -4805,7 +4978,7 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo', responsavelIndex = 0) {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo' | 'ativoFilter' | 'manutencaoFilter', responsavelIndex = 0) {
     alunoPessoaFisicaLookupTargetRef.current = target;
     alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
@@ -4839,6 +5012,10 @@ export default function Home() {
         responsaveis[idx] = { ...(responsaveis[idx] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
         return { ...prev, responsaveis };
       });
+    } else if (target === 'ativoFilter') {
+      setAtivoFilterForm((prev) => ({ ...prev, nr_seq_responsavel: String(pessoa.nr_sequencia) }));
+    } else if (target === 'manutencaoFilter') {
+      setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) }));
     } else {
       setAlunoForm({ ...alunoForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
     }
@@ -4853,6 +5030,25 @@ export default function Home() {
   // Abre o lookup de Pessoa Física a partir do filtro de Colaboradores.
   function openColaboradorFilterPessoaFisicaLookup() {
     openAlunoPessoaFisicaLookup('colaboradorFilter');
+  }
+
+  // Abre o lookup de Pessoa Física a partir do filtro de Ativos (Responsável).
+  // Helper para filtrar e ordenar opções de Cadastros Gerais (apenas itens Ativos).
+  function cgFilterOptions<T extends { nr_sequencia: number; ie_status?: string }>(items: T[], labelFn: (item: T) => string): { value: string; label: string }[] {
+    return items
+      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => { const l = labelFn(op); return l && l.trim() !== ''; })
+      .sort((a, b) => labelFn(a).localeCompare(labelFn(b), 'pt-BR', { sensitivity: 'base' }))
+      .map((op) => ({ value: String(op.nr_sequencia), label: labelFn(op) }));
+  }
+
+  function openAtivoFilterResponsavelLookup() {
+    openAlunoPessoaFisicaLookup('ativoFilter');
+  }
+
+  // Abre o lookup de Pessoa Física a partir do filtro de Manutenções (Prestador de serviço).
+  function openManutencaoFilterPrestadorLookup() {
+    openAlunoPessoaFisicaLookup('manutencaoFilter');
   }
 
   function applyAlunoLookupFilter() {
@@ -4878,6 +5074,20 @@ export default function Home() {
     if (!nrSequencia) return;
     const pessoa = pessoasFisicas.find((p) => p.nr_sequencia === nrSequencia);
     setPessoaFisicaView(pessoa ?? null);
+  }
+
+  // Abre o modal de visualização de uma manutenção pelo nr_sequencia.
+  function openManutencaoView(nrSequencia: number | undefined) {
+    if (!nrSequencia) return;
+    const manut = manutencoes.find((m) => m.nr_sequencia === nrSequencia);
+    setManutencaoView(manut ?? null);
+  }
+
+  // Abre o modal de visualização de um colaborador pelo nr_sequencia.
+  function openColaboradorView(nrSequencia: number | undefined) {
+    if (!nrSequencia) return;
+    const col = colaboradores.find((c) => c.nr_sequencia === nrSequencia);
+    setColaboradorView(col ?? null);
   }
 
   // Abre o modal de visualização de Pessoa Jurídica, resolvendo o nome da cidade.
@@ -5529,7 +5739,7 @@ export default function Home() {
     setEnviarManutTarget(ativo);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_pessoa_fisica: undefined });
+    setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_pessoa_fisica: undefined, ds_motivo_manutencao: '' });
     setEnviarManutPrestLookupForm({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
     setEnviarManutPrestLookupFilter({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
     setEnviarManutPrestLookupApplied(false);
@@ -5540,6 +5750,98 @@ export default function Home() {
   function closeEnviarManutModal() {
     setEnviarManutModalOpen(false);
     setEnviarManutTarget(null);
+  }
+
+  /* ── Concluir manutenção (modal) ── */
+
+  function openConcluirManutModalFromAtivo(ativo: Ativo) {
+    const manut = manutencoes.find((m) => m.nr_seq_ativo === ativo.nr_sequencia && m.ie_status_manutencao === 'E');
+    if (!manut) return;
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setConcluirManutTarget({ ativo, manutencao: manut });
+    setConcluirManutForm({
+      dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+      vl_total: '',
+      ds_correcoes: '',
+      ie_status_ativo: 'O',
+    });
+    setMessage('');
+    setConcluirManutModalOpen(true);
+  }
+
+  function openConcluirManutModalFromManut(manut: Manutencao) {
+    const ativo = ativos.find((a) => a.nr_sequencia === manut.nr_seq_ativo);
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setConcluirManutTarget({ ativo: ativo ?? null, manutencao: manut });
+    setConcluirManutForm({
+      dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
+      vl_total: '',
+      ds_correcoes: '',
+      ie_status_ativo: 'O',
+    });
+    setMessage('');
+    setConcluirManutModalOpen(true);
+  }
+
+  function closeConcluirManutModal() {
+    setConcluirManutModalOpen(false);
+    setConcluirManutTarget(null);
+  }
+
+  function openCancelarManutModal(manut: Manutencao) {
+    setCancelarManutTarget(manut);
+    setCancelarManutOpen(true);
+  }
+
+  async function handleCancelarManutSubmit() {
+    if (!cancelarManutTarget) return;
+    try {
+      await atualizarManutencao(cancelarManutTarget.id!, { ie_status_manutencao: 'CA', dt_termino: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
+      const ativo = ativos.find((a) => a.nr_sequencia === cancelarManutTarget.nr_seq_ativo);
+      if (ativo && ativo.id) {
+        await atualizarAtivo(ativo.id, { ie_status: 'O', dt_reativacao: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
+      }
+      setMessage('Manutenção cancelada com sucesso.');
+      setCancelarManutOpen(false);
+      setCancelarManutTarget(null);
+      await loadAtivos();
+      await loadManutencoes();
+    } catch {
+      setMessage('Erro ao cancelar manutenção.');
+    }
+  }
+
+  async function handleConcluirManutSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!concluirManutTarget) return;
+    setMessage('');
+    setConcluirManutSaving(true);
+    try {
+      const updates: Record<string, unknown> = { dt_termino: concluirManutForm.dt_termino, ie_status_manutencao: 'CO' };
+      if (concluirManutForm.vl_total) {
+        const digits = concluirManutForm.vl_total.replace(/\D/g, '');
+        if (digits) updates.vl_total = Number(digits) / 100;
+      }
+      if (concluirManutForm.ds_correcoes) updates.ds_correcoes = concluirManutForm.ds_correcoes;
+      await atualizarManutencao(concluirManutTarget.manutencao.id!, updates as any, auditAutor);
+      if (concluirManutTarget.ativo) {
+        const ativoUpdates: Record<string, unknown> = { ie_status: concluirManutForm.ie_status_ativo || 'O' };
+        if (concluirManutForm.ie_status_ativo === 'O') {
+          ativoUpdates.dt_reativacao = concluirManutForm.dt_termino;
+        }
+        await atualizarAtivo(concluirManutTarget.ativo.id!, ativoUpdates as any, auditAutor);
+      }
+      setMessage('Manutenção concluída com sucesso!');
+      closeConcluirManutModal();
+      await loadAtivos();
+      await loadManutencoes();
+    } catch {
+      setMessage('Erro ao concluir manutenção.');
+    } finally {
+      setConcluirManutSaving(false);
+    }
   }
 
   function openEnviarManutPrestadorLookup(target: 'modal' | 'form' = 'modal') {
@@ -5581,15 +5883,17 @@ export default function Home() {
     setMessage('');
     setEnviarManutSaving(true);
     try {
-      await criarManutencao({
+      const { nr_sequencia: nrSeqManut } = await criarManutencao({
         nr_seq_ativo: enviarManutTarget.nr_sequencia,
         nr_seq_pessoa_fisica: enviarManutForm.nr_seq_pessoa_fisica,
         dt_envio: enviarManutForm.dt_data,
-        dt_retorno: '',
+        dt_termino: '',
+        ie_status_manutencao: 'E',
         vl_total: undefined,
-        ds_observacao: ''
+        ds_observacao: '',
+        ds_motivo_manutencao: enviarManutForm.ds_motivo_manutencao,
       }, auditAutor);
-      await atualizarAtivo(enviarManutTarget.id, { ie_status: 'M', dt_ultima_manutencao: enviarManutForm.dt_data } as any, auditAutor);
+      await atualizarAtivo(enviarManutTarget.id, { ie_status: 'M', dt_ultima_manutencao: enviarManutForm.dt_data, nr_seq_ultima_manutencao: nrSeqManut } as any, auditAutor);
       setMessage('Ativo enviado para manutenção com sucesso.');
       closeEnviarManutModal();
       await loadAtivos();
@@ -5607,9 +5911,12 @@ export default function Home() {
     nr_seq_ativo: undefined,
     nr_seq_pessoa_fisica: undefined,
     dt_envio: '',
-    dt_retorno: '',
+    dt_termino: '',
+    ie_status_manutencao: 'E',
     vl_total: undefined,
     ds_observacao: '',
+    ds_motivo_manutencao: '',
+    ds_correcoes: '',
   };
 
   function goToManutencaoList() {
@@ -5621,7 +5928,10 @@ export default function Home() {
   }
 
   function handleManutencaoNewForm() {
-    setManutencaoForm(emptyManutencaoForm);
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    const dataAtual = `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`;
+    setManutencaoForm({ ...emptyManutencaoForm, dt_envio: dataAtual });
     setManutencaoEditingId(null);
     setManutencaoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     auditManutencaoIdRef.current = null;
@@ -5634,6 +5944,13 @@ export default function Home() {
 
   /* ── Lookup de ativo no formulário de manutenção ── */
   function openManutencaoAtivoLookup() {
+    manutencaoAtivoLookupTargetRef.current = 'manutencao';
+    setManutencaoAtivoLookupForm(manutencaoAtivoLookupFilter);
+    setManutencaoAtivoLookupApplied(false);
+    setManutencaoAtivoLookupOpen(true);
+  }
+  function openManutencaoFilterAtivoLookup() {
+    manutencaoAtivoLookupTargetRef.current = 'manutencaoFilter';
     setManutencaoAtivoLookupForm(manutencaoAtivoLookupFilter);
     setManutencaoAtivoLookupApplied(false);
     setManutencaoAtivoLookupOpen(true);
@@ -5652,7 +5969,12 @@ export default function Home() {
     setManutencaoAtivoLookupApplied(false);
   }
   function handleManutencaoAtivoSelect(ativo: Ativo) {
-    setManutencaoForm((prev) => ({ ...prev, nr_seq_ativo: ativo.nr_sequencia }));
+    const target = manutencaoAtivoLookupTargetRef.current;
+    if (target === 'manutencaoFilter') {
+      setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_ativo: String(ativo.nr_sequencia) }));
+    } else {
+      setManutencaoForm((prev) => ({ ...prev, nr_seq_ativo: ativo.nr_sequencia }));
+    }
     closeManutencaoAtivoLookup();
   }
 
@@ -5661,9 +5983,12 @@ export default function Home() {
       nr_seq_ativo: m.nr_seq_ativo,
       nr_seq_pessoa_fisica: m.nr_seq_pessoa_fisica,
       dt_envio: m.dt_envio ?? '',
-      dt_retorno: m.dt_retorno ?? '',
+      dt_termino: m.dt_termino ?? '',
+      ie_status_manutencao: m.ie_status_manutencao ?? 'E',
       vl_total: m.vl_total,
       ds_observacao: m.ds_observacao ?? '',
+      ds_motivo_manutencao: m.ds_motivo_manutencao ?? '',
+      ds_correcoes: m.ds_correcoes ?? '',
     });
     setManutencaoEditingId(m.id ?? null);
     setManutencaoAuditInfo({
@@ -5680,7 +6005,36 @@ export default function Home() {
     if (m.id) carregarAutorAuditoriaManutencao(m.id);
   }
 
-  const filteredManutencoes = useMemo(() => manutencoes, [manutencoes]);
+  const filteredManutencoes = useMemo(() => manutencoes.filter((m) => {
+    // Identificação
+    if (appliedManutencaoFilterForm.nr_sequencia) {
+      const q = appliedManutencaoFilterForm.nr_sequencia.replace(/\D/g, '');
+      if (q && String(m.nr_sequencia) !== q) return false;
+    }
+    if (appliedManutencaoFilterForm.nr_seq_ativo) {
+      const q = appliedManutencaoFilterForm.nr_seq_ativo.replace(/\D/g, '');
+      if (q && String(m.nr_seq_ativo ?? '') !== q) return false;
+    }
+    // Dados da manutenção
+    if (appliedManutencaoFilterForm.nr_seq_pessoa_fisica) {
+      const q = appliedManutencaoFilterForm.nr_seq_pessoa_fisica.replace(/\D/g, '');
+      if (q && String(m.nr_seq_pessoa_fisica ?? '') !== q) return false;
+    }
+    if (appliedManutencaoFilterForm.dt_envio_inicio && m.dt_envio && m.dt_envio < appliedManutencaoFilterForm.dt_envio_inicio) return false;
+    if (appliedManutencaoFilterForm.dt_envio_fim && m.dt_envio && m.dt_envio > appliedManutencaoFilterForm.dt_envio_fim) return false;
+    if (appliedManutencaoFilterForm.dt_termino_inicio && m.dt_termino && m.dt_termino < appliedManutencaoFilterForm.dt_termino_inicio) return false;
+    if (appliedManutencaoFilterForm.dt_termino_fim && m.dt_termino && m.dt_termino > appliedManutencaoFilterForm.dt_termino_fim) return false;
+    if (appliedManutencaoFilterForm.vl_total_menor) {
+      const minVal = Number(appliedManutencaoFilterForm.vl_total_menor.replace(/[^\d.,]/g, '').replace(',', '.'));
+      if (!isNaN(minVal) && (m.vl_total ?? 0) < minVal) return false;
+    }
+    if (appliedManutencaoFilterForm.vl_total_maior) {
+      const maxVal = Number(appliedManutencaoFilterForm.vl_total_maior.replace(/[^\d.,]/g, '').replace(',', '.'));
+      if (!isNaN(maxVal) && (m.vl_total ?? 0) > maxVal) return false;
+    }
+    if (appliedManutencaoFilterForm.ie_status_manutencao !== 'T' && m.ie_status_manutencao !== appliedManutencaoFilterForm.ie_status_manutencao) return false;
+    return true;
+  }), [manutencoes, appliedManutencaoFilterForm]);
 
   const filteredSortedManutencoes = useMemo(() => {
     const list = [...filteredManutencoes];
@@ -5750,7 +6104,7 @@ export default function Home() {
     try {
       if (manutencaoEditingId) {
         const current = manutencoes.find((m) => m.id === manutencaoEditingId);
-        const formKeys: Array<keyof ManutencaoFormData> = ['nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_retorno', 'vl_total', 'ds_observacao'];
+        const formKeys: Array<keyof ManutencaoFormData> = ['nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_observacao', 'ds_motivo_manutencao', 'ds_correcoes'];
         const hasChanges = current ? formKeys.some((k) => String((current as unknown as Record<string, unknown>)[k] ?? '') !== String((manutencaoForm as unknown as Record<string, unknown>)[k] ?? '')) : true;
         if (!hasChanges) {
           setMessage('Nenhuma alteração detectada.');
@@ -6457,6 +6811,18 @@ export default function Home() {
       });
   }
 
+  function handleManutencaoColumnsChange(config: ColunasConfig) {
+    if (!currentUser?.id) return;
+    const serialized = serializeColunasConfig(config.order, config.widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_manutencao: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_pat_manutencao: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Manutenções)', err);
+      });
+  }
+
   function handleAdminColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
@@ -6641,23 +7007,30 @@ export default function Home() {
           customItems={(() => {
             if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'ativos') {
               const currentStatus = (contextMenu.item as Ativo)?.ie_status ?? '';
-              const items: { label: string; onClick: () => void }[] = [];
+              const items: { label: string; onClick?: () => void; children?: { label: string; onClick: () => void }[] }[] = [];
               if (permissoesPatrimonio.gerarCodigoPatrimonio) {
                 items.push({ label: 'Gerar código de patrimônio', onClick: () => { handleGerarCodigoPatrimonio(contextMenu.item as Ativo); setContextMenu(null); } });
               }
               const isDescartado = currentStatus === 'D';
               const podeAlterarStatus = !isDescartado || permissoesPatrimonio.alterarStatusDescartado;
+              if (currentStatus === 'M' && permissoesPatrimonio.concluirManutencao) {
+                items.push({ label: 'Concluir manutenção', onClick: () => { openConcluirManutModalFromAtivo(contextMenu.item as Ativo); setContextMenu(null); } });
+              }
+              const statusChildren: { label: string; onClick: () => void }[] = [];
               if (podeAlterarStatus && permissoesPatrimonio.mudarParaOperacional && currentStatus !== 'O') {
-                items.push({ label: 'Mudar para Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
+                statusChildren.push({ label: 'Mudar para Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
               }
               if (podeAlterarStatus && permissoesPatrimonio.enviarParaManutencao && currentStatus !== 'M') {
-                items.push({ label: 'Enviar para manutenção', onClick: () => { openEnviarManutModal(contextMenu.item as Ativo); setContextMenu(null); } });
+                statusChildren.push({ label: 'Enviar para manutenção', onClick: () => { openEnviarManutModal(contextMenu.item as Ativo); setContextMenu(null); } });
               }
               if (podeAlterarStatus && permissoesPatrimonio.moverParaEstoque && currentStatus !== 'E') {
-                items.push({ label: 'Mover para o estoque', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'E'); setContextMenu(null); } });
+                statusChildren.push({ label: 'Mover para o estoque', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'E'); setContextMenu(null); } });
               }
               if (permissoesPatrimonio.descartarAtivo && !isDescartado) {
-                items.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'D'); setContextMenu(null); } });
+                statusChildren.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'D'); setContextMenu(null); } });
+              }
+              if (statusChildren.length > 0 && currentStatus !== 'M') {
+                items.push({ label: 'Status', children: statusChildren });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -6665,6 +7038,13 @@ export default function Home() {
               const items: { label: string; onClick: () => void }[] = [];
               if (permissoesPatrimonio.verManutencao) {
                 items.push({ label: 'Ver', onClick: () => { openManutencaoEditForm(contextMenu.item as Manutencao); setContextMenu(null); } });
+              }
+              const manutItem = contextMenu.item as Manutencao;
+              if (manutItem.ie_status_manutencao === 'E' && permissoesPatrimonio.concluirManutencaoRegistro) {
+                items.push({ label: 'Concluir manutenção', onClick: () => { openConcluirManutModalFromManut(manutItem); setContextMenu(null); } });
+              }
+              if (manutItem.ie_status_manutencao === 'E' && permissoesPatrimonio.cancelarManutencao) {
+                items.push({ label: 'Cancelar manutenção', onClick: () => { openCancelarManutModal(manutItem); setContextMenu(null); } });
               }
               if (permissoesPatrimonio.excluirManutencao) {
                 items.push({ label: 'Excluir', onClick: () => { handleManutencaoDelete((contextMenu.item as Manutencao).id!); setContextMenu(null); } });
@@ -7276,10 +7656,13 @@ export default function Home() {
                   selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  openFilter={openManutencaoFilterModal}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
                   sortColumn={manutencaoSortColumn}
                   sortAsc={manutencaoSortAsc}
                   onSortChange={handleManutencaoSortChange}
+                  initialColumns={manutencaoColunasConfig}
+                  onColumnsChange={handleManutencaoColumnsChange}
                   columnLookups={{
                     nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? `#${a.nr_sequencia}`])),
                     nr_seq_pessoa_fisica: Object.fromEntries(
@@ -7304,6 +7687,7 @@ export default function Home() {
                 selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                openFilter={openAtivoFilterModal}
                 allowedSubmodulos={allowedPatrimonioSubmodulos}
                 sortColumn={ativoSortColumn}
                 sortAsc={ativoSortAsc}
@@ -7579,7 +7963,7 @@ export default function Home() {
                 onViewAtivo={(seq) => { const a = ativos.find((at) => at.nr_sequencia === seq); if (a) setAtivoView(a); }}
                 prestadorName={manutencaoPrestadorName}
                 onOpenPrestadorLookup={() => openEnviarManutPrestadorLookup('form')}
-                onViewPrestador={(seq) => openPessoaFisicaView(seq)}
+                onViewPrestador={(seq) => openColaboradorView(seq)}
                 selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
@@ -7619,6 +8003,8 @@ export default function Home() {
                 responsaveisNames={selectedAtivoResponsaveisNames}
                 onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('ativo', index)}
                 onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
+                ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
+                onViewManutencao={(seq) => openManutencaoView(seq)}
               />
             ) : (
             <CadastroGeralFormView
@@ -8436,6 +8822,215 @@ export default function Home() {
               >
                 Filtrar
               </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Filtro de Ativos ── */}
+      {ativoFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAtivoFilterModal} />
+          <form onSubmit={(e) => { e.preventDefault(); applyAtivoFilter(); }} className="relative w-full max-w-[900px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button type="button" onClick={closeAtivoFilterModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar filtro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                  <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_sequencia} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_sequencia: e.target.value })} />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_patrimonio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_patrimonio: e.target.value })} />
+                </div>
+                <div className="sm:col-span-6">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ativo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ativo: e.target.value })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Modelo</label>
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_modelo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_modelo: e.target.value })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Nº de série</label>
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_serie} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_serie: e.target.value })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>QR Code</label>
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_qr_code} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_qr_code: e.target.value })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Código de barras</label>
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_codigo_barras} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_codigo_barras: e.target.value })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data aquisição (início)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_aquisicao_inicio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_aquisicao_inicio: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data aquisição (fim)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_aquisicao_fim} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_aquisicao_fim: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data garantia (início)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_garantia_inicio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_garantia_inicio: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data garantia (fim)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_garantia_fim} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_garantia_fim: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                  <Select value={ativoFilterForm.ie_status} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, ie_status: v })} options={[{ value: 'T', label: '---' }, ...ATIVO_STATUS_OPTIONS]} showPlaceholder={false} visibleOptions={6} forceOpenUp />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Categoria</label>
+                  <Select value={ativoFilterForm.nr_seq_categoria} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_categoria: v })} options={cgFilterOptions(categoriasAtivos, (op) => op.ds_categoria)} visibleOptions={6} forceOpenUp />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Localização</label>
+                  <Select value={ativoFilterForm.nr_seq_localizacao} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_localizacao: v })} options={cgFilterOptions(localizacoes, (op) => op.ds_localizacao)} visibleOptions={6} forceOpenUp />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Marca</label>
+                  <Select value={ativoFilterForm.nr_seq_marca} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_marca: v })} options={cgFilterOptions(marcas, (op) => op.ds_marca)} visibleOptions={6} forceOpenUp />
+                </div>
+                <div className="sm:col-span-12">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Responsável</label>
+                  <div className="flex items-center gap-2 flex-nowrap">
+                    <div style={{ width: 110 }}>
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_responsavel} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_responsavel: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
+                    </div>
+                    <div className="relative flex-1 min-w-0">
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_responsavel ? (pessoasFisicas.find((p) => String(p.nr_sequencia) === ativoFilterForm.nr_seq_responsavel)?.ds_nome ?? '') : ''} />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {ativoFilterForm.nr_seq_responsavel && (
+                          <button type="button" onClick={() => openPessoaFisicaView(Number(ativoFilterForm.nr_seq_responsavel))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar responsável">
+                            <ViewIcon size={16} />
+                          </button>
+                        )}
+                        <button type="button" onClick={openAtivoFilterResponsavelLookup} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar responsável">
+                          <SearchIcon size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Endereço MAC</label>
+                  <input maxLength={12} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_endereco_mac} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_endereco_mac: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() })} />
+                </div>
+                <div className="sm:col-span-4"><label className="block text-sm mb-1" style={{ color: '#666' }}>IPv4</label>
+                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ip} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ip: applyIPv4Mask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-4">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Sistema operacional</label>
+                  <Select value={ativoFilterForm.nr_seq_sistema_operacional} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_sistema_operacional: v })} options={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ value: String(s.nr_sequencia), label: s.ds_sistema_operacional ?? '' }))} visibleOptions={6} forceOpenUp />
+                </div>
+              </div>
+            </div>
+            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
+              <button type="button" onClick={clearAtivoFilter} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Limpar</button>
+              <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Filtro de Manutenções ── */}
+      {manutencaoFilterModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeManutencaoFilterModal} />
+          <form onSubmit={(e) => { e.preventDefault(); applyManutencaoFilter(); }} className="relative w-full max-w-[700px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button type="button" onClick={closeManutencaoFilterModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar filtro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto">
+              <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                  <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_sequencia} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_sequencia: e.target.value })} />
+                </div>
+                <div className="sm:col-span-9">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Ativo</label>
+                  <div className="flex items-center gap-2 flex-nowrap">
+                    <div style={{ width: 110 }}>
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_ativo} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_ativo: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
+                    </div>
+                    <div className="relative flex-1 min-w-0">
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_ativo ? (ativos.find((a) => String(a.nr_sequencia) === manutencaoFilterForm.nr_seq_ativo)?.ds_ativo ?? '') : ''} />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {manutencaoFilterForm.nr_seq_ativo && (
+                          <button type="button" onClick={() => { const a = ativos.find((at) => String(at.nr_sequencia) === manutencaoFilterForm.nr_seq_ativo); if (a) setAtivoView(a); }} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar ativo">
+                            <ViewIcon size={16} />
+                          </button>
+                        )}
+                        <button type="button" onClick={openManutencaoFilterAtivoLookup} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar ativo">
+                          <SearchIcon size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="sm:col-span-12">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Prestador de serviço</label>
+                  <div className="flex items-center gap-2 flex-nowrap">
+                    <div style={{ width: 110 }}>
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_pessoa_fisica} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_pessoa_fisica: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
+                    </div>
+                    <div className="relative flex-1 min-w-0">
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_pessoa_fisica ? (() => { const seq = Number(manutencaoFilterForm.nr_seq_pessoa_fisica); const col = colaboradores.find((c) => c.nr_sequencia === seq); if (col) { const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica); return pf?.ds_nome ?? ''; } const pf = pessoasFisicas.find((p) => String(p.nr_sequencia) === manutencaoFilterForm.nr_seq_pessoa_fisica); return pf?.ds_nome ?? ''; })() : ''} />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {manutencaoFilterForm.nr_seq_pessoa_fisica && (
+                          <button type="button" onClick={() => openPessoaFisicaView(Number(manutencaoFilterForm.nr_seq_pessoa_fisica))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                            <ViewIcon size={16} />
+                          </button>
+                        )}
+                        <button type="button" onClick={openManutencaoFilterPrestadorLookup} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar prestador de serviço">
+                          <SearchIcon size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data envio (início)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_envio_inicio} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_envio_inicio: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data envio (fim)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_envio_fim} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_envio_fim: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data término (início)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_termino_inicio} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_termino_inicio: applyDateMask(e.target.value) })} />
+                </div>
+                <div className="sm:col-span-3">
+                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data término (fim)</label>
+                  <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_termino_fim} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_termino_fim: applyDateMask(e.target.value) })} />
+                </div><div className="sm:col-span-4">
+                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Valor total (menor)</label>
+                   <input inputMode="decimal" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.vl_total_menor} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, vl_total_menor: e.target.value.replace(/[^\d.,]/g, '') })} />
+                </div><div className="sm:col-span-4">
+                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Valor total (maior)</label>
+                   <input inputMode="decimal" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.vl_total_maior} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, vl_total_maior: e.target.value.replace(/[^\d.,]/g, '') })} />
+                </div><div className="sm:col-span-4">
+                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                   <Select value={manutencaoFilterForm.ie_status_manutencao} onChange={(v) => setManutencaoFilterForm({ ...manutencaoFilterForm, ie_status_manutencao: v })} options={[{ value: 'T', label: '---' }, ...MANUTENCAO_STATUS_OPTIONS]} showPlaceholder={false} visibleOptions={6} forceOpenUp />
+                </div>
+              </div>
+            </div>
+            <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
+              <button type="button" onClick={clearManutencaoFilter} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Limpar</button>
+              <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
           </form>
         </div>
@@ -9397,7 +9992,7 @@ export default function Home() {
                     <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestadorName} />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                       {enviarManutForm.nr_seq_pessoa_fisica && (
-                        <button type="button" onClick={() => openPessoaFisicaView(enviarManutForm.nr_seq_pessoa_fisica)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                        <button type="button" onClick={() => openColaboradorView(enviarManutForm.nr_seq_pessoa_fisica)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
                           <ViewIcon size={16} />
                         </button>
                       )}
@@ -9407,6 +10002,15 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo da manutenção</label>
+                <textarea
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  rows={3}
+                  value={enviarManutForm.ds_motivo_manutencao ?? ''}
+                  onChange={(e) => setEnviarManutForm({ ...enviarManutForm, ds_motivo_manutencao: e.target.value })}
+                />
               </div>
             </div>
             <div className="flex justify-end gap-2 px-[15px] pb-[15px] mt-auto">
@@ -10186,7 +10790,7 @@ export default function Home() {
               'nr_sequencia', 'cd_patrimonio', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'dt_aquisicao', 'dt_garantia',
-              'ie_status', 'dt_reativacao', 'dt_ultima_manutencao', 'dt_descarte', 'ds_descarte',
+              'ie_status', 'dt_reativacao', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_descarte', 'ds_descarte',
               'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
               'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional',
               'responsaveis', 'ds_observacao',
@@ -10199,7 +10803,7 @@ export default function Home() {
             ]
           : isManutencao
           ? [
-              'nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_retorno', 'vl_total', 'ds_observacao',
+              'nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
             ]
           : isCg
@@ -10252,6 +10856,8 @@ export default function Home() {
                       ds_usuario_alternativo: 'Usuário alternativo',
                       ie_status: 'Status',
                       ds_observacao: 'Observação',
+                      ds_motivo_manutencao: 'Motivo da manutenção',
+                      ds_correcoes: 'Correções',
                       ds_perfil: 'Perfil',
                       config_funcoes: 'Funções',
                       config_permissoes: 'Permissões',
@@ -10276,8 +10882,9 @@ export default function Home() {
                       ds_status: 'Motivo do status',
                       dt_reativacao: 'Reativação',
                       dt_ultima_manutencao: 'Última manutenção',
+                      nr_seq_ultima_manutencao: 'Última manutenção (seq.)',
                       dt_descarte: 'Descarte',
-                      ds_descarte: 'Motivo descarte',
+                      ds_descarte: 'Motivo do descarte',
                       responsaveis: 'Responsáveis',
                       ds_tipo_sanguineo: 'Tipo sanguíneo',
                       ds_alergia: 'Alergia',
@@ -10303,7 +10910,8 @@ export default function Home() {
                       ds_regra: 'Regra',
                       nr_seq_ativo: 'Ativo',
                       dt_envio: 'Data de envio',
-                      dt_retorno: 'Data de retorno',
+                      dt_termino: 'Data de término',
+                      ie_status_manutencao: 'Status',
                       vl_total: 'Valor total',
                       cd_patrimonio: 'Patrimônio',
                       ds_ativo: 'Descrição',
@@ -10322,7 +10930,7 @@ export default function Home() {
                       qt_armazenamento: 'Armazenamento',
                       ie_armazenamento: 'Unidade',
                       ds_endereco_mac: 'Endereço MAC',
-                      ds_ip: 'IP',
+                      ds_ip: 'IPv4',
                       nr_seq_sistema_operacional: 'Sistema operacional',
                       dt_criacao: 'Data de criação',
                       dt_alteracao: 'Data de alteração',
@@ -10609,14 +11217,14 @@ export default function Home() {
                     </div>
                     <div className="sm:col-span-6 group">
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Última manutenção</label>
-                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_ultima_manutencao ?? ''} />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_ultima_manutencao != null ? String(ativoView.nr_seq_ultima_manutencao) : ''} />
                     </div>
                     <div className="sm:col-span-6 group">
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Descarte</label>
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_descarte ?? ''} />
                     </div>
                     <div className="sm:col-span-12 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo descarte</label>
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo do descarte</label>
                       <textarea disabled readOnly rows={2} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_descarte ?? ''} />
                     </div>
                   </div>
@@ -10667,9 +11275,8 @@ export default function Home() {
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Endereço MAC</label>
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_endereco_mac ?? ''} />
                     </div>
-                    <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>IP</label>
-                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ip ?? ''} />
+                    <div className="sm:col-span-4 group"><label className="block text-sm mb-1" style={{ color: '#666' }}>IPv4</label>
+                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ip ?? ''} />
                     </div>
                     <div className="sm:col-span-4 group">
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Sistema operacional</label>
@@ -10703,6 +11310,105 @@ export default function Home() {
         cgLookups={pjCgLookups}
         cidadeNome={pessoaJuridicaViewCidade}
         onClose={() => setPessoaJuridicaView(null)}
+      />
+
+      {/* Modal de visualização de Manutenção (leitura) */}
+      <ManutencaoViewModal
+        manutencao={manutencaoView}
+        ativoName={manutencaoView?.nr_seq_ativo ? (ativos.find((a) => a.nr_sequencia === manutencaoView.nr_seq_ativo)?.ds_ativo ?? '') : ''}
+        prestadorName={(() => {
+          if (!manutencaoView?.nr_seq_pessoa_fisica) return '';
+          const seq = manutencaoView.nr_seq_pessoa_fisica;
+          const col = colaboradores.find((c) => c.nr_sequencia === seq);
+          if (col) {
+            if (col.nr_seq_pessoa_juridica) {
+              const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
+              if (pj) return pj.ds_razao_social ?? '';
+            }
+            const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica);
+            if (pf) return pf.ds_nome ?? '';
+          }
+          return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
+        })()}
+        onClose={() => setManutencaoView(null)}
+      />
+
+      {/* ── Modal: Concluir manutenção ── */}
+      {concluirManutModalOpen && concluirManutTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeConcluirManutModal} />
+          <form onSubmit={handleConcluirManutSubmit} className="relative w-full max-w-[560px] min-h-[280px] bg-white modal-dark p-0 shadow-xl shadow-black/20 flex flex-col">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Concluir manutenção</h2>
+              <button type="button" onClick={closeConcluirManutModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de término</label>
+                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]" value={concluirManutForm.dt_termino} onChange={(e) => setConcluirManutForm({ ...concluirManutForm, dt_termino: applyDateMask(e.target.value) })} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                <Select
+                  value={concluirManutForm.ie_status_ativo}
+                  onChange={(v) => setConcluirManutForm({ ...concluirManutForm, ie_status_ativo: v })}
+                  options={ATIVO_STATUS_OPTIONS.filter((o) => o.value !== 'M')}
+                  showPlaceholder={false}
+                />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Valor total</label>
+                <input type="text" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={concluirManutForm.vl_total} onChange={(e) => { const digits = e.target.value.replace(/\D/g, ''); if (!digits) { setConcluirManutForm({ ...concluirManutForm, vl_total: '' }); return; } const num = Number(digits) / 100; setConcluirManutForm({ ...concluirManutForm, vl_total: num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }); }} />
+              </div>
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Correções</label>
+                <textarea
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  rows={3}
+                  value={concluirManutForm.ds_correcoes}
+                  onChange={(e) => setConcluirManutForm({ ...concluirManutForm, ds_correcoes: e.target.value })}
+                />
+              </div>
+            </div>
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px] mt-auto">
+              <button type="button" onClick={closeConcluirManutModal} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
+              <button type="submit" disabled={concluirManutSaving} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {/* ── Modal: Cancelar manutenção ── */}
+      {cancelarManutOpen && cancelarManutTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} />
+          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cancelar manutenção</h2>
+              <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-[15px] pt-[15px]">
+              <p className="text-sm text-slate-900">Deseja mesmo cancelar a manutenção {cancelarManutTarget.nr_sequencia}?</p>
+            </div>
+            <div className="flex justify-end gap-2 px-[15px] pt-20 pb-[15px]">
+              <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
+              <button type="button" onClick={handleCancelarManutSubmit} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de visualização de Colaborador (leitura) */}
+      <ColaboradorViewModal
+        colaborador={colaboradorView}
+        pessoaFisicaName={colaboradorView?.nr_seq_pessoa_fisica ? (pessoasFisicas.find((p) => p.nr_sequencia === colaboradorView.nr_seq_pessoa_fisica)?.ds_nome ?? '') : ''}
+        pessoaJuridicaName={colaboradorView?.nr_seq_pessoa_juridica ? (pessoasJuridicas.find((p) => p.nr_sequencia === colaboradorView.nr_seq_pessoa_juridica)?.ds_razao_social ?? '') : ''}
+        vinculoContratualName={colaboradorView?.nr_seq_vinculo_contratual ? (vinculosContratuais.find((v) => v.nr_sequencia === colaboradorView!.nr_seq_vinculo_contratual)?.ds_vinculo_contratual ?? '') : ''}
+        onClose={() => setColaboradorView(null)}
       />
 
       {(submitting || pjSubmitting || adminSubmitting || cgSubmitting) && view === "form" && (

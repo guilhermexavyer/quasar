@@ -6,14 +6,20 @@ export interface Manutencao {
   nr_seq_ativo?: number;
   /** Data do envio para manutenção. */
   dt_envio?: string;
-  /** Data de retorno da manutenção. */
-  dt_retorno?: string;
+  /** Data de término da manutenção. */
+  dt_termino?: string;
   /** Pessoa física (prestador de serviço) vinculada. */
   nr_seq_pessoa_fisica?: number;
   /** Valor total da manutenção. */
   vl_total?: number;
   /** Observação. */
   ds_observacao?: string;
+  /** Motivo da manutenção. */
+  ds_motivo_manutencao?: string;
+  /** Correções realizadas. */
+  ds_correcoes?: string;
+  /** Status da manutenção (E=Em andamento, CO=Concluída, CA=Cancelada). */
+  ie_status_manutencao?: string;
   dt_criacao: string;
   dt_alteracao: string;
   ds_usuario_criacao?: string;

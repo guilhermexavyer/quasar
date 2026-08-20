@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Ativo } from "@/types/ativo";
-import { FIELD_INFOS, STATUS_OPTIONS, formatDate, applyDateMask } from "@/lib/ativoUtils";
+import { FIELD_INFOS, STATUS_OPTIONS, formatDate, applyDateMask, applyIPv4Mask } from "@/lib/ativoUtils";
 import { CAMPOS_POR_FUNCAO, type CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
@@ -58,6 +58,10 @@ interface FormViewProps {
   onOpenResponsavelLookup?: (index: number) => void;
   /** Abre o modal de visualização de uma pessoa física. */
   onViewResponsavel?: (nrSequencia: number | undefined) => void;
+  /** Nr. sequência da última manutenção do ativo. */
+  ultimaManutencaoSeq?: number | null;
+  /** Abre o modal de visualização de uma manutenção. */
+  onViewManutencao?: (nrSequencia: number | undefined) => void;
 }
 
 export default function AtivoFormView({
@@ -91,6 +95,8 @@ export default function AtivoFormView({
   responsaveisNames = [],
   onOpenResponsavelLookup,
   onViewResponsavel,
+  ultimaManutencaoSeq,
+  onViewManutencao,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
@@ -360,14 +366,25 @@ export default function AtivoFormView({
               </div>
 
               <div className="sm:col-span-2 group">
-                {renderFieldLabel('dt_ultima_manutencao', 'Última manutenção')}
-                <input
-                  type="text"
-                  placeholder="DD/MM/AAAA"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  value={form.dt_ultima_manutencao ?? ''}
-                />
+                {renderFieldLabel('nr_seq_ultima_manutencao', 'Última manutenção')}
+                <div className="relative">
+                  <input
+                    inputMode="numeric"
+                    disabled
+                    className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[38px] py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                    value={ultimaManutencaoSeq != null ? String(ultimaManutencaoSeq) : ''}
+                  />
+                  {ultimaManutencaoSeq != null && (
+                    <button
+                      type="button"
+                      onClick={() => onViewManutencao?.(ultimaManutencaoSeq ?? undefined)}
+                      className="absolute right-[2px] top-1/2 -translate-y-1/2 z-10 inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                      aria-label="Visualizar última manutenção"
+                    >
+                      <ViewIcon size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
 
               <div className="sm:col-span-2 group">
@@ -382,7 +399,7 @@ export default function AtivoFormView({
               </div>
 
               <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_descarte', 'Motivo descarte')}
+                {renderFieldLabel('ds_descarte', 'Motivo do descarte')}
                 <textarea
                   disabled
                   className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
@@ -610,12 +627,12 @@ export default function AtivoFormView({
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('ds_ip', 'IP')}
+                {renderFieldLabel('ds_ip', 'IPv4')}
                 <input
                   disabled={statusDe('ds_ip') === 'D'}
                   className={`${inputClass('ds_ip')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_ip ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_ip: e.target.value })}
+                  onChange={(e) => setForm({ ...form, ds_ip: applyIPv4Mask(e.target.value) })}
                 />
               </div>
 

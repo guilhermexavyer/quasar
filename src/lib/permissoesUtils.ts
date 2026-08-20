@@ -77,6 +77,9 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_manutencao", label: "Permite acessar Manutenções" },
     { key: "adicionar_manutencao", label: "Permite adicionar" },
     { key: "ver_manutencao", label: "Permite ver" },
+    { key: "concluir_manutencao", label: "Permite concluir manutenção" },
+    { key: "concluir_manutencao_registro", label: "Permite concluir manutenção" },
+    { key: "cancelar_manutencao", label: "Permite cancelar manutenção" },
     { key: "excluir_manutencao", label: "Permite excluir" },
   ],
   cadastrosGerais: [
@@ -190,11 +193,11 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   patrimonio: [
     {
       titulo: 'Ativos',
-      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'gerar_codigo_patrimonio', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
+      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'gerar_codigo_patrimonio', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
     },
     {
       titulo: 'Manutenções',
-      chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'excluir_manutencao'],
+      chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'concluir_manutencao_registro', 'cancelar_manutencao', 'excluir_manutencao'],
     },
     {
       titulo: 'Parâmetros da função',

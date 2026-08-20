@@ -55,7 +55,7 @@ export async function obterManutencoes(): Promise<Manutencao[]> {
 export async function criarManutencao(
   dados: Omit<Manutencao, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
   autor?: AuditAutor
-): Promise<string> {
+): Promise<{ id: string; nr_sequencia: number }> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequencia();
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
@@ -86,7 +86,7 @@ export async function criarManutencao(
     console.error("Erro ao registrar auditoria de criação", e);
   }
 
-  return docRef.id;
+  return { id: docRef.id, nr_sequencia };
 }
 
 export async function atualizarManutencao(

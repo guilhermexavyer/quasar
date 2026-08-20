@@ -341,8 +341,8 @@ export default function ColaboradorFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-6">
-                <div className="group">
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-12">
+                <div className="sm:col-span-3 group">
                   {renderFieldLabel('nr_seq_vinculo_contratual', 'Vínculo contratual')}
                   <Select
                     disabled={statusDe('nr_seq_vinculo_contratual') === 'D'}
@@ -353,7 +353,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="group">
+                <div className="sm:col-span-2 group">
                   {renderFieldLabel('nr_matricula', 'Matrícula')}
                   <input
                     disabled
@@ -362,7 +362,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="group">
+                <div className="sm:col-span-2 group">
                   {renderFieldLabel('dt_admissao', 'Data de admissão')}
                   <input
                     type="text"
@@ -376,7 +376,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="group">
+                <div className="sm:col-span-3 group">
                   {renderFieldLabel('ie_status', 'Status')}
                   <Select
                     disabled
@@ -388,7 +388,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="group">
+                <div className="sm:col-span-2 group">
                   {renderFieldLabel('dt_status', 'Data do status')}
                   <input
                     type="text"
@@ -401,35 +401,35 @@ export default function ColaboradorFormView({
                     onChange={(e) => setForm({ ...form, dt_status: applyDateMask(e.target.value) })}
                   />
                 </div>
+              </div>
 
-                <div className="h-full flex flex-col justify-center">
-                  <div className="flex gap-6">
-                    <div className="group">
-                      {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
-                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="cg-checkbox"
-                          disabled={statusDe('ie_fornecedor') === 'D'}
-                          checked={form.ie_fornecedor === 'S'}
-                          onChange={() => setForm({ ...form, ie_fornecedor: form.ie_fornecedor === 'S' ? 'N' : 'S' })}
-                        />
-                        <span>Sim</span>
-                      </label>
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('ie_prestador_servico', 'Prestador de serviço')}
-                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                        <input
-                          type="checkbox"
-                          className="cg-checkbox"
-                          disabled={statusDe('ie_prestador_servico') === 'D'}
-                          checked={form.ie_prestador_servico === 'S'}
-                          onChange={() => setForm({ ...form, ie_prestador_servico: form.ie_prestador_servico === 'S' ? 'N' : 'S' })}
-                        />
-                        <span>Sim</span>
-                      </label>
-                    </div>
+              <div className="sm:col-span-12 group">
+                <div className="flex gap-8">
+                  <div>
+                    {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="cg-checkbox"
+                        disabled={statusDe('ie_fornecedor') === 'D'}
+                        checked={form.ie_fornecedor === 'S'}
+                        onChange={() => setForm({ ...form, ie_fornecedor: form.ie_fornecedor === 'S' ? 'N' : 'S' })}
+                      />
+                      <span>Sim</span>
+                    </label>
+                  </div>
+                  <div>
+                    {renderFieldLabel('ie_prestador_servico', 'Prestador de serviço')}
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="cg-checkbox"
+                        disabled={statusDe('ie_prestador_servico') === 'D'}
+                        checked={form.ie_prestador_servico === 'S'}
+                        onChange={() => setForm({ ...form, ie_prestador_servico: form.ie_prestador_servico === 'S' ? 'N' : 'S' })}
+                      />
+                      <span>Sim</span>
+                    </label>
                   </div>
                 </div>
               </div>

@@ -54,11 +54,9 @@ interface FormViewProps {
   campoErros?: string[];
 }
 
-function applyCurrencyMask(value: string): string {
-  const digits = value.replace(/\D/g, "");
-  if (!digits) return "";
-  const num = Number(digits) / 100;
-  return num.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function formatCurrencyValue(value: number): string {
+  if (isNaN(value)) return "";
+  return value.toLocaleString("pt-BR", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 
 export default function ManutencaoFormView({
@@ -237,15 +235,19 @@ export default function ManutencaoFormView({
                     <input
                       inputMode="numeric"
                       maxLength={10}
-                      disabled
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                      disabled={!!editingId}
+                      className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-500 cursor-default' : 'border-slate-300 bg-white text-slate-900 focus:border-[#003056]'}`}
                       value={form.nr_seq_ativo ? String(form.nr_seq_ativo) : ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setForm({ ...form, nr_seq_ativo: raw ? Number(raw) : undefined });
+                      }}
                     />
                   </div>
                   <div className="relative flex-1 min-w-0">
                     <input
                       readOnly
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      className={`w-full rounded-[3px] border px-2 pr-[62px] py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-300 bg-slate-100 text-slate-700'}`}
                       value={ativoName}
                     />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
@@ -254,7 +256,13 @@ export default function ManutencaoFormView({
                           <ViewIcon size={16} />
                         </button>
                       )}
-                      <button type="button" disabled className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-default opacity-40" aria-label="Localizar ativo">
+                      <button
+                        type="button"
+                        onClick={() => onOpenAtivoLookup?.()}
+                        disabled={!!editingId}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
+                        aria-label="Localizar ativo"
+                      >
                         <SearchIcon size={16} />
                       </button>
                     </div>
@@ -268,22 +276,26 @@ export default function ManutencaoFormView({
           <section>
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dados da manutenção</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
-              <div className="sm:col-span-6 group">
+              <div className="sm:col-span-12 group">
                 {renderFieldLabel("nr_seq_pessoa_fisica", "Prestador de serviço")}
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <input
                       inputMode="numeric"
                       maxLength={10}
-                      disabled
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                      disabled={!!editingId}
+                      className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-500 cursor-default' : 'border-slate-300 bg-white text-slate-900 focus:border-[#003056]'}`}
                       value={form.nr_seq_pessoa_fisica ? String(form.nr_seq_pessoa_fisica) : ""}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
+                        setForm({ ...form, nr_seq_pessoa_fisica: raw ? Number(raw) : undefined });
+                      }}
                     />
                   </div>
                   <div className="relative flex-1 min-w-0">
                     <input
                       readOnly
-                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none"
+                      className={`w-full rounded-[3px] border px-2 pr-[62px] py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-700' : 'border-slate-300 bg-slate-100 text-slate-700'}`}
                       value={prestadorName}
                     />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
@@ -292,7 +304,13 @@ export default function ManutencaoFormView({
                           <ViewIcon size={16} />
                         </button>
                       )}
-                      <button type="button" disabled className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-default opacity-40" aria-label="Localizar prestador de serviço">
+                      <button
+                        type="button"
+                        onClick={() => onOpenPrestadorLookup?.()}
+                        disabled={!!editingId}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
+                        aria-label="Localizar prestador de serviço"
+                      >
                         <SearchIcon size={16} />
                       </button>
                     </div>
@@ -300,40 +318,72 @@ export default function ManutencaoFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel("vl_total", "Valor total")}
-                <input
-                  type="text"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
-                  value={form.vl_total != null ? applyCurrencyMask(String(form.vl_total)) : ""}
-                />
-              </div>
-
-              <div className="sm:col-span-6 group">
+              <div className="sm:col-span-3 group">
                 {renderFieldLabel("dt_envio", "Data de envio")}
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                  disabled={!!editingId}
+                  className={`${inputClass("dt_envio")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.dt_envio ?? ""}
+                  onChange={(e) => setForm({ ...form, dt_envio: applyDateMask(e.target.value) })}
                 />
               </div>
 
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel("dt_retorno", "Data de retorno")}
+              <div className="sm:col-span-3 group">
+                {renderFieldLabel("ie_status_manutencao", "Status")}
+                <Select
+                  value={form.ie_status_manutencao ?? 'E'}
+                  onChange={() => {}}
+                  disabled
+                  options={[{ value: 'E', label: 'Em andamento' }, { value: 'CO', label: 'Concluída' }, { value: 'CA', label: 'Cancelada' }]}
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                />
+              </div>
+
+              <div className="sm:col-span-3 group">
+                {renderFieldLabel("dt_termino", "Data de término")}
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  disabled={statusDe("dt_retorno") === "D"}
-                  className={`${inputClass("dt_retorno")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.dt_retorno ?? ""}
-                  onChange={(e) => setForm({ ...form, dt_retorno: applyDateMask(e.target.value) })}
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                  value={form.dt_termino ?? ""}
+                  onChange={(e) => setForm({ ...form, dt_termino: applyDateMask(e.target.value) })}
+                />
+              </div>
+
+              <div className="sm:col-span-3 group">
+                {renderFieldLabel("vl_total", "Valor total")}
+                <input
+                  type="text"
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                  value={form.vl_total != null ? formatCurrencyValue(Number(form.vl_total)) : ""}
+                />
+              </div>
+
+              <div className="sm:col-span-12 group">
+                {renderFieldLabel("ds_motivo_manutencao", "Motivo da manutenção")}
+                <textarea
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                  rows={3}
+                  value={form.ds_motivo_manutencao ?? ""}
+                />
+              </div>
+
+              <div className="sm:col-span-12 group">
+                {renderFieldLabel("ds_correcoes", "Correções")}
+                <textarea
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                  rows={3}
+                  value={form.ds_correcoes ?? ""}
                 />
               </div>
             </div>

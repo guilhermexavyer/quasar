@@ -3,6 +3,16 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 
 export { formatDate, applyDateMask } from "@/lib/pessoaFisicaUtils";
 
+/** Máscara IPv4: ###.###.###.### — aceita apenas dígitos e insere pontos automaticamente. */
+export function applyIPv4Mask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 12);
+  const groups: string[] = [];
+  for (let i = 0; i < digits.length; i += 3) {
+    groups.push(digits.slice(i, i + 3));
+  }
+  return groups.join('.');
+}
+
 export interface ColDef {
   key: keyof Ativo;
   label: string;
@@ -43,6 +53,7 @@ export const FIELD_INFOS = {
   ie_status: { type: 'string', field: 'ie_status', collection: 'pat_ativos' },
   dt_reativacao: { type: 'string', field: 'dt_reativacao', collection: 'pat_ativos' },
   dt_ultima_manutencao: { type: 'string', field: 'dt_ultima_manutencao', collection: 'pat_ativos' },
+  nr_seq_ultima_manutencao: { type: 'int64', field: 'nr_seq_ultima_manutencao', collection: 'pat_ativos' },
   dt_descarte: { type: 'string', field: 'dt_descarte', collection: 'pat_ativos' },
   ds_descarte: { type: 'string', field: 'ds_descarte', collection: 'pat_ativos' },
   ds_processador: { type: 'string', field: 'ds_processador', collection: 'pat_ativos' },
@@ -75,8 +86,9 @@ export const FIELD_LABELS: Record<string, string> = {
   ie_status: 'Status',
   dt_reativacao: 'Reativação',
   dt_ultima_manutencao: 'Última manutenção',
+  nr_seq_ultima_manutencao: 'Última manutenção',
   dt_descarte: 'Descarte',
-  ds_descarte: 'Motivo descarte',
+  ds_descarte: 'Motivo do descarte',
   ds_processador: 'Processador',
   qt_ram: 'Memória RAM',
   ie_ram: 'Unidade',

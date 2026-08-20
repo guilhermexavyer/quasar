@@ -30,6 +30,8 @@ export interface Ativo {
   dt_reativacao?: string;
   /** Última manutenção. */
   dt_ultima_manutencao?: string;
+  /** Nr. sequência da última manutenção. */
+  nr_seq_ultima_manutencao?: number;
   /** Data do descarte. */
   dt_descarte?: string;
   /** Motivo do descarte. */
