@@ -346,7 +346,7 @@ export default function CamposRelatorioTable({
     <div className="relative">
       <style>{`
         .campo-row:hover .campo-edit-icon { opacity: 1; }
-        .campo-edit-icon { opacity: 0; transition: opacity 150ms; }
+        .campo-edit-icon { opacity: 0; }
       `}</style>
 
       <ResizableTable
@@ -368,6 +368,7 @@ export default function CamposRelatorioTable({
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
           >
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => excluir(contextMenu.id)}>Excluir</button>
           </div>
         </>

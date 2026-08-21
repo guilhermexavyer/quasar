@@ -287,7 +287,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.0";
+const SYSTEM_VERSION = "0.62.1";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2621,9 +2621,6 @@ export default function Home() {
     setMessage('');
     try {
       const resultado = await executarConsultaRelatorio(relatorio);
-      console.log('[RELATORIO] total:', resultado.total, 'registros:', resultado.registrosResolvidos.length, 'campos:', relatorio.campos.length);
-      console.log('[RELATORIO] campos:', relatorio.campos.map(c => ({ colecao: c.colecao, chave: c.chave, label: c.label })));
-      console.log('[RELATORIO] sample:', resultado.registrosResolvidos[0]);
       if (resultado.total === 0) {
         setMessage('Nenhum registro encontrado com os filtros aplicados.');
         setRelatorioGerando(false);
@@ -2635,7 +2632,6 @@ export default function Home() {
         ...c,
         chave: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
       }));
-      console.log('[RELATORIO] chaves resolvidas:', camposResolvidos.map(c => c.chave));
       const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
       if (relatorio.formato === 'excel') {
         gerarERealizarDownloadExcel(relatorioResolvido, resultado.registrosResolvidos);

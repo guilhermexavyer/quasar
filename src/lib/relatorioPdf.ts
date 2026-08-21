@@ -12,7 +12,7 @@
  */
 import type { Relatorio, RelatorioCampo, RelatorioConfigPdf } from "@/types/relatorio";
 import { obterValorCampo } from "@/lib/relatorioQueryBuilder";
-import html2pdf from "html2pdf.js";
+import { jsPDF } from "jspdf";
 
 
 /**
@@ -303,14 +303,77 @@ function escapeHtml(str: string): string {
     .replace(/'/g, "&#039;");
 }
 
+function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
+  const h = hex.replace('#', '');
+  if (h.length === 3) {
+    const r = parseInt(h[0] + h[0], 16);
+    const g = parseInt(h[1] + h[1], 16);
+    const b = parseInt(h[2] + h[2], 16);
+    return { r, g, b };
+  }
+  if (h.length === 6) {
+    const r = parseInt(h.slice(0, 2), 16);
+    const g = parseInt(h.slice(2, 4), 16);
+    const b = parseInt(h.slice(4, 6), 16);
+    return { r, g, b };
+  }
+  return null;
+}
+
+function alinhamentoPdf(alinhamento?: string): 'left' | 'center' | 'right' {
+  switch (alinhamento) {
+    case 'centro': return 'center';
+    case 'direita': return 'right';
+    default: return 'left';
+  }
+}
+
+function alinhamentoX(alinhamento: string | undefined, x: number, w: number, pad: number): number {
+  switch (alinhamento) {
+    case 'centro': return x + w / 2;
+    case 'direita': return x + w - pad;
+    default: return x + pad;
+  }
+}
+
+function truncateText(doc: jsPDF, text: string, maxWidth: number, fontSize: number): string {
+  if (!text) return '';
+  const textWidth = doc.getTextWidth(text);
+  if (textWidth <= maxWidth) return text;
+  let truncated = text;
+  while (truncated.length > 0 && doc.getTextWidth(truncated + '…') > maxWidth) {
+    truncated = truncated.slice(0, -1);
+  }
+  return truncated ? truncated + '…' : '';
+}
+
+function groupData(
+  registros: Record<string, any>[],
+  agrupamento: { campo: string; incluirSubtotal: boolean },
+  campos: RelatorioCampo[]
+): { label?: string; rows: Record<string, any>[]; subtotal?: boolean }[] {
+  const grupos: Record<string, Record<string, any>[]> = {};
+  for (const reg of registros) {
+    const chave = String(obterValorCampo(reg, agrupamento.campo) ?? '(vazio)');
+    if (!grupos[chave]) grupos[chave] = [];
+    grupos[chave].push(reg);
+  }
+  return Object.entries(grupos).map(([label, rows]) => ({
+    label,
+    rows,
+    subtotal: agrupamento.incluirSubtotal,
+  }));
+}
+
 /**
- * Gera o PDF como arquivo e faz download automaticamente.
+ * Gera o PDF como arquivo e faz download automaticamente usando jsPDF.
  */
 export function gerarPdf(
   relatorio: Relatorio,
   registros: Record<string, any>[]
 ): void {
-  const config: RelatorioConfigPdf = relatorio.configPdf ?? {
+  const { campos, configPdf, agrupamento } = relatorio;
+  const config: RelatorioConfigPdf = configPdf ?? {
     tamanhoPagina: "A4",
     orientacao: "retrato",
     margens: { superior: 15, inferior: 15, esquerda: 15, direita: 15 },
@@ -322,42 +385,189 @@ export function gerarPdf(
     quebraPaginaPorGrupo: false,
   };
 
-  const fullHtml = gerarHtmlRelatorio(relatorio, registros);
+  const orientation = config.orientacao === 'paisagem' ? 'landscape' : 'portrait';
+  const doc = new jsPDF({
+    unit: 'mm',
+    format: config.tamanhoPagina.toLowerCase(),
+    orientation,
+  });
 
-  // Extrai CSS e conteúdo do body
-  const styleMatch = fullHtml.match(/<style>([\s\S]*?)<\/style>/);
-  const bodyMatch = fullHtml.match(/<body>([\s\S]*?)<\/body>/);
-  const css = styleMatch ? styleMatch[1] : '';
-  const bodyContent = bodyMatch ? bodyMatch[1] : fullHtml;
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const marginLeft = config.margens.esquerda;
+  const marginRight = config.margens.direita;
+  const marginTop = config.margens.superior;
+  const marginBottom = config.margens.inferior;
+  const contentW = pageW - marginLeft - marginRight;
+  const fontName = 'helvetica';
+  const fontSize = config.tamanhoFonte;
+  const lineHeight = fontSize * 0.5;
+  const cellPadding = 2;
 
-  // Cria container off-screen (visível para html2canvas)
-  const container = document.createElement('div');
-  container.style.cssText = 'position:absolute;left:-9999px;top:0;background:white;';
-  container.innerHTML = `<style>${css}</style>${bodyContent}`;
-  document.body.appendChild(container);
+  // Calcula larguras das colunas
+  const totalLargura = campos.reduce((sum, c) => sum + (c.largura || 30), 0);
+  const colWidths = campos.map((c) => ((c.largura || 30) / totalLargura) * contentW);
+
+  let y = marginTop;
+
+  function checkPage(needed: number) {
+    if (y + needed > pageH - marginBottom) {
+      doc.addPage();
+      y = marginTop;
+      return true;
+    }
+    return false;
+  }
+
+  // ── Cabeçalho do relatório ──
+  if (config.cabecalho?.incluir) {
+    doc.setFont(fontName, 'bold');
+    doc.setFontSize(fontSize + 6);
+    if (config.titulo) {
+      doc.text(config.titulo, pageW / 2, y, { align: 'center' });
+      y += lineHeight + 4;
+    }
+    doc.setFont(fontName, 'normal');
+    doc.setFontSize(fontSize - 2);
+    if (config.cabecalho.texto) {
+      doc.text(config.cabecalho.texto, pageW / 2, y, { align: 'center' });
+      y += lineHeight + 2;
+    }
+    if (config.cabecalho.incluirData) {
+      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageW / 2, y, { align: 'center' });
+      y += lineHeight + 2;
+    }
+    y += 4;
+  }
+
+  // ── Cabeçalho da tabela ──
+  doc.setFontSize(fontSize);
+  doc.setFont(fontName, 'bold');
+
+  const headerH = fontSize + cellPadding * 2 + 2;
+  checkPage(headerH + 4);
+
+  campos.forEach((campo, i) => {
+    const x = marginLeft + colWidths.slice(0, i).reduce((s, w) => s + w, 0);
+    const w = colWidths[i];
+    // Fundo do cabeçalho
+    const bg = campo.backgroundLabel || '#e2e8f0';
+    const rgb = hexToRgb(bg);
+    if (rgb) doc.setFillColor(rgb.r, rgb.g, rgb.b);
+    else doc.setFillColor(226, 232, 240);
+    doc.rect(x, y, w, headerH, 'F');
+    // Borda
+    if (config.incluirBordas) {
+      doc.setDrawColor(51, 51, 51);
+      doc.rect(x, y, w, headerH, 'S');
+    }
+    // Texto
+    const labelCor = hexToRgb(campo.corLabel || '#1a1a1a');
+    if (labelCor) doc.setTextColor(labelCor.r, labelCor.g, labelCor.b);
+    else doc.setTextColor(26, 26, 26);
+    const txtX = alinhamentoX(campo.alinhamento, x, w, cellPadding);
+    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), txtX, y + headerH - cellPadding - 1, { align: alinhamentoPdf(campo.alinhamento) });
+  });
+
+  y += headerH;
+  doc.setFont(fontName, 'normal');
+  doc.setFontSize(fontSize);
+
+  // ── Linhas de dados ──
+  const dataToRender = agrupamento?.campo ? groupData(registros, agrupamento, campos) : [{ rows: registros }];
+
+  for (const grupo of dataToRender) {
+    if (grupo.label) {
+      checkPage(headerH + 2);
+      doc.setFont(fontName, 'bold');
+      doc.setFontSize(fontSize + 1);
+      doc.setTextColor(30, 30, 30);
+      doc.text(grupo.label, marginLeft, y + headerH - cellPadding);
+      y += headerH;
+      doc.setFont(fontName, 'normal');
+      doc.setFontSize(fontSize);
+    }
+
+    for (const reg of grupo.rows) {
+      const rowH = fontSize + cellPadding * 2 + 1;
+      checkPage(rowH);
+
+      // Zebrado
+      if (config.zebrado && grupo.rows.indexOf(reg) % 2 === 1) {
+        const zebraCor = hexToRgb(config.corZebra || '#f8fafc');
+        if (zebraCor) doc.setFillColor(zebraCor.r, zebraCor.g, zebraCor.b);
+        else doc.setFillColor(248, 250, 252);
+        doc.rect(marginLeft, y, contentW, rowH, 'F');
+      }
+
+      campos.forEach((campo, i) => {
+        const x = marginLeft + colWidths.slice(0, i).reduce((s, w) => s + w, 0);
+        const w = colWidths[i];
+        const chaveResolvida = campo.chave;
+        const valor = obterValorCampo(reg, chaveResolvida);
+        const valorFmt = formatarValor(valor, campo);
+
+        // Borda da célula
+        if (config.incluirBordas) {
+          doc.setDrawColor(51, 51, 51);
+          doc.rect(x, y, w, rowH, 'S');
+        }
+
+        // Cor do campo
+        const campoCor = hexToRgb(campo.corCampo || '#1a1a1a');
+        if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
+        else doc.setTextColor(26, 26, 26);
+
+        // Fundo do campo
+        if (campo.backgroundCampo) {
+          const bgRgb = hexToRgb(campo.backgroundCampo);
+          if (bgRgb) {
+            doc.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
+            doc.rect(x, y, w, rowH, 'F');
+          }
+        }
+
+        const txtX = alinhamentoX(campo.alinhamento, x, w, cellPadding);
+        doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), txtX, y + rowH - cellPadding - 1, { align: alinhamentoPdf(campo.alinhamento) });
+      });
+
+      y += rowH;
+    }
+
+    // Subtotal
+    if (grupo.subtotal) {
+      checkPage(lineHeight + 4);
+      doc.setFont(fontName, 'italic');
+      doc.setFontSize(fontSize - 1);
+      doc.setTextColor(100, 100, 100);
+      doc.text(`Subtotal: ${grupo.rows.length} registro(s)`, pageW - marginRight, y + lineHeight + 2, { align: 'right' });
+      y += lineHeight + 6;
+      doc.setFont(fontName, 'normal');
+      doc.setFontSize(fontSize);
+    }
+  }
+
+  // Total geral
+  if (agrupamento?.incluirTotalGeral) {
+    checkPage(lineHeight + 6);
+    doc.setFont(fontName, 'bold');
+    doc.setFontSize(fontSize + 1);
+    doc.setTextColor(30, 30, 30);
+    doc.text(`Total: ${registros.length} registro(s)`, pageW - marginRight, y + lineHeight + 2, { align: 'right' });
+    y += lineHeight + 6;
+  }
+
+  // ── Rodapé ──
+  if (config.rodape?.incluir) {
+    const footerY = pageH - marginBottom + 4;
+    doc.setFont(fontName, 'normal');
+    doc.setFontSize(fontSize - 2);
+    doc.setTextColor(102, 102, 102);
+    let footerText = `Total de registros: ${registros.length}`;
+    if (config.rodape.texto) footerText += ` | ${config.rodape.texto}`;
+    doc.text(footerText, pageW / 2, footerY, { align: 'center' });
+  }
 
   const filename = `${config.titulo || relatorio.ds_relatorio || 'relatorio'}.pdf`;
-
-  html2pdf()
-    .set({
-      margin: [
-        config.margens.superior,
-        config.margens.direita,
-        config.margens.inferior,
-        config.margens.esquerda,
-      ] as [number, number, number, number],
-      filename,
-      image: { type: 'jpeg', quality: 0.98 },
-      html2canvas: { scale: 2, useCORS: true, logging: false },
-      jsPDF: {
-        unit: 'mm',
-        format: config.tamanhoPagina.toLowerCase(),
-        orientation: config.orientacao === 'retrato' ? 'portrait' : 'landscape',
-      },
-    })
-    .from(container)
-    .save()
-    .finally(() => {
-      document.body.removeChild(container);
-    });
+  doc.save(filename);
 }
