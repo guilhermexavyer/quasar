@@ -224,7 +224,7 @@ export default function ParametrosDaFuncaoView({
           value={manageSelection}
           onChange={onManageSelectionChange}
           options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
-          showPlaceholder={false}
+          showPlaceholder={!manageSelection}
           className="!w-[180px]"
         />
       </div>

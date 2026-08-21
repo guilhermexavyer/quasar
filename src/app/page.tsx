@@ -278,7 +278,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.61.1";
+const SYSTEM_VERSION = "0.61.2";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -807,7 +807,8 @@ export default function Home() {
       return { ...prev, [activeSection]: view };
     });
   }, [activeSection, view]);
-  const [adminManageSelection, setAdminManageSelection] = useState<string>('usuarios');
+  const [adminManageSelection, setAdminManageSelection] = useState<string>('');
+  const [adminInteracted, setAdminInteracted] = useState(false);
   const [camposPerfilId, setCamposPerfilId] = useState<string | null>(null);
   const [camposFuncao, setCamposFuncao] = useState<string | null>(null);
   const [camposFuncaoJaSelecionada, setCamposFuncaoJaSelecionada] = useState(false);
@@ -843,7 +844,8 @@ export default function Home() {
   const [cgFilterModalOpen, setCgFilterModalOpen] = useState(false);
   const [cgFilterForm, setCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCgFilterForm, setAppliedCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
-  const [cgManageSelection, setCgManageSelection] = useState<string>('sexo');
+  const [cgManageSelection, setCgManageSelection] = useState<string>('');
+  const [cgInteracted, setCgInteracted] = useState(false);
   const [adminForm, setAdminForm] = useState<AdminFormData>(emptyAdminForm);
   const [adminEditingId, setAdminEditingId] = useState<string | null>(null);
   const [adminSubmitting, setAdminSubmitting] = useState(false);
@@ -918,7 +920,8 @@ export default function Home() {
   const [naturalidadeNome, setNaturalidadeNome] = useState('');
   const naturalidadeCodeRef = useRef('');
   /* ── Estado de Pessoas Jurídicas ── */
-  const [pjManageSelection, setPjManageSelection] = useState<string>('pessoasFisicas');
+  const [pjManageSelection, setPjManageSelection] = useState<string>('');
+  const [pjInteracted, setPjInteracted] = useState(false);
   const [pessoasJuridicas, setPessoasJuridicas] = useState<PessoaJuridica[]>([]);
   const [pjForm, setPjForm] = useState<PjFormData>(emptyPjForm);
   const [pjFilterForm, setPjFilterForm] = useState<PjFilterFormData>(emptyPjFilterForm);
@@ -940,7 +943,8 @@ export default function Home() {
   // Define se o lookup de cidade aberto grava no formulário ou no filtro de PJ.
   const pjCidadeLookupTargetRef = useRef<'form' | 'filter'>('form');
   /* ── Estado de Estrutura Acadêmica (Alunos) ── */
-  const [alunoManageSelection, setAlunoManageSelection] = useState<string>('alunos');
+  const [alunoManageSelection, setAlunoManageSelection] = useState<string>('');
+  const [alunoInteracted, setAlunoInteracted] = useState(false);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [alunoForm, setAlunoForm] = useState<AlunoFormData>(emptyAlunoForm);
   const [alunoEditingId, setAlunoEditingId] = useState<string | null>(null);
@@ -1067,7 +1071,8 @@ export default function Home() {
   const colaboradorPjLookupTargetRef = useRef<'form' | 'filter'>('form');
 
   // Patrimônio > Ativos.
-  const [ativoManageSelection, setAtivoManageSelection] = useState<string>('ativos');
+  const [ativoManageSelection, setAtivoManageSelection] = useState<string>('');
+  const [ativoInteracted, setAtivoInteracted] = useState(false);
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [ativoForm, setAtivoForm] = useState<AtivoFormData>(emptyAtivoForm);
   const [ativoEditingId, setAtivoEditingId] = useState<string | null>(null);
@@ -1373,7 +1378,7 @@ export default function Home() {
   // volta para o primeiro submódulo permitido.
   useEffect(() => {
     if (!currentUser) return;
-    if (!allowedAdminSubmodulos.includes(adminManageSelection)) {
+    if (adminManageSelection && !allowedAdminSubmodulos.includes(adminManageSelection)) {
       setAdminManageSelection(allowedAdminSubmodulos[0] ?? 'usuarios');
     }
   }, [allowedAdminSubmodulos, adminManageSelection, currentUser]);
@@ -1382,7 +1387,7 @@ export default function Home() {
   // volta para o primeiro submódulo permitido.
   useEffect(() => {
     if (!currentUser) return;
-    if (!allowedPessoaSubmodulos.includes(pjManageSelection)) {
+    if (pjManageSelection && !allowedPessoaSubmodulos.includes(pjManageSelection)) {
       setPjManageSelection(allowedPessoaSubmodulos[0] ?? 'pessoasFisicas');
     }
   }, [allowedPessoaSubmodulos, pjManageSelection, currentUser]);
@@ -1391,7 +1396,7 @@ export default function Home() {
   // para o primeiro submódulo permitido.
   useEffect(() => {
     if (!currentUser) return;
-    if (!allowedCgSubmodulos.includes(cgManageSelection)) {
+    if (cgManageSelection && !allowedCgSubmodulos.includes(cgManageSelection)) {
       setCgManageSelection(allowedCgSubmodulos[0] ?? 'sexo');
     }
   }, [allowedCgSubmodulos, cgManageSelection, currentUser]);
@@ -1430,7 +1435,7 @@ export default function Home() {
   // volta para o primeiro submódulo permitido.
   useEffect(() => {
     if (!currentUser) return;
-    if (!allowedAlunoSubmodulos.includes(alunoManageSelection)) {
+    if (alunoManageSelection && !allowedAlunoSubmodulos.includes(alunoManageSelection)) {
       setAlunoManageSelection(allowedAlunoSubmodulos[0] ?? 'alunos');
     }
   }, [allowedAlunoSubmodulos, alunoManageSelection, currentUser]);
@@ -1475,7 +1480,7 @@ export default function Home() {
   // o primeiro submódulo permitido.
   useEffect(() => {
     if (!currentUser) return;
-    if (!allowedPatrimonioSubmodulos.includes(ativoManageSelection)) {
+    if (ativoManageSelection && !allowedPatrimonioSubmodulos.includes(ativoManageSelection)) {
       setAtivoManageSelection(allowedPatrimonioSubmodulos[0] ?? 'ativos');
     }
   }, [allowedPatrimonioSubmodulos, ativoManageSelection, currentUser]);
@@ -2249,18 +2254,23 @@ export default function Home() {
         }
         if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos')) {
           setAdminManageSelection(session.adminManageSelection);
+          setAdminInteracted(true);
         }
         if (typeof session.cgManageSelection === "string" && session.cgManageSelection.trim() !== "") {
           setCgManageSelection(session.cgManageSelection);
+          setCgInteracted(true);
         }
         if (typeof session.pjManageSelection === "string" && (session.pjManageSelection === 'pessoasFisicas' || session.pjManageSelection === 'pessoasJuridicas')) {
           setPjManageSelection(session.pjManageSelection);
+          setPjInteracted(true);
         }
         if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores')) {
           setAlunoManageSelection(session.alunoManageSelection);
+          setAlunoInteracted(true);
         }
         if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
           setAtivoManageSelection(session.patrimonioManageSelection);
+          setAtivoInteracted(true);
         }
         setView("list");
         setIsAuthenticated(true);
@@ -2517,6 +2527,7 @@ export default function Home() {
   }
 
   function handleAdminManageSelectionChange(value: string) {
+    setAdminInteracted(true);
     setAdminManageSelection(value);
     // Ao trocar entre Usuários/Perfis/Campos, zera o formulário em edição
     // para nunca salvar contra a coleção errada.
@@ -2549,6 +2560,7 @@ export default function Home() {
   }
 
   function handleCgManageSelectionChange(value: string) {
+    setCgInteracted(true);
     setCgManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
@@ -2558,6 +2570,7 @@ export default function Home() {
   }
 
   function handlePjManageSelectionChange(value: string) {
+    setPjInteracted(true);
     setPjManageSelection(value);
     // Ao trocar entre Pessoas Físicas/Jurídicas, zera os formulários e
     // retorna à listagem para nunca salvar contra a coleção errada.
@@ -2574,6 +2587,7 @@ export default function Home() {
   }
 
   function handleAlunoManageSelectionChange(value: string) {
+    setAlunoInteracted(true);
     setAlunoManageSelection(value);
     // Ao trocar entre Alunos/Colaboradores, zera os formulários em edição
     // para nunca salvar contra a coleção errada.
@@ -2589,6 +2603,7 @@ export default function Home() {
   }
 
   function handlePatrimonioManageSelectionChange(value: string) {
+    setAtivoInteracted(true);
     setAtivoManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
@@ -6773,6 +6788,17 @@ export default function Home() {
     setLoginError(null);
     setLoginWarning(null);
     setMessage("");
+    // Reseta os dropdowns para "---" ao sair
+    setAdminManageSelection('');
+    setCgManageSelection('');
+    setPjManageSelection('');
+    setAlunoManageSelection('');
+    setAtivoManageSelection('');
+    setAdminInteracted(false);
+    setCgInteracted(false);
+    setPjInteracted(false);
+    setAlunoInteracted(false);
+    setAtivoInteracted(false);
   }
 
   function toggleDarkMode() {

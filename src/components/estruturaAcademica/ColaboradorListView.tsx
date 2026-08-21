@@ -7,6 +7,7 @@ import type { Colaborador } from "@/types/colaborador";
 import { COLABORADOR_COLUMNS as COLUMNS, formatCellValue } from "@/lib/colaboradorUtils";
 import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
+import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
   message: string;
@@ -456,37 +457,43 @@ export default function ColaboradorListView({
         .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
       `}</style>
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex min-h-[42px] items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
               options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
-              showPlaceholder={false}
+              showPlaceholder={!manageSelection}
               className="!w-[180px]"
             />
+            {manageSelection && (
+              <button
+                type="button"
+                onClick={openFilter}
+                className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Abrir filtro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
+                </svg>
+              </button>
+            )}
+          </div>
+          {manageSelection && (
             <button
               type="button"
-              onClick={openFilter}
-              className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
-              aria-label="Abrir filtro"
+              onClick={openNewForm}
+              className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
             >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
-              </svg>
+              Adicionar
             </button>
-          </div>
-          <button
-            type="button"
-            onClick={openNewForm}
-            className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
-          >
-            Adicionar
-          </button>
+          )}
         </div>
 
         <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-          {loading ? (
+          {!manageSelection ? (
+            <EmptySelectionMessage />
+          ) : loading ? (
             <div className="p-4 space-y-3 flex-1">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-4 animate-pulse px-1 py-1">

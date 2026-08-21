@@ -234,7 +234,7 @@ export default function CamposView({
           value={manageSelection}
           onChange={onManageSelectionChange}
           options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
-          showPlaceholder={false}
+          showPlaceholder={!manageSelection}
           className="!w-[180px]"
         />
       </div>

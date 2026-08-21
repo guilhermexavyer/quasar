@@ -7,6 +7,7 @@ import type { Ativo } from "@/types/ativo";
 import { ATIVO_COLUMNS as COLUMNS, formatCellValue } from "@/lib/ativoUtils";
 import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
+import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
   message: string;
@@ -457,16 +458,16 @@ export default function AtivoListView({
         .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
       `}</style>
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex min-h-[42px] items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
               options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
-              showPlaceholder={false}
+              showPlaceholder={!manageSelection}
               className="!w-[180px]"
             />
-            {openFilter && (
+            {manageSelection && openFilter && (
               <button
                 type="button"
                 onClick={openFilter}
@@ -479,17 +480,21 @@ export default function AtivoListView({
               </button>
             )}
           </div>
-          <button
-            type="button"
-            onClick={openNewForm}
-            className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
-          >
-            Adicionar
-          </button>
+          {manageSelection && (
+            <button
+              type="button"
+              onClick={openNewForm}
+              className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
+            >
+              Adicionar
+            </button>
+          )}
         </div>
 
         <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-          {loading ? (
+          {!manageSelection ? (
+            <EmptySelectionMessage />
+          ) : loading ? (
             <div className="p-4 space-y-3 flex-1">
               {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-4 animate-pulse px-1 py-1">
