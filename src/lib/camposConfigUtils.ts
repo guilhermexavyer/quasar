@@ -139,53 +139,32 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "usuario.ds_usuario_alternativo", label: "Usuário alternativo", tipo: "Usuário", colecao: "usuario" },
     { key: "usuario.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Usuário", colecao: "usuario" },
     { key: "usuario.ds_email", label: "E-mail", tipo: "Usuário", colecao: "usuario" },
-    { key: "usuario.ie_status", label: "Status", tipo: "Usuário", colecao: "usuario" },
     { key: "usuario.ds_observacao", label: "Observação", tipo: "Usuário", colecao: "usuario" },
 
     { key: "perfil.ds_perfil", label: "Perfil", tipo: "Perfil", colecao: "perfil" },
     { key: "perfil.ds_observacao", label: "Observação", tipo: "Perfil", colecao: "perfil" },
-    { key: "perfil.ie_status", label: "Status", tipo: "Perfil", colecao: "perfil" },
   ],
   cadastrosGerais: [
     { key: "cg_sexo.ds_sexo", label: "Descrição", tipo: "Sexo", colecao: "cg_sexo" },
-    { key: "cg_sexo.ie_status", label: "Status", tipo: "Sexo", colecao: "cg_sexo" },
-
     { key: "cg_estado_civil.ds_estado_civil", label: "Descrição", tipo: "Estado civil", colecao: "cg_estado_civil" },
-    { key: "cg_estado_civil.ie_status", label: "Status", tipo: "Estado civil", colecao: "cg_estado_civil" },
-
     { key: "cg_cor_raca.ds_cor_raca", label: "Descrição", tipo: "Cor/Raça", colecao: "cg_cor_raca" },
-    { key: "cg_cor_raca.ie_status", label: "Status", tipo: "Cor/Raça", colecao: "cg_cor_raca" },
-
     { key: "cg_profissao.ds_profissao", label: "Descrição", tipo: "Profissão", colecao: "cg_profissao" },
     { key: "cg_profissao.nr_cbo", label: "CBO", tipo: "Profissão", colecao: "cg_profissao" },
-    { key: "cg_profissao.ie_status", label: "Status", tipo: "Profissão", colecao: "cg_profissao" },
 
     { key: "cg_orgao_emissor.sg_orgao_emissor", label: "Sigla", tipo: "Órgão emissor", colecao: "cg_orgao_emissor" },
     { key: "cg_orgao_emissor.ds_orgao_emissor", label: "Descrição", tipo: "Órgão emissor", colecao: "cg_orgao_emissor" },
-    { key: "cg_orgao_emissor.ie_status", label: "Status", tipo: "Órgão emissor", colecao: "cg_orgao_emissor" },
 
     { key: "cg_logradouro.sg_logradouro", label: "Sigla", tipo: "Logradouro", colecao: "cg_logradouro" },
     { key: "cg_logradouro.ds_logradouro", label: "Descrição", tipo: "Logradouro", colecao: "cg_logradouro" },
-    { key: "cg_logradouro.ie_status", label: "Status", tipo: "Logradouro", colecao: "cg_logradouro" },
 
     { key: "cg_marca.ds_marca", label: "Descrição", tipo: "Marca", colecao: "cg_marca" },
-    { key: "cg_marca.ie_status", label: "Status", tipo: "Marca", colecao: "cg_marca" },
 
     { key: "cg_categoria_ativo.ds_categoria", label: "Descrição", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
     { key: "cg_categoria_ativo.ds_observacao", label: "Observação", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
-    { key: "cg_categoria_ativo.ie_status", label: "Status", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
-
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
-    { key: "cg_grau_parentesco.ie_status", label: "Status", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
-
     { key: "cg_localizacao.ds_localizacao", label: "Descrição", tipo: "Localização", colecao: "cg_localizacao" },
-    { key: "cg_localizacao.ie_status", label: "Status", tipo: "Localização", colecao: "cg_localizacao" },
-
     { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
-    { key: "cg_cargo.ie_status", label: "Status", tipo: "Cargo", colecao: "cg_cargo" },
-
     { key: "cg_vinculo_contratual.ds_vinculo_contratual", label: "Descrição", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
-    { key: "cg_vinculo_contratual.ie_status", label: "Status", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
   ],
   patrimonio: [
     { key: "pat_ativos.ds_ativo", label: "Descrição", tipo: "Ativos", colecao: "pat_ativos" },
@@ -217,7 +196,6 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     // Manutenções
     // Ativo, Prestador, Data de envio e Valor total são campos fixos (sempre desabilitados).
     { key: "pat_manutencao.dt_termino", label: "Data de término", tipo: "Manutenções", colecao: "pat_manutencao" },
-    { key: "pat_manutencao.ie_status_manutencao", label: "Status", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_motivo_manutencao", label: "Motivo da manutenção", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_correcoes", label: "Correções", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },

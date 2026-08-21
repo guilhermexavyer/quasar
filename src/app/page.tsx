@@ -1448,6 +1448,7 @@ export default function Home() {
       descartarAtivo: permitida('descartar_ativo'),
       excluirAtivo: permitida('excluir_ativo'),
       gerarCodigoPatrimonio: permitida('gerar_codigo_patrimonio'),
+      gerarCodigoPatrimonioDescartado: permitida('gerar_codigo_patrimonio_descartado'),
       alterarStatusDescartado: permitida('alterar_status_descartado'),
       acessarParametrosFuncao: permitida('acessar_parametros_funcao'),
       acessarManutencao: permitida('acessar_manutencao'),
@@ -7008,7 +7009,8 @@ export default function Home() {
             if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'ativos') {
               const currentStatus = (contextMenu.item as Ativo)?.ie_status ?? '';
               const items: { label: string; onClick?: () => void; children?: { label: string; onClick: () => void }[] }[] = [];
-              if (permissoesPatrimonio.gerarCodigoPatrimonio) {
+              const isDescartadoForGerar = currentStatus === 'D';
+              if (isDescartadoForGerar ? permissoesPatrimonio.gerarCodigoPatrimonioDescartado : permissoesPatrimonio.gerarCodigoPatrimonio) {
                 items.push({ label: 'Gerar código de patrimônio', onClick: () => { handleGerarCodigoPatrimonio(contextMenu.item as Ativo); setContextMenu(null); } });
               }
               const isDescartado = currentStatus === 'D';
