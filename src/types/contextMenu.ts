@@ -18,12 +18,13 @@ import type { Marca } from "@/types/marca";
 import type { CategoriaAtivo } from "@/types/categoriaAtivo";
 import type { Ativo } from "@/types/ativo";
 import type { Manutencao } from "@/types/manutencao";
+import type { Relatorio } from "@/types/relatorio";
 
-export type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio";
+export type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio";
 
 export interface ContextMenuState {
   x: number;
   y: number;
   section: SectionType;
-  item: PessoaFisica | PessoaJuridica | Usuario | Perfil | Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | Aluno | GrauParentesco | Colaborador | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | Ativo | Manutencao;
+  item: PessoaFisica | PessoaJuridica | Usuario | Perfil | Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | Aluno | GrauParentesco | Colaborador | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | Ativo | Manutencao | Relatorio;
 }

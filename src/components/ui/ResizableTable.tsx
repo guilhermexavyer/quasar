@@ -10,6 +10,8 @@ export interface ResizableTableColumn<T = unknown> {
   cellClassName?: string;
   align?: "left" | "center";
   render?: (row: T) => ReactNode;
+  /** Coluna fixa: não pode ser reordenada, redimensionada ou ordenada. */
+  fixed?: boolean;
 }
 
 interface ResizableTableProps<T> {
@@ -22,6 +24,8 @@ interface ResizableTableProps<T> {
   onRowClick?: (row: T) => void;
   onRowContextMenu?: (row: T, e: ReactMouseEvent<HTMLTableRowElement>) => void;
   rowClassName?: (row: T) => string;
+  /** Colunas fixas que ficam sempre à esquerda e não podem ser reordenadas/redimensionadas. */
+  pinnedColumns?: string[];
 }
 
 /**
@@ -40,6 +44,7 @@ export default function ResizableTable<T>({
   onRowClick,
   onRowContextMenu,
   rowClassName,
+  pinnedColumns = [],
 }: ResizableTableProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>(() => columns.map((c) => c.key));
@@ -82,19 +87,21 @@ export default function ResizableTable<T>({
   // remontagens (ex.: trocar de perfil) e até a recarregar a página.
   useLayoutEffect(() => {
     const keys = columns.map((c) => c.key);
+    const pinned = keys.filter((k) => pinnedColumns.includes(k));
+    const unpinned = keys.filter((k) => !pinnedColumns.includes(k));
     const saved = loadSaved();
     if (saved) {
-      const savedOrder = saved.order.filter((k) => keys.includes(k));
-      const extra = keys.filter((k) => !savedOrder.includes(k));
-      setColumnOrder([...savedOrder, ...extra]);
+      const savedOrder = saved.order.filter((k) => unpinned.includes(k));
+      const extra = unpinned.filter((k) => !savedOrder.includes(k));
+      setColumnOrder([...pinned, ...savedOrder, ...extra]);
       widthsRef.current = saved.widths;
     } else {
-      setColumnOrder(keys);
+      setColumnOrder([...pinned, ...unpinned]);
       widthsRef.current = {};
     }
     minWidthsRef.current = {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnsKey]);
+  }, [columnsKey, pinnedColumns.join(',')]);
 
   function measureHeaderMinWidth(th: HTMLElement): number {
     const clone = th.cloneNode(true) as HTMLElement;
@@ -256,6 +263,8 @@ export default function ResizableTable<T>({
 
   function handleHeaderMouseDown(key: string, e: ReactMouseEvent<HTMLTableCellElement>) {
     if ((e.target as HTMLElement).closest(".rt-resizer-handle")) return;
+    const col = columns.find((c) => c.key === key);
+    if (col?.fixed) return;
     dragStartXRef.current = e.clientX;
     didDragRef.current = false;
     let currentDropIdx: number | null = null;
@@ -269,7 +278,7 @@ export default function ResizableTable<T>({
       }
       if (!didDragRef.current) return;
 
-      const wrapper = table.closest<HTMLElement>(".overflow-auto");
+      const wrapper = table.parentElement;
       const ths = table.querySelectorAll<HTMLElement>("thead tr th");
       let targetIdx = ths.length;
       for (let i = 0; i < ths.length; i++) {
@@ -289,7 +298,7 @@ export default function ResizableTable<T>({
         const th = ths[Math.min(currentDropIdx, ths.length - 1)];
         const thRect = th.getBoundingClientRect();
         const isAfterLast = currentDropIdx >= ths.length;
-        const lineX = (isAfterLast ? thRect.right - wrapperRect.left : thRect.left - wrapperRect.left) + wrapper.scrollLeft;
+        const lineX = (isAfterLast ? thRect.right - wrapperRect.left : thRect.left - wrapperRect.left) + (wrapper.scrollLeft || 0);
         dropLineRef.current.style.transform = `translateX(${lineX}px)`;
         dropLineRef.current.style.display = "block";
       } else if (dropLineRef.current) {
@@ -334,6 +343,8 @@ export default function ResizableTable<T>({
       return;
     }
     if ((e.target as HTMLElement).closest(".rt-resizer-handle")) return;
+    const col = columns.find((c) => c.key === key);
+    if (col?.fixed) return;
     onSortChange?.(key);
   }
 
@@ -361,10 +372,11 @@ export default function ResizableTable<T>({
         .rt-resizer-handle:hover::after { background-color: #94a3b8; }
         th, td { min-width: 0 !important; box-sizing: border-box; }
         th { white-space: nowrap; overflow: hidden; }
+        td { overflow: visible !important; }
         th .rt-header-content { display: flex; align-items: center; justify-content: space-between; gap: 4px; white-space: nowrap; overflow: hidden; width: 100%; }
         th .rt-header-content > span { overflow: hidden; text-overflow: ellipsis; flex: 1; min-width: 0; }
         th .rt-header-content > svg { flex-shrink: 0; margin-left: auto; }
-        td { max-width: 0; overflow: hidden; }
+        td { max-width: 0; }
         .rt-cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
       `}</style>
       <div className="relative h-full w-full">
@@ -389,14 +401,16 @@ export default function ResizableTable<T>({
                       <span>{col.label}</span>
                       <SortIcon active={sortColumn === key} asc={sortAsc} />
                     </div>
-                    <div
-                      className="rt-resizer-handle"
-                      onMouseDown={(e) => {
-                        e.stopPropagation();
-                        handleResizeStart(key, e);
-                      }}
-                      onDoubleClick={() => handleResizeDblClick(key)}
-                    />
+                    {!col.fixed && (
+                      <div
+                        className="rt-resizer-handle"
+                        onMouseDown={(e) => {
+                          e.stopPropagation();
+                          handleResizeStart(key, e);
+                        }}
+                        onDoubleClick={() => handleResizeDblClick(key)}
+                      />
+                    )}
                   </th>
                 );
               })}
@@ -443,12 +457,13 @@ export default function ResizableTable<T>({
             left: 0,
             top: 0,
             bottom: 0,
-            width: "3px",
-            backgroundColor: "#9ca3af",
+            width: "2px",
+            backgroundColor: "#003056",
             zIndex: 100,
             pointerEvents: "none",
             display: "none",
             transform: "translateX(0)",
+            boxShadow: "0 0 4px rgba(0,48,86,0.4)",
           }}
         />
       </div>

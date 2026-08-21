@@ -20,6 +20,7 @@ const FUNCAO_LABELS: Record<string, string> = {
   cadastrosGerais: "Cadastros Gerais",
   estruturaAcademica: "Estrutura Acadêmica",
   patrimonio: "Patrimônio",
+  relatorio: "Relatórios",
 };
 
 const FUNCAO_ORDER_ALPHA = Object.keys(FUNCAO_LABELS).sort((a, b) =>

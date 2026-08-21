@@ -83,6 +83,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "cancelar_manutencao", label: "Permite cancelar manutenção" },
     { key: "excluir_manutencao", label: "Permite excluir" },
   ],
+  relatorio: [],
   cadastrosGerais: [
     // Cor/Raça
     { key: "acessar_cor_raca", label: "Permite acessar Cor/Raça" },
@@ -205,6 +206,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_parametros_funcao'],
     },
   ],
+  relatorio: [],
   cadastrosGerais: [
     {
       titulo: 'Cargo',

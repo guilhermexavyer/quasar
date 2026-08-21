@@ -173,6 +173,15 @@ import AdministracaoSistemaFormView from "@/components/administracaoSistema/Admi
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
 import PerfilFormView, { type PerfilFormData } from "@/components/administracaoSistema/PerfilFormView";
 import CamposView from "@/components/administracaoSistema/CamposView";
+import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
+import RelatorioListView from "@/components/relatorio/RelatorioListView";
+import type { Relatorio } from "@/types/relatorio";
+import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio } from "@/services/relatorioService";
+import { gerarERealizarDownloadExcel } from "@/lib/relatorioExcel";
+import { gerarPdf } from "@/lib/relatorioPdf";
+import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
+import { getDataSource } from "@/lib/relatorioDataSources";
+
 import {
   parseCamposConfig,
   serializeCamposConfig,
@@ -278,7 +287,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.61.2";
+const SYSTEM_VERSION = "0.62.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -297,7 +306,7 @@ function getActivePerfilKey(userId?: string | null): string {
 }
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio";
+type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio";
 
 type FilterFormData = Omit<
   FormData,
@@ -376,6 +385,10 @@ const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'ativos', label: 'Ativos' },
   { value: 'manutencoes', label: 'Manutenções' },
   { value: 'parametrosFuncao', label: 'Parâmetros da função' },
+];
+
+const RELATORIO_SELECT_OPTIONS = [
+  { value: 'relatorios', label: 'Relatórios' },
 ];
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -528,7 +541,7 @@ type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradou
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio"];
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio"];
 
 function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
   const result = [...new Set(parsed)];
@@ -692,6 +705,28 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
         <path d="M21 8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16Z" />
         <path d="m3.3 7 8.7 5 8.7-5" />
         <path d="M12 22V12" />
+      </svg>
+    ),
+  },
+  relatorio: {
+    label: "Relatórios",
+    labelMaxW: "max-w-[150px]",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8Z" />
+        <path d="M14 2v6h6" />
+        <path d="M16 13H8" />
+        <path d="M16 17H8" />
+        <path d="M10 9H8" />
       </svg>
     ),
   },
@@ -1153,6 +1188,62 @@ export default function Home() {
   const [manutencaoFilterForm, setManutencaoFilterForm] = useState<ManutencaoFilterFormData>(emptyManutencaoFilterForm);
   const [appliedManutencaoFilterForm, setAppliedManutencaoFilterForm] = useState<ManutencaoFilterFormData>(emptyManutencaoFilterForm);
   const [manutencaoFilterModalOpen, setManutencaoFilterModalOpen] = useState(false);
+
+  // ── Gerenciador de Relatórios ──
+  const [relatorios, setRelatorios] = useState<Relatorio[]>([]);
+  const [relatorioView, setRelatorioView] = useState<'list' | 'builder'>('list');
+  const [relatorioEditingId, setRelatorioEditingId] = useState<string | null>(null);
+  const [relatorioForm, setRelatorioForm] = useState<Relatorio | null>(null);
+  const [relatorioSubmitting, setRelatorioSubmitting] = useState(false);
+  const [relatorioGerando, setRelatorioGerando] = useState(false);
+  const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
+  const [relatorioInteracted, setRelatorioInteracted] = useState(false);
+  const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
+  const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
+
+  function handleRelatorioManageSelectionChange(v: string) {
+    setRelatorioManageSelection(v);
+    setRelatorioInteracted(true);
+  }
+
+  // When the user navigates to relatorio section, auto-select 'relatorios' if interacted
+  useEffect(() => {
+    if (activeSection === 'relatorio' && relatorioInteracted && !relatorioManageSelection) {
+      setRelatorioManageSelection('relatorios');
+    }
+  }, [activeSection, relatorioInteracted, relatorioManageSelection]);
+
+  const allowedRelatorioSubmodulos = useMemo(() => {
+    return ['relatorios'];
+  }, []);
+
+  function handleRelatorioSortChange(logicalIndex: number) {
+    setRelatorioSortColumn((prev) => {
+      if (prev === logicalIndex) {
+        setRelatorioSortAsc((asc) => (asc === true ? false : asc === false ? null : true));
+        return logicalIndex;
+      }
+      setRelatorioSortAsc(true);
+      return logicalIndex;
+    });
+  }
+
+  const filteredSortedRelatorios = useMemo(() => {
+    const list = [...relatorios];
+    if (relatorioSortColumn != null && relatorioSortAsc != null) {
+      const keys = ['nr_sequencia', 'ds_relatorio', 'colecao', 'formato', 'dt_alteracao'];
+      const key = keys[relatorioSortColumn];
+      if (key) {
+        list.sort((a, b) => {
+          const av = a[key as keyof Relatorio] ?? '';
+          const bv = b[key as keyof Relatorio] ?? '';
+          const cmp = String(av).localeCompare(String(bv), 'pt-BR', { numeric: true });
+          return relatorioSortAsc ? cmp : -cmp;
+        });
+      }
+    }
+    return list;
+  }, [relatorios, relatorioSortColumn, relatorioSortAsc]);
 
   // Lookup de ativo no formulário de manutenção.
   const [manutencaoAtivoLookupOpen, setManutencaoAtivoLookupOpen] = useState(false);
@@ -2020,6 +2111,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadRelatorios = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterRelatorios();
+      setRelatorios(data);
+    } catch {
+      setMessage("Erro ao carregar relatórios.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCgItems = useCallback(async () => {
     if (cgKind === 'sexo') {
       await loadSexos();
@@ -2069,6 +2172,7 @@ export default function Home() {
     loadSistemasOperacionais();
     loadAtivos();
     loadManutencoes();
+    loadRelatorios();
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
@@ -2249,7 +2353,7 @@ export default function Home() {
         }
 
         setCurrentUser(usuarioSalvo);
-        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica" || session.activeSection === "patrimonio") {
+        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica" || session.activeSection === "patrimonio" || session.activeSection === "relatorio") {
           setActiveSection(session.activeSection);
         }
         if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos')) {
@@ -2460,6 +2564,104 @@ export default function Home() {
     openCgNewForm();
   }
 
+  // ── Relatórios ──
+  function openRelatorioNewForm() {
+    setRelatorioEditingId(null);
+    setRelatorioForm(null);
+    setRelatorioView('builder');
+    setMessage('');
+  }
+
+  function openRelatorioEditForm(relatorio: Relatorio) {
+    setRelatorioEditingId(relatorio.id ?? null);
+    setRelatorioForm(relatorio);
+    setRelatorioView('builder');
+    setMessage('');
+  }
+
+  function closeRelatorioBuilder() {
+    setRelatorioView('list');
+    setRelatorioEditingId(null);
+    setRelatorioForm(null);
+  }
+
+  async function handleRelatorioSave(data: Omit<Relatorio, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>) {
+    setRelatorioSubmitting(true);
+    setMessage('');
+    try {
+      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
+      if (relatorioEditingId) {
+        await atualizarRelatorio(relatorioEditingId, data, auditAutor);
+        setMessage('Relatório atualizado com sucesso!');
+      } else {
+        await criarRelatorio(data, auditAutor);
+        setMessage('Relatório criado com sucesso!');
+      }
+      await loadRelatorios();
+      closeRelatorioBuilder();
+    } catch {
+      setMessage('Erro ao salvar relatório.');
+    } finally {
+      setRelatorioSubmitting(false);
+    }
+  }
+
+  async function handleRelatorioDelete(id: string) {
+    try {
+      await excluirRelatorio(id);
+      await loadRelatorios();
+      setMessage('Relatório excluído com sucesso!');
+    } catch {
+      setMessage('Erro ao excluir relatório.');
+    }
+  }
+
+  async function handleRelatorioGerar(relatorio: Relatorio) {
+    setRelatorioGerando(true);
+    setMessage('');
+    try {
+      const resultado = await executarConsultaRelatorio(relatorio);
+      console.log('[RELATORIO] total:', resultado.total, 'registros:', resultado.registrosResolvidos.length, 'campos:', relatorio.campos.length);
+      console.log('[RELATORIO] campos:', relatorio.campos.map(c => ({ colecao: c.colecao, chave: c.chave, label: c.label })));
+      console.log('[RELATORIO] sample:', resultado.registrosResolvidos[0]);
+      if (resultado.total === 0) {
+        setMessage('Nenhum registro encontrado com os filtros aplicados.');
+        setRelatorioGerando(false);
+        return;
+      }
+      // Resolve chaves de campos que vêm de coleções FK
+      const dsPrincipal = getDataSource(relatorio.colecao);
+      const camposResolvidos = relatorio.campos.map((c) => ({
+        ...c,
+        chave: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
+      }));
+      console.log('[RELATORIO] chaves resolvidas:', camposResolvidos.map(c => c.chave));
+      const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
+      if (relatorio.formato === 'excel') {
+        gerarERealizarDownloadExcel(relatorioResolvido, resultado.registrosResolvidos);
+      } else {
+        gerarPdf(relatorioResolvido, resultado.registrosResolvidos);
+      }
+      setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
+    } catch (err: any) {
+      setMessage(`Erro ao gerar relatório: ${err.message || 'Erro desconhecido'}`);
+    } finally {
+      setRelatorioGerando(false);
+    }
+  }
+
+  async function handleRelatorioDuplicate(relatorio: Relatorio) {
+    try {
+      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorio;
+      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
+      await criarRelatorio({ ...rest, ds_relatorio: `${rest.ds_relatorio} (Cópia)` }, auditAutor);
+      await loadRelatorios();
+      setMessage('Relatório duplicado com sucesso!');
+    } catch {
+      setMessage('Erro ao duplicar relatório.');
+    }
+  }
+
   // "Ver" do menu de contexto: respeita as permissões da seção ativa.
   function podeVerNoContexto(): boolean {
     if (view !== 'list') return false;
@@ -2485,6 +2687,7 @@ export default function Home() {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
       return permissoesPatrimonio.verAtivo;
     }
+    if (s === 'relatorio') return true;
     return true;
   }
 
@@ -6794,11 +6997,13 @@ export default function Home() {
     setPjManageSelection('');
     setAlunoManageSelection('');
     setAtivoManageSelection('');
+    setRelatorioManageSelection('');
     setAdminInteracted(false);
     setCgInteracted(false);
     setPjInteracted(false);
     setAlunoInteracted(false);
     setAtivoInteracted(false);
+    setRelatorioInteracted(false);
   }
 
   function toggleDarkMode() {
@@ -7029,6 +7234,8 @@ export default function Home() {
               }
             } else if (contextMenu.section === 'patrimonio') {
               openAtivoEditForm(contextMenu.item as Ativo);
+            } else if (contextMenu.section === 'relatorio') {
+              openRelatorioEditForm(contextMenu.item as Relatorio);
             } else {
               openCgEditForm(contextMenu.item as Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo);
             }
@@ -7120,6 +7327,12 @@ export default function Home() {
               }
               return items.length > 0 ? items : undefined;
             }
+            if (contextMenu.section === 'relatorio') {
+              const items: { label: string; onClick: () => void }[] = [];
+              items.push({ label: 'Gerar relatório', onClick: () => { handleRelatorioGerar(contextMenu.item as Relatorio); setContextMenu(null); } });
+              items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(contextMenu.item as Relatorio); setContextMenu(null); } });
+              return items;
+            }
             return undefined;
           })()}
           onDelegateFunctions={
@@ -7210,6 +7423,13 @@ export default function Home() {
               if (ativo.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${ativo.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleAtivoDelete(ativo.id as string));
+                setConfirmDeleteOpen(true);
+              }
+            } else if (contextMenu.section === 'relatorio') {
+              const rel = contextMenu.item as Relatorio;
+              if (rel.id) {
+                setConfirmDeleteMessage(`Deseja mesmo excluir o relatório ${rel.nr_sequencia}?`);
+                setConfirmDeleteAction(() => () => handleRelatorioDelete(rel.id as string));
                 setConfirmDeleteOpen(true);
               }
             } else {
@@ -7767,35 +7987,56 @@ export default function Home() {
                 }}
               />
               )
-            ) : (
-              (cgManageSelection === 'sexo' || cgManageSelection === 'estadoCivil' || cgManageSelection === 'corRaca' || cgManageSelection === 'grauParentesco' || cgManageSelection === 'cargo' || cgManageSelection === 'vinculoContratual' || cgManageSelection === 'profissao' || cgManageSelection === 'orgaoEmissor' || cgManageSelection === 'logradouro' || cgManageSelection === 'localizacao' || cgManageSelection === 'marca' || cgManageSelection === 'categoriaAtivo' || cgManageSelection === 'sistemaOperacional') ? (
-                <CadastroGeralListView
-                  key={cgManageSelection}
-                  loading={loading}
-                  items={filteredSortedCgItems}
-                  columns={cgColumns}
-                  formatCellValue={formatCadastroGeralCellValue}
-                  emptyMessage={cgEmptyMessage}
-                  selectOptions={CG_SELECT_OPTIONS}
-                  manageSelection={cgManageSelection}
-                  onManageSelectionChange={handleCgManageSelectionChange}
-                  allowedSubmodulos={allowedCgSubmodulos}
-                  openNewForm={handleCgNewForm}
-                  openEditForm={openCgEditForm}
-                  openFilter={openCgFilterModal}
-                  setContextMenu={setContextMenu}
-                  sortColumn={cgSortColumn}
-                  sortAsc={cgSortAsc}
-                  onSortChange={handleCgSortChange}
-                  initialColumns={cgColunasConfig}
-                  onColumnsChange={handleCgColumnsChange}
-                />
-              ) : (
-                <div className="p-6">
-                  <h2 className="text-lg font-semibold">Cadastros Gerais</h2>
-                  <p className="mt-2 text-sm text-slate-600">Selecione um cadastro para gerenciar nesta seção.</p>
+            ) : activeSection === "relatorio" ? (
+              relatorioView === 'builder' ? (
+                <div className="flex flex-col h-full">                   <RelatorioBuilder
+                     relatorio={relatorioForm}
+                     onSave={handleRelatorioSave}
+                     onCancel={closeRelatorioBuilder}
+                     saving={relatorioSubmitting}
+                     manageSelection={relatorioManageSelection}
+                     onManageSelectionChange={handleRelatorioManageSelectionChange}
+                     allowedSubmodulos={allowedRelatorioSubmodulos}
+                   />
                 </div>
+              ) : (
+                <RelatorioListView
+                  loading={loading}
+                  relatorios={filteredSortedRelatorios}
+                  openNewForm={openRelatorioNewForm}
+                  openEditForm={openRelatorioEditForm}
+                  handleDelete={handleRelatorioDelete}
+                  setContextMenu={setContextMenu}
+                  sortColumn={relatorioSortColumn}
+                  sortAsc={relatorioSortAsc}
+                  onSortChange={handleRelatorioSortChange}
+                  manageSelection={relatorioManageSelection}
+                  onManageSelectionChange={handleRelatorioManageSelectionChange}
+                  allowedSubmodulos={allowedRelatorioSubmodulos}
+                />
               )
+            ) : (
+              <CadastroGeralListView
+                key={cgManageSelection}
+                loading={loading}
+                items={filteredSortedCgItems}
+                columns={cgColumns}
+                formatCellValue={formatCadastroGeralCellValue}
+                emptyMessage={cgEmptyMessage}
+                selectOptions={CG_SELECT_OPTIONS}
+                manageSelection={cgManageSelection}
+                onManageSelectionChange={handleCgManageSelectionChange}
+                allowedSubmodulos={allowedCgSubmodulos}
+                openNewForm={handleCgNewForm}
+                openEditForm={openCgEditForm}
+                openFilter={openCgFilterModal}
+                setContextMenu={setContextMenu}
+                sortColumn={cgSortColumn}
+                sortAsc={cgSortAsc}
+                onSortChange={handleCgSortChange}
+                initialColumns={cgColunasConfig}
+                onColumnsChange={handleCgColumnsChange}
+              />
             )
           ) : activeSection === "pessoaFisica" ? (
             pjManageSelection === 'pessoasJuridicas' ? (

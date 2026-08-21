@@ -43,6 +43,7 @@ export default function Select({
   const [highlighted, setHighlighted] = useState(-1);
   const [openUp, setOpenUp] = useState(false);
   const [searchBuffer, setSearchBuffer] = useState("");
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; left: number; width: number } | null>(null);
   const rootRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
@@ -72,12 +73,23 @@ export default function Select({
     return () => document.removeEventListener("mousedown", handleClose);
   }, [open]);
 
-  // Decide se abre para cima ou para baixo e mantém a opção selecionada visível.
+  // Calcula posição fixa do dropdown e decide se abre para cima ou para baixo.
   useLayoutEffect(() => {
-    if (!open || !rootRef.current) return;
+    if (!open || !rootRef.current) {
+      if (!open) setDropdownPos(null);
+      return;
+    }
     const triggerRect = rootRef.current.getBoundingClientRect();
     const listHeight = Math.min(items.length, visibleOptions) * ROW_HEIGHT;
-    setOpenUp(forceOpenUp || window.innerHeight - triggerRect.bottom < listHeight + 12);
+    const spaceBelow = window.innerHeight - triggerRect.bottom - 12;
+    const spaceAbove = triggerRect.top - 12;
+    const up = forceOpenUp || (spaceBelow < listHeight && spaceAbove >= spaceBelow);
+    setOpenUp(up);
+    setDropdownPos({
+      top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
+      left: triggerRect.left,
+      width: triggerRect.width,
+    });
 
     const list = listRef.current;
     if (!list) return;
@@ -228,19 +240,17 @@ export default function Select({
         </span>
       </button>
 
-      {open && (
+      {open && dropdownPos && (
         <div
           ref={listRef}
           role="listbox"
           onMouseLeave={() => setHighlighted(-1)}
-          className={`cg-select-list absolute left-0 right-0 z-40 overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
-            openUp ? "bottom-full mb-[2px]" : "top-full mt-[2px]"
-          } ${
+          className={`cg-select-list fixed z-[9999] overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
             theme === 'sidebar'
               ? 'border border-[#163a54] bg-[#1A4567]'
               : 'border border-[#ccc] bg-white'
           }`}
-          style={{ maxHeight: visibleOptions * ROW_HEIGHT }}
+          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: visibleOptions * ROW_HEIGHT }}
         >
           {items.map((op, index) => {
             const isSelected = op.value === value;
