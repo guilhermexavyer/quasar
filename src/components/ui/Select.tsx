@@ -21,6 +21,8 @@ interface SelectProps {
   error?: boolean;
   /** Força o dropdown a abrir sempre para cima. */
   forceOpenUp?: boolean;
+  /** Tema do dropdown (afeta a lista de opções aberta). */
+  theme?: 'default' | 'sidebar';
 }
 
 const ROW_HEIGHT = 32; // altura aproximada de cada linha (px)
@@ -35,6 +37,7 @@ export default function Select({
   showPlaceholder = true,
   error = false,
   forceOpenUp = false,
+  theme = 'default',
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -218,7 +221,7 @@ export default function Select({
             stroke="currentColor"
             strokeWidth="1.5"
             strokeLinecap="round"
-            className={`shrink-0 text-[#777] transition-transform duration-150 ${open ? (openUp ? "-rotate-180" : "rotate-180") : ""}`}
+            className={`shrink-0 transition-transform duration-150 ${theme === 'sidebar' ? 'text-white/70' : 'text-[#777]'} ${open ? (openUp ? "-rotate-180" : "rotate-180") : ""}`}
           >
             <path d="M1 1l4 4 4-4" />
           </svg>
@@ -230,8 +233,12 @@ export default function Select({
           ref={listRef}
           role="listbox"
           onMouseLeave={() => setHighlighted(-1)}
-          className={`cg-select-list absolute left-0 right-0 z-40 overflow-y-auto border border-[#ccc] bg-white shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
+          className={`cg-select-list absolute left-0 right-0 z-40 overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
             openUp ? "bottom-full mb-[2px]" : "top-full mt-[2px]"
+          } ${
+            theme === 'sidebar'
+              ? 'border border-[#163a54] bg-[#1A4567]'
+              : 'border border-[#ccc] bg-white'
           }`}
           style={{ maxHeight: visibleOptions * ROW_HEIGHT }}
         >
@@ -247,9 +254,13 @@ export default function Select({
                 onMouseEnter={() => setHighlighted(index)}
                 onClick={() => handleSelect(op.value)}
                 className={`block w-full cursor-pointer truncate px-2 py-1.5 text-left text-sm transition ${
-                  isHighlighted || isSelected
-                    ? "bg-slate-100 text-slate-900"
-                    : "text-slate-800"
+                  theme === 'sidebar'
+                    ? isHighlighted || isSelected
+                      ? 'bg-[#2a5f8a] text-white'
+                      : 'text-white'
+                    : isHighlighted || isSelected
+                      ? 'bg-slate-100 text-slate-900'
+                      : 'text-slate-800'
                 }`}
               >
                 {op.label}

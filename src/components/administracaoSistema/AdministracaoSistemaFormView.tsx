@@ -296,10 +296,9 @@ export default function AdministracaoSistemaFormView({
             />
           </div>
 
-          <div className="sm:col-span-12">
-            <div className="group w-full">
+          <div className="sm:col-span-6 group">
               {renderFieldLabel('ie_status', 'Status')}
-              <div className="flex items-center gap-4 mb-3">
+              <div className="flex items-center gap-4">
                 <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="radio"
@@ -334,17 +333,48 @@ export default function AdministracaoSistemaFormView({
                   <span>Inativo</span>
                 </label>
               </div>
+          </div>
+
+          <div className="sm:col-span-6">
+            <div className="flex gap-8">
+              <div className="group flex flex-col">
+                {renderFieldLabel('ie_base_conhecimento', 'Base de Conhecimento')}
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="cg-checkbox"
+                    disabled={readOnly}
+                    checked={form.ie_base_conhecimento === 'S'}
+                    onChange={() => setForm({ ...form, ie_base_conhecimento: form.ie_base_conhecimento === 'S' ? 'N' : 'S' })}
+                  />
+                  <span>Sim</span>
+                </label>
+              </div>
+              <div className="group flex flex-col">
+                {renderFieldLabel('ie_central_suporte', 'Central de Suporte')}
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="cg-checkbox"
+                    disabled={readOnly}
+                    checked={form.ie_central_suporte === 'S'}
+                    onChange={() => setForm({ ...form, ie_central_suporte: form.ie_central_suporte === 'S' ? 'N' : 'S' })}
+                  />
+                  <span>Sim</span>
+                </label>
+              </div>
             </div>
-            <div className="group w-full mt-2">
-              {renderFieldLabel('ds_observacao', 'Observação')}
-              <textarea
-                disabled={readOnly || statusDe('ds_observacao') === 'D'}
-                className={`${inputClass('ds_observacao', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                rows={3}
-                value={form.ds_observacao}
-                onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
-              />
-            </div>
+          </div>
+
+          <div className="sm:col-span-12 group">
+            {renderFieldLabel('ds_observacao', 'Observação')}
+            <textarea
+              disabled={readOnly || statusDe('ds_observacao') === 'D'}
+              className={`${inputClass('ds_observacao', "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+              rows={3}
+              value={form.ds_observacao}
+              onChange={(e) => setForm({ ...form, ds_observacao: e.target.value })}
+            />
           </div>
         </div>
 

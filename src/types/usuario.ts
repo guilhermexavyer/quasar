@@ -35,6 +35,8 @@ export interface Usuario {
   config_colunas_pat_ativos?: string;
   config_colunas_pat_manutencao?: string;
   config_ordem_menu_lateral?: string;
+  ie_base_conhecimento?: string;
+  ie_central_suporte?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;
   dt_criacao: string;

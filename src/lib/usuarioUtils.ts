@@ -28,6 +28,8 @@ export const ADMIN_FIELD_INFOS = {
   ie_status: { type: 'string', field: 'ie_status', collection: 'usuario' },
   ds_senha: { type: 'string', field: 'ds_senha', collection: 'usuario' },
   ds_observacao: { type: 'string', field: 'ds_observacao', collection: 'usuario' },
+  ie_base_conhecimento: { type: 'string', field: 'ie_base_conhecimento', collection: 'usuario' },
+  ie_central_suporte: { type: 'string', field: 'ie_central_suporte', collection: 'usuario' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'usuario' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'usuario' },
 } as const;

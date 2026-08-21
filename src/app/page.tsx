@@ -278,7 +278,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.1.0";
+const SYSTEM_VERSION = "0.61.1";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -331,6 +331,8 @@ const emptyAdminForm: AdminFormData = {
   ds_senha: "",
   ds_observacao: "",
   ie_status: 'A',
+  ie_base_conhecimento: 'N',
+  ie_central_suporte: 'N',
 };
 
 const emptyCgForm: CadastroGeralFormData = {
@@ -1222,6 +1224,14 @@ export default function Home() {
     [currentUser]
   );
 
+  // Administrador sem perfis configurados: tem acesso total a tudo.
+  // Se o admin configurar perfis para si mesmo, esses perfis são respeitados
+  // (as permissões e funções configuradas prevalecem).
+  const isAdminSemConfig = useMemo(
+    () => isAdministrador && parsePerfisConfig(currentUser?.config_perfis).length === 0,
+    [isAdministrador, currentUser?.config_perfis]
+  );
+
   // Item protegido: o usuário 'administrador' ou o perfil 'Administrador' só
   // podem ser vistos por outros usuários (não podem ser alterados/excluídos).
   const isProtectedAdminItem = useMemo(() => {
@@ -1268,17 +1278,17 @@ export default function Home() {
   // Submódulos da função Administração do Sistema liberados ao usuário logado
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
-    // O administrador tem acesso total.
-    if (isAdministrador) return ['campos', 'perfis', 'usuarios'];
+    // Administrador sem perfis vinculados: acesso total.
+    if (isAdminSemConfig) return ['campos', 'perfis', 'usuarios'];
     return adminSubmodulosPermitidos(permissoesAtivas);
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Permissões das opções de Administração do Sistema (menu de contexto) para
   // o usuário logado: o administrador tem tudo liberado; os demais seguem o
   // perfil ativo (sem configuração salva = tudo liberado).
   const permissoesAdmin = useMemo(() => {
     const permitida = (permissao: string) =>
-      isAdministrador || temPermissao(permissoesAtivas, 'administracaoSistema', permissao);
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'administracaoSistema', permissao);
     return {
       alterarStatusCampo: permitida('alterar_status_campo'),
       adicionarPerfil: permitida('adicionar_perfil'),
@@ -1292,14 +1302,14 @@ export default function Home() {
       delegarPerfisUsuario: permitida('delegar_perfis_usuario'),
       excluirUsuario: permitida('excluir_usuario'),
     };
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Permissões da função Cadastro de Pessoas (Pessoas Físicas/Jurídicas) para
   // o usuário logado: o administrador tem tudo liberado; os demais seguem o
   // perfil ativo (sem configuração salva = tudo liberado).
   const permissoesPessoa = useMemo(() => {
     const permitida = (permissao: string) =>
-      isAdministrador || temPermissao(permissoesAtivas, 'pessoaFisica', permissao);
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'pessoaFisica', permissao);
     return {
       adicionarPessoaFisica: permitida('adicionar_pessoa_fisica'),
       verPessoaFisica: permitida('ver_pessoa_fisica'),
@@ -1308,22 +1318,22 @@ export default function Home() {
       verPessoaJuridica: permitida('ver_pessoa_juridica'),
       excluirPessoaJuridica: permitida('excluir_pessoa_juridica'),
     };
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Submódulos da função Cadastro de Pessoas (Pessoas Físicas/Jurídicas)
   // liberados ao usuário logado conforme as permissões do perfil ativo.
   const allowedPessoaSubmodulos = useMemo(() => {
-    // O administrador tem acesso total.
-    if (isAdministrador) return ['pessoasFisicas', 'pessoasJuridicas'];
+    // Administrador sem perfis vinculados: acesso total.
+    if (isAdminSemConfig) return ['pessoasFisicas', 'pessoasJuridicas'];
     return pessoaSubmodulosPermitidos(permissoesAtivas);
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Permissões da função Cadastros Gerais (por seção/tipo de cadastro) para
   // o usuário logado: o administrador tem tudo liberado; os demais seguem o
   // perfil ativo (sem configuração salva = tudo liberado).
   const permissoesCg = useMemo(() => {
     const permitida = (permissao: string) =>
-      isAdministrador || temPermissao(permissoesAtivas, 'cadastrosGerais', permissao);
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'cadastrosGerais', permissao);
     // Chave de seção (dropdown) → sufixo usado nas chaves de permissão (snake_case).
     const secoes: Record<string, string> = {
       cargo: 'cargo',
@@ -1349,15 +1359,15 @@ export default function Home() {
       };
     }
     return resultado;
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Submódulos da função Cadastros Gerais (dropdown PAI) liberados ao usuário
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
-    // O administrador tem acesso total.
-    if (isAdministrador) return ['cargo', 'categoriaAtivo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional'];
+    // Administrador sem perfis vinculados: acesso total.
+    if (isAdminSemConfig) return ['cargo', 'categoriaAtivo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional'];
     return cgSubmodulosPermitidos(permissoesAtivas);
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Se o submódulo ativo deixar de ser permitido (ex.: perfil sem a permissão),
   // volta para o primeiro submódulo permitido.
@@ -1389,17 +1399,17 @@ export default function Home() {
   // Submódulos da função Estrutura Acadêmica (Alunos/Colaboradores) liberados
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
-    // O administrador tem acesso total.
-    if (isAdministrador) return ['alunos', 'colaboradores'];
+    // Administrador sem perfis vinculados: acesso total.
+    if (isAdminSemConfig) return ['alunos', 'colaboradores'];
     return eaSubmodulosPermitidos(permissoesAtivas);
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Permissões da função Estrutura Acadêmica (Alunos/Colaboradores) para o
   // usuário logado: o administrador tem tudo liberado; os demais seguem o
   // perfil ativo (sem configuração salva = tudo liberado).
   const permissoesEA = useMemo(() => {
     const permitida = (permissao: string) =>
-      isAdministrador || temPermissao(permissoesAtivas, 'estruturaAcademica', permissao);
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'estruturaAcademica', permissao);
     return {
       acessarAluno: permitida('acessar_aluno'),
       adicionarAluno: permitida('adicionar_aluno'),
@@ -1414,7 +1424,7 @@ export default function Home() {
       alterarStatusColaborador: permitida('alterar_status_colaborador'),
       excluirColaborador: permitida('excluir_colaborador'),
     };
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Se o submódulo ativo de Estrutura Acadêmica deixar de ser permitido,
   // volta para o primeiro submódulo permitido.
@@ -1428,16 +1438,16 @@ export default function Home() {
   // Submódulos da função Patrimônio (Ativos/...) liberados ao usuário logado
   // conforme as permissões do perfil ativo.
   const allowedPatrimonioSubmodulos = useMemo(() => {
-    // O administrador tem acesso total.
-    if (isAdministrador) return ['ativos', 'parametrosFuncao'];
+    // Administrador sem perfis vinculados: acesso total.
+    if (isAdminSemConfig) return ['ativos', 'parametrosFuncao'];
     return patrimonioSubmodulosPermitidos(permissoesAtivas);
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Permissões da função Patrimônio (Ativos) para o usuário logado: o
   // administrador tem tudo liberado; os demais seguem o perfil ativo.
   const permissoesPatrimonio = useMemo(() => {
     const permitida = (permissao: string) =>
-      isAdministrador || temPermissao(permissoesAtivas, 'patrimonio', permissao);
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'patrimonio', permissao);
     return {
       acessarAtivo: permitida('acessar_ativo'),
       adicionarAtivo: permitida('adicionar_ativo'),
@@ -1459,7 +1469,7 @@ export default function Home() {
       cancelarManutencao: permitida('cancelar_manutencao'),
       excluirManutencao: permitida('excluir_manutencao'),
     };
-  }, [isAdministrador, permissoesAtivas]);
+  }, [isAdminSemConfig, permissoesAtivas]);
 
   // Se o submódulo ativo de Patrimônio deixar de ser permitido, volta para
   // o primeiro submódulo permitido.
@@ -1502,8 +1512,8 @@ export default function Home() {
   }, [perfis, currentUser]);
 
   const allowedSections = useMemo(() => {
-    // O administrador tem todas as funções liberadas.
-    if (isAdministrador) return [...DEFAULT_SECTION_ORDER];
+    // Administrador sem perfis vinculados: todas as funções liberadas.
+    if (isAdminSemConfig) return [...DEFAULT_SECTION_ORDER];
 
     // Sem perfis vinculados = comportamento padrão: todas as funções liberadas.
     const perfilIds = parsePerfisConfig(currentUser?.config_perfis);
@@ -1520,7 +1530,7 @@ export default function Home() {
     const funcoes = parseFuncoesConfig(ativo.config_funcoes);
     // Mantém a ordem padrão do sistema, filtrando apenas o que foi liberado.
     return DEFAULT_SECTION_ORDER.filter((s) => funcoes.includes(s));
-  }, [isAdministrador, currentUser?.config_perfis, usuarioPerfisVinculados, activePerfilSequencia]);
+  }, [isAdminSemConfig, currentUser?.config_perfis, usuarioPerfisVinculados, activePerfilSequencia]);
 
   const pfColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_pessoa_fisica),
@@ -3459,6 +3469,8 @@ export default function Home() {
       ds_observacao: usuario.ds_observacao,
       nr_seq_pessoa_fisica: usuario.nr_seq_pessoa_fisica,
       ie_status: usuario.ie_status ?? 'A',
+      ie_base_conhecimento: usuario.ie_base_conhecimento ?? 'N',
+      ie_central_suporte: usuario.ie_central_suporte ?? 'N',
     });
     setAdminOriginalSenhaHash(usuario.ds_senha ?? null);
     setAdminEditingId(usuario.id ?? null);
@@ -4662,6 +4674,8 @@ export default function Home() {
         ds_senha: senhaHash,
         ds_observacao: adminForm.ds_observacao,
         ie_status: adminForm.ie_status,
+        ie_base_conhecimento: adminForm.ie_base_conhecimento ?? 'N',
+        ie_central_suporte: adminForm.ie_central_suporte ?? 'N',
       };
       if (adminForm.nr_seq_pessoa_fisica !== undefined && adminForm.nr_seq_pessoa_fisica !== null) {
         usuarioPayload.nr_seq_pessoa_fisica = adminForm.nr_seq_pessoa_fisica;
@@ -4670,13 +4684,15 @@ export default function Home() {
       if (adminEditingId) {
         const currentUsuario = usuarios.find((u) => u.id === adminEditingId);
         const hasChanges = currentUsuario
-          ? [
+          ?          [
               'nr_seq_pessoa_fisica',
               'ds_usuario',
               'ds_usuario_alternativo',
               'ds_email',
               'ds_observacao',
               'ie_status',
+              'ie_base_conhecimento',
+              'ie_central_suporte',
             ].some((field) => String((currentUsuario as any)[field] ?? '') !== String((adminForm as any)[field] ?? ''))
             || Boolean(adminForm.ds_senha)
           : true;
@@ -4697,6 +4713,21 @@ export default function Home() {
           ie_status: adminForm.ie_status ?? null,
         };
         await atualizarUsuario(adminEditingId, updatePayload as any, auditAutor);
+        // Se o usuário editado é o logado, atualizar o currentUser para
+        // refletir as alterações imediatamente (ex.: checkboxes do menu lateral).
+        if (adminEditingId === currentUser?.id) {
+          setCurrentUser((u) => u ? {
+            ...u,
+            ds_usuario: adminForm.ds_usuario,
+            ds_usuario_alternativo: adminForm.ds_usuario_alternativo,
+            ds_email: adminForm.ds_email,
+            ds_observacao: adminForm.ds_observacao,
+            ie_status: adminForm.ie_status,
+            ie_base_conhecimento: adminForm.ie_base_conhecimento,
+            ie_central_suporte: adminForm.ie_central_suporte,
+            nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica,
+          } : u);
+        }
         setMessage("Atualizado com sucesso!");
       } else {
         const novoUsuario = (adminForm.ds_usuario ?? "").trim().toLowerCase();
@@ -7420,6 +7451,7 @@ export default function Home() {
                           label: p.ds_perfil ?? '',
                         }))}
                         showPlaceholder={false}
+                        theme="sidebar"
                         className="!bg-[#1A4567] !text-white !border-[#1A4567] !rounded-[2px]"
                       />
                     </div>
@@ -7427,29 +7459,35 @@ export default function Home() {
 
                   {/* Alterar senha, Base de Conhecimento, Central de Suporte e Política de Privacidade */}
                   <div className="mt-8 flex flex-col gap-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setIsUserMenuOpen(false);
-                        setIsUserMenuClosing(false);
-                        if (currentUser) openChangePasswordModal(currentUser, true);
-                      }}
-                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
-                    >
-                      Alterar senha
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
-                    >
-                      Base de Conhecimento
-                    </button>
-                    <button
-                      type="button"
-                      className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
-                    >
-                      Central de Suporte
-                    </button>
+                    {!isAdministrador && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsUserMenuClosing(false);
+                          if (currentUser) openChangePasswordModal(currentUser, true);
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                      >
+                        Alterar senha
+                      </button>
+                    )}
+                    {currentUser?.ie_base_conhecimento === 'S' && (
+                      <button
+                        type="button"
+                        className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                      >
+                        Base de Conhecimento
+                      </button>
+                    )}
+                    {currentUser?.ie_central_suporte === 'S' && (
+                      <button
+                        type="button"
+                        className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                      >
+                        Central de Suporte
+                      </button>
+                    )}
                     <button
                       type="button"
                       className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
