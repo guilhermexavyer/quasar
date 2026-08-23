@@ -114,11 +114,7 @@ export function gerarHtmlRelatorio(
 
   // Determina alinhamento da célula
   function alinhamentoCss(campo: RelatorioCampo): string {
-    switch (campo.alinhamento) {
-      case "centro": return "text-align: center;";
-      case "direita": return "text-align: right;";
-      default: return "text-align: left;";
-    }
+    return "text-align: left;";
   }
 
   // Monta cabeçalho da tabela
@@ -284,11 +280,7 @@ function gerarLinhaHtml(
 }
 
 function alinhamentoCss(campo: RelatorioCampo): string {
-  switch (campo.alinhamento) {
-    case "centro": return "text-align: center;";
-    case "direita": return "text-align: right;";
-    default: return "text-align: left;";
-  }
+  return "text-align: left;";
 }
 
 /**
@@ -404,9 +396,15 @@ export function gerarPdf(
   const lineHeight = fontSize * 0.5;
   const cellPadding = 2;
 
-  // Calcula larguras das colunas
-  const totalLargura = campos.reduce((sum, c) => sum + (c.largura || 30), 0);
-  const colWidths = campos.map((c) => ((c.largura || 30) / totalLargura) * contentW);
+  // Conversão pixels → mm (96 DPI: 1px = 0.264583mm)
+  const pxToMm = (px: number) => px * 0.264583;
+
+  // Calcula larguras das colunas (valores em pixels → mm)
+  const largurasMm = campos.map((c) => pxToMm(c.largura ?? 30));
+  const totalLarguraMm = largurasMm.reduce((sum, w) => sum + w, 0);
+  // Se ultrapassar a largura do conteúdo, escala proporcionalmente
+  const scale = totalLarguraMm > contentW ? contentW / totalLarguraMm : 1;
+  const colWidths = largurasMm.map((w) => w * scale);
 
   let y = marginTop;
 
@@ -444,7 +442,7 @@ export function gerarPdf(
   doc.setFontSize(fontSize);
   doc.setFont(fontName, 'bold');
 
-  const headerH = fontSize + cellPadding * 2 + 2;
+  const headerH = pxToMm(relatorio.espessuraLabel ?? 16);
   checkPage(headerH + 4);
 
   campos.forEach((campo, i) => {
@@ -465,8 +463,8 @@ export function gerarPdf(
     const labelCor = hexToRgb(campo.corLabel || '#1a1a1a');
     if (labelCor) doc.setTextColor(labelCor.r, labelCor.g, labelCor.b);
     else doc.setTextColor(26, 26, 26);
-    const txtX = alinhamentoX(campo.alinhamento, x, w, cellPadding);
-    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), txtX, y + headerH - cellPadding - 1, { align: alinhamentoPdf(campo.alinhamento) });
+    const txtX = x + pxToMm(campo.alinhamentoHorizontal ?? 0);
+    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), txtX, y + headerH - cellPadding - 1);
   });
 
   y += headerH;
@@ -489,7 +487,7 @@ export function gerarPdf(
     }
 
     for (const reg of grupo.rows) {
-      const rowH = fontSize + cellPadding * 2 + 1;
+      const rowH = pxToMm(relatorio.espessuraCampo ?? 24);
       checkPage(rowH);
 
       // Zebrado
@@ -527,8 +525,9 @@ export function gerarPdf(
           }
         }
 
-        const txtX = alinhamentoX(campo.alinhamento, x, w, cellPadding);
-        doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), txtX, y + rowH - cellPadding - 1, { align: alinhamentoPdf(campo.alinhamento) });
+        const txtX = x + pxToMm(campo.alinhamentoHorizontal ?? 0);
+        const txtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSize * 0.35;
+        doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), txtX, txtY);
       });
 
       y += rowH;

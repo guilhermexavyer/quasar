@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useRef, useEffect } from "react";
 import Select from "@/components/ui/Select";
+import LoadingModal from "@/components/ui/LoadingModal";
 import { DATA_SOURCES, getDataSource } from "@/lib/relatorioDataSources";
 import {
   defaultConfigExcel,
@@ -19,6 +20,12 @@ import type {
 } from "@/types/relatorio";
 import CamposRelatorioTable, { type CamposRelatorioRow } from "@/components/relatorio/CamposRelatorioTable";
 
+interface ContextMenuItem {
+  label: string;
+  onClick?: () => void;
+  children?: ContextMenuItem[];
+}
+
 interface RelatorioBuilderProps {
   relatorio: Relatorio | null;
   onSave: (relatorio: Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">) => void;
@@ -27,6 +34,8 @@ interface RelatorioBuilderProps {
   manageSelection?: string;
   onManageSelectionChange?: (v: string) => void;
   allowedSubmodulos?: string[];
+  /** Context menu */
+  contextMenuItems?: ContextMenuItem[];
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
@@ -40,7 +49,8 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
     corCampo: c.corCampo || '#1a1a1a',
     backgroundCampo: c.backgroundCampo || '',
     posicao: c.posicao ?? idx + 1,
-    alinhamento: c.alinhamento || 'esquerda',
+    alinhamentoHorizontal: c.alinhamentoHorizontal ?? 0,
+    alinhamentoVertical: c.alinhamentoVertical ?? 0,
     largura: c.largura ?? 30,
     formatacao: c.formatacao || 'texto',
   };
@@ -66,7 +76,14 @@ export default function RelatorioBuilder({
   manageSelection = 'relatorios',
   onManageSelectionChange,
   allowedSubmodulos = ['relatorios'],
+  contextMenuItems = [],
 }: RelatorioBuilderProps) {
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  function handleContextMenu(e: React.MouseEvent) {
+    e.preventDefault();
+    setContextMenu({ x: e.clientX, y: e.clientY });
+  }
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const [dsRelatorio, setDsRelatorio] = useState(relatorio?.ds_relatorio ?? "");
@@ -82,17 +99,20 @@ export default function RelatorioBuilder({
   const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.formato ?? 'excel');
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
+  const [espessuraLabel, setEspessuraLabel] = useState(relatorio?.espessuraLabel ?? 16);
+  const [espessuraCampo, setEspessuraCampo] = useState(relatorio?.espessuraCampo ?? 24);
   const [erros, setErros] = useState<string[]>([]);
+  const [editingCampo, setEditingCampo] = useState(false);
 
   const dataSource = useMemo(() => (colecao ? getDataSource(colecao) : undefined), [colecao]);
   const camposDisponiveis = dataSource?.campos ?? [];
-  const opcoesColecao = DATA_SOURCES.map((ds) => ({ value: ds.value, label: ds.value }));
+  const opcoesColecao = DATA_SOURCES.map((ds) => ({ value: ds.value, label: ds.value })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
 
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        if (saving) return;
+        if (saving || editingCampo) return;
         const f = formRef.current;
         if (f && typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
@@ -101,7 +121,7 @@ export default function RelatorioBuilder({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [saving]);
+  }, [saving, editingCampo]);
 
   // ── Handlers ──
 
@@ -137,7 +157,7 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamento: c.alinhamento, formatacao: c.formatacao,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, formatacao: c.formatacao,
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
@@ -145,6 +165,8 @@ export default function RelatorioBuilder({
       formato,
       configExcel: formato === "excel" ? configExcel : undefined,
       configPdf: formato === "pdf" ? configPdf : undefined,
+      espessuraLabel,
+      espessuraCampo,
     };
     onSave(result);
   }
@@ -153,7 +175,31 @@ export default function RelatorioBuilder({
   const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
   return (
-    <div className="flex-1 flex flex-col min-h-0">
+    <div className="flex-1 flex flex-col min-h-0" onContextMenu={handleContextMenu}>
+      {contextMenu && contextMenuItems.length > 0 && (
+        <>
+          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
+          <div
+            className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+            style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
+          >
+            {contextMenuItems.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+                style={{ padding: '0.2rem 0.4rem' }}
+                onClick={() => {
+                  item.onClick?.();
+                  setContextMenu(null);
+                }}
+              >
+                {item.label}
+              </button>
+            ))}
+          </div>
+        </>
+      )}
       {/* ── Toolbar ── */}
       <div className="flex items-center justify-between gap-3 min-h-[42px]">
         <div className="flex items-center gap-2">
@@ -229,22 +275,53 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           <section className="mt-[15px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Campos do relatório</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Campos</h2>
               {colecao && (
-                <button type="button" onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamento: 'esquerda', largura: 30, formatacao: 'texto' }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+                <button type="button" onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, largura: 30, formatacao: 'texto' }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
               )}
             </div>
             {!colecao && (
               <p className="text-sm text-slate-400">Selecione uma fonte de dados primeiro.</p>
             )}
             {colecao && (
+              <>
               <CamposRelatorioTable
                 campos={campos}
                 onChange={setCampos}
                 camposDisponiveis={camposDisponiveis}
                 colecaoPrincipal={colecao}
-              />
+                onEditingChange={setEditingCampo}
+              />              <div className="grid gap-[15px] sm:grid-cols-12 mt-3">
+                <div className="sm:col-span-6 group">
+                  <label className={labelClass} style={{ color: '#666' }}>Espessura label</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={espessuraLabel}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setEspessuraLabel(v ? Math.max(1, Number(v)) : 1);
+                    }}
+                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                  />
+                </div>
+                <div className="sm:col-span-6 group">
+                  <label className={labelClass} style={{ color: '#666' }}>Espessura campo</label>
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    value={espessuraCampo}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setEspessuraCampo(v ? Math.max(1, Number(v)) : 1);
+                    }}
+                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                  />
+                </div>
+              </div>
+              </>
             )}
+
           </section>
 
           {/* ═══════════════════════════════════════════════ */}
@@ -533,9 +610,9 @@ export default function RelatorioBuilder({
                       </div>
                     )}
                   </div>
-                </div>
-              </div>
+                </div>              </div>
             )}
+
           </section>
         </div>
 
@@ -558,12 +635,13 @@ export default function RelatorioBuilder({
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
-                {saving ? "Salvando..." : "Salvar"}
+                Salvar
               </button>
             </div>
           </div>
         </div>
       </form>
+      <LoadingModal open={saving} message="Salvando..." />
     </div>
   );
 }

@@ -32,7 +32,7 @@ export interface Usuario {
   config_colunas_cg_marca?: string;
   config_colunas_cg_categoria_ativo?: string;
   config_colunas_cg_sistema_operacional?: string;
-  config_colunas_pat_ativos?: string;
+  config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;
   config_ordem_menu_lateral?: string;
   ie_base_conhecimento?: string;

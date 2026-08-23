@@ -106,6 +106,12 @@ export const ALINHAMENTOS = [
   { value: "direita", label: "Direita" },
 ] as const;
 
+export const ALINHAMENTOS_VERTICAIS = [
+  { value: "cima", label: "Cima" },
+  { value: "centro", label: "Centro" },
+  { value: "baixo", label: "Baixo" },
+] as const;
+
 /** Tamanhos de página PDF. */
 export const TAMANHOS_PAGINA = [
   { value: "A4", label: "A4" },

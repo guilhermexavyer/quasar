@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useMemo } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
 import type { DataSourceCampo, DataSourceDef } from "@/types/relatorio";
-import { gerarId, FORMATOS_CAMPO, ALINHAMENTOS } from "@/lib/relatorioUtils";
+import { gerarId, FORMATOS_CAMPO } from "@/lib/relatorioUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
@@ -14,11 +14,13 @@ interface CamposRelatorioTableProps {
   camposDisponiveis: DataSourceCampo[];
   /** Coleção principal selecionada no formulário. */
   colecaoPrincipal: string;
+  /** Callback quando o estado de edição muda. */
+  onEditingChange?: (editing: boolean) => void;
 }
 
 export interface CamposRelatorioRow {
   id: string;
-  /** Coleção de onde o campo vem (ex.: 'pat_ativos', 'cg_marca'). */
+  /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
   colecao: string;
   chave: string;
   label: string;
@@ -27,7 +29,8 @@ export interface CamposRelatorioRow {
   corCampo: string;
   backgroundCampo: string;
   posicao: number;
-  alinhamento: 'esquerda' | 'centro' | 'direita';
+  alinhamentoHorizontal: number;
+  alinhamentoVertical: number;
   largura: number;
   formatacao: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
 }
@@ -65,8 +68,14 @@ export default function CamposRelatorioTable({
   onChange,
   camposDisponiveis,
   colecaoPrincipal,
+  onEditingChange,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  // Notificar o pai quando o estado de edição muda
+  useEffect(() => {
+    onEditingChange?.(editingId !== null);
+  }, [editingId, onEditingChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean>(true);
@@ -137,6 +146,7 @@ export default function CamposRelatorioTable({
 
   function handleContextMenu(row: CamposRelatorioRow, e: ReactMouseEvent<HTMLTableRowElement>) {
     e.preventDefault();
+    e.stopPropagation();
     setContextMenu({ x: e.clientX, y: e.clientY, id: row.id });
   }
 
@@ -153,6 +163,85 @@ export default function CamposRelatorioTable({
     const cmp = String(av).localeCompare(String(bv), 'pt-BR', { numeric: true });
     return sortAsc ? cmp : -cmp;
   });
+
+  // Rastrear a coluna que está sendo editada (para manter o foco ao avançar)
+  const editingColRef = useRef<string | null>(null);
+  const nextEditingIdRef = useRef<string | null>(null);
+
+  // Ao focar em um input/select durante edição, registrar a coluna
+  const trackColumn = useCallback((colKey: string) => {
+    editingColRef.current = colKey;
+  }, []);
+
+  // Após avançar para o próximo registro, focar o mesmo campo
+  useEffect(() => {
+    if (!nextEditingIdRef.current || editingColRef.current === null) return;
+    if (editingId !== nextEditingIdRef.current) return;
+    const colIdx = parseInt(editingColRef.current, 10);
+    nextEditingIdRef.current = null;
+    editingColRef.current = null;
+    // Esperar o DOM renderizar o novo registro em edição
+    requestAnimationFrame(() => {
+      const row = document.querySelector('tr.row-selected');
+      if (!row) return;
+      const cells = row.querySelectorAll<HTMLElement>('td');
+      const targetCell = cells[colIdx];
+      if (!targetCell) return;
+      const input = targetCell.querySelector<HTMLInputElement | HTMLButtonElement>('input, button.cg-select-trigger');
+      if (input) input.focus();
+    });
+  }, [editingId]);
+
+  // ── Salvar e avançar para o próximo registro ──
+  const saveAndAdvance = useCallback(() => {
+    if (!editingId) return;
+    const idx = sortedCampos.findIndex((c) => c.id === editingId);
+    if (idx >= 0 && idx < sortedCampos.length - 1) {
+      const nextId = sortedCampos[idx + 1].id;
+      nextEditingIdRef.current = nextId;
+      setEditingId(nextId);
+    } else {
+      setEditingId(null);
+    }
+  }, [editingId, sortedCampos]);
+
+  // Atalhos de teclado
+  useEffect(() => {
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if (!editingId) return;
+      const target = e.target as HTMLElement;
+      const tagName = target?.tagName?.toLowerCase();
+
+      // Ctrl+S → salvar registro
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        target.blur();
+        setTimeout(() => setEditingId(null), 0);
+        return;
+      }
+
+      // Enter → salvar e avançar (apenas em inputs, não em Selects)
+      if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+        const isInSelect = target?.closest?.('[data-select]') || target?.getAttribute?.('role') === 'combobox';
+        if (tagName === 'input' && !isInSelect) {
+          e.preventDefault();
+          // Registrar a coluna antes de avançar
+          const td = target.closest('td');
+          const tr = td?.closest('tr');
+          if (tr && td) {
+            const cellIndex = Array.from(tr.children).indexOf(td);
+            editingColRef.current = String(cellIndex);
+          }
+          // Forçar blur para que o NumberInput salve o valor via onBlur
+          target.blur();
+          // Usar setTimeout para avançar depois do blur processar
+          setTimeout(() => saveAndAdvance(), 0);
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [editingId, saveAndAdvance]);
 
   function handleSort(key: string) {
     if (sortColumn === key) {
@@ -174,23 +263,21 @@ export default function CamposRelatorioTable({
       key: "_actions",
       label: " ",
       fixed: true,
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
-            <button type="button" onClick={() => setEditingId(null)} className="inline-flex h-5 w-5 items-center justify-center cursor-pointer text-[#333] hover:text-[#003056]" title="Concluir edição">
+            <button type="button" onClick={() => setEditingId(null)} className="inline-flex h-5 w-5 items-center justify-center cursor-pointer text-[#555] dark:text-[#ccc]">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
                 <polyline points="20 6 9 17 4 12" />
               </svg>
             </button>
           );
         }
-        return (
-          <button
+        return (            <button
             type="button"
-            className="campo-edit-icon inline-flex h-5 w-5 items-center justify-center cursor-pointer text-[#333] hover:text-[#003056]"
+            className="campo-edit-icon inline-flex h-5 w-5 items-center justify-center cursor-pointer text-[#555] dark:text-[#ccc]"
             onClick={() => setEditingId(row.id)}
-            title="Editar campo"
           >
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -255,89 +342,100 @@ export default function CamposRelatorioTable({
     {
       key: "backgroundLabel",
       label: "Fundo label",
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return <input type="color" value={row.backgroundLabel || '#e2e8f0'} onChange={(e) => atualizar(row.id, { backgroundLabel: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
         }
-        return <span className="inline-block w-8 h-4 mx-auto" style={{ background: row.backgroundLabel || '#e2e8f0' }} />;
+        return <span className="inline-block w-12 h-4" style={{ background: row.backgroundLabel || '#e2e8f0' }} />;
       },
     },
     {
       key: "corLabel",
       label: "Cor label",
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return <input type="color" value={row.corLabel || '#1a1a1a'} onChange={(e) => atualizar(row.id, { corLabel: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
         }
-        return <span className="inline-block w-8 h-4 mx-auto" style={{ background: row.corLabel || '#1a1a1a' }} />;
+        return <span className="inline-block w-12 h-4" style={{ background: row.corLabel || '#1a1a1a' }} />;
       },
     },
     {
       key: "corCampo",
       label: "Cor campo",
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return <input type="color" value={row.corCampo || '#1a1a1a'} onChange={(e) => atualizar(row.id, { corCampo: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
         }
-        return <span className="inline-block w-8 h-4 mx-auto" style={{ background: row.corCampo || '#1a1a1a' }} />;
+        return <span className="inline-block w-12 h-4" style={{ background: row.corCampo || '#1a1a1a' }} />;
       },
     },
     {
       key: "backgroundCampo",
       label: "Fundo campo",
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return <input type="color" value={row.backgroundCampo || '#ffffff'} onChange={(e) => atualizar(row.id, { backgroundCampo: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
         }
-        return <span className="inline-block w-8 h-4 mx-auto" style={{ background: row.backgroundCampo || '#ffffff' }} />;
+        return <span className="inline-block w-12 h-4" style={{ background: row.backgroundCampo || '#ffffff' }} />;
       },
     },
     {
       key: "posicao",
       label: "Posição",
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.posicao ?? 1} onChange={(v) => atualizar(row.id, { posicao: v })} min={1} className={`${inputClass} !text-xs text-center`} />;
+          return <NumberInput value={row.posicao ?? 1} onChange={(v) => atualizar(row.id, { posicao: v })} min={1} className={`${inputClass} !text-xs max-w-[60px]`} />;
         }
         return <span>{row.posicao ?? '—'}</span>;
       },
     },
     {
-      key: "alinhamento",
-      label: "Alinhamento",
-      align: "center" as const,
+      key: "alinhamentoHorizontal",
+      label: "Alinhamento horizontal",
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <Select value={row.alinhamento ?? 'esquerda'} onChange={(v) => atualizar(row.id, { alinhamento: v as any })} options={[...ALINHAMENTOS]} showPlaceholder={false} className="!text-xs" />;
+          return <NumberInput value={row.alinhamentoHorizontal ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoHorizontal: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
         }
-        return <span className="capitalize">{row.alinhamento ?? 'esquerda'}</span>;
+        return <span>{row.alinhamentoHorizontal ?? 0}</span>;
+      },
+    },
+    {
+      key: "alinhamentoVertical",
+      label: "Alinhamento vertical",
+      
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <NumberInput value={row.alinhamentoVertical ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoVertical: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
+        }
+        return <span>{row.alinhamentoVertical ?? 0}</span>;
       },
     },
     {
       key: "largura",
       label: "Largura",
-      align: "center" as const,
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={5} max={200} className={`${inputClass} !text-xs text-center`} />;
+          return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
         }
         return <span>{row.largura ?? 30}</span>;
       },
     },
     {
       key: "formatacao",
-      label: "Fmt",
-      align: "center" as const,
+      label: "Formato",
+      
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <Select value={row.formatacao ?? 'texto'} onChange={(v) => atualizar(row.id, { formatacao: v as any })} options={[...FORMATOS_CAMPO]} showPlaceholder={false} className="!text-xs" />;
+          return <Select value={row.formatacao ?? 'texto'} onChange={(v) => atualizar(row.id, { formatacao: v as any })} options={[...FORMATOS_CAMPO]} showPlaceholder={false} className="!text-xs max-w-[120px]" />;
         }
-        return <span>{row.formatacao ?? 'texto'}</span>;
+        return <span className="whitespace-nowrap">{row.formatacao ?? 'texto'}</span>;
       },
     },
   ];
@@ -345,8 +443,7 @@ export default function CamposRelatorioTable({
   return (
     <div className="relative">
       <style>{`
-        .campo-row:hover .campo-edit-icon { opacity: 1; }
-        .campo-edit-icon { opacity: 0; }
+        .campo-edit-icon { opacity: 1; }
       `}</style>
 
       <ResizableTable
@@ -357,7 +454,7 @@ export default function CamposRelatorioTable({
         sortAsc={sortAsc}
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
-        rowClassName={(row) => `campo-row${editingId === row.id ? ' bg-blue-50/50' : ''}`}
+        rowClassName={(row) => `campo-row${editingId === row.id ? ' row-selected' : ''}`}
         pinnedColumns={["_actions"]}
       />
 

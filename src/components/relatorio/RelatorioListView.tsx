@@ -49,6 +49,9 @@ const COLUMNS = [
   { key: "colecao", label: "Fonte de dados" },
   { key: "formato", label: "Formato" },
   { key: "qtdCampos", label: "Campos", align: "center" as const },
+  { key: "qtdFiltros", label: "Filtros", align: "center" as const },
+  { key: "qtdOrdenacao", label: "Ordenação", align: "center" as const },
+  { key: "dt_criacao", label: "Criado em" },
   { key: "dt_alteracao", label: "Alterado em" },
 ];
 
@@ -94,6 +97,8 @@ export default function RelatorioListView({
     _id: rel.id ?? String(rel.nr_sequencia),
     colecaoLabel: DATA_SOURCES.find((ds) => ds.value === rel.colecao)?.label ?? rel.colecao,
     qtdCampos: rel.campos?.length ?? 0,
+    qtdFiltros: rel.filtros?.length ?? 0,
+    qtdOrdenacao: rel.ordenacao?.length ?? 0,
   }));
 
   const showPlaceholder = !manageSelection;
@@ -151,6 +156,8 @@ export default function RelatorioListView({
                 render: (row: any) => {
                   if (col.key === "colecao") return row.colecaoLabel;
                   if (col.key === "qtdCampos") return row.qtdCampos;
+                  if (col.key === "qtdFiltros") return row.qtdFiltros;
+                  if (col.key === "qtdOrdenacao") return row.qtdOrdenacao;
                   return formatCellValue(col.key, row[col.key]);
                 },
               }))}

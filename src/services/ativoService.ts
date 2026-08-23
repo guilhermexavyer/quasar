@@ -13,8 +13,8 @@ import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils"
 import type { Ativo } from "@/types/ativo";
 import type { AuditAutor } from "@/services/auditService";
 
-const ativoColecao = collection(db, "pat_ativos");
-const contadorDoc = doc(db, "_counters", "pat_ativos_sequence");
+const ativoColecao = collection(db, "pat_ativo");
+const contadorDoc = doc(db, "_counters", "pat_ativo_sequence");
 
 async function obterProximoSequencia(): Promise<number> {
   try {
@@ -76,8 +76,8 @@ export async function criarAtivo(
     ds_usuario_alteracao: nomeAutor,
   });
   try {
-    // registrar auditoria na subcollection pat_ativos/{id}/auditoria
-    const auditCol = collection(db, "pat_ativos", docRef.id, "auditoria");
+    // registrar auditoria na subcollection pat_ativo/{id}/auditoria
+    const auditCol = collection(db, "pat_ativo", docRef.id, "auditoria");
     const snap = await getDoc(docRef);
     const full = snap.exists() ? snap.data() : { ...dados, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
     await addDoc(auditCol, {
@@ -99,7 +99,7 @@ export async function atualizarAtivo(
   ativo: Partial<Omit<Ativo, "id" | "nr_sequencia" | "dt_criacao" | "ds_usuario_criacao" | "ds_usuario_alteracao">>,
   autor?: AuditAutor
 ): Promise<void> {
-  const docRef = doc(db, "pat_ativos", id);
+  const docRef = doc(db, "pat_ativo", id);
   const snap = await getDoc(docRef);
   if (!snap.exists()) {
     return;
@@ -131,7 +131,7 @@ export async function atualizarAtivo(
   });
 
   try {
-    const auditCol = collection(db, "pat_ativos", id, "auditoria");
+    const auditCol = collection(db, "pat_ativo", id, "auditoria");
     const estadoFinal: Record<string, any> = { ...currentData, ...updates, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
     for (const key of removidos) delete estadoFinal[key];
     const full = estadoFinal;
@@ -148,6 +148,6 @@ export async function atualizarAtivo(
 }
 
 export async function excluirAtivo(id: string): Promise<void> {
-  const docRef = doc(db, "pat_ativos", id);
+  const docRef = doc(db, "pat_ativo", id);
   await deleteDoc(docRef);
 }

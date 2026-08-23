@@ -5,8 +5,11 @@ import type { DataSourceDef } from "@/types/relatorio";
  * Cada entrada mapeia uma coleção do Firestore aos seus campos.
  */
 export const DATA_SOURCES: DataSourceDef[] = [
+  // ════════════════════════════════════════════════════════════
+  //  Patrimônio
+  // ════════════════════════════════════════════════════════════
   {
-    value: 'pat_ativos',
+    value: 'pat_ativo',
     label: 'Ativos (Patrimônio)',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -23,7 +26,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'dt_garantia', label: 'Data de garantia', tipo: 'date' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
       { key: 'dt_reativacao', label: 'Reativação', tipo: 'date' },
-      { key: 'nr_seq_ultima_manutencao', label: 'Última manutenção', tipo: 'number' },
+      { key: 'dt_ultima_manutencao', label: 'Última manutenção', tipo: 'date' },
+      { key: 'nr_seq_ultima_manutencao', label: 'Nr. última manutenção', tipo: 'number' },
       { key: 'dt_descarte', label: 'Data do descarte', tipo: 'date' },
       { key: 'ds_descarte', label: 'Motivo do descarte', tipo: 'string' },
       { key: 'ds_processador', label: 'Processador', tipo: 'string' },
@@ -44,7 +48,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     label: 'Manutenções',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
-      { key: 'nr_seq_ativo', label: 'Ativo', tipo: 'number', isFK: true, fkColecao: 'pat_ativos', fkLabel: 'ds_ativo' },
+      { key: 'nr_seq_ativo', label: 'Ativo', tipo: 'number', isFK: true, fkColecao: 'pat_ativo', fkLabel: 'ds_ativo' },
       { key: 'nr_seq_pessoa_fisica', label: 'Prestador de serviço', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'dt_envio', label: 'Data de envio', tipo: 'date' },
       { key: 'dt_termino', label: 'Data de término', tipo: 'date' },
@@ -58,51 +62,45 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
+    value: 'pat_param_codigo_patrimonio',
+    label: 'Parâmetros do Código de Patrimônio',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_parametro', label: 'Parâmetro', tipo: 'string' },
+      { key: 'ds_valor', label: 'Valor', tipo: 'string' },
+      { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  // ════════════════════════════════════════════════════════════
+  //  Cadastro de Pessoas
+  // ════════════════════════════════════════════════════════════
+  {
     value: 'pessoa_fisica',
     label: 'Pessoas Físicas',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_nome', label: 'Nome', tipo: 'string' },
-      { key: 'ds_cpf', label: 'CPF', tipo: 'string' },
-      { key: 'dt_nascimento', label: 'Data de nascimento', tipo: 'date' },
+      { key: 'nr_cpf', label: 'CPF', tipo: 'string' },
+      { key: 'dt_nascimento', label: 'Nascimento', tipo: 'date' },
       { key: 'ds_email', label: 'E-mail', tipo: 'string' },
-      { key: 'ds_telefone', label: 'Telefone', tipo: 'string' },
+      { key: 'nr_telefone', label: 'Telefone', tipo: 'string' },
       { key: 'nr_seq_sexo', label: 'Sexo', tipo: 'number', isFK: true, fkColecao: 'cg_sexo', fkLabel: 'ds_sexo' },
       { key: 'nr_seq_estado_civil', label: 'Estado civil', tipo: 'number', isFK: true, fkColecao: 'cg_estado_civil', fkLabel: 'ds_estado_civil' },
       { key: 'nr_seq_cor_raca', label: 'Cor/Raça', tipo: 'number', isFK: true, fkColecao: 'cg_cor_raca', fkLabel: 'ds_cor_raca' },
       { key: 'nr_seq_profissao', label: 'Profissão', tipo: 'number', isFK: true, fkColecao: 'cg_profissao', fkLabel: 'ds_profissao' },
-      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
-      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
-    ],
-  },
-  {
-    value: 'aluno',
-    label: 'Alunos',
-    campos: [
-      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
-      { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
-      { key: 'dt_ingresso', label: 'Data de ingresso', tipo: 'date' },
-      { key: 'nr_seq_responsavel', label: 'Responsável', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
-      { key: 'ds_tipo_sanguineo', label: 'Tipo sanguíneo', tipo: 'string' },
-      { key: 'ds_alergia', label: 'Alergia', tipo: 'string' },
-      { key: 'ds_medicamento_continuo', label: 'Medicamento contínuo', tipo: 'string' },
-      { key: 'ds_restricao_alimentar', label: 'Restrição alimentar', tipo: 'string' },
-      { key: 'ds_necessidade_especial', label: 'Necessidade especial', tipo: 'string' },
-      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
-      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
-    ],
-  },
-  {
-    value: 'colaborador',
-    label: 'Colaboradores',
-    campos: [
-      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
-      { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
-      { key: 'dt_admissao', label: 'Data de admissão', tipo: 'date' },
-      { key: 'nr_seq_cargo', label: 'Cargo', tipo: 'number', isFK: true, fkColecao: 'cg_cargo', fkLabel: 'ds_cargo' },
-      { key: 'nr_seq_vinculo_contratual', label: 'Vínculo contratual', tipo: 'number', isFK: true, fkColecao: 'cg_vinculo_contratual', fkLabel: 'ds_vinculo_contratual' },
-      { key: 'ie_fornecedor', label: 'Fornecedor', tipo: 'string' },
-      { key: 'ie_prestador_servico', label: 'Prestador de serviço', tipo: 'string' },
+      { key: 'nr_rg', label: 'RG', tipo: 'string' },
+      { key: 'dt_emissao', label: 'Data de emissão RG', tipo: 'date' },
+      { key: 'nr_seq_orgao_emissor', label: 'Órgão emissor', tipo: 'number', isFK: true, fkColecao: 'cg_orgao_emissor', fkLabel: 'ds_orgao_emissor' },
+      { key: 'sg_estado', label: 'UF', tipo: 'string' },
+      { key: 'cd_ibge_naturalidade', label: 'Naturalidade (IBGE)', tipo: 'string' },
+      { key: 'nr_cep', label: 'CEP', tipo: 'string' },
+      { key: 'ds_endereco', label: 'Endereço', tipo: 'string' },
+      { key: 'nr_endereco', label: 'Número', tipo: 'string' },
+      { key: 'ds_bairro', label: 'Bairro', tipo: 'string' },
+      { key: 'ds_complemento', label: 'Complemento', tipo: 'string' },
+      { key: 'nr_seq_logradouro', label: 'Logradouro', tipo: 'number', isFK: true, fkColecao: 'cg_logradouro', fkLabel: 'ds_logradouro' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
@@ -121,14 +119,195 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
+  // ════════════════════════════════════════════════════════════
+  //  Estrutura Acadêmica
+  // ════════════════════════════════════════════════════════════
+  {
+    value: 'aluno',
+    label: 'Alunos',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
+      { key: 'nr_matricula', label: 'Matrícula', tipo: 'string' },
+      { key: 'dt_ingresso', label: 'Data de ingresso', tipo: 'date' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_status', label: 'Data do status', tipo: 'date' },
+      { key: 'ds_status', label: 'Descrição do status', tipo: 'string' },
+      { key: 'ds_tipo_sanguineo', label: 'Tipo sanguíneo', tipo: 'string' },
+      { key: 'ds_alergia', label: 'Alergia', tipo: 'string' },
+      { key: 'ds_medicamento_continuo', label: 'Medicamento contínuo', tipo: 'string' },
+      { key: 'ds_restricao_alimentar', label: 'Restrição alimentar', tipo: 'string' },
+      { key: 'ds_necessidade_especial', label: 'Necessidade especial', tipo: 'string' },
+      { key: 'ds_observacao_medica', label: 'Observação médica', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'colaborador',
+    label: 'Colaboradores',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
+      { key: 'nr_seq_pessoa_juridica', label: 'Pessoa jurídica', tipo: 'number', isFK: true, fkColecao: 'pessoa_juridica', fkLabel: 'ds_razao_social' },
+      { key: 'nr_seq_vinculo_contratual', label: 'Vínculo contratual', tipo: 'number', isFK: true, fkColecao: 'cg_vinculo_contratual', fkLabel: 'ds_vinculo_contratual' },
+      { key: 'nr_matricula', label: 'Matrícula', tipo: 'string' },
+      { key: 'dt_admissao', label: 'Data de admissão', tipo: 'date' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_status', label: 'Data do status', tipo: 'date' },
+      { key: 'ds_status', label: 'Descrição do status', tipo: 'string' },
+      { key: 'ie_fornecedor', label: 'Fornecedor', tipo: 'string' },
+      { key: 'ie_prestador_servico', label: 'Prestador de serviço', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  // ════════════════════════════════════════════════════════════
+  //  Administração do Sistema
+  // ════════════════════════════════════════════════════════════
+  {
+    value: 'usuario',
+    label: 'Usuários',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
+      { key: 'ds_usuario', label: 'Usuário', tipo: 'string' },
+      { key: 'ds_usuario_alternativo', label: 'Usuário alternativo', tipo: 'string' },
+      { key: 'ds_email', label: 'E-mail', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'perfil',
+    label: 'Perfis',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_perfil', label: 'Perfil', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'relatorios',
+    label: 'Relatórios',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_relatorio', label: 'Relatório', tipo: 'string' },
+      { key: 'colecao', label: 'Coleção', tipo: 'string' },
+      { key: 'formato', label: 'Formato', tipo: 'string' },
+      { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  // ════════════════════════════════════════════════════════════
+  //  Cadastros Gerais — Sexo
+  // ════════════════════════════════════════════════════════════
+  {
+    value: 'cg_sexo',
+    label: 'Sexo',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_sexo', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_estado_civil',
+    label: 'Estado Civil',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_estado_civil', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_cor_raca',
+    label: 'Cor/Raça',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_cor_raca', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_profissao',
+    label: 'Profissões',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_profissao', label: 'Descrição', tipo: 'string' },
+      { key: 'nr_cbo', label: 'CBO', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_vinculo_contratual',
+    label: 'Vínculos Contratuais',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_vinculo_contratual', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_orgao_emissor',
+    label: 'Órgãos Emissores',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'sg_orgao_emissor', label: 'Sigla', tipo: 'string' },
+      { key: 'ds_orgao_emissor', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_grau_parentesco',
+    label: 'Graus de Parentesco',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_grau_parentesco', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_logradouro',
+    label: 'Logradouros',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'sg_logradouro', label: 'Sigla', tipo: 'string' },
+      { key: 'ds_logradouro', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
   {
     value: 'cg_categoria_ativo',
     label: 'Categorias (Ativo)',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_categoria', label: 'Descrição', tipo: 'string' },
-      { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
   {
@@ -138,6 +317,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_localizacao', label: 'Descrição', tipo: 'string' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
   {
@@ -147,6 +328,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_marca', label: 'Descrição', tipo: 'string' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
   {
@@ -156,6 +339,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_cargo', label: 'Descrição', tipo: 'string' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
   {
@@ -165,6 +350,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_sistema_operacional', label: 'Descrição', tipo: 'string' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
 ];

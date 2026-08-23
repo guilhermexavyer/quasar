@@ -388,7 +388,7 @@ const PATRIMONIO_SELECT_OPTIONS = [
 ];
 
 const RELATORIO_SELECT_OPTIONS = [
-  { value: 'relatorios', label: 'Relatórios' },
+  { value: 'relatorios', label: 'Gerenciador de Relatórios' },
 ];
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -709,8 +709,8 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
     ),
   },
   relatorio: {
-    label: "Relatórios",
-    labelMaxW: "max-w-[150px]",
+    label: "Gerenciador de Relatórios",
+    labelMaxW: "max-w-[220px]",
     icon: (
       <svg
         width="14"
@@ -1641,8 +1641,8 @@ export default function Home() {
     [currentUser?.config_colunas_aluno]
   );
   const ativoColunasConfig = useMemo(
-    () => parseColunasConfig(currentUser?.config_colunas_pat_ativos),
-    [currentUser?.config_colunas_pat_ativos]
+    () => parseColunasConfig(currentUser?.config_colunas_pat_ativo),
+    [currentUser?.config_colunas_pat_ativo]
   );
   const manutencaoColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_pat_manutencao),
@@ -2226,12 +2226,13 @@ export default function Home() {
           pjManageSelection,
           alunoManageSelection,
           patrimonioManageSelection: ativoManageSelection,
+          relatorioManageSelection,
         })
       );
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection]);
+  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -2339,6 +2340,7 @@ export default function Home() {
           pjManageSelection?: string;
           alunoManageSelection?: string;
           patrimonioManageSelection?: string;
+          relatorioManageSelection?: string;
         };
 
         if (!session?.userId) return;
@@ -2375,6 +2377,10 @@ export default function Home() {
         if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
           setAtivoManageSelection(session.patrimonioManageSelection);
           setAtivoInteracted(true);
+        }
+        if (typeof session.relatorioManageSelection === "string" && session.relatorioManageSelection.trim() !== "") {
+          setRelatorioManageSelection(session.relatorioManageSelection);
+          setRelatorioInteracted(true);
         }
         setView("list");
         setIsAuthenticated(true);
@@ -2924,7 +2930,7 @@ export default function Home() {
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const logs = await fetchAuditByDocumentId('pat_ativos', ativoId);
+      const logs = await fetchAuditByDocumentId('pat_ativo', ativoId);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -3420,7 +3426,7 @@ export default function Home() {
 
   async function carregarAutorAuditoriaAtivo(id: string) {
     try {
-      const logs = await fetchAuditByDocumentId('pat_ativos', id);
+      const logs = await fetchAuditByDocumentId('pat_ativo', id);
       if (auditAtivoIdRef.current !== id) return;
       const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
       const lastChangeLog = logs.find((l) => {
@@ -4648,7 +4654,7 @@ export default function Home() {
     event.preventDefault();
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
-    const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativos');
+    const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo');
     const ativoFaltantes = camposObrigatoriosVazios(ativoForm as unknown as Record<string, any>, ativoRegras);
     if (ativoFaltantes.length > 0) {
       setAtivoCampoErros(ativoFaltantes);
@@ -7061,9 +7067,9 @@ export default function Home() {
   function handleAtivoColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
-    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_ativos: serialized })
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_ativo: serialized })
       .then(() => {
-        setCurrentUser((u) => (u ? { ...u, config_colunas_pat_ativos: serialized } : u));
+        setCurrentUser((u) => (u ? { ...u, config_colunas_pat_ativo: serialized } : u));
       })
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Ativos)', err);
@@ -7993,6 +7999,11 @@ export default function Home() {
                      manageSelection={relatorioManageSelection}
                      onManageSelectionChange={handleRelatorioManageSelectionChange}
                      allowedSubmodulos={allowedRelatorioSubmodulos}
+                     contextMenuItems={relatorioEditingId ? [
+                       { label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } },
+                       { label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } },
+                       { label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } },
+                     ] : []}
                    />
                 </div>
               ) : (
@@ -8301,7 +8312,7 @@ export default function Home() {
                 manageSelection={ativoManageSelection}
                 onManageSelectionChange={handlePatrimonioManageSelectionChange}
                 allowedSubmodulos={allowedPatrimonioSubmodulos}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativos')}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo')}
                 campoErros={ativoCampoErros}
                 responsaveisNames={selectedAtivoResponsaveisNames}
                 onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('ativo', index)}

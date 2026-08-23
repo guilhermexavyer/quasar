@@ -11,7 +11,7 @@ export interface Relatorio {
   ds_observacao?: string;
 
   /* ── Fonte de dados ── */
-  /** Coleção principal do Firestore (ex.: 'pat_ativos'). */
+  /** Coleção principal do Firestore (ex.: 'pat_ativo'). */
   colecao: string;
   /** Joins com outras coleções. */
   joins?: RelatorioJoin[];
@@ -39,6 +39,12 @@ export interface Relatorio {
   configExcel?: RelatorioConfigExcel;
   /** Configurações específicas para PDF. */
   configPdf?: RelatorioConfigPdf;
+
+  /* ── Espessura (PDF) ── */
+  /** Espessura da linha do cabeçalho (label). */
+  espessuraLabel?: number;
+  /** Espessura da linha dos dados (campo). */
+  espessuraCampo?: number;
 
   /* ── Metadados ── */
   dt_criacao: string;
@@ -70,7 +76,7 @@ export interface RelatorioJoin {
 export interface RelatorioCampo {
   /** Identificador único do campo. */
   id: string;
-  /** Coleção de onde o campo vem (ex.: 'pat_ativos', 'cg_marca'). */
+  /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
   colecao?: string;
   /** Chave do campo na coleção (ex.: 'ds_ativo'). Se vier de join, usar 'alias.campo'. */
   chave: string;
@@ -88,8 +94,10 @@ export interface RelatorioCampo {
   posicao?: number;
   /** Largura da coluna (em caracteres para Excel, em pontos para PDF). */
   largura?: number;
-  /** Alinhamento do conteúdo. */
-  alinhamento?: 'esquerda' | 'centro' | 'direita';
+  /** Distância em pixels da margem esquerda. */
+  alinhamentoHorizontal?: number;
+  /** Distância em pixels do topo da linha. */
+  alinhamentoVertical?: number;
   /** Formatação especial do dado. */
   formatacao?: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   /** Casas decimais (apenas para número/moeda). */
