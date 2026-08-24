@@ -106,7 +106,7 @@ export default function Select({
       list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight - list.clientHeight;
     }
   }, [open, items, value, visibleOptions, forceOpenUp]);
-  // Recalculate position on scroll/resize so dropdown stays attached
+  // Recalculate position on scroll/resize — direct DOM update for zero delay
   useEffect(() => {
     if (!open) return;
     const recalc = () => {
@@ -117,6 +117,13 @@ export default function Select({
       const spaceAbove = triggerRect.top - 12;
       const up = forceOpenUp || (spaceBelow < listHeight && spaceAbove >= spaceBelow);
       setOpenUp(up);
+      // Direct DOM update — no React re-render delay
+      const list = listRef.current;
+      if (list) {
+        list.style.top = (up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2) + 'px';
+        list.style.left = triggerRect.left + 'px';
+        list.style.width = triggerRect.width + 'px';
+      }
       setDropdownPos({
         top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
         left: triggerRect.left,
