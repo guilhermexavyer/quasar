@@ -148,6 +148,10 @@ export interface RelatorioFiltro {
   valorFinal?: string;
   /** Conector lógico com o filtro anterior. */
   conector?: 'E' | 'OU';
+  /** Máscara de formatação do valor. */
+  mascara?: 'data' | 'decimal' | 'inteiro' | 'texto';
+  /** Se true, o valor será informado pelo usuário ao gerar o relatório. */
+  parametro?: boolean;
 }
 
 /**

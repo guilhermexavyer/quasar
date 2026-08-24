@@ -105,6 +105,8 @@ function estiloCss(estilo?: string): string {
   }
 }
 
+const pxToMm = (px: number) => px * 0.264583;
+
 export function gerarHtmlRelatorio(
   relatorio: Relatorio,
   registros: Record<string, any>[]
@@ -144,7 +146,8 @@ export function gerarHtmlRelatorio(
     const bgThStyle = bgLabel ? `background: ${bgLabel};` : '';
     const fonteLbl = relatorio.fonteLabel || 'Arial';
     const tamLbl = relatorio.tamanhoFonteLabel || config.tamanhoFonte;
-    return `<th style="padding: 6px 8px; border: 1px solid #333; ${bgThStyle} color: ${corLabel}; font-family: '${fonteLbl}', sans-serif; font-size: ${tamLbl}pt; ${largura} ${alinhamentoCssValor(campo.alinhamento)} ${estilo} white-space: nowrap;">${escapeHtml(campo.label)}</th>`;
+    const topoLbl = pxToMm(campo.alinhamentoVertical ?? 0);
+    return `<th style="padding: ${6 + topoLbl}mm 8px; border: 1px solid #333; ${bgThStyle} color: ${corLabel}; font-family: '${fonteLbl}', sans-serif; font-size: ${tamLbl}pt; ${largura} ${alinhamentoCssValor(campo.alinhamento)} ${estilo} white-space: nowrap;">${escapeHtml(campo.label)}</th>`;
   }).join("");
 
   // Monta linhas de dados
@@ -301,7 +304,8 @@ function gerarLinhaHtml(
     const estiloCampo = estiloCss(campo.estiloCampo);
     const fonteCamp = relatorio.fonteCampo || 'Arial';
     const tamCamp = relatorio.tamanhoFonteCampo || config.tamanhoFonte;
-    return `<td style="padding: 4px 8px; font-family: '${fonteCamp}', sans-serif; font-size: ${tamCamp}pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${corCampo}; ${bgStyle} ${alinhamentoCss(campo)} ${estiloCampo}">${escapeHtml(valorFormatado)}</td>`;
+    const topoCamp = pxToMm(campo.alinhamentoVertical ?? 0);
+    return `<td style="padding: ${4 + topoCamp}mm 8px; font-family: '${fonteCamp}', sans-serif; font-size: ${tamCamp}pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${corCampo}; ${bgStyle} ${alinhamentoCss(campo)} ${estiloCampo}">${escapeHtml(valorFormatado)}</td>`;
   }).join("");
   return `<tr>${tds}</tr>`;
 }
@@ -475,7 +479,7 @@ export function gerarPdf(
   const cellPadding = 2;
 
   // Conversão pixels → mm (96 DPI: 1px = 0.264583mm)
-  const pxToMm = (px: number) => px * 0.264583;
+
 
   // Calcula larguras das colunas (valores em pixels → mm)
   // Largura é absoluta: se o conteúdo não cabe, é cortado.
@@ -559,10 +563,11 @@ export function gerarPdf(
     const labelAlign = campo.alinhamento ?? 'esquerda';
     const labelTxtX = labelAlign === 'centro' ? x + w / 2 : labelAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
     const labelAlignOpt: 'left' | 'center' | 'right' = labelAlign === 'centro' ? 'center' : labelAlign === 'direita' ? 'right' : 'left';
-    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), labelTxtX, y + headerH - cellPadding - 1, { align: labelAlignOpt });
+    const labelTxtY = y + fontSizeLabel * 0.35 + pxToMm(campo.alinhamentoVertical ?? 0);
+    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), labelTxtX, labelTxtY, { align: labelAlignOpt });
     // Sublinhado manual
     if (temSublinhado(campo.estiloLabel)) {
-      desenharSublinhado(doc, labelTxtX, y + headerH - cellPadding - 1, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, relatorio.corLabelGlobal || '#1a1a1a');
+      desenharSublinhado(doc, labelTxtX, labelTxtY, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, relatorio.corLabelGlobal || '#1a1a1a');
     }
   });
 

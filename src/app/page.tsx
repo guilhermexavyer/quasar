@@ -175,11 +175,12 @@ import PerfilFormView, { type PerfilFormData } from "@/components/administracaoS
 import CamposView from "@/components/administracaoSistema/CamposView";
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
-import type { Relatorio } from "@/types/relatorio";
+import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
 import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio } from "@/services/relatorioService";
 import { gerarERealizarDownloadExcel } from "@/lib/relatorioExcel";
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
+import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
 import {
@@ -1196,6 +1197,8 @@ export default function Home() {
   const [relatorioForm, setRelatorioForm] = useState<Relatorio | null>(null);
   const [relatorioSubmitting, setRelatorioSubmitting] = useState(false);
   const [relatorioGerando, setRelatorioGerando] = useState(false);
+  const [relatorioParamModal, setRelatorioParamModal] = useState<{ relatorio: Relatorio; parametros: RelatorioFiltro[] } | null>(null);
+  const [relatorioParamValues, setRelatorioParamValues] = useState<Record<string, string>>({});
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
@@ -2622,7 +2625,24 @@ export default function Home() {
     }
   }
 
-  async function handleRelatorioGerar(relatorio: Relatorio) {
+  function handleRelatorioGerar(relatorio: Relatorio) {
+    // Check for parameter filters
+    const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
+    if (parametros.length > 0) {
+      // Initialize parameter values with current filter values
+      const initialValues: Record<string, string> = {};
+      for (const p of parametros) {
+        initialValues[p.id] = p.valor ?? '';
+      }
+      setRelatorioParamValues(initialValues);
+      setRelatorioParamModal({ relatorio, parametros });
+      return;
+    }
+    // No parameters — generate directly
+    executarRelatorioGerar(relatorio);
+  }
+
+  async function executarRelatorioGerar(relatorio: Relatorio) {
     setRelatorioGerando(true);
     setMessage('');
     try {
@@ -2669,6 +2689,20 @@ export default function Home() {
     } finally {
       setRelatorioGerando(false);
     }
+  }
+
+  function handleRelatorioParamConfirm() {
+    if (!relatorioParamModal) return;
+    // Apply parameter values to the relatorio's filters
+    const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
+      if (f.parametro && relatorioParamValues[f.id] !== undefined) {
+        return { ...f, valor: relatorioParamValues[f.id] };
+      }
+      return f;
+    });
+    const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
+    setRelatorioParamModal(null);
+    executarRelatorioGerar(updatedRelatorio);
   }
 
   async function handleRelatorioDuplicate(relatorio: Relatorio) {
@@ -11755,6 +11789,84 @@ export default function Home() {
               </svg>
             </div>
             <p className="text-sm text-slate-900">Carregando...</p>
+          </div>
+        </div>
+      )}
+
+      {/* ── Modal: Parâmetros do relatório ── */}
+      {relatorioParamModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setRelatorioParamModal(null)} />
+          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Parâmetros</h2>
+              <button
+                type="button"
+                onClick={() => setRelatorioParamModal(null)}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              {relatorioParamModal.parametros.map((filtro) => {
+                const ds = getDataSource(relatorioParamModal.relatorio.colecao);
+                const campoLabel = ds?.campos.find((cd) => cd.key === filtro.campo)?.label || filtro.campo;
+                const operadorLabel = OPERADORES_FILTRO.find((o) => o.value === filtro.operador)?.label || filtro.operador;
+                return (
+                  <div key={filtro.id}>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>{campoLabel} {operadorLabel}</label>
+                    <input
+                      type="text"
+                      inputMode={filtro.mascara === 'decimal' ? 'decimal' : filtro.mascara === 'inteiro' || filtro.mascara === 'data' ? 'numeric' : undefined}
+                      maxLength={filtro.mascara === 'data' ? 10 : undefined}
+                      placeholder={filtro.mascara === 'data' ? 'DD/MM/AAAA' : undefined}
+                      value={relatorioParamValues[filtro.id] ?? ''}
+                      onChange={(e) => {
+                        let val = e.target.value;
+                        if (filtro.mascara === 'data') {
+                          const digits = val.replace(/\D/g, '').slice(0, 8);
+                          if (digits.length <= 2) val = digits;
+                          else if (digits.length <= 4) val = digits.slice(0, 2) + '/' + digits.slice(2);
+                          else val = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+                        } else if (filtro.mascara === 'inteiro') {
+                          val = val.replace(/\D/g, '');
+                        } else if (filtro.mascara === 'decimal') {
+                          const digits = val.replace(/\D/g, '');
+                          if (digits) val = (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                          else val = '';
+                        }
+                        setRelatorioParamValues((prev) => ({ ...prev, [filtro.id]: val }));
+                      }}
+                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                    />
+                  </div>
+                );
+              })}
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={() => setRelatorioParamModal(null)}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleRelatorioParamConfirm}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Gerar
+              </button>
+            </div>
           </div>
         </div>
       )}

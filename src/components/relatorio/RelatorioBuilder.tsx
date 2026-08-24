@@ -20,6 +20,7 @@ import type {
   RelatorioAgrupamento,
 } from "@/types/relatorio";
 import CamposRelatorioTable, { type CamposRelatorioRow } from "@/components/relatorio/CamposRelatorioTable";
+import FiltrosRelatorioTable from "@/components/relatorio/FiltrosRelatorioTable";
 
 interface ContextMenuItem {
   label: string;
@@ -68,6 +69,8 @@ const EMPTY_FILTRO: () => RelatorioFiltro = () => ({
   operador: "igual",
   valor: "",
   valorFinal: "",
+  mascara: "texto",
+  parametro: false,
 });
 
 const RELATORIO_SELECT_OPTIONS = [
@@ -488,81 +491,15 @@ export default function RelatorioBuilder({
           {/* ── Seção: Filtros ── */}
           {/* ═══════════════════════════════════════════════ */}
           <section className="mt-[15px]">
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Filtros</h2>
-            <div className="space-y-[15px]">
-              {filtros.map((filtro, index) => (
-                <div key={filtro.id} className="grid gap-[15px] sm:grid-cols-12 items-start">
-                  {/* ConECTOR */}
-                  {index > 0 && (
-                    <div className="sm:col-span-1 group">
-                      {index === 1 && <label className={labelClass} style={{ color: '#666' }}>Conector</label>}
-                      <Select
-                        value={filtro.conector ?? "E"}
-                        onChange={(v) => atualizarFiltro(filtro.id, { conector: v as 'E' | 'OU' })}
-                        options={[{ value: "E", label: "E" }, { value: "OU", label: "OU" }]}
-                        showPlaceholder={false}
-                      />
-                    </div>
-                  )}
-                  <div className={index > 0 ? "sm:col-span-3 group" : "sm:col-span-4 group"}>
-                    {index === 0 && <label className={labelClass} style={{ color: '#666' }}>Campo</label>}
-                    <Select
-                      value={filtro.campo}
-                      onChange={(v) => atualizarFiltro(filtro.id, { campo: v })}
-                      options={camposDisponiveis.map((cd) => ({ value: cd.key, label: cd.label }))}
-                      showPlaceholder
-                    />
-                  </div>
-                  <div className="sm:col-span-3 group">
-                    {index === 0 && <label className={labelClass} style={{ color: '#666' }}>Operador</label>}
-                    <Select
-                      value={filtro.operador}
-                      onChange={(v) => atualizarFiltro(filtro.id, { operador: v as any })}
-                      options={[...OPERADORES_FILTRO]}
-                      showPlaceholder={false}
-                    />
-                  </div>
-                  {!["vazio", "nao_vazio"].includes(filtro.operador) && (
-                    <div className={filtro.operador === "entre" ? "sm:col-span-3 group" : "sm:col-span-5 group"}>
-                      {index === 0 && <label className={labelClass} style={{ color: '#666' }}>Valor</label>}
-                      <div className="flex items-center gap-1">
-                        <input
-                          value={filtro.valor ?? ""}
-                          onChange={(e) => atualizarFiltro(filtro.id, { valor: e.target.value })}
-                          className={`${inputClass} flex-1 min-w-0`}
-                        />
-                        <button type="button" onClick={adicionarFiltro} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]" title="Adicionar filtro">+</button>
-                        <button type="button" onClick={() => removerFiltro(filtro.id)} disabled={filtros.length <= 1} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-red-500 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700" title="Remover filtro">−</button>
-                      </div>
-                    </div>
-                  )}
-                  {filtro.operador === "entre" && (
-                    <div className="sm:col-span-3 group">
-                      {index === 0 && <label className={labelClass} style={{ color: '#666' }}>Valor final</label>}
-                      <div className="flex items-center gap-1">
-                        <input
-                          value={filtro.valorFinal ?? ""}
-                          onChange={(e) => atualizarFiltro(filtro.id, { valorFinal: e.target.value })}
-                          className={`${inputClass} flex-1 min-w-0`}
-                        />
-                        <button type="button" onClick={adicionarFiltro} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]" title="Adicionar filtro">+</button>
-                        <button type="button" onClick={() => removerFiltro(filtro.id)} disabled={filtros.length <= 1} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-red-500 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700" title="Remover filtro">−</button>
-                      </div>
-                    </div>
-                  )}
-                  {["vazio", "nao_vazio"].includes(filtro.operador) && (
-                    <div className="sm:col-span-1 group">
-                      {index === 0 && <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>}
-                      <div className="flex items-center gap-1">
-                        <button type="button" onClick={adicionarFiltro} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]" title="Adicionar filtro">+</button>
-                        <button type="button" onClick={() => removerFiltro(filtro.id)} disabled={filtros.length <= 1} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-red-500 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700" title="Remover filtro">−</button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-
+            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
+              <h2 className="text-sm font-semibold text-slate-900">Filtros</h2>
+              <button type="button" onClick={() => setFiltros((prev) => [...prev, { id: gerarId(), campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
+            <FiltrosRelatorioTable
+              filtros={filtros}
+              onChange={setFiltros}
+              camposDisponiveis={camposDisponiveis}
+            />
           </section>
 
           {/* ═══════════════════════════════════════════════ */}

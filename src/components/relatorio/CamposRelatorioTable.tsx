@@ -281,25 +281,34 @@ export default function CamposRelatorioTable({
       fixed: true,
       
       render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return (
-            <button type="button" onClick={() => setEditingId(null)} className="inline-flex h-5 w-5 items-center justify-center cursor-pointer text-[#555] dark:text-[#ccc]">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                <polyline points="20 6 9 17 4 12" />
-              </svg>
-            </button>
-          );
-        }
-        return (            <button
-            type="button"
-            className="campo-edit-icon inline-flex h-5 w-5 items-center justify-center cursor-pointer text-[#555] dark:text-[#ccc]"
-            onClick={() => setEditingId(row.id)}
-          >
-            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M17 3a2.85 2.85 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
-              <path d="m15 5 4 4" />
-            </svg>
-          </button>
+        const isEditing = editingId === row.id;
+        return (
+          <span className="flex items-center justify-center gap-1">
+            {!isEditing && (
+              <button
+                type="button"
+                className="cursor-pointer p-0 bg-transparent border-none"
+                title="Editar"
+                onClick={() => { setEditingId(row.id); setContextMenu(null); }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+                </svg>
+              </button>
+            )}
+            {isEditing && (
+              <button
+                type="button"
+                className="cursor-pointer p-0 bg-transparent border-none"
+                title="Salvar"
+                onClick={() => setEditingId(null)}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M20 6 9 17l-5-5" />
+                </svg>
+              </button>
+            )}
+          </span>
         );
       },
     },
@@ -318,7 +327,7 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        return <span className="truncate block">{row.colecao || '—'}</span>;
+        return <span className="truncate block">{row.colecao || '---'}</span>;
       },
     },
     {
@@ -359,7 +368,7 @@ export default function CamposRelatorioTable({
           );
         }
         const display = row.statusSistema ? row.chave + ' (sistema)' : row.chave;
-        return <span className="truncate block">{display || '—'}</span>;
+        return <span className="truncate block">{display || '---'}</span>;
       },
     },
     {
@@ -369,7 +378,7 @@ export default function CamposRelatorioTable({
         if (editingId === row.id) {
           return <input value={row.label} onChange={(e) => atualizar(row.id, { label: e.target.value })} className={`${inputClass} !text-xs`} />;
         }
-        return <span className="truncate block">{row.label || '—'}</span>;
+        return <span className="truncate block">{row.label || '---'}</span>;
       },
     },
     {
