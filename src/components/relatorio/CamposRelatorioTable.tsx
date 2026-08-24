@@ -31,8 +31,12 @@ export interface CamposRelatorioRow {
   posicao: number;
   alinhamentoHorizontal: number;
   alinhamentoVertical: number;
+  alinhamento: string;
+  estiloLabel: string;
+  estiloCampo: string;
   largura: number;
   formatacao: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
+  statusSistema?: boolean;
 }
 
 /** Input numérico sem spinner, que permite apagar o 0. */
@@ -60,6 +64,17 @@ function NumberInput({ value, onChange, min, max, className }: { value: number; 
     />
   );
 }
+
+const ESTILO_OPCOES = [
+  { value: '', label: '---' },
+  { value: 'negrito', label: 'Negrito' },
+  { value: 'italico', label: 'Itálico' },
+  { value: 'sublinhado', label: 'Sublinhado' },
+  { value: 'negrito_italico', label: 'Negrito + Itálico' },
+  { value: 'negrito_sublinhado', label: 'Negrito + Sublinhado' },
+  { value: 'italico_sublinhado', label: 'Itálico + Sublinhado' },
+  { value: 'negrito_italico_sublinhado', label: 'Negrito + Itálico + Sublinhado' },
+];
 
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm transition focus:border-[#003056] focus:outline-none";
 
@@ -128,6 +143,7 @@ export default function CamposRelatorioTable({
       if (updates.colecao && updates.colecao !== c.colecao) {
         atualizado.chave = '';
         atualizado.label = '';
+        atualizado.statusSistema = false;
       }
       // Se mudou a chave, atualiza label e formatação
       if (updates.chave && updates.chave !== c.chave) {
@@ -316,17 +332,34 @@ export default function CamposRelatorioTable({
               .filter((c) => c.chave && c.colecao === row.colecao && c.chave !== row.chave)
               .map((c) => c.chave)
           );
+          // Gera opções, duplicando ie_status com opção (sistema)
+          const opcoes: { value: string; label: string }[] = [];
+          for (const cd of camposDaColecao) {
+            if (cd.key === 'ie_status' || cd.key === 'ie_status_manutencao') {
+              const rawUsado = usadas.has(cd.key);
+              const sisUsado = usadas.has(cd.key + '__sistema');
+              if (!rawUsado) opcoes.push({ value: cd.key, label: cd.key + ' (banco)' });
+              if (!sisUsado) opcoes.push({ value: cd.key + '__sistema', label: cd.key + ' (sistema)' });
+            } else {
+              if (!usadas.has(cd.key)) opcoes.push({ value: cd.key, label: cd.key });
+            }
+          }
           return (
             <Select
-              value={row.chave}
-              onChange={(v) => atualizar(row.id, { chave: v })}
-              options={camposDaColecao.map((cd) => ({ value: cd.key, label: cd.key })).filter((o) => !usadas.has(o.value))}
+              value={row.statusSistema ? row.chave + '__sistema' : row.chave}
+              onChange={(v) => {
+                const isSistema = v.endsWith('__sistema');
+                const chave = isSistema ? v.replace('__sistema', '') : v;
+                atualizar(row.id, { chave, statusSistema: isSistema });
+              }}
+              options={opcoes}
               showPlaceholder
               className="!text-xs"
             />
           );
         }
-        return <span className="truncate block">{row.chave || '—'}</span>;
+        const display = row.statusSistema ? row.chave + ' (sistema)' : row.chave;
+        return <span className="truncate block">{display || '—'}</span>;
       },
     },
     {
@@ -396,7 +429,7 @@ export default function CamposRelatorioTable({
     },
     {
       key: "alinhamentoHorizontal",
-      label: "Alinhamento horizontal",
+      label: "Esquerda",
       
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
@@ -407,13 +440,77 @@ export default function CamposRelatorioTable({
     },
     {
       key: "alinhamentoVertical",
-      label: "Alinhamento vertical",
+      label: "Topo",
       
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return <NumberInput value={row.alinhamentoVertical ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoVertical: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
         }
         return <span>{row.alinhamentoVertical ?? 0}</span>;
+      },
+    },
+    {
+      key: "alinhamento",
+      label: "Alinhamento",
+      
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.alinhamento || 'esquerda'}
+              onChange={(v) => atualizar(row.id, { alinhamento: v })}
+              options={[
+                { value: 'esquerda', label: 'Esquerda' },
+                { value: 'centro', label: 'Centro' },
+                { value: 'direita', label: 'Direita' },
+              ]}
+              showPlaceholder={false}
+              className="!text-xs"
+            />
+          );
+        }
+        const lbl = row.alinhamento === 'centro' ? 'Centro' : row.alinhamento === 'direita' ? 'Direita' : 'Esquerda';
+        return <span className="whitespace-nowrap">{lbl}</span>;
+      },
+    },
+    {
+      key: "estiloLabel",
+      label: "Estilo label",
+      
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.estiloLabel || ''}
+              onChange={(v) => atualizar(row.id, { estiloLabel: v })}
+              options={ESTILO_OPCOES}
+              showPlaceholder={false}
+              className="!text-xs"
+            />
+          );
+        }
+        const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloLabel);
+        return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
+      },
+    },
+    {
+      key: "estiloCampo",
+      label: "Estilo campo",
+      
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.estiloCampo || ''}
+              onChange={(v) => atualizar(row.id, { estiloCampo: v })}
+              options={ESTILO_OPCOES}
+              showPlaceholder={false}
+              className="!text-xs"
+            />
+          );
+        }
+        const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloCampo);
+        return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
       },
     },
     {

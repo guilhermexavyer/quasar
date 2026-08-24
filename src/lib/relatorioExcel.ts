@@ -1,26 +1,44 @@
 /**
  * Geração de planilhas Excel a partir de dados de relatório.
- * 
- * Nota: Esta implementação gera um arquivo CSV que pode ser aberto no Excel.
- * Para uma geração Excel nativa, seria necessário instalar a lib 'xlsx' (SheetJS).
- * O CSV é amplamente compatível e mantém o projeto leve.
- * 
- * Se no futuro precisar de formatação avançada (cores, estilos, agrupamentos),
- * basta instalar 'xlsx' e adaptar esta função.
+ *
+ * Utiliza a lib 'xlsx' (SheetJS) para gerar arquivos .xlsx nativos
+ * com suporte a formatação (cores, estilos de fonte, agrupamentos, etc.).
  */
+import * as XLSX from "xlsx";
 import type { Relatorio, RelatorioCampo, RelatorioConfigExcel } from "@/types/relatorio";
 import { obterValorCampo } from "@/lib/relatorioQueryBuilder";
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
 /**
- * Escapa um valor para CSV (trata vírgulas, aspas e quebras de linha).
+ * Converte estilo para objeto de estilo XLSX.
  */
-function escapeCsv(value: any): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  if (str.includes(",") || str.includes('"') || str.includes("\n") || str.includes("\r")) {
-    return `"${str.replace(/"/g, '""')}"`;
-  }
-  return str;
+function estiloFonte(estilo?: string): { bold?: boolean; italic?: boolean; underline?: string } {
+  if (!estilo || estilo === "normal" || estilo === "") return {};
+  const result: { bold?: boolean; italic?: boolean; underline?: string } = {};
+  if (estilo.includes("negrito")) result.bold = true;
+  if (estilo.includes("italico")) result.italic = true;
+  if (estilo.includes("sublinhado")) result.underline = "single";
+  return result;
+}
+
+/**
+ * Converte cor hex para rgb XLSX (sem #).
+ */
+function hexToRgb(hex: string): string {
+  return hex.replace("#", "");
+}
+
+/**
+ * Cria um estilo de borda.
+ */
+function makeBorder() {
+  return {
+    top: { style: "thin" as const, color: { rgb: "333333" } },
+    bottom: { style: "thin" as const, color: { rgb: "333333" } },
+    left: { style: "thin" as const, color: { rgb: "333333" } },
+    right: { style: "thin" as const, color: { rgb: "333333" } },
+  };
 }
 
 /**
@@ -33,10 +51,7 @@ function formatarValor(valor: any, campo: RelatorioCampo): string {
     case "moeda": {
       const num = Number(valor);
       if (isNaN(num)) return String(valor);
-      return num.toLocaleString("pt-BR", {
-        style: "currency",
-        currency: "BRL",
-      });
+      return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });
     }
     case "numero": {
       const num = Number(valor);
@@ -56,21 +71,13 @@ function formatarValor(valor: any, campo: RelatorioCampo): string {
     }
     case "data": {
       if (!valor) return "";
-      try {
-        const d = new Date(valor);
-        return d.toLocaleDateString("pt-BR");
-      } catch {
-        return String(valor);
-      }
+      try { return new Date(valor).toLocaleDateString("pt-BR"); }
+      catch { return String(valor); }
     }
     case "data_hora": {
       if (!valor) return "";
-      try {
-        const d = new Date(valor);
-        return d.toLocaleString("pt-BR");
-      } catch {
-        return String(valor);
-      }
+      try { return new Date(valor).toLocaleString("pt-BR"); }
+      catch { return String(valor); }
     }
     default:
       return String(valor);
@@ -78,13 +85,13 @@ function formatarValor(valor: any, campo: RelatorioCampo): string {
 }
 
 /**
- * Gera o conteúdo CSV de um relatório.
+ * Gera e faz o download de um relatório em formato Excel (.xlsx).
  */
-export function gerarCsv(
+export function gerarERealizarDownloadExcel(
   relatorio: Relatorio,
   registros: Record<string, any>[]
-): string {
-  const { campos, configExcel } = relatorio;
+): void {
+  const { campos, configExcel, agrupamento } = relatorio;
   const config: RelatorioConfigExcel = configExcel ?? {
     incluirCabecalho: true,
     incluirRodape: true,
@@ -95,62 +102,157 @@ export function gerarCsv(
     orientacao: "retrato",
   };
 
-  const linhas: string[] = [];
+  const wb = XLSX.utils.book_new();
+  const dados: any[][] = [];
+  let rowIdx = 0;
 
-  // Cabeçalho do relatório (título)
+  // ── Título ──
   if (config.incluirCabecalho && config.titulo) {
-    linhas.push(escapeCsv(config.titulo));
-    linhas.push(escapeCsv(`Gerado em: ${new Date().toLocaleString("pt-BR")}`));
-    linhas.push(""); // linha em branco
+    dados.push([config.titulo]);
+    dados.push([`Gerado em: ${new Date().toLocaleString("pt-BR")}`]);
+    dados.push([]);
+    rowIdx = 3;
   }
 
-  // Cabeçalho das colunas
-  const cabecalho = campos.map((campo) => escapeCsv(campo.label));
-  linhas.push(cabecalho.join(","));
+  // ── Cabeçalho das colunas ──
+  const headerRowIdx = rowIdx;
+  dados.push(campos.map((campo) => campo.label));
+  rowIdx++;
 
-  // Dados
-  for (const registro of registros) {
-    const linha = campos.map((campo) => {
-      const valor = obterValorCampo(registro, campo.chave);
-      return escapeCsv(formatarValor(valor, campo));
-    });
-    linhas.push(linha.join(","));
+  // ── Dados ──
+  const dataRowStart = rowIdx;
+
+  if (agrupamento && agrupamento.campo) {
+    const grupos: Record<string, Record<string, any>[]> = {};
+    for (const reg of registros) {
+      const chave = String(obterValorCampo(reg, agrupamento.campo) ?? "(vazio)");
+      if (!grupos[chave]) grupos[chave] = [];
+      grupos[chave].push(reg);
+    }
+    for (const [chaveGrupo, regsGrupo] of Object.entries(grupos)) {
+      dados.push([chaveGrupo]);
+      rowIdx++;
+      for (const reg of regsGrupo) {
+        dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.chave), campo)));
+        rowIdx++;
+      }
+      if (agrupamento.incluirSubtotal) {
+        dados.push([`Subtotal: ${regsGrupo.length} registro(s)`]);
+        rowIdx++;
+      }
+    }
+    if (agrupamento.incluirTotalGeral) {
+      dados.push([`Total: ${registros.length} registro(s)`]);
+      rowIdx++;
+    }
+  } else {
+    for (const reg of registros) {
+      dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.chave), campo)));
+      rowIdx++;
+    }
   }
 
-  // Rodapé
+  // ── Rodapé ──
   if (config.incluirRodape) {
-    linhas.push(""); // linha em branco
-    linhas.push(escapeCsv(`Total de registros: ${registros.length}`));
+    dados.push([]);
+    dados.push([`Total de registros: ${registros.length}`]);
   }
 
-  return linhas.join("\r\n");
-}
+  // ── Criar worksheet ──
+  const ws = XLSX.utils.aoa_to_sheet(dados);
 
-/**
- * Faz o download do CSV gerado.
- */
-export function downloadCsv(conteudo: string, nomeArquivo: string): void {
-  // Adiciona BOM para UTF-8 (compatibilidade com Excel)
-  const bom = "\uFEFF";
-  const blob = new Blob([bom + conteudo], { type: "text/csv;charset=utf-8;" });
-  const url = URL.createObjectURL(blob);
-  const link = document.createElement("a");
-  link.href = url;
-  link.download = nomeArquivo.endsWith(".csv") ? nomeArquivo : `${nomeArquivo}.csv`;
-  document.body.appendChild(link);
-  link.click();
-  document.body.removeChild(link);
-  URL.revokeObjectURL(url);
-}
+  // ── Aplicar estilos via propriedade .s em cada célula ──
+  const corCabecalho = config.corCabecalho || "003056";
+  const corTextoCabecalho = config.corTextoCabecalho || "FFFFFF";
 
-/**
- * Gera e faz o download de um relatório em formato Excel (CSV).
- */
-export function gerarERealizarDownloadExcel(
-  relatorio: Relatorio,
-  registros: Record<string, any>[]
-): void {
-  const conteudo = gerarCsv(relatorio, registros);
-  const nomeArquivo = `${relatorio.ds_relatorio || "relatorio"}.csv`;
-  downloadCsv(conteudo, nomeArquivo);
+  // Estilo do cabeçalho
+  for (let col = 0; col < campos.length; col++) {
+    const campo = campos[col];
+    const cellRef = XLSX.utils.encode_cell({ r: headerRowIdx, c: col });
+    const cell = ws[cellRef];
+    if (cell) {
+      cell.s = {
+        font: {
+          bold: true,
+          ...estiloFonte(campo.estiloLabel),
+          color: { rgb: hexToRgb(corTextoCabecalho) },
+        },
+        fill: { fgColor: { rgb: hexToRgb(corCabecalho) } },
+        alignment: {
+          horizontal: campo.alinhamento === "centro" ? "center" : campo.alinhamento === "direita" ? "right" : "left",
+          vertical: "center",
+        },
+        border: (config.estiloCabecalho === "borda" || config.estiloCabecalho === "preenchido") ? makeBorder() : undefined,
+      };
+    }
+  }
+
+  // Estilo dos dados
+  for (let r = dataRowStart; r < dados.length; r++) {
+    const isDataRow = dados[r]?.length === campos.length;
+    if (!isDataRow) continue; // pular linhas de título, subtotal, etc.
+
+    for (let c = 0; c < campos.length; c++) {
+      const campo = campos[c];
+      const cellRef = XLSX.utils.encode_cell({ r, c });
+      const cell = ws[cellRef];
+      if (!cell) continue;
+
+      const estiloCampo = estiloFonte(campo.estiloCampo);
+      const hasStyle = Object.keys(estiloCampo).length > 0 || campo.corCampo || campo.backgroundCampo;
+
+      if (hasStyle) {
+        const s: any = {};
+        if (Object.keys(estiloCampo).length > 0) {
+          s.font = { ...estiloCampo };
+        }
+        if (campo.corCampo) {
+          if (!s.font) s.font = {};
+          s.font.color = { rgb: hexToRgb(campo.corCampo) };
+        }
+        if (campo.backgroundCampo) {
+          s.fill = { fgColor: { rgb: hexToRgb(campo.backgroundCampo) } };
+        }
+        s.alignment = {
+          horizontal: campo.alinhamento === "centro" ? "center" : campo.alinhamento === "direita" ? "right" : "left",
+          vertical: "center",
+        };
+        cell.s = s;
+      }
+
+      // Zebrado
+      if (config.zebrado && (r - dataRowStart) % 2 === 1) {
+        if (!cell.s) cell.s = {};
+        if (!cell.s.fill) {
+          cell.s.fill = { fgColor: { rgb: "F8FAFC" } };
+        }
+      }
+    }
+  }
+
+  // ── Largura das colunas ──
+  ws["!cols"] = campos.map((campo) => ({
+    wch: campo.largura ? Math.max(campo.largura / 5, 10) : 15,
+  }));
+
+  // ── Filtros automáticos ──
+  if (config.filtrosAutomaticos && campos.length > 0) {
+    ws["!autofilter"] = {
+      ref: XLSX.utils.encode_range({
+        s: { r: headerRowIdx, c: 0 },
+        e: { r: headerRowIdx, c: campos.length - 1 },
+      }),
+    };
+  }
+
+  // ── Congelar primeira linha ──
+  if (config.congelarPrimeiraLinha) {
+    ws["!freeze"] = { xSplit: 0, ySplit: headerRowIdx + 1 };
+  }
+
+  XLSX.utils.book_append_sheet(wb, ws, "Relatório");
+
+  // ── Download ──
+  const nomeArquivo = `${config.titulo || relatorio.ds_relatorio || "relatorio"}.xlsx`;
+  XLSX.writeFile(wb, nomeArquivo);
 }

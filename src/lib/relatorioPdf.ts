@@ -91,6 +91,20 @@ function formatarValor(valor: any, campo: RelatorioCampo): string {
 /**
  * Gera o HTML do relatório para impressão/PDF.
  */
+/** Converte estilo para CSS. */
+function estiloCss(estilo?: string): string {
+  switch (estilo) {
+    case 'negrito': return 'font-weight: bold;';
+    case 'italico': return 'font-style: italic;';
+    case 'sublinhado': return 'text-decoration: underline;';
+    case 'negrito_italico': return 'font-weight: bold; font-style: italic;';
+    case 'negrito_sublinhado': return 'font-weight: bold; text-decoration: underline;';
+    case 'italico_sublinhado': return 'font-style: italic; text-decoration: underline;';
+    case 'negrito_italico_sublinhado': return 'font-weight: bold; font-style: italic; text-decoration: underline;';
+    default: return '';
+  }
+}
+
 export function gerarHtmlRelatorio(
   relatorio: Relatorio,
   registros: Record<string, any>[]
@@ -112,9 +126,13 @@ export function gerarHtmlRelatorio(
   const pageHeight = PAGE_HEIGHTS[config.tamanhoPagina] || "297mm";
   const isPaisagem = config.orientacao === "paisagem";
 
-  // Determina alinhamento da célula
-  function alinhamentoCss(campo: RelatorioCampo): string {
-    return "text-align: left;";
+  // Determina alinhamento CSS a partir de um valor
+  function alinhamentoCssValor(valor?: string): string {
+    switch (valor) {
+      case 'centro': return "text-align: center;";
+      case 'direita': return "text-align: right;";
+      default: return "text-align: left;";
+    }
   }
 
   // Monta cabeçalho da tabela
@@ -122,7 +140,8 @@ export function gerarHtmlRelatorio(
     const largura = campo.largura ? `width: ${campo.largura}mm;` : "";
     const bgLabel = campo.backgroundLabel || '#e2e8f0';
     const corLabel = campo.corLabel || '#1a1a1a';
-    return `<th style="padding: 6px 8px; border: 1px solid #333; background: ${bgLabel}; color: ${corLabel}; font-weight: bold; font-size: ${config.tamanhoFonte}pt; ${largura} ${alinhamentoCss(campo)} white-space: nowrap;">${escapeHtml(campo.label)}</th>`;
+    const estilo = estiloCss(campo.estiloLabel);
+    return `<th style="padding: 6px 8px; border: 1px solid #333; background: ${bgLabel}; color: ${corLabel}; font-size: ${config.tamanhoFonte}pt; ${largura} ${alinhamentoCssValor(campo.alinhamento)} ${estilo} white-space: nowrap;">${escapeHtml(campo.label)}</th>`;
   }).join("");
 
   // Monta linhas de dados
@@ -274,13 +293,18 @@ function gerarLinhaHtml(
     const corCampo = campo.corCampo || '#1a1a1a';
     const bgCampo = campo.backgroundCampo || '';
     const bgStyle = bgCampo ? `background: ${bgCampo};` : '';
-    return `<td style="padding: 4px 8px; font-size: ${config.tamanhoFonte}pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${corCampo}; ${bgStyle} ${alinhamentoCss(campo)}">${escapeHtml(valorFormatado)}</td>`;
+    const estiloCampo = estiloCss(campo.estiloCampo);
+    return `<td style="padding: 4px 8px; font-size: ${config.tamanhoFonte}pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${corCampo}; ${bgStyle} ${alinhamentoCss(campo)} ${estiloCampo}">${escapeHtml(valorFormatado)}</td>`;
   }).join("");
   return `<tr>${tds}</tr>`;
 }
 
 function alinhamentoCss(campo: RelatorioCampo): string {
-  return "text-align: left;";
+  switch (campo.alinhamento) {
+    case 'centro': return "text-align: center;";
+    case 'direita': return "text-align: right;";
+    default: return "text-align: left;";
+  }
 }
 
 /**
@@ -326,6 +350,41 @@ function alinhamentoX(alinhamento: string | undefined, x: number, w: number, pad
     case 'direita': return x + w - pad;
     default: return x + pad;
   }
+}
+
+/** Converte estilo para estilo jsPDF. */
+function estiloPdf(estilo?: string): 'normal' | 'bold' | 'italic' | 'bolditalic' {
+  switch (estilo) {
+    case 'negrito': return 'bold';
+    case 'italico': return 'italic';
+    case 'negrito_italico': return 'bolditalic';
+    case 'sublinhado': return 'normal';
+    case 'negrito_sublinhado': return 'bold';
+    case 'italico_sublinhado': return 'italic';
+    case 'negrito_italico_sublinhado': return 'bolditalic';
+    default: return 'normal';
+  }
+}
+
+/** Verifica se o estilo contém sublinhado. */
+function temSublinhado(estilo?: string): boolean {
+  return estilo === 'sublinhado' || estilo === 'negrito_sublinhado' || estilo === 'italico_sublinhado' || estilo === 'negrito_italico_sublinhado';
+}
+
+/** Desenha uma linha sob o texto (sublinhado manual) na cor do texto. */
+function desenharSublinhado(doc: jsPDF, x: number, y: number, text: string, fontSize: number, align: 'left' | 'center' | 'right', cellW: number, corHex?: string) {
+  const textWidth = doc.getTextWidth(text);
+  let lineX = x;
+  if (align === 'center') lineX = x - textWidth / 2;
+  else if (align === 'right') lineX = x - textWidth;
+  const lineY = y + 0.8;
+  // Usa a cor do texto para a linha
+  if (corHex) {
+    const rgb = hexToRgb(corHex);
+    if (rgb) doc.setDrawColor(rgb.r, rgb.g, rgb.b);
+  }
+  doc.setLineWidth(0.2);
+  doc.line(lineX, lineY, lineX + textWidth, lineY);
 }
 
 function truncateText(doc: jsPDF, text: string, maxWidth: number, fontSize: number): string {
@@ -400,11 +459,8 @@ export function gerarPdf(
   const pxToMm = (px: number) => px * 0.264583;
 
   // Calcula larguras das colunas (valores em pixels → mm)
-  const largurasMm = campos.map((c) => pxToMm(c.largura ?? 30));
-  const totalLarguraMm = largurasMm.reduce((sum, w) => sum + w, 0);
-  // Se ultrapassar a largura do conteúdo, escala proporcionalmente
-  const scale = totalLarguraMm > contentW ? contentW / totalLarguraMm : 1;
-  const colWidths = largurasMm.map((w) => w * scale);
+  // Largura é absoluta: se o conteúdo não cabe, é cortado.
+  const colWidths = campos.map((c) => pxToMm(c.largura ?? 30));
 
   let y = marginTop;
 
@@ -440,13 +496,14 @@ export function gerarPdf(
 
   // ── Cabeçalho da tabela ──
   doc.setFontSize(fontSize);
-  doc.setFont(fontName, 'bold');
 
   const headerH = pxToMm(relatorio.espessuraLabel ?? 16);
   checkPage(headerH + 4);
 
   campos.forEach((campo, i) => {
-    const x = marginLeft + colWidths.slice(0, i).reduce((s, w) => s + w, 0);
+    // Aplicar estilo da label
+    doc.setFont(fontName, estiloPdf(campo.estiloLabel));
+    const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
     const w = colWidths[i];
     // Fundo do cabeçalho
     const bg = campo.backgroundLabel || '#e2e8f0';
@@ -463,8 +520,14 @@ export function gerarPdf(
     const labelCor = hexToRgb(campo.corLabel || '#1a1a1a');
     if (labelCor) doc.setTextColor(labelCor.r, labelCor.g, labelCor.b);
     else doc.setTextColor(26, 26, 26);
-    const txtX = x + pxToMm(campo.alinhamentoHorizontal ?? 0);
-    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), txtX, y + headerH - cellPadding - 1);
+    const labelAlign = campo.alinhamento ?? 'esquerda';
+    const labelTxtX = labelAlign === 'centro' ? x + w / 2 : labelAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
+    const labelAlignOpt: 'left' | 'center' | 'right' = labelAlign === 'centro' ? 'center' : labelAlign === 'direita' ? 'right' : 'left';
+    doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), labelTxtX, y + headerH - cellPadding - 1, { align: labelAlignOpt });
+    // Sublinhado manual
+    if (temSublinhado(campo.estiloLabel)) {
+      desenharSublinhado(doc, labelTxtX, y + headerH - cellPadding - 1, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, campo.corLabel || '#1a1a1a');
+    }
   });
 
   y += headerH;
@@ -499,7 +562,7 @@ export function gerarPdf(
       }
 
       campos.forEach((campo, i) => {
-        const x = marginLeft + colWidths.slice(0, i).reduce((s, w) => s + w, 0);
+        const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
         const w = colWidths[i];
         const chaveResolvida = campo.chave;
         const valor = obterValorCampo(reg, chaveResolvida);
@@ -525,9 +588,17 @@ export function gerarPdf(
           }
         }
 
-        const txtX = x + pxToMm(campo.alinhamentoHorizontal ?? 0);
-        const txtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSize * 0.35;
-        doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), txtX, txtY);
+        const campoAlign = campo.alinhamento ?? 'esquerda';
+        const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
+        const campoTxtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSize * 0.35;
+        const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
+        // Aplicar estilo do campo
+        doc.setFont(fontName, estiloPdf(campo.estiloCampo));
+        doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), campoTxtX, campoTxtY, { align: campoAlignOpt });
+        // Sublinhado manual
+        if (temSublinhado(campo.estiloCampo)) {
+          desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, campo.corCampo || '#1a1a1a');
+        }
       });
 
       y += rowH;

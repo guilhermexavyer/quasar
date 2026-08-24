@@ -98,12 +98,20 @@ export interface RelatorioCampo {
   alinhamentoHorizontal?: number;
   /** Distância em pixels do topo da linha. */
   alinhamentoVertical?: number;
+  /** Alinhamento horizontal (label e campo) dentro da largura da coluna. */
+  alinhamento?: 'esquerda' | 'centro' | 'direita';
+  /** Estilo da label (cabeçalho). */
+  estiloLabel?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
+  /** Estilo do campo (dados). */
+  estiloCampo?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
   /** Formatação especial do dado. */
   formatacao?: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   /** Casas decimais (apenas para número/moeda). */
   casasDecimais?: number;
   /** Se true, o campo é used como agrupador. */
   ehAgrupador?: boolean;
+  /** Se true, o campo ie_status deve exibir o label do sistema ao invés da abreviação. */
+  statusSistema?: boolean;
 }
 
 /**

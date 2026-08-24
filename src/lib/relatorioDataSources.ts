@@ -372,3 +372,38 @@ export function getDataSourceCampo(colecao: string, chave: string): DataSourceCa
 }
 
 import type { DataSourceCampo } from "@/types/relatorio";
+
+/**
+ * Mapeamento de campos ie_status por coleção.
+ * Chave: coleção. Valor: mapa de abreviação → label.
+ */
+export const STATUS_LABEL_MAP: Record<string, Record<string, string>> = {
+  pat_ativo: { D: 'Descartado', E: 'Estoque', M: 'Manutenção', O: 'Operacional' },
+  pat_manutencao: { E: 'Em andamento', CO: 'Concluída', CA: 'Cancelada' },
+  aluno: { A: 'Ativo', I: 'Inativo', C: 'Cancelado', T: 'Transferido' },
+  colaborador: { A: 'Ativo', AF: 'Afastado', F: 'Férias', L: 'Licença', D: 'Desligado' },
+  usuario: { A: 'Ativo', I: 'Inativo' },
+  perfil: { A: 'Ativo', I: 'Inativo' },
+  cg_sexo: { A: 'Ativo', I: 'Inativo' },
+  cg_estado_civil: { A: 'Ativo', I: 'Inativo' },
+  cg_cor_raca: { A: 'Ativo', I: 'Inativo' },
+  cg_profissao: { A: 'Ativo', I: 'Inativo' },
+  cg_vinculo_contratual: { A: 'Ativo', I: 'Inativo' },
+  cg_orgao_emissor: { A: 'Ativo', I: 'Inativo' },
+  cg_grau_parentesco: { A: 'Ativo', I: 'Inativo' },
+  cg_logradouro: { A: 'Ativo', I: 'Inativo' },
+  cg_categoria_ativo: { A: 'Ativo', I: 'Inativo' },
+  cg_localizacao: { A: 'Ativo', I: 'Inativo' },
+  cg_marca: { A: 'Ativo', I: 'Inativo' },
+  cg_cargo: { A: 'Ativo', I: 'Inativo' },
+  cg_sistema_operacional: { A: 'Ativo', I: 'Inativo' },
+};
+
+/**
+ * Resolve o valor de um campo ie_status para o label do sistema.
+ */
+export function resolverStatusLabel(colecao: string, valor: string): string {
+  const map = STATUS_LABEL_MAP[colecao];
+  if (!map) return valor;
+  return map[valor] ?? valor;
+}

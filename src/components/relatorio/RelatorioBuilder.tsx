@@ -14,6 +14,7 @@ import {
 } from "@/lib/relatorioUtils";
 import type {
   Relatorio,
+  RelatorioCampo,
   RelatorioFiltro,
   RelatorioOrdenacao,
   RelatorioAgrupamento,
@@ -36,6 +37,7 @@ interface RelatorioBuilderProps {
   allowedSubmodulos?: string[];
   /** Context menu */
   contextMenuItems?: ContextMenuItem[];
+  onChange?: (relatorio: Relatorio) => void;
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
@@ -51,8 +53,12 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
     posicao: c.posicao ?? idx + 1,
     alinhamentoHorizontal: c.alinhamentoHorizontal ?? 0,
     alinhamentoVertical: c.alinhamentoVertical ?? 0,
+    alinhamento: c.alinhamento ?? 'esquerda',
+    estiloLabel: c.estiloLabel ?? '',
+    estiloCampo: c.estiloCampo ?? '',
     largura: c.largura ?? 30,
     formatacao: c.formatacao || 'texto',
+    statusSistema: c.statusSistema ?? false,
   };
 }
 
@@ -77,6 +83,7 @@ export default function RelatorioBuilder({
   onManageSelectionChange,
   allowedSubmodulos = ['relatorios'],
   contextMenuItems = [],
+  onChange,
 }: RelatorioBuilderProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -123,6 +130,31 @@ export default function RelatorioBuilder({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [saving, editingCampo]);
 
+  // Sync form state back to parent so that "Gerar relatório" uses current data.
+  useEffect(() => {
+    if (!onChange || !relatorio) return;
+    const synced: Relatorio = {
+      ...relatorio,
+      ds_relatorio: dsRelatorio.trim(),
+      colecao,
+      campos: campos.map((c) => ({
+        id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
+        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], formatacao: c.formatacao, statusSistema: c.statusSistema,
+      })),
+      filtros: filtros.filter((f) => f.campo),
+      ordenacao: ordenacao.filter((o) => o.campo),
+      agrupamento,
+      formato,
+      configExcel: formato === 'excel' ? configExcel : undefined,
+      configPdf: formato === 'pdf' ? configPdf : undefined,
+      espessuraLabel,
+      espessuraCampo,
+    };
+    onChange(synced);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [dsRelatorio, colecao, campos, filtros, ordenacao, agrupamento, formato, configExcel, configPdf, espessuraLabel, espessuraCampo]);
+
   // ── Handlers ──
 
 
@@ -157,7 +189,7 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, formatacao: c.formatacao,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], formatacao: c.formatacao, statusSistema: c.statusSistema,
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
@@ -277,7 +309,7 @@ export default function RelatorioBuilder({
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Campos</h2>
               {colecao && (
-                <button type="button" onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, largura: 30, formatacao: 'texto' }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+                <button type="button" onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
               )}
             </div>
             {!colecao && (
@@ -285,13 +317,16 @@ export default function RelatorioBuilder({
             )}
             {colecao && (
               <>
+              <div className="overflow-x-auto">
               <CamposRelatorioTable
                 campos={campos}
                 onChange={setCampos}
                 camposDisponiveis={camposDisponiveis}
                 colecaoPrincipal={colecao}
                 onEditingChange={setEditingCampo}
-              />              <div className="grid gap-[15px] sm:grid-cols-12 mt-3">
+              />
+              </div>
+              <div className="grid gap-[15px] sm:grid-cols-12 mt-3">
                 <div className="sm:col-span-6 group">
                   <label className={labelClass} style={{ color: '#666' }}>Espessura label</label>
                   <input

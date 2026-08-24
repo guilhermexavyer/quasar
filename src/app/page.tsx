@@ -180,7 +180,7 @@ import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio }
 import { gerarERealizarDownloadExcel } from "@/lib/relatorioExcel";
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
-import { getDataSource } from "@/lib/relatorioDataSources";
+import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
 import {
   parseCamposConfig,
@@ -2638,11 +2638,30 @@ export default function Home() {
         ...c,
         chave: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
       }));
+      // Resolve ie_status (sistema): substitui abreviação pelo label
+      const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
+        const regResolvido = { ...reg };
+        for (const c of camposResolvidos) {
+          if (c.statusSistema && c.chave) {
+            // Suporta notação de ponto (ex.: marca.ie_status)
+            const partes = c.chave.split('.');
+            let obj: any = regResolvido;
+            for (let i = 0; i < partes.length - 1; i++) {
+              obj = obj?.[partes[i]];
+            }
+            const campoFinal = partes[partes.length - 1];
+            if (obj && typeof obj[campoFinal] === 'string') {
+              obj[campoFinal] = resolverStatusLabel(c.colecao || relatorio.colecao, obj[campoFinal]);
+            }
+          }
+        }
+        return regResolvido;
+      });
       const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
       if (relatorio.formato === 'excel') {
-        gerarERealizarDownloadExcel(relatorioResolvido, resultado.registrosResolvidos);
+        gerarERealizarDownloadExcel(relatorioResolvido, registrosResolvidos);
       } else {
-        gerarPdf(relatorioResolvido, resultado.registrosResolvidos);
+        gerarPdf(relatorioResolvido, registrosResolvidos);
       }
       setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
     } catch (err: any) {
@@ -7995,6 +8014,7 @@ export default function Home() {
                      relatorio={relatorioForm}
                      onSave={handleRelatorioSave}
                      onCancel={closeRelatorioBuilder}
+                     onChange={(r) => setRelatorioForm(r)}
                      saving={relatorioSubmitting}
                      manageSelection={relatorioManageSelection}
                      onManageSelectionChange={handleRelatorioManageSelectionChange}
