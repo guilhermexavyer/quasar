@@ -23,6 +23,8 @@ interface SelectProps {
   forceOpenUp?: boolean;
   /** Tema do dropdown (afeta a lista de opções aberta). */
   theme?: 'default' | 'sidebar';
+  /** Renderização customizada de cada opção. */
+  renderOption?: (option: SelectOption) => React.ReactNode;
 }
 
 const ROW_HEIGHT = 32; // altura aproximada de cada linha (px)
@@ -38,6 +40,7 @@ export default function Select({
   error = false,
   forceOpenUp = false,
   theme = 'default',
+  renderOption,
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -102,6 +105,30 @@ export default function Select({
     } else if (itemEl.offsetTop + itemEl.offsetHeight > list.scrollTop + list.clientHeight) {
       list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight - list.clientHeight;
     }
+  }, [open, items, value, visibleOptions, forceOpenUp]);
+  // Recalculate position on scroll/resize so dropdown stays attached
+  useEffect(() => {
+    if (!open) return;
+    const recalc = () => {
+      if (!rootRef.current) return;
+      const triggerRect = rootRef.current.getBoundingClientRect();
+      const listHeight = Math.min(items.length, visibleOptions) * ROW_HEIGHT;
+      const spaceBelow = window.innerHeight - triggerRect.bottom - 12;
+      const spaceAbove = triggerRect.top - 12;
+      const up = forceOpenUp || (spaceBelow < listHeight && spaceAbove >= spaceBelow);
+      setOpenUp(up);
+      setDropdownPos({
+        top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
+        left: triggerRect.left,
+        width: triggerRect.width,
+      });
+    };
+    window.addEventListener('scroll', recalc, true);
+    window.addEventListener('resize', recalc);
+    return () => {
+      window.removeEventListener('scroll', recalc, true);
+      window.removeEventListener('resize', recalc);
+    };
   }, [open, items, value, visibleOptions, forceOpenUp]);
 
   // Ao fechar, limpa o buffer da busca por digitação.
@@ -273,7 +300,7 @@ export default function Select({
                       : 'text-slate-800'
                 }`}
               >
-                {op.label}
+                {renderOption ? renderOption(op) : op.label}
               </button>
             );
           })}

@@ -108,6 +108,14 @@ export default function RelatorioBuilder({
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
   const [espessuraLabel, setEspessuraLabel] = useState(relatorio?.espessuraLabel ?? 16);
   const [espessuraCampo, setEspessuraCampo] = useState(relatorio?.espessuraCampo ?? 24);
+  const [bgLabel, setBgLabel] = useState(relatorio?.bgLabel ?? '#e2e8f0');
+  const [bgCampo, setBgCampo] = useState(relatorio?.bgCampo ?? '');
+  const [corLabelGlobal, setCorLabelGlobal] = useState(relatorio?.corLabelGlobal ?? '#1a1a1a');
+  const [corCampoGlobal, setCorCampoGlobal] = useState(relatorio?.corCampoGlobal ?? '#1a1a1a');
+  const [fonteLabel, setFonteLabel] = useState(relatorio?.fonteLabel ?? 'Arial');
+  const [tamanhoFonteLabel, setTamanhoFonteLabel] = useState(relatorio?.tamanhoFonteLabel ?? 10);
+  const [fonteCampo, setFonteCampo] = useState(relatorio?.fonteCampo ?? 'Arial');
+  const [tamanhoFonteCampo, setTamanhoFonteCampo] = useState(relatorio?.tamanhoFonteCampo ?? 10);
   const [erros, setErros] = useState<string[]>([]);
   const [editingCampo, setEditingCampo] = useState(false);
 
@@ -150,10 +158,18 @@ export default function RelatorioBuilder({
       configPdf: formato === 'pdf' ? configPdf : undefined,
       espessuraLabel,
       espessuraCampo,
+      bgLabel,
+      bgCampo,
+      corLabelGlobal,
+      corCampoGlobal,
+      fonteLabel,
+      tamanhoFonteLabel,
+      fonteCampo,
+      tamanhoFonteCampo,
     };
     onChange(synced);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dsRelatorio, colecao, campos, filtros, ordenacao, agrupamento, formato, configExcel, configPdf, espessuraLabel, espessuraCampo]);
+  }, [dsRelatorio, colecao, campos, filtros, ordenacao, agrupamento, formato, configExcel, configPdf, espessuraLabel, espessuraCampo, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
 
   // ── Handlers ──
 
@@ -199,6 +215,14 @@ export default function RelatorioBuilder({
       configPdf: formato === "pdf" ? configPdf : undefined,
       espessuraLabel,
       espessuraCampo,
+      bgLabel,
+      bgCampo,
+      corLabelGlobal,
+      corCampoGlobal,
+      fonteLabel,
+      tamanhoFonteLabel,
+      fonteCampo,
+      tamanhoFonteCampo,
     };
     onSave(result);
   }
@@ -303,11 +327,11 @@ export default function RelatorioBuilder({
           </div>
 
           {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Campos do relatório ── */}
+          {/* ── Seção: Lista ── */}
           {/* ═══════════════════════════════════════════════ */}
           <section className="mt-[15px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Campos</h2>
+              <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
               {colecao && (
                 <button type="button" onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
               )}
@@ -326,13 +350,11 @@ export default function RelatorioBuilder({
                 onEditingChange={setEditingCampo}
               />
               </div>
-              <div className="grid gap-[15px] sm:grid-cols-12 mt-3">
-                <div className="sm:col-span-6 group">
+              <div className="grid grid-cols-5 gap-[15px] mt-3">
+                {/* Linha 1: Espessura/Bg/Cor/Fonte/Tamanho label */}
+                <div className="group">
                   <label className={labelClass} style={{ color: '#666' }}>Espessura label</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={espessuraLabel}
+                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={espessuraLabel}
                     onChange={(e) => {
                       const v = e.target.value.replace(/[^0-9]/g, '');
                       setEspessuraLabel(v ? Math.max(1, Number(v)) : 1);
@@ -340,15 +362,118 @@ export default function RelatorioBuilder({
                     className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
                   />
                 </div>
-                <div className="sm:col-span-6 group">
-                  <label className={labelClass} style={{ color: '#666' }}>Espessura campo</label>
-                  <input
-                    type="text"
-                    inputMode="numeric"
-                    value={espessuraCampo}
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Background label</label>
+                  <Select
+                    value={bgLabel}
+                    onChange={(v) => setBgLabel(v)}
+                    options={[{ value: '', label: '---' }, { value: '#e2e8f0', label: '#e2e8f0' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#334155', label: '#334155' }, { value: '#475569', label: '#475569' }, { value: '#64748b', label: '#64748b' }, { value: '#94a3b8', label: '#94a3b8' }, { value: '#cbd5e1', label: '#cbd5e1' }, { value: '#f1f5f9', label: '#f1f5f9' }, { value: '#fefce8', label: '#fefce8' }]}
+                    showPlaceholder={false} disabled={formato === "excel"}
+                    renderOption={(opt) => (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {opt.value ? (
+                          <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
+                        ) : null}
+                        <span>{opt.label}</span>
+                      </span>
+                    )}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Cor label</label>
+                  <Select
+                    value={corLabelGlobal}
+                    onChange={(v) => setCorLabelGlobal(v)}
+                    options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
+                    showPlaceholder={false} disabled={formato === "excel"}
+                    renderOption={(opt) => (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
+                        <span>{opt.label}</span>
+                      </span>
+                    )}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Fonte label</label>
+                  <Select
+                    value={fonteLabel}
+                    onChange={(v) => setFonteLabel(v)}
+                    options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
+                    showPlaceholder={false} disabled={formato === "excel"}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Tamanho fonte label</label>
+                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={tamanhoFonteLabel}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setTamanhoFonteLabel(v ? Math.max(1, Number(v)) : 1);
+                    }}
+                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                  />
+                </div>
+                {/* Linha 2: Espessura/Bg/Cor/Fonte/Tamanho registro */}
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Espessura registro</label>
+                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={espessuraCampo}
                     onChange={(e) => {
                       const v = e.target.value.replace(/[^0-9]/g, '');
                       setEspessuraCampo(v ? Math.max(1, Number(v)) : 1);
+                    }}
+                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Background registro</label>
+                  <Select
+                    value={bgCampo}
+                    onChange={(v) => setBgCampo(v)}
+                    options={[{ value: '', label: '---' }, { value: 'zebrado', label: 'Linhas zebradas' }]}
+                    showPlaceholder={false} disabled={formato === "excel"}
+                    renderOption={(opt) => (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        {opt.value === 'zebrado' ? (
+                          <span style={{ display: 'inline-flex', width: 14, height: 14, flexShrink: 0, border: '1px solid #ccc', borderRadius: 2, overflow: 'hidden' }}>
+                            <span style={{ flex: 1, background: '#fff' }} />
+                            <span style={{ flex: 1, background: '#ccc' }} />
+                          </span>
+                        ) : null}
+                        <span>{opt.label}</span>
+                      </span>
+                    )}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Cor registro</label>
+                  <Select
+                    value={corCampoGlobal}
+                    onChange={(v) => setCorCampoGlobal(v)}
+                    options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
+                    showPlaceholder={false} disabled={formato === "excel"}
+                    renderOption={(opt) => (
+                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                        <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
+                        <span>{opt.label}</span>
+                      </span>
+                    )}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Fonte registro</label>
+                  <Select
+                    value={fonteCampo}
+                    onChange={(v) => setFonteCampo(v)}
+                    options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
+                    showPlaceholder={false} disabled={formato === "excel"}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Tamanho fonte registro</label>
+                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={tamanhoFonteCampo}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setTamanhoFonteCampo(v ? Math.max(1, Number(v)) : 1);
                     }}
                     className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
                   />

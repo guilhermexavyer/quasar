@@ -373,50 +373,6 @@ export default function CamposRelatorioTable({
       },
     },
     {
-      key: "backgroundLabel",
-      label: "Fundo label",
-      
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <input type="color" value={row.backgroundLabel || '#e2e8f0'} onChange={(e) => atualizar(row.id, { backgroundLabel: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
-        }
-        return <span className="inline-block w-12 h-4" style={{ background: row.backgroundLabel || '#e2e8f0' }} />;
-      },
-    },
-    {
-      key: "corLabel",
-      label: "Cor label",
-      
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <input type="color" value={row.corLabel || '#1a1a1a'} onChange={(e) => atualizar(row.id, { corLabel: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
-        }
-        return <span className="inline-block w-12 h-4" style={{ background: row.corLabel || '#1a1a1a' }} />;
-      },
-    },
-    {
-      key: "corCampo",
-      label: "Cor campo",
-      
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <input type="color" value={row.corCampo || '#1a1a1a'} onChange={(e) => atualizar(row.id, { corCampo: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
-        }
-        return <span className="inline-block w-12 h-4" style={{ background: row.corCampo || '#1a1a1a' }} />;
-      },
-    },
-    {
-      key: "backgroundCampo",
-      label: "Fundo campo",
-      
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <input type="color" value={row.backgroundCampo || '#ffffff'} onChange={(e) => atualizar(row.id, { backgroundCampo: e.target.value })} className="w-full h-[26px] cursor-pointer border border-slate-300 rounded" />;
-        }
-        return <span className="inline-block w-12 h-4" style={{ background: row.backgroundCampo || '#ffffff' }} />;
-      },
-    },
-    {
       key: "posicao",
       label: "Posição",
       
@@ -522,17 +478,6 @@ export default function CamposRelatorioTable({
           return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
         }
         return <span>{row.largura ?? 30}</span>;
-      },
-    },
-    {
-      key: "formatacao",
-      label: "Formato",
-      
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <Select value={row.formatacao ?? 'texto'} onChange={(v) => atualizar(row.id, { formatacao: v as any })} options={[...FORMATOS_CAMPO]} showPlaceholder={false} className="!text-xs max-w-[120px]" />;
-        }
-        return <span className="whitespace-nowrap">{row.formatacao ?? 'texto'}</span>;
       },
     },
   ];

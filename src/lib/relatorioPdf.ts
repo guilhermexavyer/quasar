@@ -138,10 +138,13 @@ export function gerarHtmlRelatorio(
   // Monta cabeçalho da tabela
   const ths = campos.map((campo) => {
     const largura = campo.largura ? `width: ${campo.largura}mm;` : "";
-    const bgLabel = campo.backgroundLabel || '#e2e8f0';
-    const corLabel = campo.corLabel || '#1a1a1a';
+    const bgLabel = relatorio.bgLabel || '';
+    const corLabel = relatorio.corLabelGlobal || '#1a1a1a';
     const estilo = estiloCss(campo.estiloLabel);
-    return `<th style="padding: 6px 8px; border: 1px solid #333; background: ${bgLabel}; color: ${corLabel}; font-size: ${config.tamanhoFonte}pt; ${largura} ${alinhamentoCssValor(campo.alinhamento)} ${estilo} white-space: nowrap;">${escapeHtml(campo.label)}</th>`;
+    const bgThStyle = bgLabel ? `background: ${bgLabel};` : '';
+    const fonteLbl = relatorio.fonteLabel || 'Arial';
+    const tamLbl = relatorio.tamanhoFonteLabel || config.tamanhoFonte;
+    return `<th style="padding: 6px 8px; border: 1px solid #333; ${bgThStyle} color: ${corLabel}; font-family: '${fonteLbl}', sans-serif; font-size: ${tamLbl}pt; ${largura} ${alinhamentoCssValor(campo.alinhamento)} ${estilo} white-space: nowrap;">${escapeHtml(campo.label)}</th>`;
   }).join("");
 
   // Monta linhas de dados
@@ -161,9 +164,9 @@ export function gerarHtmlRelatorio(
       tbodyHtml += `<tr><td colspan="${campos.length}" style="padding: 6px 8px; background: #f1f5f9; font-weight: bold; border: 1px solid #333; font-size: ${(config.tamanhoFonte + 1)}pt;">${escapeHtml(chaveGrupo)}</td></tr>`;
 
       // Linhas do grupo
-      for (const reg of regsGrupo) {
-        tbodyHtml += gerarLinhaHtml(reg, campos, config);
-      }
+      regsGrupo.forEach((reg, ri) => {
+        tbodyHtml += gerarLinhaHtml(reg, campos, config, relatorio, ri);
+      });
 
       // Subtotal
       if (agrupamento.incluirSubtotal) {
@@ -176,9 +179,9 @@ export function gerarHtmlRelatorio(
       tbodyHtml += `<tr><td colspan="${campos.length}" style="padding: 6px 8px; background: #e2e8f0; font-weight: bold; border: 1px solid #333; font-size: ${(config.tamanhoFonte + 1)}pt; text-align: right;">Total: ${registros.length} registro(s)</td></tr>`;
     }
   } else {
-    for (const reg of registros) {
-      tbodyHtml += gerarLinhaHtml(reg, campos, config);
-    }
+    registros.forEach((reg, ri) => {
+      tbodyHtml += gerarLinhaHtml(reg, campos, config, relatorio, ri);
+    });
   }
 
   // HTML completo
@@ -285,16 +288,20 @@ export function gerarHtmlRelatorio(
 function gerarLinhaHtml(
   registro: Record<string, any>,
   campos: RelatorioCampo[],
-  config: RelatorioConfigPdf
+  config: RelatorioConfigPdf,
+  relatorio: Relatorio,
+  idx: number
 ): string {
   const tds = campos.map((campo) => {
     const valor = obterValorCampo(registro, campo.chave);
     const valorFormatado = formatarValor(valor, campo);
-    const corCampo = campo.corCampo || '#1a1a1a';
-    const bgCampo = campo.backgroundCampo || '';
+    const corCampo = relatorio.corCampoGlobal || '#1a1a1a';
+    const bgCampo = relatorio.bgCampo === 'zebrado' ? (idx % 2 === 0 ? '#fff' : '#ccc') : '';
     const bgStyle = bgCampo ? `background: ${bgCampo};` : '';
     const estiloCampo = estiloCss(campo.estiloCampo);
-    return `<td style="padding: 4px 8px; font-size: ${config.tamanhoFonte}pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${corCampo}; ${bgStyle} ${alinhamentoCss(campo)} ${estiloCampo}">${escapeHtml(valorFormatado)}</td>`;
+    const fonteCamp = relatorio.fonteCampo || 'Arial';
+    const tamCamp = relatorio.tamanhoFonteCampo || config.tamanhoFonte;
+    return `<td style="padding: 4px 8px; font-family: '${fonteCamp}', sans-serif; font-size: ${tamCamp}pt; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: ${corCampo}; ${bgStyle} ${alinhamentoCss(campo)} ${estiloCampo}">${escapeHtml(valorFormatado)}</td>`;
   }).join("");
   return `<tr>${tds}</tr>`;
 }
@@ -453,6 +460,18 @@ export function gerarPdf(
   const fontName = 'helvetica';
   const fontSize = config.tamanhoFonte;
   const lineHeight = fontSize * 0.5;
+
+  // Mapear fontes do usuário para fontes jsPDF (helvetica, courier, times)
+  function mapFontJsPdf(fonte?: string): string {
+    const f = (fonte || '').toLowerCase();
+    if (f.includes('courier') || f.includes('console') || f.includes('mono')) return 'courier';
+    if (f.includes('times') || f.includes('garamond') || f.includes('palatino') || f.includes('book')) return 'times';
+    return 'helvetica';
+  }
+  const fontLabel = mapFontJsPdf(relatorio.fonteLabel);
+  const fontCampo = mapFontJsPdf(relatorio.fonteCampo);
+  const fontSizeLabel = relatorio.tamanhoFonteLabel || fontSize;
+  const fontSizeCampo = relatorio.tamanhoFonteCampo || fontSize;
   const cellPadding = 2;
 
   // Conversão pixels → mm (96 DPI: 1px = 0.264583mm)
@@ -475,13 +494,13 @@ export function gerarPdf(
 
   // ── Cabeçalho do relatório ──
   if (config.cabecalho?.incluir) {
-    doc.setFont(fontName, 'bold');
+    doc.setFont(fontCampo, 'bold');
     doc.setFontSize(fontSize + 6);
     if (config.titulo) {
       doc.text(config.titulo, pageW / 2, y, { align: 'center' });
       y += lineHeight + 4;
     }
-    doc.setFont(fontName, 'normal');
+    doc.setFont(fontCampo, 'normal');
     doc.setFontSize(fontSize - 2);
     if (config.cabecalho.texto) {
       doc.text(config.cabecalho.texto, pageW / 2, y, { align: 'center' });
@@ -498,26 +517,43 @@ export function gerarPdf(
   doc.setFontSize(fontSize);
 
   const headerH = pxToMm(relatorio.espessuraLabel ?? 16);
-  checkPage(headerH + 4);
+  const rowH = pxToMm(relatorio.espessuraCampo ?? 24);
+
+  // Calcula quantos campos compartilham a mesma posição X (Esquerda)
+  // e o índice de cada um dentro do seu grupo (para empilhamento)
+  const xGroupCount: Record<number, number> = {};
+  const xGroupIndex: number[] = campos.map((c) => {
+    const xPos = c.alinhamentoHorizontal ?? 0;
+    const idx = xGroupCount[xPos] ?? 0;
+    xGroupCount[xPos] = idx + 1;
+    return idx;
+  });
+  // Altura total necessária para acomodar todos os campos empilhados
+  const maxXGroups = Math.max(...Object.values(xGroupCount), 1);
+  const totalHeaderH = headerH * maxXGroups;
+
+  checkPage(totalHeaderH + 4);
 
   campos.forEach((campo, i) => {
     // Aplicar estilo da label
-    doc.setFont(fontName, estiloPdf(campo.estiloLabel));
+    doc.setFont(fontLabel, estiloPdf(campo.estiloLabel));
+    doc.setFontSize(fontSizeLabel);
     const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
     const w = colWidths[i];
     // Fundo do cabeçalho
-    const bg = campo.backgroundLabel || '#e2e8f0';
-    const rgb = hexToRgb(bg);
-    if (rgb) doc.setFillColor(rgb.r, rgb.g, rgb.b);
-    else doc.setFillColor(226, 232, 240);
-    doc.rect(x, y, w, headerH, 'F');
+    const bg = relatorio.bgLabel;
+    if (bg) {
+      const rgb = hexToRgb(bg);
+      if (rgb) doc.setFillColor(rgb.r, rgb.g, rgb.b);
+      doc.rect(x, y, w, headerH, 'F');
+    }
     // Borda
     if (config.incluirBordas) {
       doc.setDrawColor(51, 51, 51);
       doc.rect(x, y, w, headerH, 'S');
     }
     // Texto
-    const labelCor = hexToRgb(campo.corLabel || '#1a1a1a');
+    const labelCor = hexToRgb(relatorio.corLabelGlobal || '#1a1a1a');
     if (labelCor) doc.setTextColor(labelCor.r, labelCor.g, labelCor.b);
     else doc.setTextColor(26, 26, 26);
     const labelAlign = campo.alinhamento ?? 'esquerda';
@@ -526,13 +562,13 @@ export function gerarPdf(
     doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), labelTxtX, y + headerH - cellPadding - 1, { align: labelAlignOpt });
     // Sublinhado manual
     if (temSublinhado(campo.estiloLabel)) {
-      desenharSublinhado(doc, labelTxtX, y + headerH - cellPadding - 1, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, campo.corLabel || '#1a1a1a');
+      desenharSublinhado(doc, labelTxtX, y + headerH - cellPadding - 1, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, relatorio.corLabelGlobal || '#1a1a1a');
     }
   });
 
   y += headerH;
-  doc.setFont(fontName, 'normal');
-  doc.setFontSize(fontSize);
+  doc.setFont(fontCampo, 'normal');
+  doc.setFontSize(fontSizeCampo);
 
   // ── Linhas de dados ──
   const dataToRender = agrupamento?.campo ? groupData(registros, agrupamento, campos) : [{ rows: registros }];
@@ -540,17 +576,16 @@ export function gerarPdf(
   for (const grupo of dataToRender) {
     if (grupo.label) {
       checkPage(headerH + 2);
-      doc.setFont(fontName, 'bold');
+      doc.setFont(fontCampo, 'bold');
       doc.setFontSize(fontSize + 1);
       doc.setTextColor(30, 30, 30);
       doc.text(grupo.label, marginLeft, y + headerH - cellPadding);
       y += headerH;
-      doc.setFont(fontName, 'normal');
+      doc.setFont(fontCampo, 'normal');
       doc.setFontSize(fontSize);
     }
 
     for (const reg of grupo.rows) {
-      const rowH = pxToMm(relatorio.espessuraCampo ?? 24);
       checkPage(rowH);
 
       // Zebrado
@@ -569,21 +604,23 @@ export function gerarPdf(
         const valorFmt = formatarValor(valor, campo);
 
         // Borda da célula
+        // Borda da célula
         if (config.incluirBordas) {
           doc.setDrawColor(51, 51, 51);
           doc.rect(x, y, w, rowH, 'S');
         }
 
         // Cor do campo
-        const campoCor = hexToRgb(campo.corCampo || '#1a1a1a');
+        const campoCor = hexToRgb(relatorio.corCampoGlobal || '#1a1a1a');
         if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
         else doc.setTextColor(26, 26, 26);
 
-        // Fundo do campo
-        if (campo.backgroundCampo) {
-          const bgRgb = hexToRgb(campo.backgroundCampo);
-          if (bgRgb) {
-            doc.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
+        // Fundo do campo (zebrado global)
+        if (relatorio.bgCampo === 'zebrado') {
+          const isOdd = grupo.rows.indexOf(reg) % 2 === 1;
+          const zebraRgb = hexToRgb(isOdd ? '#ccc' : '#fff');
+          if (zebraRgb) {
+            doc.setFillColor(zebraRgb.r, zebraRgb.g, zebraRgb.b);
             doc.rect(x, y, w, rowH, 'F');
           }
         }
@@ -593,11 +630,12 @@ export function gerarPdf(
         const campoTxtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSize * 0.35;
         const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
         // Aplicar estilo do campo
-        doc.setFont(fontName, estiloPdf(campo.estiloCampo));
+        doc.setFont(fontCampo, estiloPdf(campo.estiloCampo));
+        doc.setFontSize(fontSizeCampo);
         doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), campoTxtX, campoTxtY, { align: campoAlignOpt });
         // Sublinhado manual
         if (temSublinhado(campo.estiloCampo)) {
-          desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, campo.corCampo || '#1a1a1a');
+          desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, relatorio.corCampoGlobal || '#1a1a1a');
         }
       });
 
@@ -607,12 +645,12 @@ export function gerarPdf(
     // Subtotal
     if (grupo.subtotal) {
       checkPage(lineHeight + 4);
-      doc.setFont(fontName, 'italic');
+      doc.setFont(fontCampo, 'italic');
       doc.setFontSize(fontSize - 1);
       doc.setTextColor(100, 100, 100);
       doc.text(`Subtotal: ${grupo.rows.length} registro(s)`, pageW - marginRight, y + lineHeight + 2, { align: 'right' });
       y += lineHeight + 6;
-      doc.setFont(fontName, 'normal');
+      doc.setFont(fontCampo, 'normal');
       doc.setFontSize(fontSize);
     }
   }
@@ -620,7 +658,7 @@ export function gerarPdf(
   // Total geral
   if (agrupamento?.incluirTotalGeral) {
     checkPage(lineHeight + 6);
-    doc.setFont(fontName, 'bold');
+    doc.setFont(fontCampo, 'bold');
     doc.setFontSize(fontSize + 1);
     doc.setTextColor(30, 30, 30);
     doc.text(`Total: ${registros.length} registro(s)`, pageW - marginRight, y + lineHeight + 2, { align: 'right' });
@@ -630,7 +668,7 @@ export function gerarPdf(
   // ── Rodapé ──
   if (config.rodape?.incluir) {
     const footerY = pageH - marginBottom + 4;
-    doc.setFont(fontName, 'normal');
+    doc.setFont(fontCampo, 'normal');
     doc.setFontSize(fontSize - 2);
     doc.setTextColor(102, 102, 102);
     let footerText = `Total de registros: ${registros.length}`;

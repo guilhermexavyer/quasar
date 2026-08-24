@@ -173,6 +173,8 @@ export function gerarERealizarDownloadExcel(
     if (cell) {
       cell.s = {
         font: {
+          name: 'Calibri',
+          sz: 11,
           bold: true,
           ...estiloFonte(campo.estiloLabel),
           color: { rgb: hexToRgb(corTextoCabecalho) },
@@ -204,7 +206,7 @@ export function gerarERealizarDownloadExcel(
       if (hasStyle) {
         const s: any = {};
         if (Object.keys(estiloCampo).length > 0) {
-          s.font = { ...estiloCampo };
+          s.font = { name: 'Calibri', sz: 11, ...estiloCampo };
         }
         if (campo.corCampo) {
           if (!s.font) s.font = {};

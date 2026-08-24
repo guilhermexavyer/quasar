@@ -45,6 +45,22 @@ export interface Relatorio {
   espessuraLabel?: number;
   /** Espessura da linha dos dados (campo). */
   espessuraCampo?: number;
+  /** Cor de fundo global das labels (cabeçalhos). */
+  bgLabel?: string;
+  /** Modo de fundo dos dados: '' (transparente) ou 'zebrado'. */
+  bgCampo?: string;
+  /** Cor global do texto das labels. */
+  corLabelGlobal?: string;
+  /** Cor global do texto dos campos. */
+  corCampoGlobal?: string;
+  /** Fonte do cabeçalho (label). */
+  fonteLabel?: string;
+  /** Tamanho da fonte do cabeçalho (label). */
+  tamanhoFonteLabel?: number;
+  /** Fonte dos registros (campo). */
+  fonteCampo?: string;
+  /** Tamanho da fonte dos registros (campo). */
+  tamanhoFonteCampo?: number;
 
   /* ── Metadados ── */
   dt_criacao: string;
