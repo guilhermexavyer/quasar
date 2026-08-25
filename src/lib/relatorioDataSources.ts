@@ -53,7 +53,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'dt_envio', label: 'Data de envio', tipo: 'date' },
       { key: 'dt_termino', label: 'Data de término', tipo: 'date' },
       { key: 'ie_status_manutencao', label: 'Status', tipo: 'string' },
-      { key: 'vl_total', label: 'Valor total', tipo: 'number' },
+      { key: 'vl_total', label: 'Valor total', tipo: 'string' },
       { key: 'ds_motivo_manutencao', label: 'Motivo da manutenção', tipo: 'string' },
       { key: 'ds_correcoes', label: 'Correções', tipo: 'string' },
       { key: 'ds_observacao', label: 'Observação', tipo: 'string' },

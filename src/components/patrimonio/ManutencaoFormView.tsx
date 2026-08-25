@@ -363,7 +363,7 @@ export default function ManutencaoFormView({
                   type="text"
                   disabled
                   className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
-                  value={form.vl_total != null ? formatCurrencyValue(Number(form.vl_total)) : ""}
+                  value={form.vl_total != null ? (typeof form.vl_total === 'string' ? form.vl_total : formatCurrencyValue(Number(form.vl_total))) : ""}
                 />
               </div>
 

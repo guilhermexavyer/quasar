@@ -34,6 +34,10 @@ export interface Usuario {
   config_colunas_cg_sistema_operacional?: string;
   config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;
+  config_colunas_relatorio?: string;
+  config_colunas_relatorio_lista?: string;
+  config_colunas_relatorio_filtros?: string;
+  config_colunas_relatorio_ordenacao?: string;
   config_ordem_menu_lateral?: string;
   ie_base_conhecimento?: string;
   ie_central_suporte?: string;

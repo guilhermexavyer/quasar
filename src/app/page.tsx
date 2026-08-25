@@ -141,6 +141,8 @@ import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import {
   parseColunasConfig,
   serializeColunasConfig,
+  parseStringColunasConfig,
+  serializeStringColunasConfig,
   type ColunasConfig,
 } from "@/lib/colunasUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
@@ -1248,6 +1250,27 @@ export default function Home() {
     return list;
   }, [relatorios, relatorioSortColumn, relatorioSortAsc]);
 
+  // ── Navegação entre registros de relatório ──
+  const currentRelatorioEditIndex = useMemo(() => {
+    if (!relatorioEditingId) return -1;
+    return filteredSortedRelatorios.findIndex((r) => r.id === relatorioEditingId);
+  }, [filteredSortedRelatorios, relatorioEditingId]);
+
+  const hasPrevRelatorioRecord = currentRelatorioEditIndex > 0;
+  const hasNextRelatorioRecord = currentRelatorioEditIndex >= 0 && currentRelatorioEditIndex < filteredSortedRelatorios.length - 1;
+
+  function goToPrevRelatorioRecord() {
+    if (!hasPrevRelatorioRecord) return;
+    const previous = filteredSortedRelatorios[currentRelatorioEditIndex - 1];
+    openRelatorioEditForm(previous);
+  }
+
+  function goToNextRelatorioRecord() {
+    if (!hasNextRelatorioRecord) return;
+    const next = filteredSortedRelatorios[currentRelatorioEditIndex + 1];
+    openRelatorioEditForm(next);
+  }
+
   // Lookup de ativo no formulário de manutenção.
   const [manutencaoAtivoLookupOpen, setManutencaoAtivoLookupOpen] = useState(false);
   const manutencaoAtivoLookupTargetRef = useRef<'manutencao' | 'manutencaoFilter'>('manutencao');
@@ -1658,6 +1681,18 @@ export default function Home() {
   const perfilColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_as_perfil),
     [currentUser?.config_colunas_as_perfil]
+  );
+  const relatorioListaColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_lista),
+    [currentUser?.config_colunas_relatorio_lista]
+  );
+  const relatorioFiltrosColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_filtros),
+    [currentUser?.config_colunas_relatorio_filtros]
+  );
+  const relatorioOrdenacaoColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_ordenacao),
+    [currentUser?.config_colunas_relatorio_ordenacao]
   );
   const CG_DEFS = {
     sexo: {
@@ -6130,8 +6165,7 @@ export default function Home() {
     try {
       const updates: Record<string, unknown> = { dt_termino: concluirManutForm.dt_termino, ie_status_manutencao: 'CO' };
       if (concluirManutForm.vl_total) {
-        const digits = concluirManutForm.vl_total.replace(/\D/g, '');
-        if (digits) updates.vl_total = Number(digits) / 100;
+        updates.vl_total = concluirManutForm.vl_total;
       }
       if (concluirManutForm.ds_correcoes) updates.ds_correcoes = concluirManutForm.ds_correcoes;
       await atualizarManutencao(concluirManutTarget.manutencao.id!, updates as any, auditAutor);
@@ -6335,11 +6369,13 @@ export default function Home() {
     if (appliedManutencaoFilterForm.dt_termino_fim && m.dt_termino && m.dt_termino > appliedManutencaoFilterForm.dt_termino_fim) return false;
     if (appliedManutencaoFilterForm.vl_total_menor) {
       const minVal = Number(appliedManutencaoFilterForm.vl_total_menor.replace(/[^\d.,]/g, '').replace(',', '.'));
-      if (!isNaN(minVal) && (m.vl_total ?? 0) < minVal) return false;
+      const regVal = Number(String(m.vl_total ?? '').replace(/[^\d.,]/g, '').replace(',', '.'));
+      if (!isNaN(minVal) && regVal < minVal) return false;
     }
     if (appliedManutencaoFilterForm.vl_total_maior) {
       const maxVal = Number(appliedManutencaoFilterForm.vl_total_maior.replace(/[^\d.,]/g, '').replace(',', '.'));
-      if (!isNaN(maxVal) && (m.vl_total ?? 0) > maxVal) return false;
+      const regVal = Number(String(m.vl_total ?? '').replace(/[^\d.,]/g, '').replace(',', '.'));
+      if (!isNaN(maxVal) && regVal > maxVal) return false;
     }
     if (appliedManutencaoFilterForm.ie_status_manutencao !== 'T' && m.ie_status_manutencao !== appliedManutencaoFilterForm.ie_status_manutencao) return false;
     return true;
@@ -7167,6 +7203,42 @@ export default function Home() {
       })
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Perfis)', err);
+      });
+  }
+
+  function handleRelatorioListaColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_relatorio_lista: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_relatorio_lista: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Relatório Lista)', err);
+      });
+  }
+
+  function handleRelatorioFiltrosColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_relatorio_filtros: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_relatorio_filtros: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Relatório Filtros)', err);
+      });
+  }
+
+  function handleRelatorioOrdenacaoColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_relatorio_ordenacao: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_relatorio_ordenacao: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Relatório Ordenação)', err);
       });
   }
 
@@ -8059,11 +8131,21 @@ export default function Home() {
                      onManageSelectionChange={handleRelatorioManageSelectionChange}
                      allowedSubmodulos={allowedRelatorioSubmodulos}
                      userId={currentUser?.id}
+                     initialListaColumns={relatorioListaColunasConfig}
+                     onListaColumnsChange={handleRelatorioListaColumnsChange}
+                     initialFiltrosColumns={relatorioFiltrosColunasConfig}
+                     onFiltrosColumnsChange={handleRelatorioFiltrosColumnsChange}
+                     initialOrdenacaoColumns={relatorioOrdenacaoColunasConfig}
+                     onOrdenacaoColumnsChange={handleRelatorioOrdenacaoColumnsChange}
                      contextMenuItems={relatorioEditingId ? [
                        { label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } },
                        { label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } },
                        { label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } },
                      ] : []}
+                     onPrevRecord={goToPrevRelatorioRecord}
+                     onNextRecord={goToNextRelatorioRecord}
+                     hasPrevRecord={hasPrevRelatorioRecord}
+                     hasNextRecord={hasNextRelatorioRecord}
                    />
                 </div>
               ) : (
@@ -8080,6 +8162,7 @@ export default function Home() {
                   manageSelection={relatorioManageSelection}
                   onManageSelectionChange={handleRelatorioManageSelectionChange}
                   allowedSubmodulos={allowedRelatorioSubmodulos}
+                  userId={currentUser?.id}
                 />
               )
             ) : (

@@ -18,6 +18,10 @@ interface CamposRelatorioTableProps {
   onEditingChange?: (editing: boolean) => void;
   /** Sufixo para persistência de colunas por usuário. */
   userId?: string;
+  /** Configuração inicial de colunas (do Firestore). */
+  initialColumns?: { order: string[]; widths: Record<string, number> } | null;
+  /** Callback ao alterar ordem/largura das colunas. */
+  onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
 }
 
 export interface CamposRelatorioRow {
@@ -87,14 +91,25 @@ export default function CamposRelatorioTable({
   colecaoPrincipal,
   onEditingChange,
   userId,
+  initialColumns,
+  onColumnsChange,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Notificar o pai quando o estado de edição muda
   useEffect(() => {
     onEditingChange?.(editingId !== null);
   }, [editingId, onEditingChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [contextMenu]);
+
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean>(true);
 
@@ -508,14 +523,16 @@ export default function CamposRelatorioTable({
         sortAsc={sortAsc}
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
-        rowClassName={(row) => `campo-row${editingId === row.id ? ' row-selected' : ''}`}
+        onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
+        rowClassName={(row) => `campo-row${selectedId === row.id ? ' row-selected' : ''}`}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
+        initialColumns={initialColumns}
+        onColumnsChange={onColumnsChange}
       />
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
           <div
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}

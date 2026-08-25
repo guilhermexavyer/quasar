@@ -14,6 +14,8 @@ interface FiltrosRelatorioTableProps {
   onChange: (filtros: RelatorioFiltro[]) => void;
   camposDisponiveis: DataSourceCampo[];
   userId?: string;
+  initialColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
 }
 
 const MASCARA_OPTIONS = [
@@ -71,8 +73,11 @@ export default function FiltrosRelatorioTable({
   onChange,
   camposDisponiveis,
   userId,
+  initialColumns,
+  onColumnsChange,
 }: FiltrosRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -339,7 +344,7 @@ export default function FiltrosRelatorioTable({
               type="checkbox"
               checked={row.parametro ?? false}
               onChange={(e) => atualizar(row.id, { parametro: e.target.checked })}
-              className="h-4 w-4 cursor-pointer accent-[#066fc5]"
+              className="cg-checkbox"
             />
           </span>
         );
@@ -357,14 +362,16 @@ export default function FiltrosRelatorioTable({
         sortAsc={sortAsc}
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
-        rowClassName={(row) => editingId === row.id ? "row-selected" : ""}
+        onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
+        rowClassName={(row) => selectedId === row.id ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
+        initialColumns={initialColumns}
+        onColumnsChange={onColumnsChange}
       />
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
           <div
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}

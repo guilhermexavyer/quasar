@@ -26,6 +26,7 @@ interface RelatorioListViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   allowedSubmodulos?: string[];
+  userId?: string;
 }
 
 function formatCellValue(key: string, value: any): string {
@@ -70,6 +71,7 @@ export default function RelatorioListView({
   manageSelection,
   onManageSelectionChange,
   allowedSubmodulos = ['relatorios'],
+  userId,
 }: RelatorioListViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -149,6 +151,7 @@ export default function RelatorioListView({
         ) : (
           <div className="flex-1 overflow-auto">
             <ResizableTable
+              storageKeySuffix={userId}
               columns={COLUMNS.map((col) => ({
                 key: col.key,
                 label: col.label,

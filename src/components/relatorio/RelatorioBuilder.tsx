@@ -41,6 +41,18 @@ interface RelatorioBuilderProps {
   contextMenuItems?: ContextMenuItem[];
   onChange?: (relatorio: Relatorio) => void;
   userId?: string;
+  /** Configuração de colunas salva no Firestore (per-user) */
+  initialListaColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onListaColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  initialFiltrosColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onFiltrosColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  initialOrdenacaoColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onOrdenacaoColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  /** Navegação entre registros */
+  onPrevRecord?: () => void;
+  onNextRecord?: () => void;
+  hasPrevRecord?: boolean;
+  hasNextRecord?: boolean;
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
@@ -90,8 +102,25 @@ export default function RelatorioBuilder({
   contextMenuItems = [],
   onChange,
   userId,
+  initialListaColumns,
+  onListaColumnsChange,
+  initialFiltrosColumns,
+  onFiltrosColumnsChange,
+  initialOrdenacaoColumns,
+  onOrdenacaoColumnsChange,
+  onPrevRecord,
+  onNextRecord,
+  hasPrevRecord = false,
+  hasNextRecord = false,
 }: RelatorioBuilderProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
+
+  useEffect(() => {
+    if (!contextMenu) return;
+    const close = () => setContextMenu(null);
+    window.addEventListener("click", close);
+    return () => window.removeEventListener("click", close);
+  }, [contextMenu]);
 
   function handleContextMenu(e: React.MouseEvent) {
     e.preventDefault();
@@ -106,8 +135,8 @@ export default function RelatorioBuilder({
       ? relatorio.campos.map((c, i) => mapRelatorioCampoToRow(c, i, relatorio.colecao))
       : []
   );
-  const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : [EMPTY_FILTRO()]);
-  const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : [{ id: gerarId(), campo: "", direcao: "asc" as const }]);
+  const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
+  const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
   const [agrupamento, setAgrupamento] = useState<RelatorioAgrupamento | undefined>(relatorio?.agrupamento);
   const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.formato ?? 'excel');
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
@@ -240,7 +269,6 @@ export default function RelatorioBuilder({
     <div className="flex-1 flex flex-col min-h-0" onContextMenu={handleContextMenu}>
       {contextMenu && contextMenuItems.length > 0 && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
           <div
             className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
@@ -273,6 +301,32 @@ export default function RelatorioBuilder({
             className="!w-[180px]"
             disabled
           />
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              onClick={onPrevRecord}
+              disabled={!hasPrevRecord}
+              className={hasPrevRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
+              style={{ borderBottomColor: '#000' }}
+              aria-label="Registro anterior"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M15 18 9 12l6-6" />
+              </svg>
+            </button>
+            <button
+              type="button"
+              onClick={onNextRecord}
+              disabled={!hasNextRecord}
+              className={hasNextRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
+              style={{ borderBottomColor: '#000' }}
+              aria-label="Próximo registro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M9 18 15 12 9 6" />
+              </svg>
+            </button>
+          </div>
         </div>
         <button
           type="button"
@@ -338,16 +392,9 @@ export default function RelatorioBuilder({
           <section className="mt-[15px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
-              {colecao && (
-                <button type="button" onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
-              )}
+              <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
-            {!colecao && (
-              <p className="text-sm text-slate-400">Selecione uma fonte de dados primeiro.</p>
-            )}
-            {colecao && (
-              <>
-              <div className="overflow-x-auto">
+            <div className="overflow-x-auto">
               <CamposRelatorioTable
                 campos={campos}
                 onChange={setCampos}
@@ -355,8 +402,11 @@ export default function RelatorioBuilder({
                 colecaoPrincipal={colecao}
                 onEditingChange={setEditingCampo}
                 userId={userId}
+                initialColumns={initialListaColumns}
+                onColumnsChange={onListaColumnsChange}
               />
               </div>
+              {colecao && (
               <div className="grid grid-cols-5 gap-[15px] mt-3">
                 {/* Linha 1: Espessura/Bg/Cor/Fonte/Tamanho label */}
                 <div className="group">
@@ -483,11 +533,9 @@ export default function RelatorioBuilder({
                       setTamanhoFonteCampo(v ? Math.max(1, Number(v)) : 1);
                     }}
                     className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />
-                </div>
+                  />                </div>
               </div>
-              </>
-            )}
+              )}
 
           </section>
 
@@ -504,6 +552,8 @@ export default function RelatorioBuilder({
               onChange={setFiltros}
               camposDisponiveis={camposDisponiveis}
               userId={userId}
+              initialColumns={initialFiltrosColumns}
+              onColumnsChange={onFiltrosColumnsChange}
             />
           </section>
 
@@ -520,6 +570,8 @@ export default function RelatorioBuilder({
               onChange={setOrdenacao}
               camposDisponiveis={camposDisponiveis}
               userId={userId}
+              initialColumns={initialOrdenacaoColumns}
+              onColumnsChange={onOrdenacaoColumnsChange}
             />
           </section>
 

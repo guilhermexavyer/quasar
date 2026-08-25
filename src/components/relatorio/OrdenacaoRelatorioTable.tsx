@@ -12,6 +12,8 @@ interface OrdenacaoRelatorioTableProps {
   onChange: (ordenacao: RelatorioOrdenacao[]) => void;
   camposDisponiveis: DataSourceCampo[];
   userId?: string;
+  initialColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
 }
 
 export default function OrdenacaoRelatorioTable({
@@ -19,8 +21,11 @@ export default function OrdenacaoRelatorioTable({
   onChange,
   camposDisponiveis,
   userId,
+  initialColumns,
+  onColumnsChange,
 }: OrdenacaoRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -181,14 +186,16 @@ export default function OrdenacaoRelatorioTable({
         sortAsc={sortAsc}
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
-        rowClassName={(row) => editingId === row.id ? "row-selected" : ""}
+        onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
+        rowClassName={(row) => selectedId === row.id ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
+        initialColumns={initialColumns}
+        onColumnsChange={onColumnsChange}
       />
 
       {contextMenu && (
         <>
-          <div className="fixed inset-0 z-40" onClick={() => setContextMenu(null)} />
           <div
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}

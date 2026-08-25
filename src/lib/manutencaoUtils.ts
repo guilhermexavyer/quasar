@@ -77,6 +77,7 @@ export function formatCellValue(key: string, value: unknown): string {
     }
   }
   if (key === "vl_total") {
+    if (typeof value === 'string') return value;
     const num = Number(value);
     if (isNaN(num)) return String(value);
     return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

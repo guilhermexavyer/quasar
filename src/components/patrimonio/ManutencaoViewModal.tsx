@@ -51,6 +51,7 @@ const SPAN_CLASS: Record<number, string> = {
 
 function formatCurrencyBRL(value: unknown): string {
   if (value === null || value === undefined || value === "") return "";
+  if (typeof value === 'string') return value;
   const num = Number(value);
   if (isNaN(num)) return String(value);
   return num.toLocaleString("pt-BR", { style: "currency", currency: "BRL" });

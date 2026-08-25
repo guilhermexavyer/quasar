@@ -30,3 +30,28 @@ export function isValidOrder(order: number[], length: number): boolean {
   }
   return true;
 }
+
+/* ── String-key helpers (para ResizableTable com chaves de coluna) ── */
+
+export interface StringColunasConfig {
+  order: string[];
+  widths: Record<string, number>;
+}
+
+export function serializeStringColunasConfig(order: string[], widths: Record<string, number>): string {
+  return JSON.stringify({ order, widths });
+}
+
+export function parseStringColunasConfig(raw?: string | null): StringColunasConfig | null {
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as Partial<StringColunasConfig>;
+    if (!Array.isArray(parsed.order)) return null;
+    return {
+      order: parsed.order,
+      widths: parsed.widths && typeof parsed.widths === 'object' ? parsed.widths : {},
+    };
+  } catch {
+    return null;
+  }
+}

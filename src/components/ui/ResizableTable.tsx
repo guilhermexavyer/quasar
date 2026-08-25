@@ -28,6 +28,10 @@ interface ResizableTableProps<T> {
   pinnedColumns?: string[];
   /** Sufixo para a chave de persistência no localStorage (ex.: userId). */
   storageKeySuffix?: string;
+  /** Callback chamado quando a ordem ou largura das colunas é alterada. */
+  onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  /** Configuração inicial de colunas vindas do Firestore (quando fornecida, ignora localStorage). */
+  initialColumns?: { order: string[]; widths: Record<string, number> } | null;
 }
 
 /**
@@ -48,6 +52,8 @@ export default function ResizableTable<T>({
   rowClassName,
   pinnedColumns = [],
   storageKeySuffix = '',
+  onColumnsChange,
+  initialColumns,
 }: ResizableTableProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>(() => columns.map((c) => c.key));
@@ -81,6 +87,7 @@ export default function ResizableTable<T>({
     } catch {
       /* armazenamento indisponível */
     }
+    onColumnsChange?.(order, widths);
   }
 
   // Quando as colunas mudam (ex.: troca de função), carrega/reseta ordem e
@@ -92,7 +99,7 @@ export default function ResizableTable<T>({
     const keys = columns.map((c) => c.key);
     const pinned = keys.filter((k) => pinnedColumns.includes(k));
     const unpinned = keys.filter((k) => !pinnedColumns.includes(k));
-    const saved = loadSaved();
+    const saved = initialColumns ?? loadSaved();
     if (saved) {
       const savedOrder = saved.order.filter((k) => unpinned.includes(k));
       const extra = unpinned.filter((k) => !savedOrder.includes(k));
@@ -104,7 +111,7 @@ export default function ResizableTable<T>({
     }
     minWidthsRef.current = {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnsKey, pinnedColumns.join(',')]);
+  }, [columnsKey, pinnedColumns.join(','), storageKeySuffix]);
 
   function measureHeaderMinWidth(th: HTMLElement): number {
     const clone = th.cloneNode(true) as HTMLElement;
