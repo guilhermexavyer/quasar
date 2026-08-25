@@ -149,7 +149,7 @@ export interface RelatorioFiltro {
   /** Conector lógico com o filtro anterior. */
   conector?: 'E' | 'OU';
   /** Máscara de formatação do valor. */
-  mascara?: 'data' | 'decimal' | 'inteiro' | 'texto';
+  mascara?: 'data' | 'decimal' | 'inteiro' | 'texto' | 'cpf' | 'telefone';
   /** Se true, o valor será informado pelo usuário ao gerar o relatório. */
   parametro?: boolean;
 }
@@ -158,6 +158,8 @@ export interface RelatorioFiltro {
  * Ordenação dos registros.
  */
 export interface RelatorioOrdenacao {
+  /** Identificador único. */
+  id: string;
   /** Chave do campo por qual ordenar. */
   campo: string;
   /** Direção da ordenação. */

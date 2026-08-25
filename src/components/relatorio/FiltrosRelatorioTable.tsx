@@ -13,6 +13,7 @@ interface FiltrosRelatorioTableProps {
   filtros: RelatorioFiltro[];
   onChange: (filtros: RelatorioFiltro[]) => void;
   camposDisponiveis: DataSourceCampo[];
+  userId?: string;
 }
 
 const MASCARA_OPTIONS = [
@@ -20,6 +21,8 @@ const MASCARA_OPTIONS = [
   { value: "data", label: "Data" },
   { value: "decimal", label: "Decimal" },
   { value: "inteiro", label: "Inteiro" },
+  { value: "cpf", label: "CPF" },
+  { value: "telefone", label: "Telefone" },
 ];
 
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm transition focus:border-[#003056] focus:outline-none";
@@ -45,10 +48,29 @@ function applyIntegerMask(value: string): string {
   return value.replace(/\D/g, "");
 }
 
+/** Apply CPF mask XXX.XXX.XXX-XX */
+function applyCpfMask(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 3) return digits;
+  if (digits.length <= 6) return `${digits.slice(0, 3)}.${digits.slice(3)}`;
+  if (digits.length <= 9) return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6)}`;
+  return `${digits.slice(0, 3)}.${digits.slice(3, 6)}.${digits.slice(6, 9)}-${digits.slice(9)}`;
+}
+
+/** Apply phone mask (XX) XXXXX-XXXX or (XX) XXXX-XXXX */
+function applyPhoneMask(value: string): string {
+  const digits = value.replace(/\D/g, "").slice(0, 11);
+  if (digits.length <= 2) return digits;
+  if (digits.length <= 6) return `(${digits.slice(0, 2)}) ${digits.slice(2)}`;
+  if (digits.length <= 10) return `(${digits.slice(0, 2)}) ${digits.slice(2, 6)}-${digits.slice(6)}`;
+  return `(${digits.slice(0, 2)}) ${digits.slice(2, 7)}-${digits.slice(7)}`;
+}
+
 export default function FiltrosRelatorioTable({
   filtros,
   onChange,
   camposDisponiveis,
+  userId,
 }: FiltrosRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -69,6 +91,7 @@ export default function FiltrosRelatorioTable({
   }
 
   function handleSort(col: string) {
+    if (col === '_actions') return; // coluna fixa não ordena
     if (sortColumn === col) {
       if (sortAsc) setSortAsc(false);
       else { setSortColumn(null); setSortAsc(true); }
@@ -164,6 +187,34 @@ export default function FiltrosRelatorioTable({
       );
     }
 
+    if (mascara === "cpf") {
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={14}
+          placeholder="XXX.XXX.XXX-XX"
+          value={val}
+          onChange={(e) => atualizar(row.id, { [field]: applyCpfMask(e.target.value) })}
+          className={`${inputClass} !text-xs flex-1 min-w-0 placeholder:text-[#aaa]`}
+        />
+      );
+    }
+
+    if (mascara === "telefone") {
+      return (
+        <input
+          type="text"
+          inputMode="numeric"
+          maxLength={15}
+          placeholder="(XX) XXXXX-XXXX"
+          value={val}
+          onChange={(e) => atualizar(row.id, { [field]: applyPhoneMask(e.target.value) })}
+          className={`${inputClass} !text-xs flex-1 min-w-0 placeholder:text-[#aaa]`}
+        />
+      );
+    }
+
     // texto (default)
     return (
       <input
@@ -181,12 +232,13 @@ export default function FiltrosRelatorioTable({
       key: "_actions",
       label: "",
       width: 70,
+      fixed: true,
       render: (row: RelatorioFiltro) => {
         const isEditing = editingId === row.id;
         return (
           <span className="flex items-center justify-center gap-1">
             {!isEditing && (
-              <button type="button" className="cursor-pointer p-0 bg-transparent border-none" title="Editar"
+              <button type="button" className="cursor-pointer p-0 bg-transparent border-none"
                 onClick={() => { setEditingId(row.id); setContextMenu(null); }}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
@@ -194,7 +246,7 @@ export default function FiltrosRelatorioTable({
               </button>
             )}
             {isEditing && (
-              <button type="button" className="cursor-pointer p-0 bg-transparent border-none" title="Salvar"
+              <button type="button" className="cursor-pointer p-0 bg-transparent border-none"
                 onClick={() => setEditingId(null)}>
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M20 6 9 17l-5-5" />
@@ -307,6 +359,7 @@ export default function FiltrosRelatorioTable({
         onRowContextMenu={handleContextMenu}
         rowClassName={(row) => editingId === row.id ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
+        storageKeySuffix={userId}
       />
 
       {contextMenu && (

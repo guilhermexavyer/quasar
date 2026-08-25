@@ -16,6 +16,8 @@ interface CamposRelatorioTableProps {
   colecaoPrincipal: string;
   /** Callback quando o estado de edição muda. */
   onEditingChange?: (editing: boolean) => void;
+  /** Sufixo para persistência de colunas por usuário. */
+  userId?: string;
 }
 
 export interface CamposRelatorioRow {
@@ -84,6 +86,7 @@ export default function CamposRelatorioTable({
   camposDisponiveis,
   colecaoPrincipal,
   onEditingChange,
+  userId,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
 
@@ -507,6 +510,7 @@ export default function CamposRelatorioTable({
         onRowContextMenu={handleContextMenu}
         rowClassName={(row) => `campo-row${editingId === row.id ? ' row-selected' : ''}`}
         pinnedColumns={["_actions"]}
+        storageKeySuffix={userId}
       />
 
       {contextMenu && (

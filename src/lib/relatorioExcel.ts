@@ -11,6 +11,30 @@ import { obterValorCampo } from "@/lib/relatorioQueryBuilder";
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
 /**
+ * Converte uma string DD/MM/YYYY em Date, ou tenta parsear como ISO.
+ */
+function parseDate(valor: string): Date | null {
+  // Tenta formato DD/MM/YYYY
+  const brMatch = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const [, day, month, year] = brMatch;
+    const d = new Date(Number(year), Number(month) - 1, Number(day));
+    if (d.getFullYear() === Number(year) && d.getMonth() === Number(month) - 1 && d.getDate() === Number(day)) {
+      return d;
+    }
+  }
+  // Tenta formato ISO (YYYY-MM-DD)
+  const isoMatch = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const d = new Date(valor);
+    if (!isNaN(d.getTime())) return d;
+  }
+  // Último recurso: tenta Date() direto
+  const d = new Date(valor);
+  return isNaN(d.getTime()) ? null : d;
+}
+
+/**
  * Converte estilo para objeto de estilo XLSX.
  */
 function estiloFonte(estilo?: string): { bold?: boolean; italic?: boolean; underline?: string } {
@@ -71,13 +95,15 @@ function formatarValor(valor: any, campo: RelatorioCampo): string {
     }
     case "data": {
       if (!valor) return "";
-      try { return new Date(valor).toLocaleDateString("pt-BR"); }
-      catch { return String(valor); }
+      const d = parseDate(String(valor));
+      if (d) return d.toLocaleDateString("pt-BR");
+      return String(valor);
     }
     case "data_hora": {
       if (!valor) return "";
-      try { return new Date(valor).toLocaleString("pt-BR"); }
-      catch { return String(valor); }
+      const d = parseDate(String(valor));
+      if (d) return d.toLocaleString("pt-BR");
+      return String(valor);
     }
     default:
       return String(valor);

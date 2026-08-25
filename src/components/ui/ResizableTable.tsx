@@ -26,6 +26,8 @@ interface ResizableTableProps<T> {
   rowClassName?: (row: T) => string;
   /** Colunas fixas que ficam sempre à esquerda e não podem ser reordenadas/redimensionadas. */
   pinnedColumns?: string[];
+  /** Sufixo para a chave de persistência no localStorage (ex.: userId). */
+  storageKeySuffix?: string;
 }
 
 /**
@@ -45,6 +47,7 @@ export default function ResizableTable<T>({
   onRowContextMenu,
   rowClassName,
   pinnedColumns = [],
+  storageKeySuffix = '',
 }: ResizableTableProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [columnOrder, setColumnOrder] = useState<string[]>(() => columns.map((c) => c.key));
@@ -56,7 +59,7 @@ export default function ResizableTable<T>({
   const dropLineRef = useRef<HTMLDivElement | null>(null);
 
   const columnsKey = columns.map((c) => c.key).join("|");
-  const storageKey = `rt-cols:${columnsKey}`;
+  const storageKey = `rt-cols:${columnsKey}${storageKeySuffix ? ':' + storageKeySuffix : ''}`;
 
   function loadSaved(): { order: string[]; widths: Record<string, number> } | null {
     try {

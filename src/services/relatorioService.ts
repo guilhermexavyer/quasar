@@ -9,7 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined } from "@/lib/firestoreUtils";
+import { removerUndefined, montarUpdateComRemocoes } from "@/lib/firestoreUtils";
 import type { Relatorio } from "@/types/relatorio";
 import type { AuditAutor } from "@/services/auditService";
 
@@ -114,24 +114,20 @@ export async function atualizarRelatorio(
 
   if (!hasChanges) return;
 
-  const dados = removerUndefined(relatorio);
-  const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
+  const { updates } = montarUpdateComRemocoes(currentData, relatorio);
+  updates.dt_alteracao = new Date().toISOString();
+  updates.ds_usuario_alteracao = autor?.usuarioNome?.trim() || "-";
 
-  await updateDoc(docRef, {
-    ...dados,
-    dt_alteracao: agora,
-    ds_usuario_alteracao: nomeAutor,
-  });
+  await updateDoc(docRef, updates);
 
   try {
     const auditCol = collection(db, "relatorios", id, "auditoria");
-    const full = { ...currentData, ...dados, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+    const full = { ...currentData, ...relatorio, dt_alteracao: updates.dt_alteracao, ds_usuario_alteracao: updates.ds_usuario_alteracao };
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? "-",
       acao: "update",
-      timestamp: agora,
+      timestamp: updates.dt_alteracao,
       detalhes: full,
     });
   } catch (e) {

@@ -26,6 +26,26 @@ export interface RelatorioResultado {
 }
 
 /**
+ * Converte uma string DD/MM/YYYY em timestamp numérico para comparação.
+ */
+function parseDateToNumber(valor: string): number | null {
+  const brMatch = valor.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (brMatch) {
+    const [, day, month, year] = brMatch;
+    const d = new Date(Number(year), Number(month) - 1, Number(day));
+    if (d.getFullYear() === Number(year) && d.getMonth() === Number(month) - 1 && d.getDate() === Number(day)) {
+      return d.getTime();
+    }
+  }
+  const isoMatch = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (isoMatch) {
+    const d = new Date(valor);
+    if (!isNaN(d.getTime())) return d.getTime();
+  }
+  return null;
+}
+
+/**
  * Compara dois valores considerando o tipo.
  */
 function compararValores(a: any, b: any): number {
@@ -35,6 +55,14 @@ function compararValores(a: any, b: any): number {
   if (typeof a === 'number' && typeof b === 'number') return a - b;
   const sa = String(a);
   const sb = String(b);
+  // Tenta comparar como datas
+  const dateA = parseDateToNumber(sa);
+  const dateB = parseDateToNumber(sb);
+  if (dateA !== null && dateB !== null) return dateA - dateB;
+  // Tenta comparar como números
+  const numA = Number(sa);
+  const numB = Number(sb);
+  if (!isNaN(numA) && !isNaN(numB)) return numA - numB;
   return sa.localeCompare(sb, 'pt-BR');
 }
 
@@ -48,6 +76,9 @@ function applyClientSideFilters(
   return registros.filter((reg) => {
     for (const filtro of filtros) {
       const { campo, operador, valor, valorFinal } = filtro;
+      // Ignora filtros sem campo ou sem valor (exceto vazio/nao_vazio)
+      if (!campo) continue;
+      if (operador !== 'vazio' && operador !== 'nao_vazio' && (!valor || valor.trim() === '') && (!valorFinal || valorFinal.trim() === '')) continue;
       const campoLimpo = campo.includes('.') ? campo.split('.').pop()! : campo;
       const raw = reg[campoLimpo];
       const valorCampo = String(raw ?? '').toLowerCase();

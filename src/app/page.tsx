@@ -288,7 +288,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.5";
+const SYSTEM_VERSION = "0.62.6";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2629,12 +2629,16 @@ export default function Home() {
     // Check for parameter filters
     const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
     if (parametros.length > 0) {
-      // Initialize parameter values with current filter values
-      const initialValues: Record<string, string> = {};
-      for (const p of parametros) {
-        initialValues[p.id] = p.valor ?? '';
-      }
-      setRelatorioParamValues(initialValues);
+      // Use previously entered values if they exist, otherwise use saved filter values
+      setRelatorioParamValues((prev) => {
+        const initialValues: Record<string, string> = { ...prev };
+        for (const p of parametros) {
+          if (initialValues[p.id] === undefined) {
+            initialValues[p.id] = p.valor ?? '';
+          }
+        }
+        return initialValues;
+      });
       setRelatorioParamModal({ relatorio, parametros });
       return;
     }
@@ -7059,6 +7063,7 @@ export default function Home() {
     setAlunoInteracted(false);
     setAtivoInteracted(false);
     setRelatorioInteracted(false);
+    setRelatorioParamValues({});
   }
 
   function toggleDarkMode() {
@@ -8053,6 +8058,7 @@ export default function Home() {
                      manageSelection={relatorioManageSelection}
                      onManageSelectionChange={handleRelatorioManageSelectionChange}
                      allowedSubmodulos={allowedRelatorioSubmodulos}
+                     userId={currentUser?.id}
                      contextMenuItems={relatorioEditingId ? [
                        { label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } },
                        { label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } },
@@ -11822,9 +11828,9 @@ export default function Home() {
                     <label className="block text-sm mb-1" style={{ color: '#666' }}>{campoLabel} {operadorLabel}</label>
                     <input
                       type="text"
-                      inputMode={filtro.mascara === 'decimal' ? 'decimal' : filtro.mascara === 'inteiro' || filtro.mascara === 'data' ? 'numeric' : undefined}
-                      maxLength={filtro.mascara === 'data' ? 10 : undefined}
-                      placeholder={filtro.mascara === 'data' ? 'DD/MM/AAAA' : undefined}
+                      inputMode={filtro.mascara === 'decimal' ? 'decimal' : filtro.mascara === 'inteiro' || filtro.mascara === 'data' || filtro.mascara === 'cpf' || filtro.mascara === 'telefone' ? 'numeric' : undefined}
+                      maxLength={filtro.mascara === 'data' ? 10 : filtro.mascara === 'cpf' ? 14 : filtro.mascara === 'telefone' ? 15 : undefined}
+                      placeholder={filtro.mascara === 'data' ? 'DD/MM/AAAA' : filtro.mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
                       value={relatorioParamValues[filtro.id] ?? ''}
                       onChange={(e) => {
                         let val = e.target.value;
@@ -11839,6 +11845,18 @@ export default function Home() {
                           const digits = val.replace(/\D/g, '');
                           if (digits) val = (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                           else val = '';
+                        } else if (filtro.mascara === 'cpf') {
+                          const digits = val.replace(/\D/g, '').slice(0, 11);
+                          if (digits.length <= 3) val = digits;
+                          else if (digits.length <= 6) val = digits.slice(0, 3) + '.' + digits.slice(3);
+                          else if (digits.length <= 9) val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6);
+                          else val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6, 9) + '-' + digits.slice(9);
+                        } else if (filtro.mascara === 'telefone') {
+                          const digits = val.replace(/\D/g, '').slice(0, 11);
+                          if (digits.length <= 2) val = digits;
+                          else if (digits.length <= 6) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2);
+                          else if (digits.length <= 10) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 6) + '-' + digits.slice(6);
+                          else val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 7) + '-' + digits.slice(7);
                         }
                         setRelatorioParamValues((prev) => ({ ...prev, [filtro.id]: val }));
                       }}

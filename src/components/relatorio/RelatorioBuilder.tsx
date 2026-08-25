@@ -21,6 +21,7 @@ import type {
 } from "@/types/relatorio";
 import CamposRelatorioTable, { type CamposRelatorioRow } from "@/components/relatorio/CamposRelatorioTable";
 import FiltrosRelatorioTable from "@/components/relatorio/FiltrosRelatorioTable";
+import OrdenacaoRelatorioTable from "@/components/relatorio/OrdenacaoRelatorioTable";
 
 interface ContextMenuItem {
   label: string;
@@ -39,6 +40,7 @@ interface RelatorioBuilderProps {
   /** Context menu */
   contextMenuItems?: ContextMenuItem[];
   onChange?: (relatorio: Relatorio) => void;
+  userId?: string;
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
@@ -87,6 +89,7 @@ export default function RelatorioBuilder({
   allowedSubmodulos = ['relatorios'],
   contextMenuItems = [],
   onChange,
+  userId,
 }: RelatorioBuilderProps) {
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -104,7 +107,7 @@ export default function RelatorioBuilder({
       : []
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : [EMPTY_FILTRO()]);
-  const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao : [{ campo: "", direcao: "asc" as const }]);
+  const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : [{ id: gerarId(), campo: "", direcao: "asc" as const }]);
   const [agrupamento, setAgrupamento] = useState<RelatorioAgrupamento | undefined>(relatorio?.agrupamento);
   const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.formato ?? 'excel');
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
@@ -183,7 +186,7 @@ export default function RelatorioBuilder({
     setFiltros((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   }
 
-  function adicionarOrdenacao() { setOrdenacao((prev) => [...prev, { campo: "", direcao: "asc" }]); }
+  function adicionarOrdenacao() { setOrdenacao((prev) => [...prev, { id: gerarId(), campo: "", direcao: "asc" }]); }
   function removerOrdenacao(idx: number) { setOrdenacao((prev) => prev.filter((_, i) => i !== idx)); }
   function atualizarOrdenacao(idx: number, updates: Partial<RelatorioOrdenacao>) {
     setOrdenacao((prev) => prev.map((o, i) => (i === idx ? { ...o, ...updates } : o)));
@@ -351,6 +354,7 @@ export default function RelatorioBuilder({
                 camposDisponiveis={camposDisponiveis}
                 colecaoPrincipal={colecao}
                 onEditingChange={setEditingCampo}
+                userId={userId}
               />
               </div>
               <div className="grid grid-cols-5 gap-[15px] mt-3">
@@ -499,6 +503,7 @@ export default function RelatorioBuilder({
               filtros={filtros}
               onChange={setFiltros}
               camposDisponiveis={camposDisponiveis}
+              userId={userId}
             />
           </section>
 
@@ -506,41 +511,16 @@ export default function RelatorioBuilder({
           {/* ── Seção: Ordenação ── */}
           {/* ═══════════════════════════════════════════════ */}
           <section className="mt-[15px]">
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Ordenação</h2>
-            <div className="space-y-[15px]">
-              {ordenacao.map((ord, index) => (
-                <div key={index} className="grid gap-[15px] sm:grid-cols-12 items-start">
-                  <div className="sm:col-span-1 group">
-                    <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
-                    <span className="text-sm text-slate-500">{index + 1}º</span>
-                  </div>
-                  <div className="sm:col-span-6 group">
-                    {index === 0 && <label className={labelClass} style={{ color: '#666' }}>Campo</label>}
-                    <Select
-                      value={ord.campo}
-                      onChange={(v) => atualizarOrdenacao(index, { campo: v })}
-                      options={camposDisponiveis.map((cd) => ({ value: cd.key, label: cd.label }))}
-                      showPlaceholder
-                    />
-                  </div>
-                  <div className="sm:col-span-5 group">
-                    {index === 0 && <label className={labelClass} style={{ color: '#666' }}>Direção</label>}
-                    <div className="flex items-center gap-1">
-                      <Select
-                        value={ord.direcao}
-                        onChange={(v) => atualizarOrdenacao(index, { direcao: v as 'asc' | 'desc' })}
-                        options={[{ value: "asc", label: "Crescente" }, { value: "desc", label: "Decrescente" }]}
-                        showPlaceholder={false}
-                        className="flex-1 min-w-0"
-                      />
-                      <button type="button" onClick={adicionarOrdenacao} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]" title="Adicionar ordenação">+</button>
-                      <button type="button" onClick={() => removerOrdenacao(index)} disabled={ordenacao.length <= 1} className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-red-500 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700" title="Remover ordenação">−</button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-
+            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
+              <h2 className="text-sm font-semibold text-slate-900">Ordenação</h2>
+              <button type="button" onClick={() => setOrdenacao((prev) => [...prev, { id: gerarId(), campo: "", direcao: "asc" }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
+            <OrdenacaoRelatorioTable
+              ordenacao={ordenacao}
+              onChange={setOrdenacao}
+              camposDisponiveis={camposDisponiveis}
+              userId={userId}
+            />
           </section>
 
           {/* ═══════════════════════════════════════════════ */}
