@@ -122,7 +122,7 @@ export async function atualizarRelatorio(
 
   try {
     const auditCol = collection(db, "relatorios", id, "auditoria");
-    const full = { ...currentData, ...relatorio, dt_alteracao: updates.dt_alteracao, ds_usuario_alteracao: updates.ds_usuario_alteracao };
+    const full = removerUndefined({ ...currentData, ...relatorio, dt_alteracao: updates.dt_alteracao, ds_usuario_alteracao: updates.ds_usuario_alteracao }) as Record<string, any>;
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? "-",

@@ -17,7 +17,6 @@ import type {
   RelatorioCampo,
   RelatorioFiltro,
   RelatorioOrdenacao,
-  RelatorioAgrupamento,
 } from "@/types/relatorio";
 import CamposRelatorioTable, { type CamposRelatorioRow } from "@/components/relatorio/CamposRelatorioTable";
 import FiltrosRelatorioTable from "@/components/relatorio/FiltrosRelatorioTable";
@@ -74,6 +73,7 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
     largura: c.largura ?? 30,
     formatacao: c.formatacao || 'texto',
     statusSistema: c.statusSistema ?? false,
+    soma: c.soma ?? false,
   };
 }
 
@@ -137,7 +137,6 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  const [agrupamento, setAgrupamento] = useState<RelatorioAgrupamento | undefined>(relatorio?.agrupamento);
   const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.formato ?? 'excel');
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
@@ -183,11 +182,10 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], formatacao: c.formatacao, statusSistema: c.statusSistema,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
-      agrupamento,
       formato,
       configExcel: formato === 'excel' ? configExcel : undefined,
       configPdf: formato === 'pdf' ? configPdf : undefined,
@@ -204,7 +202,7 @@ export default function RelatorioBuilder({
     };
     onChange(synced);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dsRelatorio, colecao, campos, filtros, ordenacao, agrupamento, formato, configExcel, configPdf, espessuraLabel, espessuraCampo, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
+  }, [dsRelatorio, colecao, campos, filtros, ordenacao, formato, configExcel, configPdf, espessuraLabel, espessuraCampo, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
 
   // ── Handlers ──
 
@@ -240,11 +238,10 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], formatacao: c.formatacao, statusSistema: c.statusSistema,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'],        formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
-      agrupamento,
       formato,
       configExcel: formato === "excel" ? configExcel : undefined,
       configPdf: formato === "pdf" ? configPdf : undefined,
@@ -378,7 +375,6 @@ export default function RelatorioBuilder({
                   setCampos([]);
                   setFiltros([]);
                   setOrdenacao([]);
-                  setAgrupamento(undefined);
                 }}
                 options={opcoesColecao}
                 showPlaceholder
@@ -392,7 +388,7 @@ export default function RelatorioBuilder({
           <section className="mt-[15px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
-              <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
+              <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
@@ -573,51 +569,6 @@ export default function RelatorioBuilder({
               initialColumns={initialOrdenacaoColumns}
               onColumnsChange={onOrdenacaoColumnsChange}
             />
-          </section>
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Agrupamento ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section className="mt-[15px]">
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Agrupamento</h2>
-            {campos.length > 0 ? (
-              <div className="grid gap-[15px] sm:grid-cols-12">
-                <div className="sm:col-span-5 group">
-                  <label className={labelClass} style={{ color: '#666' }}>Agrupar por</label>
-                  <Select
-                    value={agrupamento?.campo ?? ""}
-                    onChange={(v) => {
-                      if (v) {
-                        setAgrupamento({ campo: v, incluirSubtotal: agrupamento?.incluirSubtotal ?? true, incluirTotalGeral: agrupamento?.incluirTotalGeral ?? true });
-                      } else {
-                        setAgrupamento(undefined);
-                      }
-                    }}
-                    options={campos.map((c) => ({ value: c.chave, label: c.label || c.chave }))}
-                    showPlaceholder
-                  />
-                </div>
-                {agrupamento && (
-                  <>
-                    <div className="sm:col-span-7 group">
-                      <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
-                      <div className="flex items-center gap-4">
-                        <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                          <input type="checkbox" checked={agrupamento.incluirSubtotal} onChange={() => setAgrupamento({ ...agrupamento, incluirSubtotal: !agrupamento.incluirSubtotal })} />
-                          <span>Subtotal</span>
-                        </label>
-                        <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                          <input type="checkbox" checked={agrupamento.incluirTotalGeral} onChange={() => setAgrupamento({ ...agrupamento, incluirTotalGeral: !agrupamento.incluirTotalGeral })} />
-                          <span>Total geral</span>
-                        </label>
-                      </div>
-                    </div>
-                  </>
-                )}
-              </div>
-            ) : (
-              <p className="text-sm text-slate-400">Adicione campos primeiro.</p>
-            )}
           </section>
 
           {/* ═══════════════════════════════════════════════ */}

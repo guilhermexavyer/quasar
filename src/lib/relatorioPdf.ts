@@ -129,7 +129,7 @@ export function gerarHtmlRelatorio(
   relatorio: Relatorio,
   registros: Record<string, any>[]
 ): string {
-  const { campos, configPdf, agrupamento } = relatorio;
+  const { campos, configPdf } = relatorio;
   const config: RelatorioConfigPdf = configPdf ?? {
     tamanhoPagina: "A4",
     orientacao: "retrato",
@@ -171,38 +171,34 @@ export function gerarHtmlRelatorio(
   // Monta linhas de dados
   let tbodyHtml = "";
 
-  if (agrupamento && agrupamento.campo) {
-    // Agrupa registros
-    const grupos: Record<string, Record<string, any>[]> = {};
-    for (const reg of registros) {
-      const chaveGrupo = String(obterValorCampo(reg, agrupamento.campo) ?? "(vazio)");
-      if (!grupos[chaveGrupo]) grupos[chaveGrupo] = [];
-      grupos[chaveGrupo].push(reg);
-    }
+  registros.forEach((reg, ri) => {
+    tbodyHtml += gerarLinhaHtml(reg, campos, config, relatorio, ri);
+  });
 
-    for (const [chaveGrupo, regsGrupo] of Object.entries(grupos)) {
-      // Cabeçalho do grupo
-      tbodyHtml += `<tr><td colspan="${campos.length}" style="padding: 6px 8px; background: #f1f5f9; font-weight: bold; border: 1px solid #333; font-size: ${(config.tamanhoFonte + 1)}pt;">${escapeHtml(chaveGrupo)}</td></tr>`;
-
-      // Linhas do grupo
-      regsGrupo.forEach((reg, ri) => {
-        tbodyHtml += gerarLinhaHtml(reg, campos, config, relatorio, ri);
-      });
-
-      // Subtotal
-      if (agrupamento.incluirSubtotal) {
-        tbodyHtml += `<tr><td colspan="${campos.length}" style="padding: 4px 8px; background: #f8fafc; font-style: italic; border: 1px solid #333; font-size: ${(config.tamanhoFonte - 1)}pt; text-align: right;">Subtotal: ${regsGrupo.length} registro(s)</td></tr>`;
+  // ── Linha de Soma ──
+  const camposComSoma = campos.filter((c) => !!c.soma);
+  if (camposComSoma.length > 0 && registros.length > 0) {
+    const somas: Record<string, number> = {};
+    for (const campo of camposComSoma) {
+      let total = 0;
+      for (const reg of registros) {
+        const val = obterValorCampo(reg, campo.chave);
+        const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[.,]/g, (m) => m === ',' ? '.' : ''));
+        if (!isNaN(num)) total += num;
       }
+      somas[campo.chave] = total;
     }
-
-    // Total geral
-    if (agrupamento.incluirTotalGeral) {
-      tbodyHtml += `<tr><td colspan="${campos.length}" style="padding: 6px 8px; background: #e2e8f0; font-weight: bold; border: 1px solid #333; font-size: ${(config.tamanhoFonte + 1)}pt; text-align: right;">Total: ${registros.length} registro(s)</td></tr>`;
+    tbodyHtml += '<tr>';
+    for (const campo of campos) {
+      const valorFmt = campo.soma && somas[campo.chave] !== undefined ? formatarValor(somas[campo.chave], campo) : '';
+      const align = campo.alinhamento === 'centro' ? 'center' : campo.alinhamento === 'direita' ? 'right' : 'left';
+      const corCampo = relatorio.corCampoGlobal || '#1a1a1a';
+      const fonteCamp = relatorio.fonteCampo || 'Arial';
+      const tamCamp = relatorio.tamanhoFonteCampo || config.tamanhoFonte;
+      const estiloCampo = estiloCss(campo.estiloCampo);
+      tbodyHtml += `<td style="padding: 6px 8px; font-family: '${fonteCamp}', sans-serif; font-size: ${tamCamp}pt; font-weight: bold; border: 1px solid #333; color: ${corCampo}; text-align: ${align}; ${estiloCampo}">${escapeHtml(valorFmt)}</td>`;
     }
-  } else {
-    registros.forEach((reg, ri) => {
-      tbodyHtml += gerarLinhaHtml(reg, campos, config, relatorio, ri);
-    });
+    tbodyHtml += '</tr>';
   }
 
   // HTML completo
@@ -427,24 +423,6 @@ function truncateText(doc: jsPDF, text: string, maxWidth: number, fontSize: numb
   return truncated ? truncated + '…' : '';
 }
 
-function groupData(
-  registros: Record<string, any>[],
-  agrupamento: { campo: string; incluirSubtotal: boolean },
-  campos: RelatorioCampo[]
-): { label?: string; rows: Record<string, any>[]; subtotal?: boolean }[] {
-  const grupos: Record<string, Record<string, any>[]> = {};
-  for (const reg of registros) {
-    const chave = String(obterValorCampo(reg, agrupamento.campo) ?? '(vazio)');
-    if (!grupos[chave]) grupos[chave] = [];
-    grupos[chave].push(reg);
-  }
-  return Object.entries(grupos).map(([label, rows]) => ({
-    label,
-    rows,
-    subtotal: agrupamento.incluirSubtotal,
-  }));
-}
-
 /**
  * Gera o PDF como arquivo e faz download automaticamente usando jsPDF.
  */
@@ -452,7 +430,7 @@ export function gerarPdf(
   relatorio: Relatorio,
   registros: Record<string, any>[]
 ): void {
-  const { campos, configPdf, agrupamento } = relatorio;
+  const { campos, configPdf } = relatorio;
   const config: RelatorioConfigPdf = configPdf ?? {
     tamanhoPagina: "A4",
     orientacao: "retrato",
@@ -594,98 +572,97 @@ export function gerarPdf(
   doc.setFontSize(fontSizeCampo);
 
   // ── Linhas de dados ──
-  const dataToRender = agrupamento?.campo ? groupData(registros, agrupamento, campos) : [{ rows: registros }];
+  for (let regIdx = 0; regIdx < registros.length; regIdx++) {
+    const reg = registros[regIdx];
+    checkPage(rowH);
 
-  for (const grupo of dataToRender) {
-    if (grupo.label) {
-      checkPage(headerH + 2);
-      doc.setFont(fontCampo, 'bold');
-      doc.setFontSize(fontSize + 1);
-      doc.setTextColor(30, 30, 30);
-      doc.text(grupo.label, marginLeft, y + headerH - cellPadding);
-      y += headerH;
-      doc.setFont(fontCampo, 'normal');
-      doc.setFontSize(fontSize);
+    // Zebrado
+    if (config.zebrado && regIdx % 2 === 1) {
+      const zebraCor = hexToRgb(config.corZebra || '#f8fafc');
+      if (zebraCor) doc.setFillColor(zebraCor.r, zebraCor.g, zebraCor.b);
+      else doc.setFillColor(248, 250, 252);
+      doc.rect(marginLeft, y, contentW, rowH, 'F');
     }
 
-    for (const reg of grupo.rows) {
-      checkPage(rowH);
+    campos.forEach((campo, i) => {
+      const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+      const w = colWidths[i];
+      const chaveResolvida = campo.chave;
+      const valor = obterValorCampo(reg, chaveResolvida);
+      const valorFmt = formatarValor(valor, campo);
 
-      // Zebrado
-      if (config.zebrado && grupo.rows.indexOf(reg) % 2 === 1) {
-        const zebraCor = hexToRgb(config.corZebra || '#f8fafc');
-        if (zebraCor) doc.setFillColor(zebraCor.r, zebraCor.g, zebraCor.b);
-        else doc.setFillColor(248, 250, 252);
-        doc.rect(marginLeft, y, contentW, rowH, 'F');
+      if (config.incluirBordas) {
+        doc.setDrawColor(51, 51, 51);
+        doc.rect(x, y, w, rowH, 'S');
       }
 
-      campos.forEach((campo, i) => {
-        const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
-        const w = colWidths[i];
-        const chaveResolvida = campo.chave;
-        const valor = obterValorCampo(reg, chaveResolvida);
-        const valorFmt = formatarValor(valor, campo);
+      const campoCor = hexToRgb(relatorio.corCampoGlobal || '#1a1a1a');
+      if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
+      else doc.setTextColor(26, 26, 26);
 
-        // Borda da célula
-        // Borda da célula
-        if (config.incluirBordas) {
-          doc.setDrawColor(51, 51, 51);
-          doc.rect(x, y, w, rowH, 'S');
+      if (relatorio.bgCampo === 'zebrado') {
+        const isOdd = regIdx % 2 === 1;
+        const zebraRgb = hexToRgb(isOdd ? '#ccc' : '#fff');
+        if (zebraRgb) {
+          doc.setFillColor(zebraRgb.r, zebraRgb.g, zebraRgb.b);
+          doc.rect(x, y, w, rowH, 'F');
         }
+      }
 
-        // Cor do campo
-        const campoCor = hexToRgb(relatorio.corCampoGlobal || '#1a1a1a');
-        if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
-        else doc.setTextColor(26, 26, 26);
+      const campoAlign = campo.alinhamento ?? 'esquerda';
+      const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
+      const campoTxtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSize * 0.35;
+      const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
+      doc.setFont(fontCampo, estiloPdf(campo.estiloCampo));
+      doc.setFontSize(fontSizeCampo);
+      doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), campoTxtX, campoTxtY, { align: campoAlignOpt });
+      if (temSublinhado(campo.estiloCampo)) {
+        desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, relatorio.corCampoGlobal || '#1a1a1a');
+      }
+    });
 
-        // Fundo do campo (zebrado global)
-        if (relatorio.bgCampo === 'zebrado') {
-          const isOdd = grupo.rows.indexOf(reg) % 2 === 1;
-          const zebraRgb = hexToRgb(isOdd ? '#ccc' : '#fff');
-          if (zebraRgb) {
-            doc.setFillColor(zebraRgb.r, zebraRgb.g, zebraRgb.b);
-            doc.rect(x, y, w, rowH, 'F');
-          }
-        }
-
-        const campoAlign = campo.alinhamento ?? 'esquerda';
-        const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
-        const campoTxtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSize * 0.35;
-        const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
-        // Aplicar estilo do campo
-        doc.setFont(fontCampo, estiloPdf(campo.estiloCampo));
-        doc.setFontSize(fontSizeCampo);
-        doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), campoTxtX, campoTxtY, { align: campoAlignOpt });
-        // Sublinhado manual
-        if (temSublinhado(campo.estiloCampo)) {
-          desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, relatorio.corCampoGlobal || '#1a1a1a');
-        }
-      });
-
-      y += rowH;
-    }
-
-    // Subtotal
-    if (grupo.subtotal) {
-      checkPage(lineHeight + 4);
-      doc.setFont(fontCampo, 'italic');
-      doc.setFontSize(fontSize - 1);
-      doc.setTextColor(100, 100, 100);
-      doc.text(`Subtotal: ${grupo.rows.length} registro(s)`, pageW - marginRight, y + lineHeight + 2, { align: 'right' });
-      y += lineHeight + 6;
-      doc.setFont(fontCampo, 'normal');
-      doc.setFontSize(fontSize);
-    }
+    y += rowH;
   }
 
-  // Total geral
-  if (agrupamento?.incluirTotalGeral) {
-    checkPage(lineHeight + 6);
-    doc.setFont(fontCampo, 'bold');
-    doc.setFontSize(fontSize + 1);
-    doc.setTextColor(30, 30, 30);
-    doc.text(`Total: ${registros.length} registro(s)`, pageW - marginRight, y + lineHeight + 2, { align: 'right' });
-    y += lineHeight + 6;
+  // ── Linha de Soma ──
+  const camposComSoma = campos.filter((c) => !!c.soma);
+  if (camposComSoma.length > 0 && registros.length > 0) {
+    checkPage(rowH + 4);
+    // Calcular somatórios
+    const somas: Record<string, number> = {};
+    for (const campo of camposComSoma) {
+      let total = 0;
+      for (const reg of registros) {
+        const val = obterValorCampo(reg, campo.chave);
+        const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[.,]/g, (m) => m === ',' ? '.' : ''));
+        if (!isNaN(num)) total += num;
+      }
+      somas[campo.chave] = total;
+    }
+    campos.forEach((campo, i) => {
+      const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+      const w = colWidths[i];
+      if (config.incluirBordas) {
+        doc.setDrawColor(51, 51, 51);
+        doc.rect(x, y, w, rowH, 'S');
+      }
+      // Usar propriedades de registro (cor, fonte, tamanho)
+      const campoCor = hexToRgb(relatorio.corCampoGlobal || '#1a1a1a');
+      if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
+      else doc.setTextColor(26, 26, 26);
+      doc.setFont(fontCampo, 'bold');
+      doc.setFontSize(fontSizeCampo);
+      const campoAlign = campo.alinhamento ?? 'esquerda';
+      const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
+      const campoTxtY = y + pxToMm(campo.alinhamentoVertical ?? 0) + fontSizeCampo * 0.35;
+      const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
+      if (campo.soma && somas[campo.chave] !== undefined) {
+        doc.text(truncateText(doc, formatarValor(somas[campo.chave], campo), w - cellPadding * 2, fontSizeCampo), campoTxtX, campoTxtY, { align: campoAlignOpt });
+      } else {
+        doc.text('', campoTxtX, campoTxtY);
+      }
+    });
+    y += rowH;
   }
 
   // ── Rodapé ──

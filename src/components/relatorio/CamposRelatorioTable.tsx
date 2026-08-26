@@ -43,6 +43,7 @@ export interface CamposRelatorioRow {
   largura: number;
   formatacao: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   statusSistema?: boolean;
+  soma?: boolean;
 }
 
 /** Input numérico sem spinner, que permite apagar o 0. */
@@ -505,6 +506,23 @@ export default function CamposRelatorioTable({
           return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
         }
         return <span>{row.largura ?? 30}</span>;
+      },
+    },
+    {
+      key: "soma",
+      label: "Soma",
+      width: 80,
+      render: (row: CamposRelatorioRow) => {
+        return (
+          <span className="flex items-center justify-center">
+            <input
+              type="checkbox"
+              checked={row.soma ?? false}
+              onChange={(e) => atualizar(row.id, { soma: e.target.checked })}
+              className="cg-checkbox"
+            />
+          </span>
+        );
       },
     },
   ];

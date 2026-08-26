@@ -117,7 +117,7 @@ export function gerarERealizarDownloadExcel(
   relatorio: Relatorio,
   registros: Record<string, any>[]
 ): void {
-  const { campos, configExcel, agrupamento } = relatorio;
+  const { campos, configExcel } = relatorio;
   const config: RelatorioConfigExcel = configExcel ?? {
     incluirCabecalho: true,
     incluirRodape: true,
@@ -146,36 +146,38 @@ export function gerarERealizarDownloadExcel(
   rowIdx++;
 
   // ── Dados ──
-  const dataRowStart = rowIdx;
+  const dataRowStart = rowIdx;  for (const reg of registros) {
+    dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.chave), campo)));
+    rowIdx++;
+  }
 
-  if (agrupamento && agrupamento.campo) {
-    const grupos: Record<string, Record<string, any>[]> = {};
-    for (const reg of registros) {
-      const chave = String(obterValorCampo(reg, agrupamento.campo) ?? "(vazio)");
-      if (!grupos[chave]) grupos[chave] = [];
-      grupos[chave].push(reg);
-    }
-    for (const [chaveGrupo, regsGrupo] of Object.entries(grupos)) {
-      dados.push([chaveGrupo]);
-      rowIdx++;
-      for (const reg of regsGrupo) {
-        dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.chave), campo)));
-        rowIdx++;
-      }
-      if (agrupamento.incluirSubtotal) {
-        dados.push([`Subtotal: ${regsGrupo.length} registro(s)`]);
-        rowIdx++;
+  // ── Linha de Soma ──
+  const camposComSoma = campos.filter((c) => !!c.soma);
+  if (camposComSoma.length > 0 && registros.length > 0) {
+    const somaRow: any[] = [];
+    for (const campo of campos) {
+      if (campo.soma) {
+        let total = 0;
+        for (const reg of registros) {
+          const val = obterValorCampo(reg, campo.chave);
+          const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[.,]/g, (m) => m === ',' ? '.' : ''));
+          if (!isNaN(num)) total += num;
+        }
+        somaRow.push(total);
+      } else {
+        somaRow.push('');
       }
     }
-    if (agrupamento.incluirTotalGeral) {
-      dados.push([`Total: ${registros.length} registro(s)`]);
-      rowIdx++;
-    }
-  } else {
-    for (const reg of registros) {
-      dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.chave), campo)));
-      rowIdx++;
-    }
+    dados.push(somaRow);
+    // Aplicar negrito na linha de soma
+    somaRow.forEach((_, ci) => {
+      if (somaRow[ci] !== '') {
+        const cellRef = XLSX.utils.encode_cell({ r: rowIdx, c: ci });
+        const cell = ws[cellRef];
+        if (cell) cell.s = { font: { bold: true, sz: 11, name: 'Calibri' } };
+      }
+    });
+    rowIdx++;
   }
 
   // ── Rodapé ──

@@ -128,6 +128,8 @@ export interface RelatorioCampo {
   ehAgrupador?: boolean;
   /** Se true, o campo ie_status deve exibir o label do sistema ao invés da abreviação. */
   statusSistema?: boolean;
+  /** Se true, exibe o somatório dos valores desta coluna ao final do relatório. */
+  soma?: boolean;
 }
 
 /**
