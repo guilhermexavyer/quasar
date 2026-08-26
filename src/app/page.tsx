@@ -1041,7 +1041,7 @@ export default function Home() {
   // Modal "Enviar para manutenção" (menu de contexto de Ativos).
   const [enviarManutModalOpen, setEnviarManutModalOpen] = useState(false);
   const [enviarManutTarget, setEnviarManutTarget] = useState<Ativo | null>(null);
-  const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_pessoa_fisica: undefined as number | undefined, ds_motivo_manutencao: '' });
+  const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_prestador_servico: undefined as number | undefined, ds_motivo_manutencao: '' });
   const [enviarManutSaving, setEnviarManutSaving] = useState(false);
   // Lookup de prestador de serviço (filtra colaboradores com ie_prestador_servico='S').
   const [enviarManutPrestadorLookupOpen, setEnviarManutPrestadorLookupOpen] = useState(false);
@@ -1086,10 +1086,10 @@ export default function Home() {
       return true;
     });
   }, [enviarManutPrestadores, enviarManutPrestLookupFilter, enviarManutPrestLookupApplied, pessoasFisicas]);
-  // Nome do prestador derivado do nr_seq_pessoa_fisica selecionado.
+  // Nome do prestador derivado do nr_seq_prestador_servico selecionado.
   const enviarManutPrestadorName = useMemo(() => {
-    if (!enviarManutForm.nr_seq_pessoa_fisica) return '';
-    const seq = enviarManutForm.nr_seq_pessoa_fisica;
+    if (!enviarManutForm.nr_seq_prestador_servico) return '';
+    const seq = enviarManutForm.nr_seq_prestador_servico;
     const col = colaboradores.find((c) => c.nr_sequencia === seq);
     if (col) {
       if (col.nr_seq_pessoa_juridica) {
@@ -1100,7 +1100,7 @@ export default function Home() {
       if (pf) return pf.ds_nome ?? '';
     }
     return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
-  }, [enviarManutForm.nr_seq_pessoa_fisica, pessoasFisicas, colaboradores, pessoasJuridicas]);
+  }, [enviarManutForm.nr_seq_prestador_servico, pessoasFisicas, colaboradores, pessoasJuridicas]);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
@@ -1174,7 +1174,7 @@ export default function Home() {
     nr_sequencia: string;
     nr_seq_ativo: string;
     // Dados da manutenção
-    nr_seq_pessoa_fisica: string;
+    nr_seq_prestador_servico: string;
     dt_envio_inicio: string;
     dt_envio_fim: string;
     dt_termino_inicio: string;
@@ -1185,7 +1185,7 @@ export default function Home() {
   };
   const emptyManutencaoFilterForm: ManutencaoFilterFormData = {
     nr_sequencia: '', nr_seq_ativo: '',
-    nr_seq_pessoa_fisica: '', dt_envio_inicio: '', dt_envio_fim: '', dt_termino_inicio: '', dt_termino_fim: '',
+    nr_seq_prestador_servico: '', dt_envio_inicio: '', dt_envio_fim: '', dt_termino_inicio: '', dt_termino_fim: '',
     vl_total_menor: '', vl_total_maior: '', ie_status_manutencao: 'T',
   };
   const [manutencaoFilterForm, setManutencaoFilterForm] = useState<ManutencaoFilterFormData>(emptyManutencaoFilterForm);
@@ -1282,8 +1282,8 @@ export default function Home() {
     return ativos.find((a) => a.nr_sequencia === manutencaoForm.nr_seq_ativo)?.ds_ativo ?? '';
   }, [manutencaoForm.nr_seq_ativo, ativos]);
   const manutencaoPrestadorName = useMemo(() => {
-    if (!manutencaoForm.nr_seq_pessoa_fisica) return '';
-    const seq = manutencaoForm.nr_seq_pessoa_fisica;
+    if (!manutencaoForm.nr_seq_prestador_servico) return '';
+    const seq = manutencaoForm.nr_seq_prestador_servico;
     // Busca o colaborador que tem esse nr_sequencia (o campo armazena a sequência do colaborador).
     const col = colaboradores.find((c) => c.nr_sequencia === seq);
     if (col) {
@@ -1296,7 +1296,7 @@ export default function Home() {
     }
     // Fallback: busca direta na PF (para dados legados).
     return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
-  }, [manutencaoForm.nr_seq_pessoa_fisica, pessoasFisicas, colaboradores, pessoasJuridicas]);
+  }, [manutencaoForm.nr_seq_prestador_servico, pessoasFisicas, colaboradores, pessoasJuridicas]);
   const manutencaoFilteredAtivos = useMemo(() => {
     if (!manutencaoAtivoLookupApplied) return [];
     return ativos.filter((a) => {
@@ -5359,7 +5359,7 @@ export default function Home() {
     } else if (target === 'ativoFilter') {
       setAtivoFilterForm((prev) => ({ ...prev, nr_seq_responsavel: String(pessoa.nr_sequencia) }));
     } else if (target === 'manutencaoFilter') {
-      setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) }));
+      setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_prestador_servico: String(pessoa.nr_sequencia) }));
     } else {
       setAlunoForm({ ...alunoForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
     }
@@ -6083,7 +6083,7 @@ export default function Home() {
     setEnviarManutTarget(ativo);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_pessoa_fisica: undefined, ds_motivo_manutencao: '' });
+    setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_prestador_servico: undefined, ds_motivo_manutencao: '' });
     setEnviarManutPrestLookupForm({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
     setEnviarManutPrestLookupFilter({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
     setEnviarManutPrestLookupApplied(false);
@@ -6213,9 +6213,9 @@ export default function Home() {
   function handleEnviarManutPrestadorSelect(colaborador: Colaborador) {
     const target = enviarManutPrestadorLookupTargetRef.current;
     if (target === 'form') {
-      setManutencaoForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: colaborador.nr_sequencia }));
+      setManutencaoForm((prev) => ({ ...prev, nr_seq_prestador_servico: colaborador.nr_sequencia }));
     } else {
-      setEnviarManutForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: colaborador.nr_sequencia }));
+      setEnviarManutForm((prev) => ({ ...prev, nr_seq_prestador_servico: colaborador.nr_sequencia }));
     }
     closeEnviarManutPrestadorLookup();
   }
@@ -6228,7 +6228,7 @@ export default function Home() {
     try {
       const { nr_sequencia: nrSeqManut } = await criarManutencao({
         nr_seq_ativo: enviarManutTarget.nr_sequencia,
-        nr_seq_pessoa_fisica: enviarManutForm.nr_seq_pessoa_fisica,
+        nr_seq_prestador_servico: enviarManutForm.nr_seq_prestador_servico,
         dt_envio: enviarManutForm.dt_data,
         dt_termino: '',
         ie_status_manutencao: 'E',
@@ -6252,7 +6252,7 @@ export default function Home() {
 
   const emptyManutencaoForm: ManutencaoFormData = {
     nr_seq_ativo: undefined,
-    nr_seq_pessoa_fisica: undefined,
+    nr_seq_prestador_servico: undefined,
     dt_envio: '',
     dt_termino: '',
     ie_status_manutencao: 'E',
@@ -6324,7 +6324,7 @@ export default function Home() {
   function openManutencaoEditForm(m: Manutencao) {
     setManutencaoForm({
       nr_seq_ativo: m.nr_seq_ativo,
-      nr_seq_pessoa_fisica: m.nr_seq_pessoa_fisica,
+      nr_seq_prestador_servico: m.nr_seq_prestador_servico ?? m.nr_seq_pessoa_fisica,
       dt_envio: m.dt_envio ?? '',
       dt_termino: m.dt_termino ?? '',
       ie_status_manutencao: m.ie_status_manutencao ?? 'E',
@@ -6359,9 +6359,9 @@ export default function Home() {
       if (q && String(m.nr_seq_ativo ?? '') !== q) return false;
     }
     // Dados da manutenção
-    if (appliedManutencaoFilterForm.nr_seq_pessoa_fisica) {
-      const q = appliedManutencaoFilterForm.nr_seq_pessoa_fisica.replace(/\D/g, '');
-      if (q && String(m.nr_seq_pessoa_fisica ?? '') !== q) return false;
+    if (appliedManutencaoFilterForm.nr_seq_prestador_servico) {
+      const q = appliedManutencaoFilterForm.nr_seq_prestador_servico.replace(/\D/g, '');
+      if (q && String(m.nr_seq_prestador_servico ?? (m as any).nr_seq_pessoa_fisica ?? '') !== q) return false;
     }
     if (appliedManutencaoFilterForm.dt_envio_inicio && m.dt_envio && m.dt_envio < appliedManutencaoFilterForm.dt_envio_inicio) return false;
     if (appliedManutencaoFilterForm.dt_envio_fim && m.dt_envio && m.dt_envio > appliedManutencaoFilterForm.dt_envio_fim) return false;
@@ -6449,7 +6449,7 @@ export default function Home() {
     try {
       if (manutencaoEditingId) {
         const current = manutencoes.find((m) => m.id === manutencaoEditingId);
-        const formKeys: Array<keyof ManutencaoFormData> = ['nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_observacao', 'ds_motivo_manutencao', 'ds_correcoes'];
+        const formKeys: Array<keyof ManutencaoFormData> = ['nr_seq_ativo', 'nr_seq_prestador_servico', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_observacao', 'ds_motivo_manutencao', 'ds_correcoes'];
         const hasChanges = current ? formKeys.some((k) => String((current as unknown as Record<string, unknown>)[k] ?? '') !== String((manutencaoForm as unknown as Record<string, unknown>)[k] ?? '')) : true;
         if (!hasChanges) {
           setMessage('Nenhuma alteração detectada.');
@@ -8083,14 +8083,24 @@ export default function Home() {
                   onColumnsChange={handleManutencaoColumnsChange}
                   columnLookups={{
                     nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? `#${a.nr_sequencia}`])),
-                    nr_seq_pessoa_fisica: Object.fromEntries(
-                      colaboradores.map((c) => {
-                        const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
-                        const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
-                        const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
-                        return [c.nr_sequencia, nome];
-                      })
-                    ),
+                    ...Object.fromEntries([
+                      ['nr_seq_prestador_servico', Object.fromEntries(
+                        colaboradores.map((c) => {
+                          const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
+                          const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
+                          const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
+                          return [c.nr_sequencia, nome];
+                        })
+                      )],
+                      ['nr_seq_pessoa_fisica', Object.fromEntries(
+                        colaboradores.map((c) => {
+                          const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
+                          const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
+                          const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
+                          return [c.nr_sequencia, nome];
+                        })
+                      )],
+                    ]),
                   }}
                 />
               ) : (
@@ -9441,13 +9451,13 @@ export default function Home() {
                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Prestador de serviço</label>
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
-                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_pessoa_fisica} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_pessoa_fisica: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_prestador_servico} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_prestador_servico: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                     </div>
                     <div className="relative flex-1 min-w-0">
-                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_pessoa_fisica ? (() => { const seq = Number(manutencaoFilterForm.nr_seq_pessoa_fisica); const col = colaboradores.find((c) => c.nr_sequencia === seq); if (col) { const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica); return pf?.ds_nome ?? ''; } const pf = pessoasFisicas.find((p) => String(p.nr_sequencia) === manutencaoFilterForm.nr_seq_pessoa_fisica); return pf?.ds_nome ?? ''; })() : ''} />
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_prestador_servico ? (() => { const seq = Number(manutencaoFilterForm.nr_seq_prestador_servico); const col = colaboradores.find((c) => c.nr_sequencia === seq); if (col) { const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica); return pf?.ds_nome ?? ''; } const pf = pessoasFisicas.find((p) => String(p.nr_sequencia) === manutencaoFilterForm.nr_seq_prestador_servico); return pf?.ds_nome ?? ''; })() : ''} />
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                        {manutencaoFilterForm.nr_seq_pessoa_fisica && (
-                          <button type="button" onClick={() => openPessoaFisicaView(Number(manutencaoFilterForm.nr_seq_pessoa_fisica))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                        {manutencaoFilterForm.nr_seq_prestador_servico && (
+                          <button type="button" onClick={() => openPessoaFisicaView(Number(manutencaoFilterForm.nr_seq_prestador_servico))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
                             <ViewIcon size={16} />
                           </button>
                         )}
@@ -10443,13 +10453,13 @@ export default function Home() {
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>Prestador de serviço</label>
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
-                    <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={enviarManutForm.nr_seq_pessoa_fisica ? String(enviarManutForm.nr_seq_pessoa_fisica) : ''} onChange={(e) => { const raw = e.target.value.replace(/\D/g, '').slice(0, 10); setEnviarManutForm({ ...enviarManutForm, nr_seq_pessoa_fisica: raw ? Number(raw) : undefined }); }} />
+                    <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={enviarManutForm.nr_seq_prestador_servico ? String(enviarManutForm.nr_seq_prestador_servico) : ''} onChange={(e) => { const raw = e.target.value.replace(/\D/g, '').slice(0, 10); setEnviarManutForm({ ...enviarManutForm, nr_seq_prestador_servico: raw ? Number(raw) : undefined }); }} />
                   </div>
                   <div className="relative flex-1 min-w-0">
                     <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestadorName} />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                      {enviarManutForm.nr_seq_pessoa_fisica && (
-                        <button type="button" onClick={() => openColaboradorView(enviarManutForm.nr_seq_pessoa_fisica)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                      {enviarManutForm.nr_seq_prestador_servico && (
+                        <button type="button" onClick={() => openColaboradorView(enviarManutForm.nr_seq_prestador_servico)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
                           <ViewIcon size={16} />
                         </button>
                       )}
@@ -11260,7 +11270,7 @@ export default function Home() {
             ]
           : isManutencao
           ? [
-              'nr_seq_ativo', 'nr_seq_pessoa_fisica', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
+              'nr_seq_ativo', 'nr_seq_prestador_servico', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
             ]
           : isCg
@@ -11392,8 +11402,8 @@ export default function Home() {
                       dt_criacao: 'Data de criação',
                       dt_alteracao: 'Data de alteração',
                     };
-                    // Em Manutenções, o campo nr_seq_pessoa_fisica é o Prestador.
-                    if (isManutencao) FIELD_LABELS['nr_seq_pessoa_fisica'] = 'Prestador';
+                    // Em Manutenções, o campo nr_seq_prestador_servico é o Prestador.
+                    if (isManutencao) FIELD_LABELS['nr_seq_prestador_servico'] = 'Prestador de serviço';
 
                     const normalizeAuditValue = (val: any): string | number | null => {
                       if (val === null || val === undefined || val === '') return null;
@@ -11774,8 +11784,8 @@ export default function Home() {
         manutencao={manutencaoView}
         ativoName={manutencaoView?.nr_seq_ativo ? (ativos.find((a) => a.nr_sequencia === manutencaoView.nr_seq_ativo)?.ds_ativo ?? '') : ''}
         prestadorName={(() => {
-          if (!manutencaoView?.nr_seq_pessoa_fisica) return '';
-          const seq = manutencaoView.nr_seq_pessoa_fisica;
+          if (!manutencaoView?.nr_seq_prestador_servico) return '';
+          const seq = manutencaoView.nr_seq_prestador_servico;
           const col = colaboradores.find((c) => c.nr_sequencia === seq);
           if (col) {
             if (col.nr_seq_pessoa_juridica) {

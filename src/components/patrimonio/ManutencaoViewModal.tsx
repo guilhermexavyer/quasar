@@ -86,7 +86,7 @@ function formatCellValue(key: string, value: unknown): string {
 export default function ManutencaoViewModal({ manutencao, ativoName, prestadorName, onClose }: ManutencaoViewModalProps) {
   if (!manutencao) return null;
 
-  const prestadorSeq = manutencao.nr_seq_pessoa_fisica;
+  const prestadorSeq = manutencao.nr_seq_prestador_servico;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">

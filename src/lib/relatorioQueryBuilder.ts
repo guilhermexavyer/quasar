@@ -269,6 +269,40 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
     ds.campos
   );
 
+  // Resolve campos computados
+  console.log('[DEBUG COMPUTED] campos:', campos.map((c) => ({ chave: c.chave, colecao: c.colecao, computed: (c as any).computed })), 'colecao:', colecao);
+  const temComputado = campos.some((c) => c.chave === 'ds_prestador_servico');
+  console.log('[DEBUG COMPUTED] temComputado:', temComputado, 'isManut:', colecao === 'pat_manutencao');
+  if (temComputado && colecao === 'pat_manutencao') {
+    console.log('[DEBUG COMPUTED] Resolving ds_prestador_servico...');
+    const colaboradoresDocs = await fetchColecao('colaborador');
+    const pfDocs = await fetchColecao('pessoa_fisica');
+    const pjDocs = await fetchColecao('pessoa_juridica');
+    const colMap: Record<number, Record<string, any>> = {};
+    const pfMap: Record<number, Record<string, any>> = {};
+    const pjMap: Record<number, Record<string, any>> = {};
+    for (const d of colaboradoresDocs) { if (d.nr_sequencia !== undefined) colMap[d.nr_sequencia] = d; }
+    for (const d of pfDocs) { if (d.nr_sequencia !== undefined) pfMap[d.nr_sequencia] = d; }
+    for (const d of pjDocs) { if (d.nr_sequencia !== undefined) pjMap[d.nr_sequencia] = d; }
+    for (const reg of registrosResolvidos) {
+      const colSeq = reg.nr_seq_prestador_servico ?? reg.nr_seq_pessoa_fisica ?? reg.prestador_servico?.nr_sequencia;
+      if (colSeq && colMap[colSeq]) {
+        const col = colMap[colSeq];
+        if (col.nr_seq_pessoa_fisica && pfMap[col.nr_seq_pessoa_fisica]) {
+          reg.ds_prestador_servico = pfMap[col.nr_seq_pessoa_fisica].ds_nome ?? '';
+        } else if (col.nr_seq_pessoa_juridica && pjMap[col.nr_seq_pessoa_juridica]) {
+          reg.ds_prestador_servico = pjMap[col.nr_seq_pessoa_juridica].ds_razao_social ?? '';
+        } else {
+          reg.ds_prestador_servico = '';
+        }
+      } else {
+        reg.ds_prestador_servico = '';
+      }
+    }
+    console.log('[DEBUG COMPUTED] colMap keys:', Object.keys(colMap).slice(0, 5), 'total:', Object.keys(colMap).length);
+    console.log('[DEBUG COMPUTED] Sample record:', registrosResolvidos[0] ? { nr_seq_prestador: registrosResolvidos[0].nr_seq_prestador_servico, ds_prest: registrosResolvidos[0].ds_prestador_servico, prestador: registrosResolvidos[0].prestador_servico } : 'none');
+  }
+
   return {
     registros,
     registrosResolvidos,

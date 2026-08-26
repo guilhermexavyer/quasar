@@ -277,7 +277,7 @@ export default function ManutencaoFormView({
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dados da manutenção</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
               <div className="sm:col-span-12 group">
-                {renderFieldLabel("nr_seq_pessoa_fisica", "Prestador de serviço")}
+                {renderFieldLabel("nr_seq_prestador_servico", "Prestador de serviço")}
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <input
@@ -285,10 +285,10 @@ export default function ManutencaoFormView({
                       maxLength={10}
                       disabled={!!editingId}
                       className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-500 cursor-default' : 'border-slate-300 bg-white text-slate-900 focus:border-[#003056]'}`}
-                      value={form.nr_seq_pessoa_fisica ? String(form.nr_seq_pessoa_fisica) : ""}
+                      value={form.nr_seq_prestador_servico ? String(form.nr_seq_prestador_servico) : ""}
                       onChange={(e) => {
                         const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
-                        setForm({ ...form, nr_seq_pessoa_fisica: raw ? Number(raw) : undefined });
+                        setForm({ ...form, nr_seq_prestador_servico: raw ? Number(raw) : undefined });
                       }}
                     />
                   </div>
@@ -299,8 +299,8 @@ export default function ManutencaoFormView({
                       value={prestadorName}
                     />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                      {form.nr_seq_pessoa_fisica && (
-                        <button type="button" onClick={() => onViewPrestador?.(form.nr_seq_pessoa_fisica)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                      {form.nr_seq_prestador_servico && (
+                        <button type="button" onClick={() => onViewPrestador?.(form.nr_seq_prestador_servico)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
                           <ViewIcon size={16} />
                         </button>
                       )}

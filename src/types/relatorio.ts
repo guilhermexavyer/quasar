@@ -43,8 +43,12 @@ export interface Relatorio {
   /* ── Espessura (PDF) ── */
   /** Espessura da linha do cabeçalho (label). */
   espessuraLabel?: number;
+  /** Distância do topo para a label. */
+  topoLabel?: number;
   /** Espessura da linha dos dados (campo). */
   espessuraCampo?: number;
+  /** Distância do topo para o registro. */
+  topoRegistro?: number;
   /** Cor de fundo global das labels (cabeçalhos). */
   bgLabel?: string;
   /** Modo de fundo dos dados: '' (transparente) ou 'zebrado'. */
@@ -112,14 +116,17 @@ export interface RelatorioCampo {
   largura?: number;
   /** Distância em pixels da margem esquerda. */
   alinhamentoHorizontal?: number;
-  /** Distância em pixels do topo da linha. */
-  alinhamentoVertical?: number;
+  /** Distância em pixels do topo para a label. */
+  topoLabel?: number;
+  /** Distância em pixels do topo para o registro. */
+  topoRegistro?: number;
   /** Alinhamento horizontal (label e campo) dentro da largura da coluna. */
   alinhamento?: 'esquerda' | 'centro' | 'direita';
   /** Estilo da label (cabeçalho). */
   estiloLabel?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
   /** Estilo do campo (dados). */
   estiloCampo?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
+  estiloSoma?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
   /** Formatação especial do dado. */
   formatacao?: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   /** Casas decimais (apenas para número/moeda). */
@@ -282,4 +289,6 @@ export interface DataSourceCampo {
   fkColecao?: string;
   /** Campo exibido da coleção referenciada (ex.: 'ds_categoria'). */
   fkLabel?: string;
+  /** Se true, o campo é computado (resolvido em runtime, não existe no banco). */
+  computed?: boolean;
 }

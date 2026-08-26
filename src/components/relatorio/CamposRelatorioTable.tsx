@@ -36,10 +36,12 @@ export interface CamposRelatorioRow {
   backgroundCampo: string;
   posicao: number;
   alinhamentoHorizontal: number;
-  alinhamentoVertical: number;
+  topoLabel: number;
+  topoRegistro: number;
   alinhamento: string;
   estiloLabel: string;
   estiloCampo: string;
+  estiloSoma: string;
   largura: number;
   formatacao: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   statusSistema?: boolean;
@@ -422,17 +424,7 @@ export default function CamposRelatorioTable({
         return <span>{row.alinhamentoHorizontal ?? 0}</span>;
       },
     },
-    {
-      key: "alinhamentoVertical",
-      label: "Topo",
-      
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <NumberInput value={row.alinhamentoVertical ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoVertical: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
-        }
-        return <span>{row.alinhamentoVertical ?? 0}</span>;
-      },
-    },
+
     {
       key: "alinhamento",
       label: "Alinhamento",
@@ -479,7 +471,7 @@ export default function CamposRelatorioTable({
     },
     {
       key: "estiloCampo",
-      label: "Estilo campo",
+      label: "Estilo registro",
       
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
@@ -494,6 +486,26 @@ export default function CamposRelatorioTable({
           );
         }
         const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloCampo);
+        return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
+      },
+    },
+    {
+      key: "estiloSoma",
+      label: "Estilo soma",
+      
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.estiloSoma || ''}
+              onChange={(v) => atualizar(row.id, { estiloSoma: v })}
+              options={ESTILO_OPCOES}
+              showPlaceholder={false}
+              className="!text-xs"
+            />
+          );
+        }
+        const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloSoma);
         return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
       },
     },

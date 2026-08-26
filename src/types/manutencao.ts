@@ -8,7 +8,9 @@ export interface Manutencao {
   dt_envio?: string;
   /** Data de término da manutenção. */
   dt_termino?: string;
-  /** Pessoa física (prestador de serviço) vinculada. */
+  /** Prestador de serviço vinculado. */
+  nr_seq_prestador_servico?: number;
+  /** @deprecated Campo antigo no banco. Usar nr_seq_prestador_servico. */
   nr_seq_pessoa_fisica?: number;
   /** Valor total da manutenção. */
   vl_total?: number;

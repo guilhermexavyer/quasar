@@ -18,7 +18,7 @@ export interface ManutencaoColDef {
 export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
   { key: "nr_sequencia", label: "#", dataClass: "text-center" },
   { key: "nr_seq_ativo", label: "Ativo" },
-  { key: "nr_seq_pessoa_fisica", label: "Prestador" },
+  { key: "nr_seq_prestador_servico", label: "Prestador de serviço" },
   { key: "dt_envio", label: "Data de envio" },
   { key: "dt_termino", label: "Data de término" },
   { key: "ie_status_manutencao", label: "Status" },
@@ -31,7 +31,7 @@ export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
 export const FIELD_INFOS = {
   nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "pat_manutencao" },
   nr_seq_ativo: { type: "int64", field: "nr_seq_ativo", collection: "pat_manutencao" },
-  nr_seq_pessoa_fisica: { type: "int64", field: "nr_seq_pessoa_fisica", collection: "pat_manutencao" },
+  nr_seq_prestador_servico: { type: "int64", field: "nr_seq_prestador_servico", collection: "pat_manutencao" },
   dt_envio: { type: "string", field: "dt_envio", collection: "pat_manutencao" },
   dt_termino: { type: "string", field: "dt_termino", collection: "pat_manutencao" },
   ie_status_manutencao: { type: "string", field: "ie_status_manutencao", collection: "pat_manutencao" },
@@ -47,7 +47,7 @@ export const FIELD_INFOS = {
 export const FIELD_LABELS: Record<string, string> = {
   nr_sequencia: "Sequência",
   nr_seq_ativo: "Ativo",
-  nr_seq_pessoa_fisica: "Prestador",
+  nr_seq_prestador_servico: "Prestador de serviço",
   dt_envio: "Data de envio",
   dt_termino: "Data de término",
   ie_status_manutencao: "Status",

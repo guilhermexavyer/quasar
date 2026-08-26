@@ -49,7 +49,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'nr_seq_ativo', label: 'Ativo', tipo: 'number', isFK: true, fkColecao: 'pat_ativo', fkLabel: 'ds_ativo' },
-      { key: 'nr_seq_pessoa_fisica', label: 'Prestador de serviço', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
+      { key: 'nr_seq_prestador_servico', label: 'Prestador de serviço', tipo: 'number', isFK: true, fkColecao: 'colaborador', fkLabel: 'nr_sequencia' },
+      { key: 'ds_prestador_servico', label: 'Prestador de serviço (nome)', tipo: 'string', computed: true },
       { key: 'dt_envio', label: 'Data de envio', tipo: 'date' },
       { key: 'dt_termino', label: 'Data de término', tipo: 'date' },
       { key: 'ie_status_manutencao', label: 'Status', tipo: 'string' },

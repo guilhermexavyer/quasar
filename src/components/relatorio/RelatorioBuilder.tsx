@@ -66,10 +66,12 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
     backgroundCampo: c.backgroundCampo || '',
     posicao: c.posicao ?? idx + 1,
     alinhamentoHorizontal: c.alinhamentoHorizontal ?? 0,
-    alinhamentoVertical: c.alinhamentoVertical ?? 0,
+    topoLabel: c.topoLabel ?? 0,
+    topoRegistro: c.topoRegistro ?? 0,
     alinhamento: c.alinhamento ?? 'esquerda',
     estiloLabel: c.estiloLabel ?? '',
     estiloCampo: c.estiloCampo ?? '',
+    estiloSoma: c.estiloSoma ?? '',
     largura: c.largura ?? 30,
     formatacao: c.formatacao || 'texto',
     statusSistema: c.statusSistema ?? false,
@@ -141,7 +143,9 @@ export default function RelatorioBuilder({
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
   const [espessuraLabel, setEspessuraLabel] = useState(relatorio?.espessuraLabel ?? 16);
+  const [topoLabelVal, setTopoLabelVal] = useState(relatorio?.topoLabel ?? 0);
   const [espessuraCampo, setEspessuraCampo] = useState(relatorio?.espessuraCampo ?? 24);
+  const [topoRegistroVal, setTopoRegistroVal] = useState(relatorio?.topoRegistro ?? 0);
   const [bgLabel, setBgLabel] = useState(relatorio?.bgLabel ?? '#e2e8f0');
   const [bgCampo, setBgCampo] = useState(relatorio?.bgCampo ?? '');
   const [corLabelGlobal, setCorLabelGlobal] = useState(relatorio?.corLabelGlobal ?? '#1a1a1a');
@@ -152,6 +156,39 @@ export default function RelatorioBuilder({
   const [tamanhoFonteCampo, setTamanhoFonteCampo] = useState(relatorio?.tamanhoFonteCampo ?? 10);
   const [erros, setErros] = useState<string[]>([]);
   const [editingCampo, setEditingCampo] = useState(false);
+
+  // Reset estado quando relatório muda (navegação por setas)
+  const prevRelatorioIdRef = useRef(relatorio?.id);
+  useEffect(() => {
+    if (relatorio?.id !== prevRelatorioIdRef.current) {
+      prevRelatorioIdRef.current = relatorio?.id;
+      setDsRelatorio(relatorio?.ds_relatorio ?? "");
+      setColecao(relatorio?.colecao ?? "");
+      setCampos(
+        relatorio?.campos?.length
+          ? relatorio.campos.map((c, i) => mapRelatorioCampoToRow(c, i, relatorio.colecao))
+          : []
+      );
+      setFiltros(relatorio?.filtros?.length ? relatorio.filtros : []);
+      setOrdenacao(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
+      setFormato(relatorio?.formato ?? 'excel');
+      setConfigExcel(relatorio?.configExcel ?? defaultConfigExcel());
+      setConfigPdf(relatorio?.configPdf ?? defaultConfigPdf());
+      setEspessuraLabel(relatorio?.espessuraLabel ?? 16);
+      setTopoLabelVal(relatorio?.topoLabel ?? 0);
+      setEspessuraCampo(relatorio?.espessuraCampo ?? 24);
+      setTopoRegistroVal(relatorio?.topoRegistro ?? 0);
+      setBgLabel(relatorio?.bgLabel ?? '#e2e8f0');
+      setBgCampo(relatorio?.bgCampo ?? '');
+      setCorLabelGlobal(relatorio?.corLabelGlobal ?? '#1a1a1a');
+      setCorCampoGlobal(relatorio?.corCampoGlobal ?? '#1a1a1a');
+      setFonteLabel(relatorio?.fonteLabel ?? 'Arial');
+      setTamanhoFonteLabel(relatorio?.tamanhoFonteLabel ?? 10);
+      setFonteCampo(relatorio?.fonteCampo ?? 'Arial');
+      setTamanhoFonteCampo(relatorio?.tamanhoFonteCampo ?? 10);
+      setEditingCampo(false);
+    }
+  }, [relatorio]);
 
   const dataSource = useMemo(() => (colecao ? getDataSource(colecao) : undefined), [colecao]);
   const camposDisponiveis = dataSource?.campos ?? [];
@@ -182,7 +219,7 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
@@ -202,7 +239,7 @@ export default function RelatorioBuilder({
     };
     onChange(synced);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dsRelatorio, colecao, campos, filtros, ordenacao, formato, configExcel, configPdf, espessuraLabel, espessuraCampo, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
+  }, [dsRelatorio, colecao, campos, filtros, ordenacao, formato, configExcel, configPdf, espessuraLabel, topoLabelVal, espessuraCampo, topoRegistroVal, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
 
   // ── Handlers ──
 
@@ -238,7 +275,7 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, alinhamentoVertical: c.alinhamentoVertical, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'],        formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
@@ -246,7 +283,9 @@ export default function RelatorioBuilder({
       configExcel: formato === "excel" ? configExcel : undefined,
       configPdf: formato === "pdf" ? configPdf : undefined,
       espessuraLabel,
+      topoLabel: topoLabelVal,
       espessuraCampo,
+      topoRegistro: topoRegistroVal,
       bgLabel,
       bgCampo,
       corLabelGlobal,
@@ -388,7 +427,7 @@ export default function RelatorioBuilder({
           <section className="mt-[15px]">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
-              <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, alinhamentoVertical: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
+              <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
@@ -403,7 +442,7 @@ export default function RelatorioBuilder({
               />
               </div>
               {colecao && (
-              <div className="grid grid-cols-5 gap-[15px] mt-3">
+              <div className="grid grid-cols-6 gap-[15px] mt-3">
                 {/* Linha 1: Espessura/Bg/Cor/Fonte/Tamanho label */}
                 <div className="group">
                   <label className={labelClass} style={{ color: '#666' }}>Espessura label</label>
@@ -411,6 +450,16 @@ export default function RelatorioBuilder({
                     onChange={(e) => {
                       const v = e.target.value.replace(/[^0-9]/g, '');
                       setEspessuraLabel(v ? Math.max(1, Number(v)) : 1);
+                    }}
+                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Topo label</label>
+                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={topoLabelVal}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setTopoLabelVal(v ? Math.max(0, Number(v)) : 0);
                     }}
                     className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
                   />
@@ -473,6 +522,16 @@ export default function RelatorioBuilder({
                     onChange={(e) => {
                       const v = e.target.value.replace(/[^0-9]/g, '');
                       setEspessuraCampo(v ? Math.max(1, Number(v)) : 1);
+                    }}
+                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                  />
+                </div>
+                <div className="group">
+                  <label className={labelClass} style={{ color: '#666' }}>Topo registro</label>
+                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={topoRegistroVal}
+                    onChange={(e) => {
+                      const v = e.target.value.replace(/[^0-9]/g, '');
+                      setTopoRegistroVal(v ? Math.max(0, Number(v)) : 0);
                     }}
                     className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
                   />

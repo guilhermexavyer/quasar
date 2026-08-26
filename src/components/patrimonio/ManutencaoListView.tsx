@@ -557,7 +557,8 @@ export default function ManutencaoListView({
                       >
                         {columnOrder.map((logicalIdx) => {
                           const col = COLUMNS[logicalIdx];
-                          const value = (m as unknown as Record<string, unknown>)[col.key];
+                          const rawValue = (m as unknown as Record<string, unknown>)[col.key];
+                          const value = rawValue ?? (col.key === 'nr_seq_prestador_servico' ? (m as unknown as Record<string, unknown>)['nr_seq_pessoa_fisica'] : undefined);
                           const lookup = columnLookups?.[col.key as keyof Manutencao];
                           const displayValue =
                             lookup && typeof value === 'number'
