@@ -85,7 +85,7 @@ const ESTILO_OPCOES = [
   { value: 'negrito_italico_sublinhado', label: 'Negrito + Itálico + Sublinhado' },
 ];
 
-const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm transition focus:border-[#003056] focus:outline-none";
+const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 export default function CamposRelatorioTable({
   campos,
@@ -299,6 +299,7 @@ export default function CamposRelatorioTable({
     {
       key: "_actions",
       label: " ",
+      width: 35,
       fixed: true,
       
       render: (row: CamposRelatorioRow) => {
@@ -333,9 +334,9 @@ export default function CamposRelatorioTable({
         );
       },
     },
-    {
-      key: "colecao",
+    {      key: "colecao",
       label: "Coleção",
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
@@ -344,16 +345,16 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { colecao: v })}
               options={colecoesDisponiveis}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
         return <span className="truncate block">{row.colecao || '---'}</span>;
       },
     },
-    {
-      key: "chave",
+    {      key: "chave",
       label: "Campo",
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           const camposDaColecao = camposPorColecao[row.colecao] ?? [];
@@ -384,7 +385,7 @@ export default function CamposRelatorioTable({
               }}
               options={opcoes}
               showPlaceholder
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -395,9 +396,10 @@ export default function CamposRelatorioTable({
     {
       key: "label",
       label: "Label",
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <input value={row.label} onChange={(e) => atualizar(row.id, { label: e.target.value })} className={`${inputClass} !text-xs`} />;
+          return <input value={row.label} onChange={(e) => atualizar(row.id, { label: e.target.value })} className={inputClass} />;
         }
         return <span className="truncate block">{row.label || '---'}</span>;
       },
@@ -405,10 +407,10 @@ export default function CamposRelatorioTable({
     {
       key: "posicao",
       label: "Posição",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.posicao ?? 1} onChange={(v) => atualizar(row.id, { posicao: v })} min={1} className={`${inputClass} !text-xs max-w-[60px]`} />;
+          return <NumberInput value={row.posicao ?? 1} onChange={(v) => atualizar(row.id, { posicao: v })} min={1} className={inputClass} />;
         }
         return <span>{row.posicao ?? '—'}</span>;
       },
@@ -416,10 +418,10 @@ export default function CamposRelatorioTable({
     {
       key: "alinhamentoHorizontal",
       label: "Esquerda",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.alinhamentoHorizontal ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoHorizontal: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
+          return <NumberInput value={row.alinhamentoHorizontal ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoHorizontal: v })} min={0} className={inputClass} />;
         }
         return <span>{row.alinhamentoHorizontal ?? 0}</span>;
       },
@@ -428,7 +430,7 @@ export default function CamposRelatorioTable({
     {
       key: "alinhamento",
       label: "Alinhamento",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
@@ -441,7 +443,7 @@ export default function CamposRelatorioTable({
                 { value: 'direita', label: 'Direita' },
               ]}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -452,7 +454,7 @@ export default function CamposRelatorioTable({
     {
       key: "estiloLabel",
       label: "Estilo label",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
@@ -461,7 +463,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { estiloLabel: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -472,7 +474,7 @@ export default function CamposRelatorioTable({
     {
       key: "estiloCampo",
       label: "Estilo registro",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
@@ -481,7 +483,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { estiloCampo: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -492,7 +494,7 @@ export default function CamposRelatorioTable({
     {
       key: "estiloSoma",
       label: "Estilo soma",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
@@ -501,7 +503,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { estiloSoma: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -512,10 +514,10 @@ export default function CamposRelatorioTable({
     {
       key: "largura",
       label: "Largura",
-      
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={0} className={`${inputClass} !text-xs max-w-[60px]`} />;
+          return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={0} className={inputClass} />;
         }
         return <span>{row.largura ?? 30}</span>;
       },
@@ -523,7 +525,7 @@ export default function CamposRelatorioTable({
     {
       key: "soma",
       label: "Soma",
-      width: 80,
+      width: 130,
       render: (row: CamposRelatorioRow) => {
         return (
           <span className="flex items-center justify-center">

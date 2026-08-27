@@ -144,9 +144,36 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  const [bandas, setBandas] = useState<Array<{ id: string; nome: string; posicao: number }>>(
+  type BandaState = { id: string; nome: string; colecao?: string; posicao: number; tipo?: 'lista' | 'texto_valor'; altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[] };
+  const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
+  const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
+
+  /** Abre o modal da banda: salva dados globais na banda anterior e carrega dados da banda alvo */
+  function openBandaDetail(bandaId: string) {
+    if (bandaDetailId) {
+      setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, campos: [...campos], filtros: [...filtros], ordenacao: [...ordenacao] } : b));
+    }
+    const target = bandas.find((b) => b.id === bandaId);
+    if (target) {
+      setCampos(target.campos?.length ? [...target.campos] : []);
+      setFiltros(target.filtros?.length ? [...target.filtros] : []);
+      setOrdenacao(target.ordenacao?.length ? [...target.ordenacao] : []);
+    }
+    setBandaDetailId(bandaId);
+  }
+
+  /** Fecha o modal da banda: salva dados na banda e limpa */
+  function closeBandaDetail() {
+    if (bandaDetailId) {
+      setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, campos: [...campos], filtros: [...filtros], ordenacao: [...ordenacao] } : b));
+    }
+    setBandaDetailId(null);
+    setCampos([]);
+    setFiltros([]);
+    setOrdenacao([]);
+  }
   const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.formato ?? 'excel');
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
@@ -268,9 +295,9 @@ export default function RelatorioBuilder({
   function validar(): boolean {
     const errs: string[] = [];
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
-    if (!colecao) errs.push("Coleção principal é obrigatória.");
-    if (campos.length === 0) errs.push("Selecione pelo menos um campo.");
-    if (campos.some((c) => !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    const todosCampos = bandas.flatMap((b) => b.campos ?? []);
+    if (todosCampos.length === 0) errs.push("Selecione pelo menos um campo.");
+    if (todosCampos.some((c: any) => !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
     setErros(errs);
     return errs.length === 0;
   }
@@ -280,15 +307,15 @@ export default function RelatorioBuilder({
     if (!validar()) return;
     const result: Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao"> = {
       ds_relatorio: dsRelatorio.trim(),
-      colecao,
-      campos: campos.map((c) => ({
+      colecao: bandas[0]?.colecao || '',
+      campos: bandas.flatMap((b) => (b.campos ?? []).map((c: any) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
         posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
-      })),
-      filtros: filtros.filter((f) => f.campo),
-      ordenacao: ordenacao.filter((o) => o.campo),
-      bandas,
+      }))),
+      filtros: bandas.flatMap((b) => (b.filtros ?? []).filter((f: any) => f.campo)),
+      ordenacao: bandas.flatMap((b) => (b.ordenacao ?? []).filter((o: any) => o.campo)),
+      bandas: bandas.map((b) => ({ ...b })),
       formato,
       configExcel: formato === "excel" ? configExcel : undefined,
       configPdf: formato === "pdf" ? configPdf : undefined,
@@ -346,7 +373,8 @@ export default function RelatorioBuilder({
             showPlaceholder={false}
             className="!w-[180px]"
             disabled
-          />
+                              visibleOptions={7}
+                  />
           <div className="flex items-center gap-1">
             <button
               type="button"
@@ -377,7 +405,7 @@ export default function RelatorioBuilder({
         <button
           type="button"
           onClick={onCancel}
-          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
         >
           Fechar
         </button>
@@ -402,38 +430,26 @@ export default function RelatorioBuilder({
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Relatório</h2>
           <div className="grid gap-[15px] sm:grid-cols-12">
 
-            {/* ── Linha 1: Sequência + Descrição + Formato + Coleção ── */}
-            <div className="sm:col-span-1 group">
+            {/* ── Linha 1: Sequência + Descrição + Formato ── */}
+            <div className="sm:col-span-2 group">
               <label className={labelClass} style={{ color: '#666' }}>Sequência</label>
               <input disabled value={String(relatorio?.nr_sequencia ?? '')} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
             </div>
-            <div className="sm:col-span-5 group">
+            <div className="sm:col-span-7 group">
               <label className={labelClass} style={{ color: '#666' }}>Descrição *</label>
               <input value={dsRelatorio} onChange={(e) => setDsRelatorio(e.target.value)} className={inputClass} />
             </div>
-            <div className="sm:col-span-2 group">
+            <div className="sm:col-span-3 group">
               <label className={labelClass} style={{ color: '#666' }}>Formato *</label>
               <Select
                 value={formato}
                 onChange={(v) => setFormato(v as 'excel' | 'pdf')}
                 options={[{ value: "excel", label: "Excel (CSV)" }, { value: "pdf", label: "PDF" }]}
                 showPlaceholder={false}
-              />
+                                  visibleOptions={7}
+                  />
             </div>
-            <div className="sm:col-span-4 group">
-              <label className={labelClass} style={{ color: '#666' }}>Coleção principal *</label>
-              <Select
-                value={colecao}
-                onChange={(v) => {
-                  setColecao(v);
-                  setCampos([]);
-                  setFiltros([]);
-                  setOrdenacao([]);
-                }}
-                options={opcoesColecao}
-                showPlaceholder
-              />
-            </div>
+
           </div>
           </section>
 
@@ -451,7 +467,7 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="sm:col-span-3 group">
                   <label className={labelClass} style={{ color: '#666' }}>Estilo cabeçalho</label>
-                  <Select value={configExcel.estiloCabecalho} onChange={(v) => setConfigExcel({ ...configExcel, estiloCabecalho: v as any })} options={[...ESTILO_CABECALHO_EXCEL]} showPlaceholder={false} />
+                  <Select value={configExcel.estiloCabecalho} onChange={(v) => setConfigExcel({ ...configExcel, estiloCabecalho: v as any })} options={[...ESTILO_CABECALHO_EXCEL]} showPlaceholder={false} visibleOptions={7} />
                 </div>
                 <div className="sm:col-span-5 group">
                   <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
@@ -472,11 +488,11 @@ export default function RelatorioBuilder({
                   </div>
                   <div className="group">
                     <label className={labelClass} style={{ color: '#666' }}>Página</label>
-                    <Select value={configPdf.tamanhoPagina} onChange={(v) => setConfigPdf({ ...configPdf, tamanhoPagina: v as any })} options={[...TAMANHOS_PAGINA]} showPlaceholder={false} />
+                    <Select value={configPdf.tamanhoPagina} onChange={(v) => setConfigPdf({ ...configPdf, tamanhoPagina: v as any })} options={[...TAMANHOS_PAGINA]} showPlaceholder={false} visibleOptions={7} />
                   </div>
                   <div className="group">
                     <label className={labelClass} style={{ color: '#666' }}>Orientação</label>
-                    <Select value={configPdf.orientacao} onChange={(v) => setConfigPdf({ ...configPdf, orientacao: v as any })} options={[{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]} showPlaceholder={false} />
+                    <Select value={configPdf.orientacao} onChange={(v) => setConfigPdf({ ...configPdf, orientacao: v as any })} options={[{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]} showPlaceholder={false} visibleOptions={7} />
                   </div>
                   <div className="group">
                     <label className={labelClass} style={{ color: '#666' }}>Tamanho fonte</label>
@@ -504,46 +520,46 @@ export default function RelatorioBuilder({
                 </div>
                 {/* Cabeçalho */}
                 <div className="grid gap-[15px] sm:grid-cols-12">
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
+                  <div className="sm:col-span-2 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Cabeçalho</label>
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={configPdf.cabecalho.incluir} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluir: !configPdf.cabecalho.incluir } })} />
-                      <span>Cabeçalho</span>
+                      <input type="checkbox" className="cg-checkbox" checked={configPdf.cabecalho.incluir} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluir: !configPdf.cabecalho.incluir } })} />
+                      <span>Sim</span>
                     </label>
                   </div>
-                  <div className="sm:col-span-3 group">
+                  <div className="sm:col-span-4 group">
                     <label className={labelClass} style={{ color: '#666' }}>Título</label>
                     <input value={configPdf.cabecalho.texto ?? ""} disabled={!configPdf.cabecalho.incluir} onChange={(e) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, texto: e.target.value } })} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="sm:col-span-3 group">
                     <label className={labelClass} style={{ color: '#666' }}>Data</label>
-                    <Select value={configPdf.cabecalho.incluirData ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                    <Select value={configPdf.cabecalho.incluirData ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
                   </div>
                   <div className="sm:col-span-3 group">
                     <label className={labelClass} style={{ color: '#666' }}>Número da página</label>
-                    <Select value={configPdf.cabecalho.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                    <Select value={configPdf.cabecalho.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
                   </div>
                 </div>
                 {/* Rodapé */}
                 <div className="grid gap-[15px] sm:grid-cols-12">
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
+                  <div className="sm:col-span-2 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Rodapé</label>
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" checked={configPdf.rodape.incluir} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluir: !configPdf.rodape.incluir } })} />
-                      <span>Rodapé</span>
+                      <input type="checkbox" className="cg-checkbox" checked={configPdf.rodape.incluir} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluir: !configPdf.rodape.incluir } })} />
+                      <span>Sim</span>
                     </label>
                   </div>
-                  <div className="sm:col-span-3 group">
+                  <div className="sm:col-span-4 group">
                     <label className={labelClass} style={{ color: '#666' }}>Título</label>
                     <input value={configPdf.rodape.texto ?? ""} disabled={!configPdf.rodape.incluir} onChange={(e) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, texto: e.target.value } })} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="sm:col-span-3 group">
                     <label className={labelClass} style={{ color: '#666' }}>Data</label>
-                    <Select value={configPdf.rodape.incluirData ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                    <Select value={configPdf.rodape.incluirData ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
                   </div>
                   <div className="sm:col-span-3 group">
                     <label className={labelClass} style={{ color: '#666' }}>Número da página</label>
-                    <Select value={configPdf.rodape.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                    <Select value={configPdf.rodape.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
                   </div>
                 </div>
               </div>
@@ -556,16 +572,33 @@ export default function RelatorioBuilder({
           <section className="mb-4">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Bandas</h2>
-              <button type="button" onClick={() => setBandas((prev) => [...prev, { id: gerarId(), nome: '', posicao: prev.length + 1 }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+              <button type="button" onClick={() => setBandas((prev) => [...prev, { id: gerarId(), nome: '', colecao: '', posicao: prev.length + 1, nr_sequencia: prev.length + 1, nr_seq_relatorio: relatorio?.nr_sequencia, campos: [], filtros: [], ordenacao: [] }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
             <BandasRelatorioTable
               bandas={bandas}
               onChange={setBandas}
+              colecaoOptions={opcoesColecao}
               userId={userId}
               initialColumns={initialBandasColumns}
               onColumnsChange={onBandasColumnsChange}
+              onViewBanda={(b) => openBandaDetail(b.id)}
             />
           </section>
+
+          {bandaDetailId ? (
+          /* ── Banda Detail Modal ── */
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">              <div className="absolute inset-0" onClick={() => closeBandaDetail()} />
+            <div className="relative w-full max-w-[95vw] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+              <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+                <h3 className="text-base font-semibold" style={{ color: '#000' }}>Banda</h3>
+                <button type="button" onClick={() => closeBandaDetail()} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+                </button>
+              </div>
+              <div className="p-[15px] overflow-auto flex-1 space-y-9">
+
+          {bandas.find((b) => b.id === bandaDetailId)?.tipo === 'lista' && (
+          <>
 
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Lista ── */}
@@ -573,14 +606,14 @@ export default function RelatorioBuilder({
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
-              <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
+              <button type="button" disabled={!bandas.find((b) => b.id === bandaDetailId)?.colecao} onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.colecao || ''; setCampos((prev) => [...prev, { id: gerarId(), colecao: bColecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }]); }} className={`text-sm cursor-pointer ${!bandas.find((b) => b.id === bandaDetailId)?.colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
                 campos={campos}
                 onChange={setCampos}
                 camposDisponiveis={camposDisponiveis}
-                colecaoPrincipal={colecao}
+                colecaoPrincipal={bandas.find((b) => b.id === bandaDetailId)?.colecao || ''}
                 onEditingChange={setEditingCampo}
                 userId={userId}
                 initialColumns={initialListaColumns}
@@ -625,6 +658,7 @@ export default function RelatorioBuilder({
                         <span>{opt.label}</span>
                       </span>
                     )}
+                  visibleOptions={7}
                   />
                 </div>
                 <div className="group">
@@ -640,6 +674,7 @@ export default function RelatorioBuilder({
                         <span>{opt.label}</span>
                       </span>
                     )}
+                  visibleOptions={7}
                   />
                 </div>
                 <div className="group">
@@ -649,6 +684,7 @@ export default function RelatorioBuilder({
                     onChange={(v) => setFonteLabel(v)}
                     options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
                     showPlaceholder={false} disabled={formato === "excel"}
+                                      visibleOptions={7}
                   />
                 </div>
                 <div className="group">
@@ -700,6 +736,7 @@ export default function RelatorioBuilder({
                         <span>{opt.label}</span>
                       </span>
                     )}
+                  visibleOptions={7}
                   />
                 </div>
                 <div className="group">
@@ -715,6 +752,7 @@ export default function RelatorioBuilder({
                         <span>{opt.label}</span>
                       </span>
                     )}
+                  visibleOptions={7}
                   />
                 </div>
                 <div className="group">
@@ -724,6 +762,7 @@ export default function RelatorioBuilder({
                     onChange={(v) => setFonteCampo(v)}
                     options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
                     showPlaceholder={false} disabled={formato === "excel"}
+                                      visibleOptions={7}
                   />
                 </div>
                 <div className="group">
@@ -775,6 +814,19 @@ export default function RelatorioBuilder({
               onColumnsChange={onOrdenacaoColumnsChange}
             />
           </section>
+          </>
+          )}
+          </div>
+              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-[15px] py-3">
+                <div />
+                <div className="flex items-center gap-3 ml-auto">
+                  <button type="button" onClick={() => closeBandaDetail()} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
+                  <button type="button" onClick={() => closeBandaDetail()} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
+                </div>
+              </div>
+            </div>
+          </div>
+          ) : null}
         </div>
 
         {/* ── Botões de ação ── */}

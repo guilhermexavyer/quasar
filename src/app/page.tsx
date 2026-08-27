@@ -290,7 +290,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.10";
+const SYSTEM_VERSION = "0.62.11";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2663,10 +2663,11 @@ export default function Home() {
   }
 
   function handleRelatorioGerar(relatorio: Relatorio) {
-    // Check for parameter filters
-    const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
+    // Check for parameter filters (from both top-level and bandas)
+    const parametrosTopo = (relatorio.filtros ?? []).filter((f) => f.parametro);
+    const parametrosBandas = (relatorio.bandas ?? []).flatMap((b) => (b.filtros ?? []).filter((f) => f.parametro));
+    const parametros = [...parametrosTopo, ...parametrosBandas];
     if (parametros.length > 0) {
-      // Use previously entered values if they exist, otherwise use saved filter values
       setRelatorioParamValues((prev) => {
         const initialValues: Record<string, string> = { ...prev };
         for (const p of parametros) {
@@ -2679,7 +2680,6 @@ export default function Home() {
       setRelatorioParamModal({ relatorio, parametros });
       return;
     }
-    // No parameters — generate directly
     executarRelatorioGerar(relatorio);
   }
 
@@ -2687,44 +2687,76 @@ export default function Home() {
     setRelatorioGerando(true);
     setMessage('');
     try {
-      const resultado = await executarConsultaRelatorio(relatorio);
-      if (resultado.total === 0) {
-        setMessage('Nenhum registro encontrado com os filtros aplicados.');
-        setRelatorioGerando(false);
-        return;
-      }
-      // Resolve chaves de campos que vêm de coleções FK
-      const dsPrincipal = getDataSource(relatorio.colecao);
-      const camposResolvidos = relatorio.campos.map((c) => ({
-        ...c,
-        chave: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
-      }));
-      // Resolve ie_status (sistema): substitui abreviação pelo label
-      const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
-        const regResolvido = { ...reg };
-        for (const c of camposResolvidos) {
-          if (c.statusSistema && c.chave) {
-            // Suporta notação de ponto (ex.: marca.ie_status)
-            const partes = c.chave.split('.');
-            let obj: any = regResolvido;
-            for (let i = 0; i < partes.length - 1; i++) {
-              obj = obj?.[partes[i]];
+      const bandasLista = (relatorio.bandas ?? []).filter((b) => b.tipo === 'lista' && b.colecao);
+
+      if (relatorio.formato !== 'excel' && bandasLista.length > 0) {
+        // Modo Bandas: consultar cada banda separadamente
+        const bandasPdfData: import('@/lib/relatorioPdf').BandaPdfData[] = [];
+        let totalRegistros = 0;
+
+        for (const banda of bandasLista) {
+          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.colecao!, campos: banda.campos ?? [], filtros: banda.filtros ?? [], ordenacao: banda.ordenacao ?? [] };
+          const resultado = await executarConsultaRelatorio(relatorioBanda);
+          const dsBanda = getDataSource(banda.colecao!);
+          const camposResolvidos = (banda.campos ?? []).map((c) => ({
+            ...c,
+            chave: resolverChaveCampo(c, banda.colecao!, dsBanda?.campos ?? []),
+          }));
+          const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
+            const regResolvido = { ...reg };
+            for (const c of camposResolvidos) {
+              if (c.statusSistema && c.chave) {
+                const partes = c.chave.split('.');
+                let obj: any = regResolvido;
+                for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
+                const campoFinal = partes[partes.length - 1];
+                if (obj && typeof obj[campoFinal] === 'string') {
+                  obj[campoFinal] = resolverStatusLabel(c.colecao || banda.colecao!, obj[campoFinal]);
+                }
+              }
             }
-            const campoFinal = partes[partes.length - 1];
-            if (obj && typeof obj[campoFinal] === 'string') {
-              obj[campoFinal] = resolverStatusLabel(c.colecao || relatorio.colecao, obj[campoFinal]);
+            return regResolvido;
+          });
+          bandasPdfData.push({ nome: banda.nome || 'Banda', posicao: banda.posicao, altura: banda.altura, campos: camposResolvidos, registros: registrosResolvidos });
+          totalRegistros += registrosResolvidos.length;
+        }
+        gerarPdf(relatorio, [], bandasPdfData);
+        setMessage(`Relatório gerado com sucesso! ${totalRegistros} registro(s) encontrado(s).`);
+      } else {
+        const resultado = await executarConsultaRelatorio(relatorio);
+        if (resultado.total === 0) {
+          setMessage('Nenhum registro encontrado com os filtros aplicados.');
+          setRelatorioGerando(false);
+          return;
+        }
+        const dsPrincipal = getDataSource(relatorio.colecao);
+        const camposResolvidos = relatorio.campos.map((c) => ({
+          ...c,
+          chave: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
+        }));
+        const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
+          const regResolvido = { ...reg };
+          for (const c of camposResolvidos) {
+            if (c.statusSistema && c.chave) {
+              const partes = c.chave.split('.');
+              let obj: any = regResolvido;
+              for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
+              const campoFinal = partes[partes.length - 1];
+              if (obj && typeof obj[campoFinal] === 'string') {
+                obj[campoFinal] = resolverStatusLabel(c.colecao || relatorio.colecao, obj[campoFinal]);
+              }
             }
           }
+          return regResolvido;
+        });
+        const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
+        if (relatorio.formato === 'excel') {
+          gerarERealizarDownloadExcel(relatorioResolvido, registrosResolvidos);
+        } else {
+          gerarPdf(relatorioResolvido, registrosResolvidos);
         }
-        return regResolvido;
-      });
-      const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
-      if (relatorio.formato === 'excel') {
-        gerarERealizarDownloadExcel(relatorioResolvido, registrosResolvidos);
-      } else {
-        gerarPdf(relatorioResolvido, registrosResolvidos);
+        setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
       }
-      setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
     } catch (err: any) {
       setMessage(`Erro ao gerar relatório: ${err.message || 'Erro desconhecido'}`);
     } finally {
@@ -2734,14 +2766,22 @@ export default function Home() {
 
   function handleRelatorioParamConfirm() {
     if (!relatorioParamModal) return;
-    // Apply parameter values to the relatorio's filters
     const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
       if (f.parametro && relatorioParamValues[f.id] !== undefined) {
         return { ...f, valor: relatorioParamValues[f.id] };
       }
       return f;
     });
-    const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
+    const updatedBandas = (relatorioParamModal.relatorio.bandas ?? []).map((b) => ({
+      ...b,
+      filtros: (b.filtros ?? []).map((f) => {
+        if (f.parametro && relatorioParamValues[f.id] !== undefined) {
+          return { ...f, valor: relatorioParamValues[f.id] };
+        }
+        return f;
+      }),
+    }));
+    const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros, bandas: updatedBandas };
     setRelatorioParamModal(null);
     executarRelatorioGerar(updatedRelatorio);
   }

@@ -27,7 +27,7 @@ const MASCARA_OPTIONS = [
   { value: "telefone", label: "Telefone" },
 ];
 
-const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1 text-sm transition focus:border-[#003056] focus:outline-none";
+const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 /** Apply date mask DD/MM/AAAA */
 function applyDateMask(value: string): string {
@@ -157,7 +157,7 @@ export default function FiltrosRelatorioTable({
           placeholder="DD/MM/AAAA"
           value={val}
           onChange={(e) => atualizar(row.id, { [field]: applyDateMask(e.target.value) })}
-          className={`${inputClass} !text-xs flex-1 min-w-0 placeholder:text-[#aaa]`}
+          className={`${inputClass} flex-1 min-w-0 placeholder:text-[#aaa]`}
         />
       );
     }
@@ -174,7 +174,7 @@ export default function FiltrosRelatorioTable({
             if (!digits) { atualizar(row.id, { [field]: "" }); return; }
             atualizar(row.id, { [field]: applyDecimalMask(digits) });
           }}
-          className={`${inputClass} !text-xs flex-1 min-w-0`}
+          className={`${inputClass} flex-1 min-w-0`}
         />
       );
     }
@@ -187,7 +187,7 @@ export default function FiltrosRelatorioTable({
           placeholder={placeholder}
           value={val}
           onChange={(e) => atualizar(row.id, { [field]: applyIntegerMask(e.target.value) })}
-          className={`${inputClass} !text-xs flex-1 min-w-0`}
+          className={`${inputClass} flex-1 min-w-0`}
         />
       );
     }
@@ -201,7 +201,7 @@ export default function FiltrosRelatorioTable({
           placeholder="XXX.XXX.XXX-XX"
           value={val}
           onChange={(e) => atualizar(row.id, { [field]: applyCpfMask(e.target.value) })}
-          className={`${inputClass} !text-xs flex-1 min-w-0 placeholder:text-[#aaa]`}
+          className={`${inputClass} flex-1 min-w-0 placeholder:text-[#aaa]`}
         />
       );
     }
@@ -215,7 +215,7 @@ export default function FiltrosRelatorioTable({
           placeholder="(XX) XXXXX-XXXX"
           value={val}
           onChange={(e) => atualizar(row.id, { [field]: applyPhoneMask(e.target.value) })}
-          className={`${inputClass} !text-xs flex-1 min-w-0 placeholder:text-[#aaa]`}
+          className={`${inputClass} flex-1 min-w-0 placeholder:text-[#aaa]`}
         />
       );
     }
@@ -227,7 +227,7 @@ export default function FiltrosRelatorioTable({
         placeholder={placeholder}
         value={val}
         onChange={(e) => atualizar(row.id, { [field]: e.target.value })}
-        className={`${inputClass} !text-xs flex-1 min-w-0`}
+        className={`${inputClass} flex-1 min-w-0`}
       />
     );
   }
@@ -236,7 +236,7 @@ export default function FiltrosRelatorioTable({
     {
       key: "_actions",
       label: "",
-      width: 70,
+      width: 35,
       fixed: true,
       render: (row: RelatorioFiltro) => {
         const isEditing = editingId === row.id;
@@ -273,7 +273,7 @@ export default function FiltrosRelatorioTable({
               onChange={(v) => atualizar(row.id, { campo: v })}
               options={camposDisponiveis.map((cd) => ({ value: cd.key, label: cd.label }))}
               showPlaceholder
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -292,7 +292,7 @@ export default function FiltrosRelatorioTable({
               onChange={(v) => atualizar(row.id, { operador: v as any })}
               options={[...OPERADORES_FILTRO]}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }
@@ -311,7 +311,7 @@ export default function FiltrosRelatorioTable({
               onChange={(v) => atualizar(row.id, { mascara: v as any })}
               options={MASCARA_OPTIONS}
               showPlaceholder={false}
-              className="!text-xs"
+              className={inputClass}
             />
           );
         }

@@ -30,7 +30,7 @@ export interface Relatorio {
 
   /* ── Bandas ── */
   /** Bandas do relatório. */
-  bandas?: Array<{ id: string; nome: string; posicao: number }>;
+  bandas?: RelatorioBanda[];
 
   /* ── Agrupamento ── */
   /** Agrupamento de registros. */
@@ -177,6 +177,29 @@ export interface RelatorioOrdenacao {
   campo: string;
   /** Direção da ordenação. */
   direcao: 'asc' | 'desc';
+}
+
+/**
+ * Banda do relatório.
+ */
+export interface RelatorioBanda {
+  id: string;
+  /** Nome da banda. */
+  nome: string;
+  /** Coleção principal da banda ( Firestore collection). */
+  colecao?: string;
+  /** Posição da banda no relatório. */
+  posicao: number;
+  /** Tipo da banda. */
+  tipo?: 'lista' | 'texto_valor';
+  /** Altura da banda em pixels. */
+  altura?: number;
+  /** Campos da lista (apenas para tipo 'lista'). */
+  campos?: RelatorioCampo[];
+  /** Filtros da lista. */
+  filtros?: RelatorioFiltro[];
+  /** Ordenação da lista. */
+  ordenacao?: RelatorioOrdenacao[];
 }
 
 /**

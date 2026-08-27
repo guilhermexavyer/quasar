@@ -10,6 +10,8 @@ export interface ResizableTableColumn<T = unknown> {
   cellClassName?: string;
   align?: "left" | "center";
   render?: (row: T) => ReactNode;
+  /** Largura desejada em px. Usada como valor inicial quando não há largura salva. */
+  width?: number;
   /** Coluna fixa: não pode ser reordenada, redimensionada ou ordenada. */
   fixed?: boolean;
 }
@@ -104,7 +106,15 @@ export default function ResizableTable<T>({
       const savedOrder = saved.order.filter((k) => unpinned.includes(k));
       const extra = unpinned.filter((k) => !savedOrder.includes(k));
       setColumnOrder([...pinned, ...savedOrder, ...extra]);
-      widthsRef.current = saved.widths;
+      // Respeitar width declarado na coluna: limpar largura salva para colunas
+      // que agora têm width definido (permite que novos defaults entrem em vigor).
+      const mergedWidths = { ...saved.widths };
+      columns.forEach((c) => {
+        if (c.width && c.width > 0) {
+          delete mergedWidths[c.key];
+        }
+      });
+      widthsRef.current = mergedWidths;
     } else {
       setColumnOrder([...pinned, ...unpinned]);
       widthsRef.current = {};
@@ -212,7 +222,9 @@ export default function ResizableTable<T>({
       const minW = minWidthsRef.current[key] || 0;
       const savedW = widthsRef.current[key];
       const contentW = measureColumnContentWidth(table, domIdx);
-      widths[key] = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
+      const colDef = columns.find((c) => c.key === key);
+      const defW = colDef?.width ?? 0;
+      widths[key] = savedW && savedW > 0 ? savedW : (defW > 0 ? Math.max(defW, minW) : Math.max(minW, contentW));
     });
     widthsRef.current = widths;
     applyWidths(table, widths);
@@ -409,7 +421,7 @@ export default function ResizableTable<T>({
                   >
                     <div className="rt-header-content pr-1">
                       <span>{col.label}</span>
-                      <SortIcon active={sortColumn === key} asc={sortAsc} />
+                      {!col.fixed && <SortIcon active={sortColumn === key} asc={sortAsc} />}
                     </div>
                     {!col.fixed && (
                       <div

@@ -47,13 +47,9 @@ function formatCellValue(key: string, value: any): string {
 const COLUMNS = [
   { key: "nr_sequencia", label: "#", align: "center" as const },
   { key: "ds_relatorio", label: "Nome" },
-  { key: "colecao", label: "Fonte de dados" },
   { key: "formato", label: "Formato" },
-  { key: "qtdCampos", label: "Campos", align: "center" as const },
-  { key: "qtdFiltros", label: "Filtros", align: "center" as const },
-  { key: "qtdOrdenacao", label: "Ordenação", align: "center" as const },
-  { key: "dt_criacao", label: "Criado em" },
-  { key: "dt_alteracao", label: "Alterado em" },
+  { key: "dt_criacao", label: "Criação" },
+  { key: "dt_alteracao", label: "Alteração" },
 ];
 
 const COLUMN_KEYS = COLUMNS.map((c) => c.key);
