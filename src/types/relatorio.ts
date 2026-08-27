@@ -28,6 +28,10 @@ export interface Relatorio {
   /** Ordenação dos registros. */
   ordenacao: RelatorioOrdenacao[];
 
+  /* ── Bandas ── */
+  /** Bandas do relatório. */
+  bandas?: Array<{ id: string; nome: string; posicao: number }>;
+
   /* ── Agrupamento ── */
   /** Agrupamento de registros. */
   agrupamento?: RelatorioAgrupamento;

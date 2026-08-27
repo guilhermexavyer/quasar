@@ -34,7 +34,7 @@ export const FIELD_INFOS = {
   dt_admissao: { type: 'string', field: 'dt_admissao', collection: 'colaborador' },
   ie_status: { type: 'string', field: 'ie_status', collection: 'colaborador' },
   dt_status: { type: 'string', field: 'dt_status', collection: 'colaborador' },
-  ds_status: { type: 'string', field: 'ds_status', collection: 'colaborador' },
+  ds_motivo_status: { type: 'string', field: 'ds_motivo_status', collection: 'colaborador' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'colaborador' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'colaborador' },
 } as const;
@@ -50,7 +50,7 @@ export const FIELD_LABELS: Record<string, string> = {
   dt_admissao: 'Data de admissão',
   ie_status: 'Status',
   dt_status: 'Data do status',
-  ds_status: 'Motivo do status',
+  ds_motivo_status: 'Motivo do status',
   dt_criacao: 'Criação',
   dt_alteracao: 'Alteração',
 };

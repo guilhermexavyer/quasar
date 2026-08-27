@@ -177,10 +177,9 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativo.ds_codigo_barras", label: "Código de barras", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_aquisicao", label: "Data de aquisição", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_garantia", label: "Data de garantia", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.dt_reativacao", label: "Reativação", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_ultima_manutencao", label: "Última manutenção", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.dt_descarte", label: "Descarte", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.ds_descarte", label: "Motivo do descarte", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.dt_status", label: "Data do status", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.ds_motivo_status", label: "Motivo do status", tipo: "Ativos", colecao: "pat_ativo" },
 
     { key: "pat_ativo.ds_processador", label: "Processador", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.qt_ram", label: "Memória RAM", tipo: "Ativos", colecao: "pat_ativo" },

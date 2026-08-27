@@ -26,16 +26,14 @@ export interface Ativo {
   dt_garantia?: string;
   /** Status: D (Descartado), E (Estoque), M (Manutenção), O (Operacional). */
   ie_status?: string;
-  /** Reativação (data em que voltou para Operacional). */
-  dt_reativacao?: string;
+  /** Data do status. */
+  dt_status?: string;
   /** Última manutenção. */
   dt_ultima_manutencao?: string;
   /** Nr. sequência da última manutenção. */
   nr_seq_ultima_manutencao?: number;
-  /** Data do descarte. */
-  dt_descarte?: string;
-  /** Motivo do descarte. */
-  ds_descarte?: string;
+  /** Motivo do status. */
+  ds_motivo_status?: string;
   /** Processador. */
   ds_processador?: string;
   /** Memória RAM. */

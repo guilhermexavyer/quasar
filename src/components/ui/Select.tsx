@@ -25,6 +25,12 @@ interface SelectProps {
   theme?: 'default' | 'sidebar';
   /** Renderização customizada de cada opção. */
   renderOption?: (option: SelectOption) => React.ReactNode;
+  /** Classes CSS extras aplicadas à lista de opções (dropdown). */
+  dropdownClassName?: string;
+  /** Usa position absolute em vez de fixed para o dropdown. */
+  absolute?: boolean;
+  /** Classes CSS extras aplicadas a cada opção do dropdown. */
+  optionClassName?: string;
 }
 
 const ROW_HEIGHT = 32; // altura aproximada de cada linha (px)
@@ -41,6 +47,9 @@ export default function Select({
   forceOpenUp = false,
   theme = 'default',
   renderOption,
+  dropdownClassName = '',
+  absolute = false,
+  optionClassName = '',
 }: SelectProps) {
   const [open, setOpen] = useState(false);
   const [highlighted, setHighlighted] = useState(-1);
@@ -88,11 +97,20 @@ export default function Select({
     const spaceAbove = triggerRect.top - 12;
     const up = forceOpenUp || (spaceBelow < listHeight && spaceAbove >= spaceBelow);
     setOpenUp(up);
-    setDropdownPos({
-      top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
-      left: triggerRect.left,
-      width: triggerRect.width,
-    });
+    if (absolute && rootRef.current) {
+      const rootRect = rootRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: up ? triggerRect.top - rootRect.top - listHeight - 2 : triggerRect.bottom - rootRect.top + 2,
+        left: triggerRect.left - rootRect.left,
+        width: triggerRect.width,
+      });
+    } else {
+      setDropdownPos({
+        top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
+        left: triggerRect.left,
+        width: triggerRect.width,
+      });
+    }
 
     const list = listRef.current;
     if (!list) return;
@@ -119,16 +137,28 @@ export default function Select({
       setOpenUp(up);
       // Direct DOM update — no React re-render delay
       const list = listRef.current;
-      if (list) {
-        list.style.top = (up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2) + 'px';
-        list.style.left = triggerRect.left + 'px';
-        list.style.width = triggerRect.width + 'px';
+      if (absolute && rootRef.current) {
+        const rootRect = rootRef.current.getBoundingClientRect();
+        const absTop = up ? triggerRect.top - rootRect.top - listHeight - 2 : triggerRect.bottom - rootRect.top + 2;
+        const absLeft = triggerRect.left - rootRect.left;
+        if (list) {
+          list.style.top = absTop + 'px';
+          list.style.left = absLeft + 'px';
+          list.style.width = triggerRect.width + 'px';
+        }
+        setDropdownPos({ top: absTop, left: absLeft, width: triggerRect.width });
+      } else {
+        if (list) {
+          list.style.top = (up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2) + 'px';
+          list.style.left = triggerRect.left + 'px';
+          list.style.width = triggerRect.width + 'px';
+        }
+        setDropdownPos({
+          top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
+          left: triggerRect.left,
+          width: triggerRect.width,
+        });
       }
-      setDropdownPos({
-        top: up ? triggerRect.top - listHeight - 2 : triggerRect.bottom + 2,
-        left: triggerRect.left,
-        width: triggerRect.width,
-      });
     };
     window.addEventListener('scroll', recalc, true);
     window.addEventListener('resize', recalc);
@@ -279,11 +309,11 @@ export default function Select({
           ref={listRef}
           role="listbox"
           onMouseLeave={() => setHighlighted(-1)}
-          className={`cg-select-list fixed z-[9999] overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
+          className={`cg-select-list ${absolute ? 'absolute z-[100]' : 'fixed z-[9999]'} overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
             theme === 'sidebar'
               ? 'border border-[#163a54] bg-[#1A4567]'
               : 'border border-[#ccc] bg-white'
-          }`}
+          } ${dropdownClassName}`}
           style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: visibleOptions * ROW_HEIGHT }}
         >
           {items.map((op, index) => {
@@ -298,14 +328,16 @@ export default function Select({
                 onMouseEnter={() => setHighlighted(index)}
                 onClick={() => handleSelect(op.value)}
                 className={`block w-full cursor-pointer truncate px-2 py-1.5 text-left text-sm transition ${
-                  theme === 'sidebar'
-                    ? isHighlighted || isSelected
-                      ? 'bg-[#2a5f8a] text-white'
-                      : 'text-white'
-                    : isHighlighted || isSelected
-                      ? 'bg-slate-100 text-slate-900'
-                      : 'text-slate-800'
-                }`}
+                  optionClassName
+                    ? (isHighlighted || isSelected ? 'bg-[#1A4567] text-white' : 'text-white')
+                    : theme === 'sidebar'
+                      ? isHighlighted || isSelected
+                        ? 'bg-[#2a5f8a] text-white'
+                        : 'text-white'
+                      : isHighlighted || isSelected
+                        ? 'bg-slate-100 text-slate-900'
+                        : 'text-slate-800'
+                } ${optionClassName}`}
               >
                 {renderOption ? renderOption(op) : op.label}
               </button>

@@ -296,11 +296,11 @@ export default function ParametrosDaFuncaoView({
                             <div className="w-1/2 min-w-0">
                               <input
                                 type="text"
-                                inputMode="numeric"
-                                pattern="[0-9]*"
+                                inputMode={isTexto ? 'text' : 'numeric'}
+                                pattern={isTexto ? undefined : '[0-9]*'}
                                 value={seg.texto}
                                 onChange={(e) => {
-                                  const val = e.target.value.replace(/[^0-9]/g, "");
+                                  const val = isTexto ? e.target.value : e.target.value.replace(/[^0-9]/g, "");
                                   atualizarSegmentoTexto(index, val);
                                 }}
                                 className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"

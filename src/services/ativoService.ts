@@ -106,7 +106,15 @@ export async function atualizarAtivo(
   }
 
   const currentData = snap.data() as Record<string, any>;
-  const hasActualChanges = Object.entries(ativo).some(([key, value]) => {
+
+  // Limpar responsaveis: remover objetos com nr_seq_responsavel undefined.
+  const ativoLimpo = { ...ativo };
+  if (Array.isArray(ativoLimpo.responsaveis)) {
+    const limpos = ativoLimpo.responsaveis.filter((r: any) => r?.nr_seq_responsavel !== undefined);
+    ativoLimpo.responsaveis = limpos.length > 0 ? limpos : [];
+  }
+
+  const hasActualChanges = Object.entries(ativoLimpo).some(([key, value]) => {
     const currentValue = currentData[key];
     const ehObjeto =
       (typeof value === 'object' && value !== null) ||
@@ -121,14 +129,14 @@ export async function atualizarAtivo(
     return;
   }
 
-  const { updates, removidos } = montarUpdateComRemocoes(currentData, ativo);
+  const { updates, removidos } = montarUpdateComRemocoes(currentData, ativoLimpo);
   const agora = new Date().toISOString();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
-  await updateDoc(docRef, {
+  await updateDoc(docRef, removerUndefined({
     ...updates,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,
-  });
+  }));
 
   try {
     const auditCol = collection(db, "pat_ativo", id, "auditoria");
@@ -140,7 +148,7 @@ export async function atualizarAtivo(
       usuarioNome: autor?.usuarioNome ?? '-',
       acao: 'update',
       timestamp: agora,
-      detalhes: full,
+      detalhes: removerUndefined(full),
     });
   } catch (e) {
     console.error('Erro ao registrar auditoria de atualização', e);

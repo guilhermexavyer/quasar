@@ -314,97 +314,88 @@ export default function AtivoFormView({
                 />
               </div>
 
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('dt_aquisicao', 'Data de aquisição')}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD/MM/AAAA"
-                  disabled={statusDe('dt_aquisicao') === 'D'}
-                  className={`${inputClass('dt_aquisicao')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.dt_aquisicao ?? ''}
-                  onChange={(e) => setForm({ ...form, dt_aquisicao: applyDateMask(e.target.value) })}
-                />
-              </div>
-
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('dt_garantia', 'Data de garantia')}
-                <input
-                  type="text"
-                  inputMode="numeric"
-                  maxLength={10}
-                  placeholder="DD/MM/AAAA"
-                  disabled={statusDe('dt_garantia') === 'D'}
-                  className={`${inputClass('dt_garantia')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.dt_garantia ?? ''}
-                  onChange={(e) => setForm({ ...form, dt_garantia: applyDateMask(e.target.value) })}
-                />
-              </div>
-
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('ie_status', 'Status')}
-                <Select
-                  disabled={statusDe('ie_status') === 'D' || !!editingId}
-                  error={campoErros.includes('ie_status')}
-                  value={form.ie_status ?? ''}
-                  onChange={(v) => setForm({ ...form, ie_status: v })}
-                  options={STATUS_OPTIONS}
-                  showPlaceholder={false}
-                />
-              </div>
-
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('dt_reativacao', 'Reativação')}
-                <input
-                  type="text"
-                  placeholder="DD/MM/AAAA"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  value={form.dt_reativacao ?? ''}
-                />
-              </div>
-
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('nr_seq_ultima_manutencao', 'Última manutenção')}
-                <div className="relative">
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-5">
+                <div className="group">
+                  {renderFieldLabel('dt_aquisicao', 'Data de aquisição')}
                   <input
+                    type="text"
                     inputMode="numeric"
-                    disabled
-                    className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[38px] py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
-                    value={ultimaManutencaoSeq != null ? String(ultimaManutencaoSeq) : ''}
+                    maxLength={10}
+                    placeholder="DD/MM/AAAA"
+                    disabled={statusDe('dt_aquisicao') === 'D'}
+                    className={`${inputClass('dt_aquisicao')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                    value={form.dt_aquisicao ?? ''}
+                    onChange={(e) => setForm({ ...form, dt_aquisicao: applyDateMask(e.target.value) })}
                   />
-                  {ultimaManutencaoSeq != null && (
-                    <button
-                      type="button"
-                      onClick={() => onViewManutencao?.(ultimaManutencaoSeq ?? undefined)}
-                      className="absolute right-[2px] top-1/2 -translate-y-1/2 z-10 inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
-                      aria-label="Visualizar última manutenção"
-                    >
-                      <ViewIcon size={16} />
-                    </button>
-                  )}
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('dt_garantia', 'Data de garantia')}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={10}
+                    placeholder="DD/MM/AAAA"
+                    disabled={statusDe('dt_garantia') === 'D'}
+                    className={`${inputClass('dt_garantia')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                    value={form.dt_garantia ?? ''}
+                    onChange={(e) => setForm({ ...form, dt_garantia: applyDateMask(e.target.value) })}
+                  />
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('nr_seq_ultima_manutencao', 'Última manutenção')}
+                  <div className="relative">
+                    <input
+                      inputMode="numeric"
+                      disabled
+                      className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[38px] py-1.5 text-sm text-slate-500 transition focus:outline-none cursor-default"
+                      value={ultimaManutencaoSeq != null ? String(ultimaManutencaoSeq) : ''}
+                    />
+                    {ultimaManutencaoSeq != null && (
+                      <button
+                        type="button"
+                        onClick={() => onViewManutencao?.(ultimaManutencaoSeq ?? undefined)}
+                        className="absolute right-[2px] top-1/2 -translate-y-1/2 z-10 inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup"
+                        aria-label="Visualizar última manutenção"
+                      >
+                        <ViewIcon size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('ie_status', 'Status')}
+                  <Select
+                    disabled={statusDe('ie_status') === 'D' || !!editingId}
+                    error={campoErros.includes('ie_status')}
+                    value={form.ie_status ?? ''}
+                    onChange={(v) => setForm({ ...form, ie_status: v })}
+                    options={STATUS_OPTIONS}
+                    showPlaceholder={false}
+                  />
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('dt_status', 'Data do status')}
+                  <input
+                    type="text"
+                    placeholder="DD/MM/AAAA"
+                    disabled
+                    className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                    value={form.dt_status ?? ''}
+                  />
                 </div>
               </div>
 
-              <div className="sm:col-span-2 group">
-                {renderFieldLabel('dt_descarte', 'Descarte')}
-                <input
-                  type="text"
-                  placeholder="DD/MM/AAAA"
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  value={form.dt_descarte ?? ''}
-                />
-              </div>
-
               <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_descarte', 'Motivo do descarte')}
+                {renderFieldLabel('ds_motivo_status', 'Motivo do status')}
                 <textarea
                   disabled
                   className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
                   rows={3}
-                  value={form.ds_descarte ?? ''}
+                  value={form.ds_motivo_status ?? ''}
                 />
               </div>
             </div>

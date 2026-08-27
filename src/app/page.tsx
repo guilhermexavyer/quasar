@@ -290,7 +290,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.9";
+const SYSTEM_VERSION = "0.62.10";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -421,7 +421,7 @@ const emptyColaboradorForm: ColaboradorFormData = {
   nr_matricula: "",
   dt_admissao: "",
   dt_status: "",
-  ds_status: "",
+  ds_motivo_status: "",
   ie_status: 'A',
 };
 
@@ -436,11 +436,10 @@ const emptyAtivoForm: AtivoFormData = {
   ds_qr_code: "",
   ds_codigo_barras: "",
   ie_status: 'O',
-  dt_reativacao: '',
   dt_ultima_manutencao: '',
   nr_seq_ultima_manutencao: undefined,
-  dt_descarte: '',
-  ds_descarte: '',
+  dt_status: '',
+  ds_motivo_status: '',
   dt_aquisicao: '',
   dt_garantia: '',
   ds_processador: "",
@@ -559,7 +558,7 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio") as SectionType[];
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio" || s === "relatorio") as SectionType[];
     if (valid.length === 0) return null;
     return valid;
   } catch {
@@ -664,10 +663,10 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
         strokeLinecap="round"
         strokeLinejoin="round"
       >
-        <rect x="3" y="4" width="18" height="16" rx="2" />
-        <path d="M8 9h8" />
-        <path d="M8 13h8" />
-        <path d="M8 17h5" />
+        <rect x="3" y="3" width="7" height="7" rx="1" />
+        <rect x="14" y="3" width="7" height="7" rx="1" />
+        <rect x="3" y="14" width="7" height="7" rx="1" />
+        <rect x="14" y="14" width="7" height="7" rx="1" />
       </svg>
     ),
   },
@@ -1030,13 +1029,13 @@ export default function Home() {
   // Modal "Alterar status" do colaborador (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusColaboradorModalOpen, setAlterarStatusColaboradorModalOpen] = useState(false);
   const [alterarStatusColaborador, setAlterarStatusColaborador] = useState<Colaborador | null>(null);
-  const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_status: '' });
+  const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_motivo_status: '' });
   const [alterarStatusColaboradorSaving, setAlterarStatusColaboradorSaving] = useState(false);
   // Modal "Alterar status" do ativo (menu de contexto de Patrimônio).
   const [ativoStatusModalOpen, setAtivoStatusModalOpen] = useState(false);
   const [ativoStatusTarget, setAtivoStatusTarget] = useState<Ativo | null>(null);
   const [ativoStatusValue, setAtivoStatusValue] = useState('');
-  const [ativoStatusForm, setAtivoStatusForm] = useState({ dt_data: '', ds_descarte: '' });
+  const [ativoStatusForm, setAtivoStatusForm] = useState({ dt_data: '', ds_motivo_status: '' });
   const [ativoStatusSaving, setAtivoStatusSaving] = useState(false);
   // Modal "Enviar para manutenção" (menu de contexto de Ativos).
   const [enviarManutModalOpen, setEnviarManutModalOpen] = useState(false);
@@ -2383,7 +2382,10 @@ export default function Home() {
 
         if (!session?.userId) return;
 
-        const usuariosCadastrados = await obterUsuarios();
+        const usuariosCadastrados = await Promise.race([
+          obterUsuarios(),
+          new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000)),
+        ]);
         if (cancelled) return;
 
         const usuarioSalvo = usuariosCadastrados.find((u) => u.id === session.userId);
@@ -3685,7 +3687,7 @@ export default function Home() {
       nr_matricula: colaborador.nr_matricula ?? '',
       dt_admissao: colaborador.dt_admissao ?? '',
       dt_status: colaborador.dt_status ?? '',
-      ds_status: colaborador.ds_status ?? '',
+      ds_motivo_status: colaborador.ds_motivo_status ?? '',
       ie_status: colaborador.ie_status ?? 'A',
     });
     setColaboradorEditingId(colaborador.id ?? null);
@@ -3714,11 +3716,10 @@ export default function Home() {
       ds_qr_code: ativo.ds_qr_code ?? '',
       ds_codigo_barras: ativo.ds_codigo_barras ?? '',
       ie_status: ativo.ie_status ?? 'O',
-      dt_reativacao: ativo.dt_reativacao ?? '',
       dt_ultima_manutencao: ativo.dt_ultima_manutencao ?? '',
       nr_seq_ultima_manutencao: ativo.nr_seq_ultima_manutencao,
-      dt_descarte: ativo.dt_descarte ?? '',
-      ds_descarte: ativo.ds_descarte ?? '',
+      dt_status: ativo.dt_status ?? '',
+      ds_motivo_status: ativo.ds_motivo_status ?? '',
       dt_aquisicao: ativo.dt_aquisicao ?? '',
       dt_garantia: ativo.dt_garantia ?? '',
       ds_processador: ativo.ds_processador ?? '',
@@ -6039,7 +6040,7 @@ export default function Home() {
     const pad = (n: number) => String(n).padStart(2, '0');
     setAtivoStatusForm({
       dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
-      ds_descarte: '',
+      ds_motivo_status: '',
     });
     setMessage("");
     setAtivoStatusModalOpen(true);
@@ -6057,14 +6058,11 @@ export default function Home() {
     setMessage("");
     setAtivoStatusSaving(true);
     try {
-      const updates: Record<string, unknown> = { ie_status: ativoStatusValue };
+      const updates: Record<string, unknown> = { ie_status: ativoStatusValue, dt_status: ativoStatusForm.dt_data, ds_motivo_status: ativoStatusForm.ds_motivo_status };
       if (ativoStatusValue === 'O') {
-        updates.dt_reativacao = ativoStatusForm.dt_data;
+        // data do status e motivo já definidos acima
       } else if (ativoStatusValue === 'M') {
         updates.dt_ultima_manutencao = ativoStatusForm.dt_data;
-      } else if (ativoStatusValue === 'D') {
-        updates.dt_descarte = ativoStatusForm.dt_data;
-        updates.ds_descarte = ativoStatusForm.ds_descarte;
       }
       await atualizarAtivo(ativoStatusTarget.id, updates as any, auditAutor);
       setMessage("Status alterado com sucesso!");
@@ -6145,7 +6143,7 @@ export default function Home() {
       await atualizarManutencao(cancelarManutTarget.id!, { ie_status_manutencao: 'CA', dt_termino: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
       const ativo = ativos.find((a) => a.nr_sequencia === cancelarManutTarget.nr_seq_ativo);
       if (ativo && ativo.id) {
-        await atualizarAtivo(ativo.id, { ie_status: 'O', dt_reativacao: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
+        await atualizarAtivo(ativo.id, { ie_status: 'O', dt_status: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
       }
       setMessage('Manutenção cancelada com sucesso.');
       setCancelarManutOpen(false);
@@ -6172,7 +6170,7 @@ export default function Home() {
       if (concluirManutTarget.ativo) {
         const ativoUpdates: Record<string, unknown> = { ie_status: concluirManutForm.ie_status_ativo || 'O' };
         if (concluirManutForm.ie_status_ativo === 'O') {
-          ativoUpdates.dt_reativacao = concluirManutForm.dt_termino;
+          ativoUpdates.dt_status = concluirManutForm.dt_termino;
         }
         await atualizarAtivo(concluirManutTarget.ativo.id!, ativoUpdates as any, auditAutor);
       }
@@ -6236,7 +6234,7 @@ export default function Home() {
         ds_observacao: '',
         ds_motivo_manutencao: enviarManutForm.ds_motivo_manutencao,
       }, auditAutor);
-      await atualizarAtivo(enviarManutTarget.id, { ie_status: 'M', dt_ultima_manutencao: enviarManutForm.dt_data, nr_seq_ultima_manutencao: nrSeqManut } as any, auditAutor);
+      await atualizarAtivo(enviarManutTarget.id, { ie_status: 'M', dt_status: enviarManutForm.dt_data, dt_ultima_manutencao: enviarManutForm.dt_data, nr_seq_ultima_manutencao: nrSeqManut, ds_motivo_status: enviarManutForm.ds_motivo_manutencao } as any, auditAutor);
       setMessage('Ativo enviado para manutenção com sucesso.');
       closeEnviarManutModal();
       await loadAtivos();
@@ -6612,7 +6610,7 @@ export default function Home() {
     setAlterarStatusColaboradorForm({
       dt_status: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
       ie_status: '',
-      ds_status: '',
+      ds_motivo_status: '',
     });
     setMessage("");
     setAlterarStatusColaboradorModalOpen(true);
@@ -6638,7 +6636,7 @@ export default function Home() {
         {
           dt_status: alterarStatusColaboradorForm.dt_status,
           ie_status: alterarStatusColaboradorForm.ie_status,
-          ds_status: alterarStatusColaboradorForm.ds_status,
+          ds_motivo_status: alterarStatusColaboradorForm.ds_motivo_status,
         },
         auditAutor
       );
@@ -7416,7 +7414,7 @@ export default function Home() {
               }
               const statusChildren: { label: string; onClick: () => void }[] = [];
               if (podeAlterarStatus && permissoesPatrimonio.mudarParaOperacional && currentStatus !== 'O') {
-                statusChildren.push({ label: 'Mudar para Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
+                statusChildren.push({ label: 'Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
               }
               if (podeAlterarStatus && permissoesPatrimonio.enviarParaManutencao && currentStatus !== 'M') {
                 statusChildren.push({ label: 'Enviar para manutenção', onClick: () => { openEnviarManutModal(contextMenu.item as Ativo); setContextMenu(null); } });
@@ -7746,7 +7744,7 @@ export default function Home() {
                   }}
                 />
                 <div
-                  className="fixed bottom-4 left-4 z-50 origin-bottom-left max-w-[320px] w-auto inline-block rounded-[2px] bg-[#003056] p-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.16)]"
+                  className="fixed bottom-4 left-4 z-50 origin-bottom-left max-w-[320px] w-auto inline-block rounded-[2px] bg-[#003056] p-[10px] shadow-[0_8px_24px_rgba(0,0,0,0.16)] overflow-visible"
                   style={{ animation: isUserMenuClosing ? "popupClose 220ms cubic-bezier(0.16, 1, 0.3, 1) both" : "popupOpen 220ms cubic-bezier(0.16, 1, 0.3, 1) both" }}
                 >
                   {/* Canto superior: switch à esquerda, sair encostado na borda direita */}
@@ -7757,18 +7755,18 @@ export default function Home() {
                       className="flex cursor-pointer items-center rounded-[2px] bg-transparent text-white transition outline-none"
                       aria-pressed={darkMode}
                     >
-                      <span className="flex h-6 w-11 shrink-0 items-center rounded-full bg-[#2cc958] p-[2px] transition-colors duration-300">
+                      <span className="flex h-5 w-9 shrink-0 items-center rounded-full bg-[#2cc958] p-[2px] transition-colors duration-300">
                         <span
-                          className={`flex h-5 w-5 items-center justify-center rounded-full shadow transition-transform duration-300 ease-out bg-[#27272a] ${
-                            darkMode ? "translate-x-5" : "translate-x-0"
+                          className={`flex h-4 w-4 items-center justify-center rounded-full shadow transition-transform duration-300 ease-out bg-[#27272a] ${
+                            darkMode ? "translate-x-4" : "translate-x-0"
                           }`}
                         >
                           {darkMode ? (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="currentColor" className="text-[#003056]">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="currentColor" className="text-[#003056]">
                               <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
                             </svg>
                           ) : (
-                            <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#e4e4e7]">
+                            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-[#e4e4e7]">
                               <circle cx="12" cy="12" r="4" />
                               <path d="M12 2v2" />
                               <path d="M12 20v2" />
@@ -7830,7 +7828,10 @@ export default function Home() {
                         }))}
                         showPlaceholder={false}
                         theme="sidebar"
-                        className="!bg-[#1A4567] !text-white !border-[#1A4567] !rounded-[2px]"
+                        className="!bg-[#1A4567] !text-white !border-[#1A4567] !rounded-[2px] text-center"
+                        dropdownClassName="!bg-[#003056] !border-[#1A4567] !shadow-[0_-4px_12px_rgba(0,0,0,0.25)] !rounded-[2px] !text-white !overflow-hidden"
+                        optionClassName="!bg-[#003056] hover:!bg-[#1A4567] !text-white !rounded-[2px] !mx-[2px] !my-[1px]"
+                        absolute
                       />
                     </div>
                   )}
@@ -10120,7 +10121,7 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Motivo do status
+                  Motivo
                 </label>
                 <textarea
                   rows={3}
@@ -10324,13 +10325,13 @@ export default function Home() {
               </div>
               <div>
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Motivo do status
+                  Motivo
                 </label>
                 <textarea
                   rows={3}
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
-                  value={alterarStatusColaboradorForm.ds_status}
-                  onChange={(e) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ds_status: e.target.value })}
+                  value={alterarStatusColaboradorForm.ds_motivo_status}
+                  onChange={(e) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ds_motivo_status: e.target.value })}
                 />
               </div>
             </div>
@@ -10366,7 +10367,7 @@ export default function Home() {
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>
-                {ativoStatusValue === 'O' ? 'Mudar para Operacional' : ativoStatusValue === 'M' ? 'Enviar para manutenção' : ativoStatusValue === 'E' ? 'Mover para o estoque' : 'Descartar'}
+                {ativoStatusValue === 'O' ? 'Operacional' : ativoStatusValue === 'M' ? 'Enviar para manutenção' : ativoStatusValue === 'E' ? 'Mover para o estoque' : 'Descartar'}
               </h2>
               <button
                 type="button"
@@ -10396,19 +10397,17 @@ export default function Home() {
                   onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, dt_data: applyDateMask(e.target.value) })}
                 />
               </div>
-              {ativoStatusValue === 'D' && (
-                <div>
+              <div>
                   <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                    Motivo descarte
+                    Motivo
                   </label>
                   <textarea
                     rows={3}
                     className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
-                    value={ativoStatusForm.ds_descarte}
-                    onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, ds_descarte: e.target.value })}
+                    value={ativoStatusForm.ds_motivo_status}
+                    onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, ds_motivo_status: e.target.value })}
                   />
                 </div>
-              )}
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
@@ -10471,7 +10470,7 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo da manutenção</label>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo</label>
                 <textarea
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
                   rows={3}
@@ -11229,7 +11228,7 @@ export default function Home() {
               'dt_admissao',
               'ie_status',
               'dt_status',
-              'ds_status',
+              'ds_motivo_status',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -11257,7 +11256,7 @@ export default function Home() {
               'nr_sequencia', 'cd_patrimonio', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'dt_aquisicao', 'dt_garantia',
-              'ie_status', 'dt_reativacao', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_descarte', 'ds_descarte',
+              'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status',
               'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
               'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional',
               'responsaveis', 'ds_observacao',
@@ -11347,11 +11346,9 @@ export default function Home() {
                       dt_ingresso: 'Data de ingresso',
                       dt_status: 'Data do status',
                       ds_status: 'Motivo do status',
-                      dt_reativacao: 'Reativação',
                       dt_ultima_manutencao: 'Última manutenção',
                       nr_seq_ultima_manutencao: 'Última manutenção (seq.)',
-                      dt_descarte: 'Descarte',
-                      ds_descarte: 'Motivo do descarte',
+                      ds_motivo_status: 'Motivo do status',
                       responsaveis: 'Responsáveis',
                       ds_tipo_sanguineo: 'Tipo sanguíneo',
                       ds_alergia: 'Alergia',
@@ -11679,20 +11676,16 @@ export default function Home() {
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ATIVO_STATUS_OPTIONS.find((s) => s.value === ativoView.ie_status)?.label ?? ativoView.ie_status ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Reativação</label>
-                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_reativacao ?? ''} />
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Data do status</label>
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_status ?? ''} />
                     </div>
                     <div className="sm:col-span-6 group">
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Última manutenção</label>
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_ultima_manutencao != null ? String(ativoView.nr_seq_ultima_manutencao) : ''} />
                     </div>
-                    <div className="sm:col-span-6 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Descarte</label>
-                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_descarte ?? ''} />
-                    </div>
                     <div className="sm:col-span-12 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo do descarte</label>
-                      <textarea disabled readOnly rows={2} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_descarte ?? ''} />
+                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo do status</label>
+                      <textarea disabled readOnly rows={2} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_motivo_status ?? ''} />
                     </div>
                   </div>
                 </section>

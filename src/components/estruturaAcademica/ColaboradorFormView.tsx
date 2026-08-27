@@ -341,8 +341,8 @@ export default function ColaboradorFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-12">
-                <div className="sm:col-span-3 group">
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-5">
+                <div className="group">
                   {renderFieldLabel('nr_seq_vinculo_contratual', 'Vínculo contratual')}
                   <Select
                     disabled={statusDe('nr_seq_vinculo_contratual') === 'D'}
@@ -353,7 +353,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="sm:col-span-2 group">
+                <div className="group">
                   {renderFieldLabel('nr_matricula', 'Matrícula')}
                   <input
                     disabled
@@ -362,7 +362,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="sm:col-span-2 group">
+                <div className="group">
                   {renderFieldLabel('dt_admissao', 'Data de admissão')}
                   <input
                     type="text"
@@ -376,7 +376,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="sm:col-span-3 group">
+                <div className="group">
                   {renderFieldLabel('ie_status', 'Status')}
                   <Select
                     disabled
@@ -388,7 +388,7 @@ export default function ColaboradorFormView({
                   />
                 </div>
 
-                <div className="sm:col-span-2 group">
+                <div className="group">
                   {renderFieldLabel('dt_status', 'Data do status')}
                   <input
                     type="text"
@@ -401,6 +401,17 @@ export default function ColaboradorFormView({
                     onChange={(e) => setForm({ ...form, dt_status: applyDateMask(e.target.value) })}
                   />
                 </div>
+              </div>
+
+              <div className="sm:col-span-12 group">
+                {renderFieldLabel('ds_motivo_status', 'Motivo do status')}
+                <textarea
+                  disabled
+                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                  rows={3}
+                  value={form.ds_motivo_status ?? ''}
+                  onChange={(e) => setForm({ ...form, ds_motivo_status: e.target.value })}
+                />
               </div>
 
               <div className="sm:col-span-12 group">
@@ -432,17 +443,6 @@ export default function ColaboradorFormView({
                     </label>
                   </div>
                 </div>
-              </div>
-
-              <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_status', 'Motivo do status')}
-                <textarea
-                  disabled
-                  className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 py-1.5 text-sm text-slate-500 transition focus:outline-none resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
-                  rows={3}
-                  value={form.ds_status ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_status: e.target.value })}
-                />
               </div>
             </div>
           </section>

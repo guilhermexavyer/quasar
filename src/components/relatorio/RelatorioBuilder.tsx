@@ -21,6 +21,7 @@ import type {
 import CamposRelatorioTable, { type CamposRelatorioRow } from "@/components/relatorio/CamposRelatorioTable";
 import FiltrosRelatorioTable from "@/components/relatorio/FiltrosRelatorioTable";
 import OrdenacaoRelatorioTable from "@/components/relatorio/OrdenacaoRelatorioTable";
+import BandasRelatorioTable from "@/components/relatorio/BandasRelatorioTable";
 
 interface ContextMenuItem {
   label: string;
@@ -47,6 +48,8 @@ interface RelatorioBuilderProps {
   onFiltrosColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   initialOrdenacaoColumns?: { order: string[]; widths: Record<string, number> } | null;
   onOrdenacaoColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  initialBandasColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onBandasColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   /** Navegação entre registros */
   onPrevRecord?: () => void;
   onNextRecord?: () => void;
@@ -110,6 +113,8 @@ export default function RelatorioBuilder({
   onFiltrosColumnsChange,
   initialOrdenacaoColumns,
   onOrdenacaoColumnsChange,
+  initialBandasColumns,
+  onBandasColumnsChange,
   onPrevRecord,
   onNextRecord,
   hasPrevRecord = false,
@@ -139,6 +144,9 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
+  const [bandas, setBandas] = useState<Array<{ id: string; nome: string; posicao: number }>>(
+    relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
+  );
   const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.formato ?? 'excel');
   const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
@@ -171,6 +179,7 @@ export default function RelatorioBuilder({
       );
       setFiltros(relatorio?.filtros?.length ? relatorio.filtros : []);
       setOrdenacao(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
+      setBandas(relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
       setFormato(relatorio?.formato ?? 'excel');
       setConfigExcel(relatorio?.configExcel ?? defaultConfigExcel());
       setConfigPdf(relatorio?.configPdf ?? defaultConfigPdf());
@@ -239,7 +248,7 @@ export default function RelatorioBuilder({
     };
     onChange(synced);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dsRelatorio, colecao, campos, filtros, ordenacao, formato, configExcel, configPdf, espessuraLabel, topoLabelVal, espessuraCampo, topoRegistroVal, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
+  }, [dsRelatorio, colecao, campos, filtros, ordenacao, bandas, formato, configExcel, configPdf, espessuraLabel, topoLabelVal, espessuraCampo, topoRegistroVal, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
 
   // ── Handlers ──
 
@@ -279,6 +288,7 @@ export default function RelatorioBuilder({
       })),
       filtros: filtros.filter((f) => f.campo),
       ordenacao: ordenacao.filter((o) => o.campo),
+      bandas,
       formato,
       configExcel: formato === "excel" ? configExcel : undefined,
       configPdf: formato === "pdf" ? configPdf : undefined,
@@ -384,8 +394,13 @@ export default function RelatorioBuilder({
 
       {/* ── Formulário ── */}
       <form ref={formRef} onSubmit={handleSubmit} className="mt-4 flex-1 flex flex-col min-h-0">
-        <div className="flex-1 overflow-y-auto">
-          <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-9">
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Seção: Relatório ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          <section>
+            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Relatório</h2>
+          <div className="grid gap-[15px] sm:grid-cols-12">
 
             {/* ── Linha 1: Sequência + Descrição + Formato + Coleção ── */}
             <div className="sm:col-span-1 group">
@@ -420,11 +435,142 @@ export default function RelatorioBuilder({
               />
             </div>
           </div>
+          </section>
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Seção: Saída ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          <section>
+            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Saída</h2>
+
+            {formato === "excel" ? (
+              <div className="grid gap-[15px] sm:grid-cols-12">
+                <div className="sm:col-span-4 group">
+                  <label className={labelClass} style={{ color: '#666' }}>Nome do arquivo</label>
+                  <input value={configExcel.titulo ?? ""} onChange={(e) => setConfigExcel({ ...configExcel, titulo: e.target.value })} className={inputClass} />
+                </div>
+                <div className="sm:col-span-3 group">
+                  <label className={labelClass} style={{ color: '#666' }}>Estilo cabeçalho</label>
+                  <Select value={configExcel.estiloCabecalho} onChange={(v) => setConfigExcel({ ...configExcel, estiloCabecalho: v as any })} options={[...ESTILO_CABECALHO_EXCEL]} showPlaceholder={false} />
+                </div>
+                <div className="sm:col-span-5 group">
+                  <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
+                  <div className="flex items-center gap-4">
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.incluirCabecalho} onChange={() => setConfigExcel({ ...configExcel, incluirCabecalho: !configExcel.incluirCabecalho })} /><span>Cabeçalho</span></label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.incluirRodape} onChange={() => setConfigExcel({ ...configExcel, incluirRodape: !configExcel.incluirRodape })} /><span>Rodapé</span></label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.zebrado} onChange={() => setConfigExcel({ ...configExcel, zebrado: !configExcel.zebrado })} /><span>Zebrado</span></label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.filtrosAutomaticos} onChange={() => setConfigExcel({ ...configExcel, filtrosAutomaticos: !configExcel.filtrosAutomaticos })} /><span>Filtros auto</span></label>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div className="space-y-[15px]">
+                <div className="grid gap-[15px] sm:grid-cols-4">
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Nome do arquivo</label>
+                    <input value={configPdf.titulo ?? ""} onChange={(e) => setConfigPdf({ ...configPdf, titulo: e.target.value })} className={inputClass} />
+                  </div>
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Página</label>
+                    <Select value={configPdf.tamanhoPagina} onChange={(v) => setConfigPdf({ ...configPdf, tamanhoPagina: v as any })} options={[...TAMANHOS_PAGINA]} showPlaceholder={false} />
+                  </div>
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Orientação</label>
+                    <Select value={configPdf.orientacao} onChange={(v) => setConfigPdf({ ...configPdf, orientacao: v as any })} options={[{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]} showPlaceholder={false} />
+                  </div>
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Tamanho fonte</label>
+                    <input type="text" inputMode="numeric" value={configPdf.tamanhoFonte} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, tamanhoFonte: v ? Number(v) : 6 }); }} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
+                  </div>
+                </div>
+                {/* Margens */}
+                <div className="grid gap-[15px] sm:grid-cols-4">
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Margem superior</label>
+                    <input type="text" inputMode="numeric" value={configPdf.margens.superior} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, superior: v ? Number(v) : 5 } }); }} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
+                  </div>
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Margem inferior</label>
+                    <input type="text" inputMode="numeric" value={configPdf.margens.inferior} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, inferior: v ? Number(v) : 5 } }); }} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
+                  </div>
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Margem esquerda</label>
+                    <input type="text" inputMode="numeric" value={configPdf.margens.esquerda} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, esquerda: v ? Number(v) : 5 } }); }} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
+                  </div>
+                  <div className="group">
+                    <label className={labelClass} style={{ color: '#666' }}>Margem direita</label>
+                    <input type="text" inputMode="numeric" value={configPdf.margens.direita} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, direita: v ? Number(v) : 5 } }); }} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
+                  </div>
+                </div>
+                {/* Cabeçalho */}
+                <div className="grid gap-[15px] sm:grid-cols-12">
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={configPdf.cabecalho.incluir} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluir: !configPdf.cabecalho.incluir } })} />
+                      <span>Cabeçalho</span>
+                    </label>
+                  </div>
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Título</label>
+                    <input value={configPdf.cabecalho.texto ?? ""} disabled={!configPdf.cabecalho.incluir} onChange={(e) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, texto: e.target.value } })} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
+                  </div>
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Data</label>
+                    <Select value={configPdf.cabecalho.incluirData ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                  </div>
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Número da página</label>
+                    <Select value={configPdf.cabecalho.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                  </div>
+                </div>
+                {/* Rodapé */}
+                <div className="grid gap-[15px] sm:grid-cols-12">
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input type="checkbox" checked={configPdf.rodape.incluir} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluir: !configPdf.rodape.incluir } })} />
+                      <span>Rodapé</span>
+                    </label>
+                  </div>
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Título</label>
+                    <input value={configPdf.rodape.texto ?? ""} disabled={!configPdf.rodape.incluir} onChange={(e) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, texto: e.target.value } })} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
+                  </div>
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Data</label>
+                    <Select value={configPdf.rodape.incluirData ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                  </div>
+                  <div className="sm:col-span-3 group">
+                    <label className={labelClass} style={{ color: '#666' }}>Número da página</label>
+                    <Select value={configPdf.rodape.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} />
+                  </div>
+                </div>
+              </div>
+            )}
+          </section>
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Seção: Bandas ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
+              <h2 className="text-sm font-semibold text-slate-900">Bandas</h2>
+              <button type="button" onClick={() => setBandas((prev) => [...prev, { id: gerarId(), nome: '', posicao: prev.length + 1 }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+            </div>
+            <BandasRelatorioTable
+              bandas={bandas}
+              onChange={setBandas}
+              userId={userId}
+              initialColumns={initialBandasColumns}
+              onColumnsChange={onBandasColumnsChange}
+            />
+          </section>
 
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Lista ── */}
           {/* ═══════════════════════════════════════════════ */}
-          <section className="mt-[15px]">
+          <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
               <button type="button" disabled={!colecao} onClick={() => setCampos((prev) => [...prev, { id: gerarId(), colecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }])} className={`text-sm cursor-pointer ${!colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
@@ -597,7 +743,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Filtros ── */}
           {/* ═══════════════════════════════════════════════ */}
-          <section className="mt-[15px]">
+          <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Filtros</h2>
               <button type="button" onClick={() => setFiltros((prev) => [...prev, { id: gerarId(), campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
@@ -615,7 +761,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Ordenação ── */}
           {/* ═══════════════════════════════════════════════ */}
-          <section className="mt-[15px]">
+          <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Ordenação</h2>
               <button type="button" onClick={() => setOrdenacao((prev) => [...prev, { id: gerarId(), campo: "", direcao: "asc" }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
@@ -628,130 +774,6 @@ export default function RelatorioBuilder({
               initialColumns={initialOrdenacaoColumns}
               onColumnsChange={onOrdenacaoColumnsChange}
             />
-          </section>
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Configuração de saída ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section className="mt-[15px] mb-4">
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">
-              Configuração de saída — {formato === "excel" ? "Excel (CSV)" : "PDF"}
-            </h2>
-
-            {formato === "excel" ? (
-              <div className="grid gap-[15px] sm:grid-cols-12">
-                <div className="sm:col-span-4 group">
-                  <label className={labelClass} style={{ color: '#666' }}>Título</label>
-                  <input value={configExcel.titulo ?? ""} onChange={(e) => setConfigExcel({ ...configExcel, titulo: e.target.value })} className={inputClass} />
-                </div>
-                <div className="sm:col-span-3 group">
-                  <label className={labelClass} style={{ color: '#666' }}>Estilo cabeçalho</label>
-                  <Select value={configExcel.estiloCabecalho} onChange={(v) => setConfigExcel({ ...configExcel, estiloCabecalho: v as any })} options={[...ESTILO_CABECALHO_EXCEL]} showPlaceholder={false} />
-                </div>
-                <div className="sm:col-span-5 group">
-                  <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
-                  <div className="flex items-center gap-4">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.incluirCabecalho} onChange={() => setConfigExcel({ ...configExcel, incluirCabecalho: !configExcel.incluirCabecalho })} /><span>Cabeçalho</span></label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.incluirRodape} onChange={() => setConfigExcel({ ...configExcel, incluirRodape: !configExcel.incluirRodape })} /><span>Rodapé</span></label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.zebrado} onChange={() => setConfigExcel({ ...configExcel, zebrado: !configExcel.zebrado })} /><span>Zebrado</span></label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.filtrosAutomaticos} onChange={() => setConfigExcel({ ...configExcel, filtrosAutomaticos: !configExcel.filtrosAutomaticos })} /><span>Filtros auto</span></label>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-[15px]">
-                <div className="grid gap-[15px] sm:grid-cols-12">
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Título</label>
-                    <input value={configPdf.titulo ?? ""} onChange={(e) => setConfigPdf({ ...configPdf, titulo: e.target.value })} className={inputClass} />
-                  </div>
-                  <div className="sm:col-span-2 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Página</label>
-                    <Select value={configPdf.tamanhoPagina} onChange={(v) => setConfigPdf({ ...configPdf, tamanhoPagina: v as any })} options={[...TAMANHOS_PAGINA]} showPlaceholder={false} />
-                  </div>
-                  <div className="sm:col-span-2 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Orientação</label>
-                    <Select value={configPdf.orientacao} onChange={(v) => setConfigPdf({ ...configPdf, orientacao: v as any })} options={[{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]} showPlaceholder={false} />
-                  </div>
-                  <div className="sm:col-span-2 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Tamanho fonte</label>
-                    <input type="number" value={configPdf.tamanhoFonte} onChange={(e) => setConfigPdf({ ...configPdf, tamanhoFonte: Number(e.target.value) })} className={inputClass} min={6} max={20} />
-                  </div>
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
-                    <div className="flex items-center gap-4">
-                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configPdf.incluirBordas} onChange={() => setConfigPdf({ ...configPdf, incluirBordas: !configPdf.incluirBordas })} /><span>Bordas</span></label>
-                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configPdf.zebrado} onChange={() => setConfigPdf({ ...configPdf, zebrado: !configPdf.zebrado })} /><span>Zebrado</span></label>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Margens */}
-                <div className="grid gap-[15px] sm:grid-cols-12">
-                  {(["superior", "inferior", "esquerda", "direita"] as const).map((lado) => (
-                    <div key={lado} className="sm:col-span-3 group">
-                      {lado === "superior" && <label className={labelClass} style={{ color: '#666' }}>Margens (mm)</label>}
-                      {lado !== "superior" && <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>}
-                      <div className="flex items-center gap-1">
-                        <label className="text-xs text-slate-500 capitalize w-16">{lado}:</label>
-                        <input
-                          type="number"
-                          value={configPdf.margens[lado]}
-                          onChange={(e) => setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, [lado]: Number(e.target.value) } })}
-                          className={`${inputClass} !py-1`}
-                          min={5}
-                          max={50}
-                        />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Cabeçalho e rodapé */}
-                <div className="grid gap-[15px] sm:grid-cols-12">
-                  <div className="sm:col-span-6 p-3 bg-slate-50 rounded border border-slate-200">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer mb-2">
-                      <input type="checkbox" checked={configPdf.cabecalho.incluir} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluir: !configPdf.cabecalho.incluir } })} />
-                      <span className="font-medium">Cabeçalho</span>
-                    </label>
-                    {configPdf.cabecalho.incluir && (
-                      <div className="space-y-2">
-                        <input
-                          value={configPdf.cabecalho.texto ?? ""}
-                          onChange={(e) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, texto: e.target.value } })}
-                          className={inputClass}
-                          placeholder="Texto do cabeçalho"
-                        />
-                        <div className="flex gap-3">
-                          <label className="inline-flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" checked={configPdf.cabecalho.incluirData} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirData: !configPdf.cabecalho.incluirData } })} /> Data</label>
-                          <label className="inline-flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" checked={configPdf.cabecalho.incluirNumeroPagina} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirNumeroPagina: !configPdf.cabecalho.incluirNumeroPagina } })} /> Nº página</label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <div className="sm:col-span-6 p-3 bg-slate-50 rounded border border-slate-200">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer mb-2">
-                      <input type="checkbox" checked={configPdf.rodape.incluir} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluir: !configPdf.rodape.incluir } })} />
-                      <span className="font-medium">Rodapé</span>
-                    </label>
-                    {configPdf.rodape.incluir && (
-                      <div className="space-y-2">
-                        <input
-                          value={configPdf.rodape.texto ?? ""}
-                          onChange={(e) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, texto: e.target.value } })}
-                          className={inputClass}
-                          placeholder="Texto do rodapé"
-                        />
-                        <div className="flex gap-3">
-                          <label className="inline-flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" checked={configPdf.rodape.incluirData} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirData: !configPdf.rodape.incluirData } })} /> Data</label>
-                          <label className="inline-flex items-center gap-1 text-xs cursor-pointer"><input type="checkbox" checked={configPdf.rodape.incluirNumeroPagina} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirNumeroPagina: !configPdf.rodape.incluirNumeroPagina } })} /> Nº página</label>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>              </div>
-            )}
-
           </section>
         </div>
 
