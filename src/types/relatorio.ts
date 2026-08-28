@@ -141,6 +141,14 @@ export interface RelatorioCampo {
   statusSistema?: boolean;
   /** Se true, exibe o somatório dos valores desta coluna ao final do relatório. */
   soma?: boolean;
+  /** Tipo do campo na banda Texto/Valor: 'valor' ou 'conteudo'. */
+  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao';
+  /** Conteúdo livre quando tipoCampo === 'conteudo'. */
+  conteudo?: string;
+  /** Fonte específica do campo (para banda Texto/Valor). */
+  fonteCampo?: string;
+  /** Tamanho da fonte do campo em pontos (para banda Texto/Valor). */
+  tamanhoFonteCampo?: number;
 }
 
 /**
@@ -191,7 +199,7 @@ export interface RelatorioBanda {
   /** Posição da banda no relatório. */
   posicao: number;
   /** Tipo da banda. */
-  tipo?: 'lista' | 'texto_valor';
+  tipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
   /** Altura da banda em pixels. */
   altura?: number;
   /** Campos da lista (apenas para tipo 'lista'). */

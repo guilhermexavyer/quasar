@@ -319,6 +319,91 @@ function renderizarTabelaBanda(
   return y;
 }
 
+/**
+ * Renderiza valores de uma banda Texto/Valor no PDF.
+ * Cada campo é posicionado individualmente usando Esquerda (distância da borda esquerda)
+ * e Topo (distância do topo da banda).
+ */
+function renderizarTextoValorBanda(
+  doc: jsPDF,
+  relatorio: Relatorio,
+  config: RelatorioConfigPdf,
+  campos: RelatorioCampo[],
+  registros: Record<string, any>[],
+  yBandStart: number,
+  marginLeft: number,
+  marginTop: number,
+  mapFontJsPdf: (fonte?: string) => string,
+  bandHeightMm?: number,
+): void {
+  if (campos.length === 0) return;
+
+  const reg = registros.length > 0 ? registros[0] : null;
+  const yBandEnd = bandHeightMm != null ? yBandStart + bandHeightMm : Infinity;
+
+  const agora = new Date();
+  const fmtData = (d: Date) => `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
+  const fmtHora = (d: Date) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
+
+  campos.forEach((campo) => {
+    let texto: string;
+    const tipoCampo = (campo as any).tipoCampo;
+    if (tipoCampo === 'conteudo') {
+      texto = (campo as any).conteudo ?? '';
+    } else if (tipoCampo === 'data_geracao') {
+      texto = fmtData(agora);
+    } else if (tipoCampo === 'horario_geracao') {
+      texto = fmtHora(agora);
+    } else if (tipoCampo === 'data_horario_geracao') {
+      texto = `${fmtData(agora)} ${fmtHora(agora)}`;
+    } else if (reg && campo.chave) {
+      const valor = obterValorCampo(reg, campo.chave);
+      texto = formatarValor(valor, campo);
+    } else {
+      return;
+    }
+    if (!texto) return;
+
+    const fontCampo = mapFontJsPdf((campo as any).fonteCampo || relatorio.fonteCampo);
+    const fontSizeCampo = (campo as any).tamanhoFonteCampo || relatorio.tamanhoFonteCampo || 10;
+
+    const xBase = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+    const y = yBandStart + pxToMm(campo.topoRegistro ?? 0);
+    const larguraMm = pxToMm(campo.largura ?? 0);
+
+    // Ignorar itens que ultrapassam a altura da banda
+    if (y > yBandEnd) return;
+
+    const corCampo = (campo as any).corCampo || relatorio.corCampoGlobal || '#1a1a1a';
+    const rgb = hexToRgb(corCampo);
+    if (rgb) doc.setTextColor(rgb.r, rgb.g, rgb.b);
+    else doc.setTextColor(26, 26, 26);
+
+    doc.setFont(fontCampo, estiloPdf(campo.estiloCampo));
+    doc.setFontSize(fontSizeCampo);
+
+    const align = campo.alinhamento === 'centro' ? 'center' : campo.alinhamento === 'direita' ? 'right' : 'left';
+
+    // Calcular x final baseado na largura e alinhamento
+    let x = xBase;
+    if (align === 'center') x = xBase + larguraMm / 2;
+    else if (align === 'right') x = xBase + larguraMm;
+
+    doc.text(String(texto), x, y, { align: align as 'left' | 'center' | 'right' });
+
+    if (temSublinhado(campo.estiloCampo)) {
+      const textWidth = doc.getTextWidth(String(texto));
+      const lineY = y + 0.5;
+      let lineX = x;
+      if (align === 'center') lineX = x - textWidth / 2;
+      else if (align === 'right') lineX = x - textWidth;
+      if (rgb) doc.setDrawColor(rgb.r, rgb.g, rgb.b);
+      doc.setLineWidth(0.2);
+      doc.line(lineX, lineY, lineX + textWidth, lineY);
+    }
+  });
+}
+
 
 /**
  * Dados de uma banda para geração do PDF.
@@ -328,6 +413,8 @@ export interface BandaPdfData {
   nome: string;
   /** Posição da banda (ordem). */
   posicao: number;
+  /** Tipo da banda: 'lista', 'cabecalho' ou 'rodape'. */
+  tipo?: 'lista' | 'cabecalho' | 'rodape';
   /** Altura da banda em pixels (distância até a próxima). */
   altura?: number;
   /** Campos da banda. */
@@ -380,71 +467,92 @@ export function gerarPdf(
   const fontCampo = mapFontJsPdf(relatorio.fonteCampo);
 
   let y = marginTop;
+  let onNewPage: (() => void) | null = null;
 
   function checkPage(needed: number) {
     if (y + needed > pageH - marginBottom) {
       doc.addPage();
       y = marginTop;
+      onNewPage?.();
       return true;
     }
     return false;
   }
 
-  // ── Cabeçalho do relatório ──
-  if (config.cabecalho?.incluir) {
-    doc.setFont(fontCampo, 'bold');
-    doc.setFontSize(fontSize + 6);
-    if (config.titulo) {
-      doc.text(config.titulo, pageW / 2, y, { align: 'center' });
-      y += lineHeight + 4;
-    }
-    doc.setFont(fontCampo, 'normal');
-    doc.setFontSize(fontSize - 2);
-    if (config.cabecalho.texto) {
-      doc.text(config.cabecalho.texto, pageW / 2, y, { align: 'center' });
-      y += lineHeight + 2;
-    }
-    if (config.cabecalho.incluirData) {
-      doc.text(`Gerado em: ${new Date().toLocaleString('pt-BR')}`, pageW / 2, y, { align: 'center' });
-      y += lineHeight + 2;
-    }
-    y += 4;
-  }
-
   // ── Renderizar bandas ou tabela única ──
   if (bandasRegistros && bandasRegistros.length > 0) {
-    // Ordenar bandas por posição
+    // Separar bandas por tipo
     const bandasOrdenadas = [...bandasRegistros].sort((a, b) => a.posicao - b.posicao);
+    const bandaCabecalho = bandasOrdenadas.filter((b) => b.tipo === 'cabecalho');
+    const bandaRodape = bandasOrdenadas.filter((b) => b.tipo === 'rodape');
+    const bandasConteudo = bandasOrdenadas.filter((b) => b.tipo !== 'cabecalho' && b.tipo !== 'rodape');
+
+    // Renderizar cabeçalho de banda no topo de cada página
+    function renderCabecalhoBanda() {
+      bandaCabecalho.forEach((bc) => {
+        renderizarTextoValorBanda(
+          doc, relatorio, config, bc.campos, bc.registros,
+          y, marginLeft, marginTop, mapFontJsPdf,
+          bc.altura ? pxToMm(bc.altura) : undefined,
+        );
+        if (bc.altura) y += pxToMm(bc.altura);
+      });
+    }
+
+    // Renderizar rodapé de banda na base de cada página
+    function renderRodapeBanda() {
+      bandaRodape.forEach((br) => {
+        const rodapeY = pageH - marginBottom - (br.altura ? pxToMm(br.altura) : 10);
+        renderizarTextoValorBanda(
+          doc, relatorio, config, br.campos, br.registros,
+          rodapeY, marginLeft, marginTop, mapFontJsPdf,
+          br.altura ? pxToMm(br.altura) : undefined,
+        );
+      });
+    }
+
+    // Re-renderizar cabeçalho/rodapé a cada nova página
+    onNewPage = () => {
+      renderCabecalhoBanda();
+      renderRodapeBanda();
+    };
+
+    // Renderizar cabeçalho na primeira página
+    renderCabecalhoBanda();
+
     let totalRegistros = 0;
 
-    bandasOrdenadas.forEach((banda, idx) => {
+    bandasConteudo.forEach((banda, idx) => {
       // Aplicar offset de altura da banda anterior
-      if (idx > 0 && bandasOrdenadas[idx - 1].altura) {
-        y += pxToMm(bandasOrdenadas[idx - 1].altura!);
+      if (idx > 0 && bandasConteudo[idx - 1].altura) {
+        y += pxToMm(bandasConteudo[idx - 1].altura!);
       } else if (idx > 0) {
         y += 4; // Pequeno espaço padrão entre bandas
       }
 
       checkPage(8);
 
-      y = renderizarTabelaBanda(
-        doc, relatorio, config, banda.campos, banda.registros,
-        y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
-        contentW, mapFontJsPdf,
-      );
+      if (banda.tipo === 'lista') {
+        y = renderizarTabelaBanda(
+          doc, relatorio, config, banda.campos, banda.registros,
+          y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
+          contentW, mapFontJsPdf,
+        );
+      } else {
+        renderizarTextoValorBanda(
+          doc, relatorio, config, banda.campos, banda.registros,
+          y, marginLeft, marginTop, mapFontJsPdf,
+          banda.altura ? pxToMm(banda.altura) : undefined,
+        );
+      }
       totalRegistros += banda.registros.length;
     });
 
-    // ── Rodapé ──
-    if (config.rodape?.incluir) {
-      const footerY = pageH - marginBottom + 4;
-      doc.setFont(fontCampo, 'normal');
-      doc.setFontSize(fontSize - 2);
-      doc.setTextColor(102, 102, 102);
-      let footerText = `Total de registros: ${totalRegistros}`;
-      if (config.rodape.texto) footerText += ` | ${config.rodape.texto}`;
-      doc.text(footerText, pageW / 2, footerY, { align: 'center' });
-    }
+    // Renderizar rodapé de banda
+    renderRodapeBanda();
+
+    // ── Total de registros (opcional) ──
+    // Pode ser adicionado via banda Rodapé com tipoCampo 'data_geracao' etc.
   } else {
     // ── Modo legado: tabela única ──
     y = renderizarTabelaBanda(
@@ -453,16 +561,7 @@ export function gerarPdf(
       contentW, mapFontJsPdf,
     );
 
-    // ── Rodapé ──
-    if (config.rodape?.incluir) {
-      const footerY = pageH - marginBottom + 4;
-      doc.setFont(fontCampo, 'normal');
-      doc.setFontSize(fontSize - 2);
-      doc.setTextColor(102, 102, 102);
-      let footerText = `Total de registros: ${registros.length}`;
-      if (config.rodape.texto) footerText += ` | ${config.rodape.texto}`;
-      doc.text(footerText, pageW / 2, footerY, { align: 'center' });
-    }
+    // ── Total de registros (legado) ──
   }
 
   const filename = `${config.titulo || relatorio.ds_relatorio || 'relatorio'}.pdf`;

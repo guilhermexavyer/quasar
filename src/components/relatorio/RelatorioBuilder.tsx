@@ -144,16 +144,31 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  type BandaState = { id: string; nome: string; colecao?: string; posicao: number; tipo?: 'lista' | 'texto_valor'; altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[] };
+  type BandaState = { id: string; nome: string; colecao?: string; posicao: number; tipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[] };
   const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
   const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
+  const bandaTipo = useMemo(() => bandas.find((b) => b.id === bandaDetailId)?.tipo, [bandas, bandaDetailId]);
+
+  // Refs para evitar stale closures no Ctrl+S do modal banda
+  const camposRef = useRef(campos);
+  const filtrosRef = useRef(filtros);
+  const ordenacaoRef = useRef(ordenacao);
+  const bandaDetailIdRef = useRef(bandaDetailId);
+  useEffect(() => { camposRef.current = campos; }, [campos]);
+  useEffect(() => { filtrosRef.current = filtros; }, [filtros]);
+  useEffect(() => { ordenacaoRef.current = ordenacao; }, [ordenacao]);
+  useEffect(() => { bandaDetailIdRef.current = bandaDetailId; }, [bandaDetailId]);
 
   /** Abre o modal da banda: salva dados globais na banda anterior e carrega dados da banda alvo */
   function openBandaDetail(bandaId: string) {
-    if (bandaDetailId) {
-      setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, campos: [...campos], filtros: [...filtros], ordenacao: [...ordenacao] } : b));
+    const currentBandaId = bandaDetailIdRef.current;
+    if (currentBandaId) {
+      const c = camposRef.current;
+      const f = filtrosRef.current;
+      const o = ordenacaoRef.current;
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b));
     }
     const target = bandas.find((b) => b.id === bandaId);
     if (target) {
@@ -164,10 +179,14 @@ export default function RelatorioBuilder({
     setBandaDetailId(bandaId);
   }
 
-  /** Fecha o modal da banda: salva dados na banda e limpa */
+  /** Fecha o modal da banda: salva dados na banda e limpa. Usa refs para evitar stale closures. */
   function closeBandaDetail() {
-    if (bandaDetailId) {
-      setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, campos: [...campos], filtros: [...filtros], ordenacao: [...ordenacao] } : b));
+    const currentBandaId = bandaDetailIdRef.current;
+    if (currentBandaId) {
+      const c = camposRef.current;
+      const f = filtrosRef.current;
+      const o = ordenacaoRef.current;
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b));
     }
     setBandaDetailId(null);
     setCampos([]);
@@ -191,6 +210,10 @@ export default function RelatorioBuilder({
   const [tamanhoFonteCampo, setTamanhoFonteCampo] = useState(relatorio?.tamanhoFonteCampo ?? 10);
   const [erros, setErros] = useState<string[]>([]);
   const [editingCampo, setEditingCampo] = useState(false);
+  const [editingBanda, setEditingBanda] = useState(false);
+  const [editingFiltro, setEditingFiltro] = useState(false);
+  const [editingOrdenacao, setEditingOrdenacao] = useState(false);
+  const isEditingAnyTable = editingCampo || editingBanda || editingFiltro || editingOrdenacao;
 
   // Reset estado quando relatório muda (navegação por setas)
   const prevRelatorioIdRef = useRef(relatorio?.id);
@@ -223,6 +246,9 @@ export default function RelatorioBuilder({
       setFonteCampo(relatorio?.fonteCampo ?? 'Arial');
       setTamanhoFonteCampo(relatorio?.tamanhoFonteCampo ?? 10);
       setEditingCampo(false);
+      setEditingBanda(false);
+      setEditingFiltro(false);
+      setEditingOrdenacao(false);
     }
   }, [relatorio]);
 
@@ -234,7 +260,12 @@ export default function RelatorioBuilder({
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        if (saving || editingCampo) return;
+        // Se o modal da banda está aberto, salva o modal
+        if (bandaDetailId) {
+          closeBandaDetail();
+          return;
+        }
+        if (saving || isEditingAnyTable) return;
         const f = formRef.current;
         if (f && typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
@@ -243,7 +274,7 @@ export default function RelatorioBuilder({
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [saving, editingCampo]);
+  }, [saving, isEditingAnyTable, bandaDetailId]);
 
   // Sync form state back to parent so that "Gerar relatório" uses current data.
   useEffect(() => {
@@ -255,10 +286,10 @@ export default function RelatorioBuilder({
       campos: campos.map((c) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo,
       })),
-      filtros: filtros.filter((f) => f.campo),
-      ordenacao: ordenacao.filter((o) => o.campo),
+      filtros: [],
+      ordenacao: [],
       formato,
       configExcel: formato === 'excel' ? configExcel : undefined,
       configPdf: formato === 'pdf' ? configPdf : undefined,
@@ -297,9 +328,23 @@ export default function RelatorioBuilder({
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
     if (todosCampos.length === 0) errs.push("Selecione pelo menos um campo.");
-    if (todosCampos.some((c: any) => !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    if (todosCampos.some((c: any) => c.tipoCampo && c.tipoCampo !== 'conteudo' && c.tipoCampo !== 'data_geracao' && c.tipoCampo !== 'horario_geracao' && c.tipoCampo !== 'data_horario_geracao' && !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
     setErros(errs);
     return errs.length === 0;
+  }
+
+  /** Remove recursivamente chaves com valor undefined (Firestore rejeita undefined). */
+  function deepClean(obj: any): any {
+    if (obj === undefined || obj === null) return obj;
+    if (Array.isArray(obj)) return obj.map(deepClean);
+    if (typeof obj === 'object') {
+      return Object.fromEntries(
+        Object.entries(obj)
+          .filter(([, v]) => v !== undefined)
+          .map(([k, v]) => [k, deepClean(v)])
+      );
+    }
+    return obj;
   }
 
   function handleSubmit(e: React.FormEvent) {
@@ -311,7 +356,7 @@ export default function RelatorioBuilder({
       campos: bandas.flatMap((b) => (b.campos ?? []).map((c: any) => ({
         id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo,
       }))),
       filtros: bandas.flatMap((b) => (b.filtros ?? []).filter((f: any) => f.campo)),
       ordenacao: bandas.flatMap((b) => (b.ordenacao ?? []).filter((o: any) => o.campo)),
@@ -332,7 +377,7 @@ export default function RelatorioBuilder({
       fonteCampo,
       tamanhoFonteCampo,
     };
-    onSave(result);
+    onSave(deepClean(result));
   }
 
   const labelClass = "block text-sm mb-1";
@@ -472,8 +517,6 @@ export default function RelatorioBuilder({
                 <div className="sm:col-span-5 group">
                   <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
                   <div className="flex items-center gap-4">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.incluirCabecalho} onChange={() => setConfigExcel({ ...configExcel, incluirCabecalho: !configExcel.incluirCabecalho })} /><span>Cabeçalho</span></label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.incluirRodape} onChange={() => setConfigExcel({ ...configExcel, incluirRodape: !configExcel.incluirRodape })} /><span>Rodapé</span></label>
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.zebrado} onChange={() => setConfigExcel({ ...configExcel, zebrado: !configExcel.zebrado })} /><span>Zebrado</span></label>
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.filtrosAutomaticos} onChange={() => setConfigExcel({ ...configExcel, filtrosAutomaticos: !configExcel.filtrosAutomaticos })} /><span>Filtros auto</span></label>
                   </div>
@@ -518,50 +561,6 @@ export default function RelatorioBuilder({
                     <input type="text" inputMode="numeric" value={configPdf.margens.direita} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, direita: v ? Number(v) : 5 } }); }} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
                   </div>
                 </div>
-                {/* Cabeçalho */}
-                <div className="grid gap-[15px] sm:grid-cols-12">
-                  <div className="sm:col-span-2 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Cabeçalho</label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" className="cg-checkbox" checked={configPdf.cabecalho.incluir} onChange={() => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluir: !configPdf.cabecalho.incluir } })} />
-                      <span>Sim</span>
-                    </label>
-                  </div>
-                  <div className="sm:col-span-4 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Título</label>
-                    <input value={configPdf.cabecalho.texto ?? ""} disabled={!configPdf.cabecalho.incluir} onChange={(e) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, texto: e.target.value } })} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-                  </div>
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Data</label>
-                    <Select value={configPdf.cabecalho.incluirData ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
-                  </div>
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Número da página</label>
-                    <Select value={configPdf.cabecalho.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.cabecalho.incluir} onChange={(v) => setConfigPdf({ ...configPdf, cabecalho: { ...configPdf.cabecalho, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
-                  </div>
-                </div>
-                {/* Rodapé */}
-                <div className="grid gap-[15px] sm:grid-cols-12">
-                  <div className="sm:col-span-2 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Rodapé</label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input type="checkbox" className="cg-checkbox" checked={configPdf.rodape.incluir} onChange={() => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluir: !configPdf.rodape.incluir } })} />
-                      <span>Sim</span>
-                    </label>
-                  </div>
-                  <div className="sm:col-span-4 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Título</label>
-                    <input value={configPdf.rodape.texto ?? ""} disabled={!configPdf.rodape.incluir} onChange={(e) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, texto: e.target.value } })} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-                  </div>
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Data</label>
-                    <Select value={configPdf.rodape.incluirData ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirData: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
-                  </div>
-                  <div className="sm:col-span-3 group">
-                    <label className={labelClass} style={{ color: '#666' }}>Número da página</label>
-                    <Select value={configPdf.rodape.incluirNumeroPagina ? 'sim' : 'nao'} disabled={!configPdf.rodape.incluir} onChange={(v) => setConfigPdf({ ...configPdf, rodape: { ...configPdf.rodape, incluirNumeroPagina: v === 'sim' } })} options={[{ value: 'sim', label: 'Sim' }, { value: 'nao', label: 'Não' }]} showPlaceholder={false} visibleOptions={7} />
-                  </div>
-                </div>
               </div>
             )}
           </section>
@@ -572,12 +571,13 @@ export default function RelatorioBuilder({
           <section className="mb-4">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Bandas</h2>
-              <button type="button" onClick={() => setBandas((prev) => [...prev, { id: gerarId(), nome: '', colecao: '', posicao: prev.length + 1, nr_sequencia: prev.length + 1, nr_seq_relatorio: relatorio?.nr_sequencia, campos: [], filtros: [], ordenacao: [] }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+              <button type="button" onClick={() => setBandas((prev) => [...prev, { id: gerarId(), nome: '', colecao: '', posicao: (Math.max(0, ...prev.map((b) => b.posicao ?? 0)) + 1), nr_sequencia: (Math.max(0, ...prev.map((b) => b.nr_sequencia ?? 0)) + 1), nr_seq_relatorio: relatorio?.nr_sequencia, campos: [], filtros: [], ordenacao: [] }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
             <BandasRelatorioTable
               bandas={bandas}
               onChange={setBandas}
               colecaoOptions={opcoesColecao}
+              onEditingChange={setEditingBanda}
               userId={userId}
               initialColumns={initialBandasColumns}
               onColumnsChange={onBandasColumnsChange}
@@ -595,18 +595,18 @@ export default function RelatorioBuilder({
                   <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
                 </button>
               </div>
-              <div className="p-[15px] overflow-auto flex-1 space-y-9">
+              <div className="p-[15px] overflow-auto flex-1 space-y-9 min-h-[70vh]">
 
-          {bandas.find((b) => b.id === bandaDetailId)?.tipo === 'lista' && (
+          {(bandas.find((b) => b.id === bandaDetailId)?.tipo === 'lista' || bandas.find((b) => b.id === bandaDetailId)?.tipo === 'texto_valor' || bandas.find((b) => b.id === bandaDetailId)?.tipo === 'cabecalho' || bandas.find((b) => b.id === bandaDetailId)?.tipo === 'rodape') && (
           <>
 
           {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Lista ── */}
+          {/* ── Seção: Lista/Dados ── */}
           {/* ═══════════════════════════════════════════════ */}
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Lista</h2>
-              <button type="button" disabled={!bandas.find((b) => b.id === bandaDetailId)?.colecao} onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.colecao || ''; setCampos((prev) => [...prev, { id: gerarId(), colecao: bColecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false }]); }} className={`text-sm cursor-pointer ${!bandas.find((b) => b.id === bandaDetailId)?.colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
+              <h2 className="text-sm font-semibold text-slate-900">{bandaTipo === 'lista' ? 'Lista' : 'Dados'}</h2>
+              <button type="button" disabled={bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.colecao} onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.colecao || ''; setCampos((prev) => [...prev, { id: gerarId(), colecao: bColecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false, fonteCampo: 'Arial', tamanhoFonteCampo: 10 }]); }} className={`text-sm cursor-pointer ${bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.colecao ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
@@ -618,9 +618,11 @@ export default function RelatorioBuilder({
                 userId={userId}
                 initialColumns={initialListaColumns}
                 onColumnsChange={onListaColumnsChange}
+                variant={bandaTipo === 'lista' ? 'lista' : 'texto_valor'}
+                ocultarColecaoCampo={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
               />
               </div>
-              {colecao && (
+              {bandaTipo === 'lista' && colecao && (
               <div className="grid grid-cols-6 gap-[15px] mt-3">
                 {/* Linha 1: Espessura/Bg/Cor/Fonte/Tamanho label */}
                 <div className="group">
@@ -779,6 +781,8 @@ export default function RelatorioBuilder({
 
           </section>
 
+          {(bandaTipo === 'lista' || bandaTipo === 'texto_valor') && (
+          <>
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Filtros ── */}
           {/* ═══════════════════════════════════════════════ */}
@@ -791,12 +795,17 @@ export default function RelatorioBuilder({
               filtros={filtros}
               onChange={setFiltros}
               camposDisponiveis={camposDisponiveis}
+              onEditingChange={setEditingFiltro}
               userId={userId}
               initialColumns={initialFiltrosColumns}
               onColumnsChange={onFiltrosColumnsChange}
             />
           </section>
+          </>
+          )}
 
+          {bandaTipo === 'lista' && (
+          <>
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Ordenação ── */}
           {/* ═══════════════════════════════════════════════ */}
@@ -809,11 +818,14 @@ export default function RelatorioBuilder({
               ordenacao={ordenacao}
               onChange={setOrdenacao}
               camposDisponiveis={camposDisponiveis}
+              onEditingChange={setEditingOrdenacao}
               userId={userId}
               initialColumns={initialOrdenacaoColumns}
               onColumnsChange={onOrdenacaoColumnsChange}
             />
           </section>
+          </>
+          )}
           </>
           )}
           </div>

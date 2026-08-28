@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import { gerarId } from "@/lib/relatorioUtils";
 import Select from "@/components/ui/Select";
@@ -11,7 +11,7 @@ export interface Banda {
   nome: string;
   colecao?: string;
   posicao: number;
-  tipo?: 'lista' | 'texto_valor';
+  tipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
   altura?: number;
   nr_sequencia?: number;
   nr_seq_relatorio?: number;
@@ -26,6 +26,7 @@ interface BandasRelatorioTableProps {
   bandas: Banda[];
   onChange: (bandas: Banda[]) => void;
   colecaoOptions?: { value: string; label: string }[];
+  onEditingChange?: (editing: boolean) => void;
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
@@ -36,6 +37,7 @@ export default function BandasRelatorioTable({
   bandas,
   onChange,
   colecaoOptions = [],
+  onEditingChange,
   userId,
   initialColumns,
   onColumnsChange,
@@ -46,6 +48,8 @@ export default function BandasRelatorioTable({
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+
+  useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -80,6 +84,72 @@ export default function BandasRelatorioTable({
       return sortAsc ? cmp : -cmp;
     });
   }, [bandas, sortColumn, sortAsc]);
+
+  // ── Enter / Ctrl+S ──
+  const pendingFocusCol = useRef<number | null>(null);
+  const advanceTargetId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (advanceTargetId.current === null || pendingFocusCol.current === null) return;
+    if (editingId !== advanceTargetId.current) return;
+    const colIdx = pendingFocusCol.current;
+    advanceTargetId.current = null;
+    pendingFocusCol.current = null;
+    const tryFocus = (attempts: number) => {
+      if (attempts <= 0) return;
+      setTimeout(() => {
+        const row = document.querySelector('tr.row-selected');
+        if (!row) { tryFocus(attempts - 1); return; }
+        const cells = row.querySelectorAll<HTMLElement>('td');
+        const targetCell = cells[colIdx];
+        if (!targetCell) { tryFocus(attempts - 1); return; }
+        const input = targetCell.querySelector<HTMLInputElement>('input');
+        if (!input) { tryFocus(attempts - 1); return; }
+        input.focus();
+        input.select();
+        try { input.setSelectionRange(0, input.value.length); } catch { /* ignore */ }
+      }, 100);
+    };
+    tryFocus(5);
+  }, [editingId]);
+
+  const saveAndAdvance = useCallback(() => {
+    if (!editingId) return;
+    const idx = sortedBandas.findIndex((r) => r.id === editingId);
+    if (idx >= 0 && idx < sortedBandas.length - 1) {
+      advanceTargetId.current = sortedBandas[idx + 1].id;
+      setEditingId(sortedBandas[idx + 1].id);
+    } else {
+      setEditingId(null);
+    }
+  }, [editingId, sortedBandas]);
+
+  useEffect(() => {
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if (!editingId) return;
+      const target = e.target as HTMLElement;
+      const tagName = target?.tagName?.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault(); e.stopPropagation();
+        target.blur();
+        setTimeout(() => setEditingId(null), 0);
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+        const isInSelect = target?.closest?.('[data-select]') || target?.getAttribute?.('role') === 'combobox';
+        if (tagName === 'input' && !isInSelect) {
+          e.preventDefault();
+          const td = target.closest('td');
+          const tr = td?.closest('tr');
+          if (tr && td) pendingFocusCol.current = Array.from(tr.children).indexOf(td);
+          target.blur();
+          setTimeout(() => saveAndAdvance(), 0);
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [editingId, saveAndAdvance]);
 
   function atualizar(id: string, updates: Partial<Banda>) {
     onChange(bandas.map((b) => (b.id === id ? { ...b, ...updates } : b)));
@@ -145,6 +215,7 @@ export default function BandasRelatorioTable({
       key: "colecao",
       label: "Coleção principal",
       render: (row: Banda) => {
+        const isCabecalhoOuRodape = row.tipo === 'cabecalho' || row.tipo === 'rodape';
         if (editingId === row.id) {
           return (
             <Select
@@ -152,7 +223,8 @@ export default function BandasRelatorioTable({
               onChange={(v) => atualizar(row.id, { colecao: v })}
               options={[{ value: '', label: '---' }, ...colecaoOptions]}
               showPlaceholder={false}
-              className={inputClass}
+              className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+              disabled={isCabecalhoOuRodape}
               visibleOptions={7}
             />
           );
@@ -169,14 +241,14 @@ export default function BandasRelatorioTable({
             <Select
               value={row.tipo ?? ''}
               onChange={(v) => atualizar(row.id, { tipo: v as any })}
-              options={[{ value: '', label: '---' }, { value: 'lista', label: 'Lista' }, { value: 'texto_valor', label: 'Texto/Valor' }]}
+              options={[{ value: '', label: '---' }, { value: 'lista', label: 'Lista' }, { value: 'texto_valor', label: 'Texto/Valor' }, { value: 'cabecalho', label: 'Cabeçalho' }, { value: 'rodape', label: 'Rodapé' }]}
               showPlaceholder={false}
               className={inputClass}
               visibleOptions={7}
             />
           );
         }
-        const lbl = row.tipo === 'lista' ? 'Lista' : row.tipo === 'texto_valor' ? 'Texto/Valor' : '---';
+        const lbl = row.tipo === 'lista' ? 'Lista' : row.tipo === 'texto_valor' ? 'Texto/Valor' : row.tipo === 'cabecalho' ? 'Cabeçalho' : row.tipo === 'rodape' ? 'Rodapé' : '---';
         return <span className="text-sm">{lbl}</span>;
       },
     },
@@ -221,7 +293,7 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        return <span className="text-sm">{row.altura != null ? `${row.altura}px` : '---'}</span>;
+        return <span className="text-sm">{row.altura != null ? row.altura : '---'}</span>;
       },
     },
   ], [editingId, bandas]);
@@ -237,7 +309,7 @@ export default function BandasRelatorioTable({
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
         onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
-        rowClassName={(row) => selectedId === row.id ? "row-selected" : ""}
+        rowClassName={(row) => (selectedId === row.id || editingId === row.id) ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
         initialColumns={initialColumns}

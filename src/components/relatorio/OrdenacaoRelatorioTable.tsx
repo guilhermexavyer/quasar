@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { DataSourceCampo, RelatorioOrdenacao } from "@/types/relatorio";
 import { gerarId } from "@/lib/relatorioUtils";
@@ -13,6 +13,7 @@ interface OrdenacaoRelatorioTableProps {
   ordenacao: RelatorioOrdenacao[];
   onChange: (ordenacao: RelatorioOrdenacao[]) => void;
   camposDisponiveis: DataSourceCampo[];
+  onEditingChange?: (editing: boolean) => void;
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
@@ -22,6 +23,7 @@ export default function OrdenacaoRelatorioTable({
   ordenacao,
   onChange,
   camposDisponiveis,
+  onEditingChange,
   userId,
   initialColumns,
   onColumnsChange,
@@ -31,6 +33,8 @@ export default function OrdenacaoRelatorioTable({
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
+
+  useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
 
   useEffect(() => {
     const needsId = ordenacao.some((o) => !o.id);
@@ -72,6 +76,72 @@ export default function OrdenacaoRelatorioTable({
       return sortAsc ? cmp : -cmp;
     });
   }, [ordenacao, sortColumn, sortAsc]);
+
+  // ── Enter / Ctrl+S ──
+  const pendingFocusCol = useRef<number | null>(null);
+  const advanceTargetId = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (advanceTargetId.current === null || pendingFocusCol.current === null) return;
+    if (editingId !== advanceTargetId.current) return;
+    const colIdx = pendingFocusCol.current;
+    advanceTargetId.current = null;
+    pendingFocusCol.current = null;
+    const tryFocus = (attempts: number) => {
+      if (attempts <= 0) return;
+      setTimeout(() => {
+        const row = document.querySelector('tr.row-selected');
+        if (!row) { tryFocus(attempts - 1); return; }
+        const cells = row.querySelectorAll<HTMLElement>('td');
+        const targetCell = cells[colIdx];
+        if (!targetCell) { tryFocus(attempts - 1); return; }
+        const input = targetCell.querySelector<HTMLInputElement>('input');
+        if (!input) { tryFocus(attempts - 1); return; }
+        input.focus();
+        input.select();
+        try { input.setSelectionRange(0, input.value.length); } catch { /* ignore */ }
+      }, 100);
+    };
+    tryFocus(5);
+  }, [editingId]);
+
+  const saveAndAdvance = useCallback(() => {
+    if (!editingId) return;
+    const idx = sortedOrdenacao.findIndex((r) => r.id === editingId);
+    if (idx >= 0 && idx < sortedOrdenacao.length - 1) {
+      advanceTargetId.current = sortedOrdenacao[idx + 1].id;
+      setEditingId(sortedOrdenacao[idx + 1].id);
+    } else {
+      setEditingId(null);
+    }
+  }, [editingId, sortedOrdenacao]);
+
+  useEffect(() => {
+    function handleKeyDown(e: globalThis.KeyboardEvent) {
+      if (!editingId) return;
+      const target = e.target as HTMLElement;
+      const tagName = target?.tagName?.toLowerCase();
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault(); e.stopPropagation();
+        target.blur();
+        setTimeout(() => setEditingId(null), 0);
+        return;
+      }
+      if (e.key === 'Enter' && !e.shiftKey && !e.altKey) {
+        const isInSelect = target?.closest?.('[data-select]') || target?.getAttribute?.('role') === 'combobox';
+        if (tagName === 'input' && !isInSelect) {
+          e.preventDefault();
+          const td = target.closest('td');
+          const tr = td?.closest('tr');
+          if (tr && td) pendingFocusCol.current = Array.from(tr.children).indexOf(td);
+          target.blur();
+          setTimeout(() => saveAndAdvance(), 0);
+        }
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown, true);
+    return () => document.removeEventListener('keydown', handleKeyDown, true);
+  }, [editingId, saveAndAdvance]);
 
   function atualizar(id: string, updates: Partial<RelatorioOrdenacao>) {
     onChange(ordenacao.map((o) => (o.id === id ? { ...o, ...updates } : o)));
@@ -193,7 +263,7 @@ export default function OrdenacaoRelatorioTable({
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
         onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
-        rowClassName={(row) => selectedId === row.id ? "row-selected" : ""}
+        rowClassName={(row) => (selectedId === row.id || editingId === row.id) ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
         initialColumns={initialColumns}

@@ -22,6 +22,10 @@ interface CamposRelatorioTableProps {
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   /** Callback ao alterar ordem/largura das colunas. */
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  /** Variante: 'lista' (padrão) ou 'texto_valor'. Controla quais colunas aparecem. */
+  variant?: 'lista' | 'texto_valor';
+  /** Se true, oculta as colunas Coleção e Campo (para bandas Cabeçalho/Rodapé). */
+  ocultarColecaoCampo?: boolean;
 }
 
 export interface CamposRelatorioRow {
@@ -46,6 +50,14 @@ export interface CamposRelatorioRow {
   formatacao: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   statusSistema?: boolean;
   soma?: boolean;
+  /** Tipo do campo na banda Texto/Valor/Cabeçalho/Rodapé. */
+  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao';
+  /** Conteúdo livre quando tipoCampo === 'conteudo'. */
+  conteudo?: string;
+  /** Fonte específica do campo (para banda Texto/Valor). */
+  fonteCampo?: string;
+  /** Tamanho da fonte do campo em pontos (para banda Texto/Valor). */
+  tamanhoFonteCampo?: number;
 }
 
 /** Input numérico sem spinner, que permite apagar o 0. */
@@ -85,6 +97,15 @@ const ESTILO_OPCOES = [
   { value: 'negrito_italico_sublinhado', label: 'Negrito + Itálico + Sublinhado' },
 ];
 
+const FONTES_OPCOES = [
+  { value: 'Arial', label: 'Arial' },
+  { value: 'Calibri', label: 'Calibri' },
+  { value: 'Times New Roman', label: 'Times New Roman' },
+  { value: 'Courier New', label: 'Courier New' },
+  { value: 'Tahoma', label: 'Tahoma' },
+  { value: 'Trebuchet MS', label: 'Trebuchet MS' },
+];
+
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 export default function CamposRelatorioTable({
@@ -96,6 +117,8 @@ export default function CamposRelatorioTable({
   userId,
   initialColumns,
   onColumnsChange,
+  variant = 'lista',
+  ocultarColecaoCampo = false,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -105,6 +128,7 @@ export default function CamposRelatorioTable({
     onEditingChange?.(editingId !== null);
   }, [editingId, onEditingChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
+  const [conteudoModal, setConteudoModal] = useState<{ id: string; value: string } | null>(null);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -202,31 +226,33 @@ export default function CamposRelatorioTable({
   });
 
   // Rastrear a coluna que está sendo editada (para manter o foco ao avançar)
-  const editingColRef = useRef<string | null>(null);
-  const nextEditingIdRef = useRef<string | null>(null);
+  const pendingFocusCol = useRef<number | null>(null);
+  const advanceTargetId = useRef<string | null>(null);
 
-  // Ao focar em um input/select durante edição, registrar a coluna
-  const trackColumn = useCallback((colKey: string) => {
-    editingColRef.current = colKey;
-  }, []);
-
-  // Após avançar para o próximo registro, focar o mesmo campo
+  // Quando editingId muda para o registro alvo, focar o campo
   useEffect(() => {
-    if (!nextEditingIdRef.current || editingColRef.current === null) return;
-    if (editingId !== nextEditingIdRef.current) return;
-    const colIdx = parseInt(editingColRef.current, 10);
-    nextEditingIdRef.current = null;
-    editingColRef.current = null;
-    // Esperar o DOM renderizar o novo registro em edição
-    requestAnimationFrame(() => {
-      const row = document.querySelector('tr.row-selected');
-      if (!row) return;
-      const cells = row.querySelectorAll<HTMLElement>('td');
-      const targetCell = cells[colIdx];
-      if (!targetCell) return;
-      const input = targetCell.querySelector<HTMLInputElement | HTMLButtonElement>('input, button.cg-select-trigger');
-      if (input) input.focus();
-    });
+    if (advanceTargetId.current === null || pendingFocusCol.current === null) return;
+    if (editingId !== advanceTargetId.current) return;
+    const colIdx = pendingFocusCol.current;
+    advanceTargetId.current = null;
+    pendingFocusCol.current = null;
+    // Esperar o React renderizar o novo estado de edição
+    const tryFocus = (attempts: number) => {
+      if (attempts <= 0) return;
+      setTimeout(() => {
+        const row = document.querySelector('tr.row-selected');
+        if (!row) { tryFocus(attempts - 1); return; }
+        const cells = row.querySelectorAll<HTMLElement>('td');
+        const targetCell = cells[colIdx];
+        if (!targetCell) { tryFocus(attempts - 1); return; }
+        const input = targetCell.querySelector<HTMLInputElement>('input');
+        if (!input) { tryFocus(attempts - 1); return; }
+        input.focus();
+        input.select();
+        try { input.setSelectionRange(0, input.value.length); } catch { /* ignore */ }
+      }, 100);
+    };
+    tryFocus(5);
   }, [editingId]);
 
   // ── Salvar e avançar para o próximo registro ──
@@ -235,7 +261,7 @@ export default function CamposRelatorioTable({
     const idx = sortedCampos.findIndex((c) => c.id === editingId);
     if (idx >= 0 && idx < sortedCampos.length - 1) {
       const nextId = sortedCampos[idx + 1].id;
-      nextEditingIdRef.current = nextId;
+      advanceTargetId.current = nextId;
       setEditingId(nextId);
     } else {
       setEditingId(null);
@@ -252,6 +278,7 @@ export default function CamposRelatorioTable({
       // Ctrl+S → salvar registro
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
+        e.stopPropagation();
         target.blur();
         setTimeout(() => setEditingId(null), 0);
         return;
@@ -267,7 +294,7 @@ export default function CamposRelatorioTable({
           const tr = td?.closest('tr');
           if (tr && td) {
             const cellIndex = Array.from(tr.children).indexOf(td);
-            editingColRef.current = String(cellIndex);
+            pendingFocusCol.current = cellIndex;
           }
           // Forçar blur para que o NumberInput salve o valor via onBlur
           target.blur();
@@ -334,10 +361,34 @@ export default function CamposRelatorioTable({
         );
       },
     },
+    {      key: "tipoCampo",
+      label: "Tipo",
+      width: 130,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.tipoCampo ?? ''}
+              onChange={(v) => atualizar(row.id, { tipoCampo: (v || undefined) as CamposRelatorioRow['tipoCampo'] })}
+              options={ocultarColecaoCampo
+                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }]
+                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }]
+              }
+              showPlaceholder={true}
+              className={inputClass}
+            />
+          );
+        }
+        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração' };
+        const lbl = tipoLabels[row.tipoCampo ?? ''] ?? '---';
+        return <span className="whitespace-nowrap">{lbl}</span>;
+      },
+    },
     {      key: "colecao",
       label: "Coleção",
       width: 130,
       render: (row: CamposRelatorioRow) => {
+        const desabilitado = variant === 'texto_valor' && row.tipoCampo !== 'valor';
         if (editingId === row.id) {
           return (
             <Select
@@ -345,17 +396,22 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { colecao: v })}
               options={colecoesDisponiveis}
               showPlaceholder={false}
-              className={inputClass}
+              className={`${inputClass} ${desabilitado ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={desabilitado}
             />
           );
         }
-        return <span className="truncate block">{row.colecao || '---'}</span>;
+        return <span className={`truncate block ${desabilitado ? 'text-slate-400' : ''}`}>{desabilitado ? '---' : (row.colecao || '---')}</span>;
       },
     },
     {      key: "chave",
       label: "Campo",
       width: 130,
       render: (row: CamposRelatorioRow) => {
+        const desabilitadoCampo = variant === 'texto_valor' && row.tipoCampo !== 'valor';
+        if (desabilitadoCampo) {
+          return <span className="text-slate-400">---</span>;
+        }
         if (editingId === row.id) {
           const camposDaColecao = camposPorColecao[row.colecao] ?? [];
           const usadas = new Set(
@@ -473,7 +529,7 @@ export default function CamposRelatorioTable({
     },
     {
       key: "estiloCampo",
-      label: "Estilo registro",
+      label: variant === 'texto_valor' ? 'Estilo' : 'Estilo registro',
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
@@ -539,7 +595,93 @@ export default function CamposRelatorioTable({
         );
       },
     },
+    {
+      key: "topoRegistro",
+      label: "Topo",
+      width: 130,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <NumberInput value={row.topoRegistro ?? 0} onChange={(v) => atualizar(row.id, { topoRegistro: v })} min={0} className={inputClass} />;
+        }
+        return <span>{row.topoRegistro ?? 0}</span>;
+      },
+    },
+    {
+      key: "corCampo",
+      label: "Cor",
+      width: 130,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          const cid = `cor-${row.id}`;
+          return (
+            <div className="relative" style={{ height: 26 }}>
+              <input
+                type="color"
+                id={cid}
+                value={row.corCampo || '#1a1a1a'}
+                onChange={(e) => atualizar(row.id, { corCampo: e.target.value })}
+                className="absolute opacity-0 w-0 h-0 pointer-events-none"
+              />
+              <div
+                className="w-full h-full cursor-pointer"
+                style={{ backgroundColor: row.corCampo || '#1a1a1a' }}
+                onClick={() => document.getElementById(cid)?.click()}
+              />
+            </div>
+          );
+        }
+        return (
+          <span className="block w-full h-4" style={{ backgroundColor: row.corCampo || '#1a1a1a' }} />
+        );
+      },
+    },
+    {
+      key: "fonteCampo",
+      label: "Fonte",
+      width: 130,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.fonteCampo || 'Arial'}
+              onChange={(v) => atualizar(row.id, { fonteCampo: v })}
+              options={FONTES_OPCOES}
+              showPlaceholder={false}
+              className={inputClass}
+            />
+          );
+        }
+        return <span className="whitespace-nowrap">{row.fonteCampo || 'Arial'}</span>;
+      },
+    },
+    {
+      key: "tamanhoFonteCampo",
+      label: "Tamanho",
+      width: 90,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return (
+            <NumberInput
+              value={row.tamanhoFonteCampo ?? 10}
+              onChange={(v) => atualizar(row.id, { tamanhoFonteCampo: v })}
+              min={1}
+              max={72}
+              className={inputClass}
+            />
+          );
+        }
+        return <span>{row.tamanhoFonteCampo ?? 10}</span>;
+      },
+    },
   ];
+
+  // Filtrar colunas conforme a variante
+  const textoValorHidden = new Set(['posicao', 'label', 'soma', 'estiloLabel', 'estiloSoma']);
+  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo']);
+  const colecaoCampoHidden = ocultarColecaoCampo ? new Set(['colecao', 'chave']) : new Set<string>();
+  const visibleColumns = variant === 'texto_valor'
+    ? columns.filter((c) => !textoValorHidden.has(c.key) && !colecaoCampoHidden.has(c.key))
+    : columns.filter((c) => !listaHidden.has(c.key) && !colecaoCampoHidden.has(c.key));
 
   return (
     <div className="relative">
@@ -548,7 +690,7 @@ export default function CamposRelatorioTable({
       `}</style>
 
       <ResizableTable
-        columns={columns}
+        columns={visibleColumns}
         rows={sortedCampos}
         rowKey={(row) => row.id}
         sortColumn={sortColumn}
@@ -556,7 +698,7 @@ export default function CamposRelatorioTable({
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
         onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
-        rowClassName={(row) => `campo-row${selectedId === row.id ? ' row-selected' : ''}`}
+        rowClassName={(row) => `campo-row${(selectedId === row.id || editingId === row.id) ? ' row-selected' : ''}`}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
         initialColumns={initialColumns}
@@ -571,8 +713,36 @@ export default function CamposRelatorioTable({
           >
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => excluir(contextMenu.id)}>Excluir</button>
+            {variant === 'texto_valor' && (() => { const row = campos.find((c) => c.id === contextMenu.id); if (row?.tipoCampo === 'conteudo') { return (
+              <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setConteudoModal({ id: contextMenu.id, value: row.conteudo ?? '' }); setContextMenu(null); }}>Conteúdo</button>
+            ); } return null; })()}
           </div>
         </>
+      )}
+      {conteudoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="absolute inset-0" onClick={() => setConteudoModal(null)} />
+          <div className="relative w-full max-w-[700px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[80vh] flex flex-col">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h3 className="text-base font-semibold" style={{ color: '#000' }}>Conteúdo</h3>
+              <button type="button" onClick={() => setConteudoModal(null)} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-[15px] overflow-auto flex-1">
+              <textarea
+                className="w-full min-h-[300px] rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm resize-y focus:border-[#003056] focus:outline-none"
+                value={conteudoModal.value}
+                onChange={(e) => setConteudoModal((prev) => prev ? { ...prev, value: e.target.value } : null)}
+                placeholder="Digite o conteúdo..."
+              />
+            </div>
+            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
+              <button type="button" onClick={() => setConteudoModal(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
+              <button type="button" onClick={() => { if (conteudoModal) { atualizar(conteudoModal.id, { conteudo: conteudoModal.value }); setConteudoModal(null); } }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

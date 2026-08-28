@@ -290,7 +290,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.11";
+const SYSTEM_VERSION = "0.62.12";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1222,14 +1222,25 @@ export default function Home() {
   }, []);
 
   function handleRelatorioSortChange(logicalIndex: number) {
-    setRelatorioSortColumn((prev) => {
-      if (prev === logicalIndex) {
-        setRelatorioSortAsc((asc) => (asc === true ? false : asc === false ? null : true));
-        return logicalIndex;
+    // Se já está ordenando por esta coluna
+    if (relatorioSortColumn === logicalIndex) {
+      if (relatorioSortAsc === true) {
+        // asc → desc
+        setRelatorioSortAsc(false);
+      } else if (relatorioSortAsc === false) {
+        // desc → padrão (limpa tudo)
+        setRelatorioSortColumn(null);
+        setRelatorioSortAsc(null);
+      } else {
+        // padrão → asc
+        setRelatorioSortColumn(logicalIndex);
+        setRelatorioSortAsc(true);
       }
+    } else {
+      // Nova coluna → asc
+      setRelatorioSortColumn(logicalIndex);
       setRelatorioSortAsc(true);
-      return logicalIndex;
-    });
+    }
   }
 
   const filteredSortedRelatorios = useMemo(() => {
@@ -2664,9 +2675,8 @@ export default function Home() {
 
   function handleRelatorioGerar(relatorio: Relatorio) {
     // Check for parameter filters (from both top-level and bandas)
-    const parametrosTopo = (relatorio.filtros ?? []).filter((f) => f.parametro);
     const parametrosBandas = (relatorio.bandas ?? []).flatMap((b) => (b.filtros ?? []).filter((f) => f.parametro));
-    const parametros = [...parametrosTopo, ...parametrosBandas];
+    const parametros = [...parametrosBandas];
     if (parametros.length > 0) {
       setRelatorioParamValues((prev) => {
         const initialValues: Record<string, string> = { ...prev };
@@ -2687,14 +2697,16 @@ export default function Home() {
     setRelatorioGerando(true);
     setMessage('');
     try {
-      const bandasLista = (relatorio.bandas ?? []).filter((b) => b.tipo === 'lista' && b.colecao);
+      const todasBandas = relatorio.bandas ?? [];
+      const bandasComColecao = todasBandas.filter((b) => b.colecao);
+      const bandasSemColecao = todasBandas.filter((b) => !b.colecao);
 
-      if (relatorio.formato !== 'excel' && bandasLista.length > 0) {
+      if (relatorio.formato !== 'excel' && todasBandas.length > 0) {
         // Modo Bandas: consultar cada banda separadamente
         const bandasPdfData: import('@/lib/relatorioPdf').BandaPdfData[] = [];
         let totalRegistros = 0;
 
-        for (const banda of bandasLista) {
+        for (const banda of bandasComColecao) {
           const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.colecao!, campos: banda.campos ?? [], filtros: banda.filtros ?? [], ordenacao: banda.ordenacao ?? [] };
           const resultado = await executarConsultaRelatorio(relatorioBanda);
           const dsBanda = getDataSource(banda.colecao!);
@@ -2717,9 +2729,15 @@ export default function Home() {
             }
             return regResolvido;
           });
-          bandasPdfData.push({ nome: banda.nome || 'Banda', posicao: banda.posicao, altura: banda.altura, campos: camposResolvidos, registros: registrosResolvidos });
+          bandasPdfData.push({ nome: banda.nome || 'Banda', posicao: banda.posicao, tipo: banda.tipo as any, altura: banda.altura, campos: camposResolvidos, registros: registrosResolvidos });
           totalRegistros += registrosResolvidos.length;
         }
+
+        // Bandas sem coleção (Cabeçalho/Rodapé) — sem consulta, apenas dados estáticos
+        for (const banda of bandasSemColecao) {
+          bandasPdfData.push({ nome: banda.nome || 'Banda', posicao: banda.posicao, tipo: banda.tipo as any, altura: banda.altura, campos: banda.campos ?? [], registros: [{}] });
+        }
+
         gerarPdf(relatorio, [], bandasPdfData);
         setMessage(`Relatório gerado com sucesso! ${totalRegistros} registro(s) encontrado(s).`);
       } else {
