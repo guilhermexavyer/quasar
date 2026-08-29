@@ -271,6 +271,7 @@ export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string
   { value: 'campos', label: 'Campos', permissao: 'acessar_campos' },
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
+  { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
 ];
 
 /**

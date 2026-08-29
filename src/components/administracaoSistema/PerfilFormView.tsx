@@ -149,7 +149,7 @@ export default function PerfilFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
+            options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }, { value: 'imagens', label: 'Imagens' }].filter((o) => allowedSubmodulos.includes(o.value))}
             showPlaceholder={false}
             className="!w-[180px]"
             disabled

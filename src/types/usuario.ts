@@ -15,6 +15,7 @@ export interface Usuario {
   config_colunas_aluno?: string;
   config_colunas_as_usuario?: string;
   config_colunas_as_perfil?: string;
+  config_colunas_as_imagem?: string;
   /* Perfis delegados ao usuário (JSON de nr_sequencia dos perfis) */
   config_perfis?: string;
   /* Perfil ativo do usuário (nr_sequencia do perfil selecionado na pop-up) */

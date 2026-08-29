@@ -175,6 +175,10 @@ import AdministracaoSistemaFormView from "@/components/administracaoSistema/Admi
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
 import PerfilFormView, { type PerfilFormData } from "@/components/administracaoSistema/PerfilFormView";
 import CamposView from "@/components/administracaoSistema/CamposView";
+import ImagemListView from "@/components/administracaoSistema/ImagemListView";
+import ImagemFormView from "@/components/administracaoSistema/ImagemFormView";
+import type { Imagem } from "@/types/imagem";
+import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem, excluirArquivoImagem, renomearArquivoImagem } from "@/services/imagemService";
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
 import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
@@ -290,7 +294,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.16";
+const SYSTEM_VERSION = "0.63.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -820,7 +824,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'relatorio'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'relatorio' | 'imagem'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1212,6 +1216,66 @@ export default function Home() {
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
   const bandaJustSavedRef = useRef(false);
 
+  // ── Imagens (Administração do Sistema) ──
+  const [imagens, setImagens] = useState<Imagem[]>([]);
+  const [imagemEditingId, setImagemEditingId] = useState<string | null>(null);
+  const [imagemForm, setImagemForm] = useState<Partial<Imagem>>({});
+  const [imagemSubmitting, setImagemSubmitting] = useState(false);
+  const [imagemSortColumn, setImagemSortColumn] = useState<number | null>(null);
+  const [imagemSortAsc, setImagemSortAsc] = useState<boolean | null>(null);
+  async function loadImagens() { try { const data = await obterImagens(); setImagens(data); } catch { /* */ } }
+  function handleImagemSortChange(logicalIndex: number) { if (imagemSortColumn === logicalIndex) { if (imagemSortAsc === true) setImagemSortAsc(false); else if (imagemSortAsc === false) { setImagemSortColumn(null); setImagemSortAsc(null); } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } }
+  const filteredSortedImagens = useMemo(() => { const list = [...imagens]; if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
+  function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
+  function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
+  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
+  async function handleImagemDelete(id: string) { setMessage(''); try { const img = imagens.find((i) => i.id === id); if (img?.ie_arquivo) { await excluirArquivoImagem(img.ie_arquivo); } await excluirImagem(id); setMessage('Excluído com sucesso!'); await loadImagens(); } catch { setMessage('Erro ao excluir.'); } if (view === 'form') setView('list'); }
+  const imagemAuditInfo = useMemo(() => { const img = imagens.find((i) => i.id === imagemEditingId); return { createdAt: img?.dt_criacao || '', updatedAt: img?.dt_alteracao || '', createdBy: img?.ds_usuario_criacao || '', updatedBy: img?.ds_usuario_alteracao || '' }; }, [imagens, imagemEditingId]);
+  const imagemIndex = useMemo(() => { if (!imagemEditingId) return -1; return filteredSortedImagens.findIndex((i) => i.id === imagemEditingId); }, [filteredSortedImagens, imagemEditingId]);
+  const hasPrevImagemRecord = imagemIndex > 0;
+  const hasNextImagemRecord = imagemIndex >= 0 && imagemIndex < filteredSortedImagens.length - 1;
+  function goToPrevImagemRecord() { if (imagemIndex > 0) { openImagemEditForm(filteredSortedImagens[imagemIndex - 1]); } }
+  function goToNextImagemRecord() { if (imagemIndex >= 0 && imagemIndex < filteredSortedImagens.length - 1) { openImagemEditForm(filteredSortedImagens[imagemIndex + 1]); } }
+
+  // ── Renomear imagem ──
+  const [renomearModalOpen, setRenomearModalOpen] = useState(false);
+  const [renomearImagemId, setRenomearImagemId] = useState<string | null>(null);
+  const [renomearNovoNome, setRenomearNovoNome] = useState('');
+  const [renomearSubmitting, setRenomearSubmitting] = useState(false);
+
+  function openRenomearModal(imagem: Imagem) {
+    const currentFile = imagem.ie_arquivo ? imagem.ie_arquivo.split('/').pop() || '' : '';
+    const currentName = currentFile.replace(/\.[^.]+$/, '');
+    setRenomearImagemId(imagem.id);
+    setRenomearNovoNome(currentName);
+    setRenomearModalOpen(true);
+  }
+
+  async function handleRenomearSubmit() {
+    if (!renomearImagemId || !renomearNovoNome.trim()) return;
+    setRenomearSubmitting(true);
+    try {
+      const img = imagens.find((i) => i.id === renomearImagemId);
+      if (!img?.ie_arquivo) throw new Error('Arquivo não encontrado');
+      const ext = img.ie_arquivo.includes('.') ? '.' + img.ie_arquivo.split('.').pop() : '';
+      const newNameWithExt = renomearNovoNome.trim() + ext;
+      const newPath = await renomearArquivoImagem(img.ie_arquivo, newNameWithExt);
+      await atualizarImagem(renomearImagemId, { ie_arquivo: newPath } as any, currentUser?.ds_usuario);
+      await loadImagens();
+      setRenomearModalOpen(false);
+      setMessage('Imagem renomeada!');
+    } catch (err: any) {
+      const msg = err?.message || '';
+      if (msg.includes('já existe')) {
+        setMessage('A imagem já existe.');
+      } else {
+        setMessage('Erro ao renomear imagem.');
+      }
+    } finally {
+      setRenomearSubmitting(false);
+    }
+  }
+
   function handleRelatorioManageSelectionChange(v: string) {
     setRelatorioManageSelection(v);
     setRelatorioInteracted(true);
@@ -1418,7 +1482,7 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['campos', 'perfis', 'usuarios'];
+    if (isAdminSemConfig) return ['campos', 'perfis', 'usuarios', 'imagens'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1722,6 +1786,10 @@ export default function Home() {
   const relatorioOrdenacaoColunasConfig = useMemo(
     () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_ordenacao),
     [currentUser?.config_colunas_relatorio_ordenacao]
+  );
+  const imagemColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_as_imagem),
+    [currentUser?.config_colunas_as_imagem]
   );
   const CG_DEFS = {
     sexo: {
@@ -2224,6 +2292,7 @@ export default function Home() {
     loadPessoasFisicas();
     loadUsuarios();
     loadPerfis();
+    loadImagens();
     loadSexos();
     loadEstadoCivis();
     loadCoresRacas();
@@ -2428,7 +2497,7 @@ export default function Home() {
         if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica" || session.activeSection === "patrimonio" || session.activeSection === "relatorio") {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens')) {
           setAdminManageSelection(session.adminManageSelection);
           setAdminInteracted(true);
         }
@@ -3077,6 +3146,21 @@ export default function Home() {
     setAuditLoading(true);
     try {
       const logs = await fetchAuditByDocumentId('perfil', perfilId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openImagemAuditModal(imagemId?: string | null) {
+    if (!imagemId) return;
+    setAuditDocumentType('imagem');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('imagem', imagemId);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -7059,14 +7143,19 @@ export default function Home() {
       setMessage("Erro ao excluir.");
     }
     if (view === 'form') goToCgList();
-  }
-
-  function getMessageStatus(message: string) {
-    if (message.toLowerCase().includes("sucesso") || message.toLowerCase().includes("gerado")) return "success";
+  }  function getMessageStatus(message: string) {
     if (
-      message.toLowerCase().includes("erro") ||
-      message.toLowerCase().includes("não coincidem") ||
-      message.toLowerCase().includes("informe a")
+      message.toLowerCase().includes("sucesso") ||
+      message.toLowerCase().includes("gerado") ||
+      message.toLowerCase().includes("criada") ||
+      message.toLowerCase().includes("criado") ||
+      message.toLowerCase().includes("alterada") ||
+      message.toLowerCase().includes("alterado") ||
+      message.toLowerCase().includes("renomeada") ||
+      message.toLowerCase().includes("renomeado")
+    ) return "success";
+    if (
+      message.toLowerCase().includes("erro") || message.toLowerCase().includes("não coincidem") || message.toLowerCase().includes("informe a")
     ) return "error";
     return "warning";
   }
@@ -7316,6 +7405,22 @@ export default function Home() {
       });
   }
 
+  function handleImagemNewForm() {
+    openImagemNewForm();
+  }
+
+  function handleImagemColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_as_imagem: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_as_imagem: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Imagens)', err);
+      });
+  }
+
   function handleRelatorioListaColumnsChange(order: string[], widths: Record<string, number>) {
     if (!currentUser?.id) return;
     const serialized = serializeStringColunasConfig(order, widths);
@@ -7515,7 +7620,9 @@ export default function Home() {
                 openEditForm(contextMenu.item as PessoaFisica);
               }
             } else if (contextMenu.section === 'administracaoSistema') {
-              if (adminManageSelection === 'perfis') {
+              if (adminManageSelection === 'imagens') {
+                openImagemEditForm(contextMenu.item as Imagem);
+              } else if (adminManageSelection === 'perfis') {
                 openPerfilEditForm(contextMenu.item as Perfil);
               } else {
                 openAdminEditForm(contextMenu.item as Usuario);
@@ -7627,6 +7734,11 @@ export default function Home() {
               items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(contextMenu.item as Relatorio); setContextMenu(null); } });
               return items;
             }
+            if (contextMenu.section === 'administracaoSistema' && adminManageSelection === 'imagens') {
+              const items: { label: string; onClick: () => void }[] = [];
+              items.push({ label: 'Renomear imagem', onClick: () => { openRenomearModal(contextMenu.item as Imagem); setContextMenu(null); } });
+              return items.length > 0 ? items : undefined;
+            }
             return undefined;
           })()}
           onDelegateFunctions={
@@ -7681,7 +7793,14 @@ export default function Home() {
                 }
               }
             } else if (contextMenu.section === 'administracaoSistema') {
-              if (adminManageSelection === 'perfis') {
+              if (adminManageSelection === 'imagens') {
+                const imagem = contextMenu.item as Imagem;
+                if (imagem.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${imagem.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleImagemDelete(imagem.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (adminManageSelection === 'perfis') {
                 const perfil = contextMenu.item as Perfil;
                 if (perfil.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${perfil.nr_sequencia}?`);
@@ -8142,6 +8261,23 @@ export default function Home() {
                   initialColumns={adminColunasConfig}
                   onColumnsChange={handleAdminColumnsChange}
                 />
+              ) : adminManageSelection === 'imagens' ? (
+                <ImagemListView
+                  loading={loading}
+                  imagens={filteredSortedImagens}
+                  openNewForm={handleImagemNewForm}
+                  openEditForm={openImagemEditForm}
+                  handleDelete={handleImagemDelete}
+                  setContextMenu={setContextMenu}
+                  sortColumn={imagemSortColumn}
+                  sortAsc={imagemSortAsc}
+                  onSortChange={handleImagemSortChange}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  initialColumns={imagemColunasConfig}
+                  onColumnsChange={handleImagemColumnsChange}
+                />
               ) : (
                 <PerfilListView
                   message={message}
@@ -8488,6 +8624,28 @@ export default function Home() {
                 readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'usuario')}
                 campoErros={adminCampoErros}
+              />
+            ) : adminManageSelection === 'imagens' ? (
+              <ImagemFormView
+                message={message}
+                editingId={imagemEditingId}
+                imagem={imagemForm}
+                setImagem={setImagemForm as any}
+                submitting={imagemSubmitting}
+                handleSubmit={handleImagemSubmit}
+                goToList={() => { setView('list'); }}
+                createdAt={imagemAuditInfo.createdAt}
+                updatedAt={imagemAuditInfo.updatedAt}
+                createdBy={imagemAuditInfo.createdBy}
+                updatedBy={imagemAuditInfo.updatedBy}
+                onPrevRecord={goToPrevImagemRecord}
+                onNextRecord={goToNextImagemRecord}
+                hasPrevRecord={hasPrevImagemRecord}
+                hasNextRecord={hasNextImagemRecord}
+                onOpenAudit={openImagemAuditModal}
+                manageSelection={adminManageSelection}
+                onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
               />
             ) : (
               <PerfilFormView
@@ -10097,6 +10255,61 @@ export default function Home() {
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
                 Sim
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Renomear Imagem */}
+      {renomearModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => !renomearSubmitting && setRenomearModalOpen(false)} />
+          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Renomear imagem</h2>
+              <button
+                type="button"
+                onClick={() => !renomearSubmitting && setRenomearModalOpen(false)}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="px-[15px] pt-[15px] pb-[15px]">
+              <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome do arquivo</label>
+              <input
+                type="text"
+                value={renomearNovoNome}
+                onChange={(e) => setRenomearNovoNome(e.target.value)}
+                disabled={renomearSubmitting}
+                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100"
+                onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleRenomearSubmit(); } }}
+                autoFocus
+              />
+            </div>
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={() => setRenomearModalOpen(false)}
+                disabled={renomearSubmitting}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleRenomearSubmit}
+                disabled={renomearSubmitting || !renomearNovoNome.trim()}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                {renomearSubmitting ? 'Salvando...' : 'Salvar'}
               </button>
             </div>
           </div>

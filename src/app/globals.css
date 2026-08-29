@@ -344,7 +344,8 @@ textarea:read-only {
 /* Botões de seta (registro anterior/próximo) ao lado do dropdown pai —
    no modo escuro mantêm apenas a borda inferior. */
 .dark button[aria-label="Registro anterior"],
-.dark button[aria-label="Próximo registro"] {
+.dark button[aria-label="Próximo registro"],
+.dark button[aria-label="Selecionar arquivo"] {
   border-top-color: transparent !important;
   border-left-color: transparent !important;
   border-right-color: transparent !important;
