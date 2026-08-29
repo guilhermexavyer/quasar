@@ -17,6 +17,7 @@ interface FiltrosRelatorioTableProps {
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  getNextSeq?: () => number;
 }
 
 const MASCARA_OPTIONS = [
@@ -77,6 +78,7 @@ export default function FiltrosRelatorioTable({
   userId,
   initialColumns,
   onColumnsChange,
+  getNextSeq,
 }: FiltrosRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -200,7 +202,7 @@ export default function FiltrosRelatorioTable({
   function duplicar(id: string) {
     const original = filtros.find((f) => f.id === id);
     if (!original) return;
-    const clone: RelatorioFiltro = { ...original, id: gerarId() };
+    const clone: RelatorioFiltro = { ...original, id: gerarId(), nr_sequencia: getNextSeq ? getNextSeq() : (Math.max(0, ...filtros.map((f) => f.nr_sequencia ?? 0)) + 1) };
     const idx = filtros.findIndex((f) => f.id === id);
     const updated = [...filtros];
     updated.splice(idx + 1, 0, clone);
@@ -343,6 +345,12 @@ export default function FiltrosRelatorioTable({
           </span>
         );
       },
+    },
+    {
+      key: "nr_sequencia",
+      label: "#",
+      width: 40,
+      render: (row: RelatorioFiltro) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {
       key: "campo",

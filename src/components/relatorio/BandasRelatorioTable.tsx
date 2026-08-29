@@ -31,6 +31,7 @@ interface BandasRelatorioTableProps {
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   onViewBanda?: (banda: Banda) => void;
+  getNextBandaSeq?: () => number;
 }
 
 export default function BandasRelatorioTable({
@@ -42,6 +43,7 @@ export default function BandasRelatorioTable({
   initialColumns,
   onColumnsChange,
   onViewBanda,
+  getNextBandaSeq,
 }: BandasRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -163,7 +165,7 @@ export default function BandasRelatorioTable({
   function duplicar(id: string) {
     const original = bandas.find((b) => b.id === id);
     if (!original) return;
-    const nextSeq = (Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
+    const nextSeq = getNextBandaSeq ? getNextBandaSeq() : (Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
     const nextPos = (Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1);
     const clone: Banda = {
       ...original,

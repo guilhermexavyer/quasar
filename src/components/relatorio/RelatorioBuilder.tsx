@@ -81,6 +81,7 @@ interface RelatorioBuilderProps {
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
   return {
     id: c.id || gerarId(),
+    nr_sequencia: c.nr_sequencia ?? 0,
     colecao: c.colecao || colecaoPrincipal,
     chave: c.chave || '',
     label: c.rotulo || c.label || '',
@@ -88,6 +89,15 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
     corLabel: c.corLabel || '#1a1a1a',
     corCampo: c.corCampo || '#1a1a1a',
     backgroundCampo: c.backgroundCampo || '',
+    transparentCampo: c.transparentCampo ?? false,
+    paddingTopCampo: c.paddingTopCampo ?? 0,
+    paddingRightCampo: c.paddingRightCampo ?? 0,
+    paddingBottomCampo: c.paddingBottomCampo ?? 0,
+    paddingLeftCampo: c.paddingLeftCampo ?? 0,
+    borderTopCampo: c.borderTopCampo ?? false,
+    borderRightCampo: c.borderRightCampo ?? false,
+    borderBottomCampo: c.borderBottomCampo ?? false,
+    borderLeftCampo: c.borderLeftCampo ?? false,
     posicao: c.posicao ?? idx + 1,
     alinhamentoHorizontal: c.alinhamentoHorizontal ?? 0,
     topoLabel: c.topoLabel ?? 0,
@@ -197,6 +207,20 @@ export default function RelatorioBuilder({
   useEffect(() => { filtrosRef.current = filtros; }, [filtros]);
   useEffect(() => { ordenacaoRef.current = ordenacao; }, [ordenacao]);
   useEffect(() => { bandaDetailIdRef.current = bandaDetailId; }, [bandaDetailId]);
+  // Contador de sequência de bandas: nunca reutiliza números de bandas excluídas.
+  const nextBandaSeqRef = useRef(Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
+  useEffect(() => { nextBandaSeqRef.current = Math.max(nextBandaSeqRef.current, Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1); }, [bandas]);
+  function getNextBandaSeq() { const v = nextBandaSeqRef.current; nextBandaSeqRef.current = v + 1; return v; }
+  // Contadores de sequência por seção (nunca reutilizam números excluídos).
+  const nextCampoSeqRef = useRef(Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1);
+  const nextFiltroSeqRef = useRef(Math.max(0, ...filtros.map((f) => f.nr_sequencia ?? 0)) + 1);
+  const nextOrdSeqRef = useRef(Math.max(0, ...ordenacao.map((o) => o.nr_sequencia ?? 0)) + 1);
+  useEffect(() => { nextCampoSeqRef.current = Math.max(nextCampoSeqRef.current, Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1); }, [campos]);
+  useEffect(() => { nextFiltroSeqRef.current = Math.max(nextFiltroSeqRef.current, Math.max(0, ...filtros.map((f) => f.nr_sequencia ?? 0)) + 1); }, [filtros]);
+  useEffect(() => { nextOrdSeqRef.current = Math.max(nextOrdSeqRef.current, Math.max(0, ...ordenacao.map((o) => o.nr_sequencia ?? 0)) + 1); }, [ordenacao]);
+  function getNextCampoSeq() { const v = nextCampoSeqRef.current; nextCampoSeqRef.current = v + 1; return v; }
+  function getNextFiltroSeq() { const v = nextFiltroSeqRef.current; nextFiltroSeqRef.current = v + 1; return v; }
+  function getNextOrdSeq() { const v = nextOrdSeqRef.current; nextOrdSeqRef.current = v + 1; return v; }
 
   /** Abre o modal da banda: salva dados globais na banda anterior e carrega dados da banda alvo */
   function openBandaDetail(bandaId: string) {
@@ -414,8 +438,10 @@ export default function RelatorioBuilder({
       ds_relatorio: dsRelatorio.trim(),
       colecao,
       campos: campos.map((c) => ({
-        id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
-        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
+        id: c.id, nr_sequencia: c.nr_sequencia, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
+        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo, transparentCampo: c.transparentCampo,
+        paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
+        borderTopCampo: c.borderTopCampo, borderRightCampo: c.borderRightCampo, borderBottomCampo: c.borderBottomCampo, borderLeftCampo: c.borderLeftCampo,
         posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo,
       })),
       filtros: filtros.map((f) => ({ id: f.id, campo: f.campo, operador: f.operador, valor: f.valor, valorFinal: f.valorFinal, mascara: f.mascara, parametro: f.parametro })),
@@ -448,7 +474,7 @@ export default function RelatorioBuilder({
     setFiltros((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
   }
 
-  function adicionarOrdenacao() { setOrdenacao((prev) => [...prev, { id: gerarId(), campo: "", direcao: "asc" }]); }
+  function adicionarOrdenacao() { const seq = getNextOrdSeq(); setOrdenacao((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: "", direcao: "asc" }]); }
   function removerOrdenacao(idx: number) { setOrdenacao((prev) => prev.filter((_, i) => i !== idx)); }
   function atualizarOrdenacao(idx: number, updates: Partial<RelatorioOrdenacao>) {
     setOrdenacao((prev) => prev.map((o, i) => (i === idx ? { ...o, ...updates } : o)));
@@ -485,8 +511,9 @@ export default function RelatorioBuilder({
       ds_relatorio: dsRelatorio.trim(),
       colecao: bandas[0]?.ie_colecao_principal || '',
       campos: bandas.flatMap((b) => (b.campos ?? []).map((c: any) => ({
-        id: c.id, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
-        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo,
+        id: c.id, nr_sequencia: c.nr_sequencia, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
+        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo, transparentCampo: c.transparentCampo,
+        paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
         posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo,
       }))),
       filtros: bandas.flatMap((b) => (b.filtros ?? []).filter((f: any) => f.campo)),
@@ -717,7 +744,7 @@ export default function RelatorioBuilder({
           <section className="mb-4">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Bandas</h2>
-              <button type="button" onClick={() => setBandas((prev) => [...prev, { id: gerarId(), ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...prev.map((b) => b.nr_posicao ?? 0)) + 1), nr_sequencia: (Math.max(0, ...prev.map((b) => b.nr_sequencia ?? 0)) + 1), nr_seq_relatorio: relatorio?.nr_sequencia, campos: [], filtros: [], ordenacao: [] }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+              <button type="button" onClick={() => { const seq = getNextBandaSeq(); setBandas((prev) => [...prev, { id: gerarId(), ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...prev.map((b) => b.nr_posicao ?? 0)) + 1), nr_sequencia: seq, nr_seq_relatorio: relatorio?.nr_sequencia, campos: [], filtros: [], ordenacao: [] }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
             <BandasRelatorioTable
               bandas={bandas}
@@ -728,6 +755,7 @@ export default function RelatorioBuilder({
               initialColumns={initialBandasColumns}
               onColumnsChange={onBandasColumnsChange}
               onViewBanda={(b) => openBandaDetail(b.id)}
+              getNextBandaSeq={getNextBandaSeq}
             />
           </section>
 
@@ -790,6 +818,7 @@ export default function RelatorioBuilder({
                       options={[{ value: '', label: '---' }, ...opcoesColecao]}
                       showPlaceholder={false}
                       visibleOptions={7}
+                      disabled={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
                     />
                   </div>
                   <div className="group">
@@ -863,7 +892,7 @@ export default function RelatorioBuilder({
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">{bandaTipo === 'lista' ? 'Lista' : 'Dados'}</h2>
-              <button type="button" disabled={bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal} onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''; setCampos((prev) => [...prev, { id: gerarId(), colecao: bColecao, chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#1a1a1a', backgroundCampo: '', posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 30, formatacao: 'texto', statusSistema: false, soma: false, fonteCampo: 'Arial', tamanhoFonteCampo: 10 }]);              }} className={`text-sm cursor-pointer ${bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
+              <button type="button" disabled={bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal}onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''; const seq = getNextCampoSeq(); setCampos((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, colecao: bandaTipo === 'lista' ? bColecao : '', chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#000000', backgroundCampo: '', transparentCampo: true, posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 100, formatacao: 'texto', statusSistema: false, soma: false, fonteCampo: 'Arial', tamanhoFonteCampo: 10, paddingTopCampo: 0, paddingRightCampo: 0, paddingBottomCampo: 0, paddingLeftCampo: 0, borderTopCampo: false, borderRightCampo: false, borderBottomCampo: false, borderLeftCampo: false }]); }} className={`text-sm cursor-pointer ${bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
@@ -877,6 +906,7 @@ export default function RelatorioBuilder({
                 onColumnsChange={bandaTipo === 'lista' ? onListaColumnsChange : (onDadosColumnsChange ?? onListaColumnsChange)}
                 variant={bandaTipo === 'lista' ? 'lista' : 'texto_valor'}
                 ocultarColecaoCampo={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
+                getNextSeq={getNextCampoSeq}
               />
               </div>
               {bandaTipo === 'lista' && (
@@ -1046,7 +1076,7 @@ export default function RelatorioBuilder({
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Filtros</h2>
-              <button type="button" onClick={() => setFiltros((prev) => [...prev, { id: gerarId(), campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+              <button type="button" onClick={() => { const seq = getNextFiltroSeq(); setFiltros((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
             <FiltrosRelatorioTable
               filtros={filtros}
@@ -1056,6 +1086,7 @@ export default function RelatorioBuilder({
               userId={userId}
               initialColumns={initialFiltrosColumns}
               onColumnsChange={onFiltrosColumnsChange}
+              getNextSeq={getNextFiltroSeq}
             />
           </section>
           </>
@@ -1069,7 +1100,7 @@ export default function RelatorioBuilder({
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Ordenação</h2>
-              <button type="button" onClick={() => setOrdenacao((prev) => [...prev, { id: gerarId(), campo: "", direcao: "asc" }])} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+              <button type="button" onClick={() => { const seq = getNextOrdSeq(); setOrdenacao((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: "", direcao: "asc" }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
             <OrdenacaoRelatorioTable
               ordenacao={ordenacao}
@@ -1079,6 +1110,7 @@ export default function RelatorioBuilder({
               userId={userId}
               initialColumns={initialOrdenacaoColumns}
               onColumnsChange={onOrdenacaoColumnsChange}
+              getNextSeq={getNextOrdSeq}
             />
           </section>
           </>

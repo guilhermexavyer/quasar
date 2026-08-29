@@ -17,6 +17,7 @@ interface OrdenacaoRelatorioTableProps {
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  getNextSeq?: () => number;
 }
 
 export default function OrdenacaoRelatorioTable({
@@ -27,6 +28,7 @@ export default function OrdenacaoRelatorioTable({
   userId,
   initialColumns,
   onColumnsChange,
+  getNextSeq,
 }: OrdenacaoRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -156,7 +158,7 @@ export default function OrdenacaoRelatorioTable({
   function duplicar(id: string) {
     const original = ordenacao.find((o) => o.id === id);
     if (!original) return;
-    const clone: RelatorioOrdenacao = { ...original, id: gerarId() };
+    const clone: RelatorioOrdenacao = { ...original, id: gerarId(), nr_sequencia: getNextSeq ? getNextSeq() : (Math.max(0, ...ordenacao.map((o) => o.nr_sequencia ?? 0)) + 1) };
     const idx = ordenacao.findIndex((o) => o.id === id);
     const updated = [...ordenacao];
     updated.splice(idx + 1, 0, clone);
@@ -211,6 +213,12 @@ export default function OrdenacaoRelatorioTable({
           </span>
         );
       },
+    },
+    {
+      key: "nr_sequencia",
+      label: "#",
+      width: 40,
+      render: (row: RelatorioOrdenacao) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {
       key: "prioridade",

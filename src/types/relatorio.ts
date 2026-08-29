@@ -173,6 +173,8 @@ export interface RelatorioCampo {
 export interface RelatorioFiltro {
   /** Identificador único do filtro. */
   id: string;
+  /** Sequência do filtro (nunca reutilizada). */
+  nr_sequencia?: number;
   /** Chave do campo a ser filtrado. */
   campo: string;
   /** Operador de comparação. */
@@ -197,6 +199,8 @@ export interface RelatorioFiltro {
 export interface RelatorioOrdenacao {
   /** Identificador único. */
   id: string;
+  /** Sequência da ordenação (nunca reutilizada). */
+  nr_sequencia?: number;
   /** Chave do campo por qual ordenar. */
   campo: string;
   /** Direção da ordenação. */

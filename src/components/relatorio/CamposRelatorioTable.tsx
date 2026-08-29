@@ -7,6 +7,7 @@ import { gerarId, FORMATOS_CAMPO } from "@/lib/relatorioUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
@@ -26,10 +27,14 @@ interface CamposRelatorioTableProps {
   variant?: 'lista' | 'texto_valor';
   /** Se true, oculta as colunas Coleção e Campo (para bandas Cabeçalho/Rodapé). */
   ocultarColecaoCampo?: boolean;
+  /** Retorna o próximo nr_sequencia (nunca reutiliza). */
+  getNextSeq?: () => number;
 }
 
 export interface CamposRelatorioRow {
   id: string;
+  /** Sequência do campo (nunca reutilizada). */
+  nr_sequencia?: number;
   /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
   colecao: string;
   chave: string;
@@ -38,6 +43,15 @@ export interface CamposRelatorioRow {
   corLabel: string;
   corCampo: string;
   backgroundCampo: string;
+  transparentCampo?: boolean;
+  paddingTopCampo?: number;
+  paddingRightCampo?: number;
+  paddingBottomCampo?: number;
+  paddingLeftCampo?: number;
+  borderTopCampo?: boolean;
+  borderRightCampo?: boolean;
+  borderBottomCampo?: boolean;
+  borderLeftCampo?: boolean;
   posicao: number;
   alinhamentoHorizontal: number;
   topoLabel: number;
@@ -119,6 +133,7 @@ export default function CamposRelatorioTable({
   onColumnsChange,
   variant = 'lista',
   ocultarColecaoCampo = false,
+  getNextSeq,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -129,6 +144,8 @@ export default function CamposRelatorioTable({
   }, [editingId, onEditingChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   const [conteudoModal, setConteudoModal] = useState<{ id: string; value: string } | null>(null);
+  const [conteudoInfoOpen, setConteudoInfoOpen] = useState(false);
+  const [conteudoInfoAnchor, setConteudoInfoAnchor] = useState<HTMLElement | null>(null);
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -143,8 +160,9 @@ export default function CamposRelatorioTable({
   // ── Coleções disponíveis (principal + FKs) ──
   const colecoesDisponiveis = useMemo(() => {
     const dsPrincipal = getDataSource(colecaoPrincipal);
-    if (!dsPrincipal) return [{ value: colecaoPrincipal, label: colecaoPrincipal }];
+    if (!dsPrincipal) return [{ value: '', label: '---' }, { value: colecaoPrincipal, label: colecaoPrincipal }];
     const result: { value: string; label: string }[] = [
+      { value: '', label: '---' },
       { value: dsPrincipal.value, label: dsPrincipal.value },
     ];
     const fkFields = dsPrincipal.campos.filter((c) => c.isFK && c.fkColecao);
@@ -220,7 +238,7 @@ export default function CamposRelatorioTable({
   function duplicar(id: string) {
     const original = campos.find((c) => c.id === id);
     if (!original) return;
-    const clone: CamposRelatorioRow = { ...original, id: gerarId() };
+    const clone: CamposRelatorioRow = { ...original, id: gerarId(), nr_sequencia: getNextSeq ? getNextSeq() : (Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1) };
     const idx = campos.findIndex((c) => c.id === id);
     const updated = [...campos];
     updated.splice(idx + 1, 0, clone);
@@ -339,7 +357,6 @@ export default function CamposRelatorioTable({
       label: " ",
       width: 35,
       fixed: true,
-      
       render: (row: CamposRelatorioRow) => {
         const isEditing = editingId === row.id;
         return (
@@ -371,6 +388,12 @@ export default function CamposRelatorioTable({
           </span>
         );
       },
+    },
+    {
+      key: "nr_sequencia",
+      label: "#",
+      width: 40,
+      render: (row: CamposRelatorioRow) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {      key: "tipoCampo",
       label: "Tipo",
@@ -654,26 +677,125 @@ export default function CamposRelatorioTable({
         if (editingId === row.id) {
           const bid = `bg-${row.id}`;
           return (
-            <div className="relative" style={{ height: 26 }}>
-              <input
-                type="color"
-                id={bid}
-                value={row.backgroundCampo || '#ffffff'}
-                onChange={(e) => atualizar(row.id, { backgroundCampo: e.target.value })}
-                className="absolute opacity-0 w-0 h-0 pointer-events-none"
-              />
-              <div
-                className="w-full h-full cursor-pointer border border-slate-300"
-                style={{ backgroundColor: row.backgroundCampo || '#ffffff' }}
-                onClick={() => document.getElementById(bid)?.click()}
-              />
+            <div className="flex items-center gap-1">
+              <div className="relative flex-1" style={{ height: 26 }}>
+                <input
+                  type="color"
+                  id={bid}
+                  value={row.backgroundCampo || '#ffffff'}
+                  onChange={(e) => atualizar(row.id, { backgroundCampo: e.target.value })}
+                  className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                />
+                <div
+                  className="w-full h-full cursor-pointer border border-slate-300"
+                  style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.backgroundCampo || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }}
+                  onClick={() => document.getElementById(bid)?.click()}
+                />
+              </div>
+              <label className="flex items-center cursor-pointer" title="Fundo transparente">
+                <input type="checkbox" checked={row.transparentCampo ?? false}
+                  onChange={(e) => atualizar(row.id, { transparentCampo: e.target.checked })}
+                  className="cg-checkbox" />
+              </label>
             </div>
           );
         }
         return (
-          <span className="block w-full h-4 border border-slate-300" style={{ backgroundColor: row.backgroundCampo || '#ffffff' }} />
+          <span className="block w-full h-4 border border-slate-300" style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.backgroundCampo || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }} />
         );
       },
+    },
+    {
+      key: "paddingTopCampo",
+      label: "Padding top",
+      width: 100,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <NumberInput value={row.paddingTopCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingTopCampo: v })} min={0} className={inputClass} />;
+        }
+        return <span>{row.paddingTopCampo ?? 0}</span>;
+      },
+    },
+    {
+      key: "paddingRightCampo",
+      label: "Padding right",
+      width: 100,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <NumberInput value={row.paddingRightCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingRightCampo: v })} min={0} className={inputClass} />;
+        }
+        return <span>{row.paddingRightCampo ?? 0}</span>;
+      },
+    },
+    {
+      key: "paddingBottomCampo",
+      label: "Padding bottom",
+      width: 100,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <NumberInput value={row.paddingBottomCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingBottomCampo: v })} min={0} className={inputClass} />;
+        }
+        return <span>{row.paddingBottomCampo ?? 0}</span>;
+      },
+    },
+    {
+      key: "paddingLeftCampo",
+      label: "Padding left",
+      width: 100,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <NumberInput value={row.paddingLeftCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingLeftCampo: v })} min={0} className={inputClass} />;
+        }
+        return <span>{row.paddingLeftCampo ?? 0}</span>;
+      },
+    },
+    {
+      key: "borderTopCampo",
+      label: "Border top",
+      width: 100,
+      render: (row: CamposRelatorioRow) => (
+        <span className="flex items-center justify-center">
+          <input type="checkbox" checked={row.borderTopCampo ?? false}
+            onChange={(e) => atualizar(row.id, { borderTopCampo: e.target.checked })}
+            className="cg-checkbox" />
+        </span>
+      ),
+    },
+    {
+      key: "borderRightCampo",
+      label: "Border right",
+      width: 100,
+      render: (row: CamposRelatorioRow) => (
+        <span className="flex items-center justify-center">
+          <input type="checkbox" checked={row.borderRightCampo ?? false}
+            onChange={(e) => atualizar(row.id, { borderRightCampo: e.target.checked })}
+            className="cg-checkbox" />
+        </span>
+      ),
+    },
+    {
+      key: "borderBottomCampo",
+      label: "Border bottom",
+      width: 100,
+      render: (row: CamposRelatorioRow) => (
+        <span className="flex items-center justify-center">
+          <input type="checkbox" checked={row.borderBottomCampo ?? false}
+            onChange={(e) => atualizar(row.id, { borderBottomCampo: e.target.checked })}
+            className="cg-checkbox" />
+        </span>
+      ),
+    },
+    {
+      key: "borderLeftCampo",
+      label: "Border left",
+      width: 100,
+      render: (row: CamposRelatorioRow) => (
+        <span className="flex items-center justify-center">
+          <input type="checkbox" checked={row.borderLeftCampo ?? false}
+            onChange={(e) => atualizar(row.id, { borderLeftCampo: e.target.checked })}
+            className="cg-checkbox" />
+        </span>
+      ),
     },
     {
       key: "fonteCampo",
@@ -717,7 +839,7 @@ export default function CamposRelatorioTable({
 
   // Filtrar colunas conforme a variante
   const textoValorHidden = new Set(['posicao', 'label', 'soma', 'estiloLabel', 'estiloSoma']);
-  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo', 'backgroundCampo']);
+  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo', 'backgroundCampo', 'paddingTopCampo', 'paddingRightCampo', 'paddingBottomCampo', 'paddingLeftCampo', 'borderTopCampo', 'borderRightCampo', 'borderBottomCampo', 'borderLeftCampo']);
   const colecaoCampoHidden = ocultarColecaoCampo ? new Set(['colecao', 'chave']) : new Set<string>();
   const visibleColumns = variant === 'texto_valor'
     ? columns.filter((c) => !textoValorHidden.has(c.key) && !colecaoCampoHidden.has(c.key))
@@ -771,16 +893,29 @@ export default function CamposRelatorioTable({
               </button>
             </div>
             <div className="p-[15px] overflow-auto flex-1">
+              <div className="relative text-sm mb-1 group" style={{ color: '#666' }}>
+                <div className="inline-flex items-center gap-2 w-full">
+                  <span>Conteúdo</span>
+                  <button type="button" onClick={(e) => { setConteudoInfoAnchor(e.currentTarget); setConteudoInfoOpen((v) => !v); }}
+                    className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${conteudoInfoOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                    aria-label="Informações do campo">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
+                  </button>
+                  {conteudoInfoOpen && (
+                    <FieldInfoPopup anchor={conteudoInfoAnchor} meta={{ type: 'string', field: 'ds_conteudo', collection: 'relatorio_campos' }} onClose={() => setConteudoInfoOpen(false)} />
+                  )}
+                </div>
+              </div>
               <textarea
-                className="w-full min-h-[300px] rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm resize-y focus:border-[#003056] focus:outline-none"
+                className="w-full min-h-[300px] rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm resize-none focus:border-[#003056] focus:outline-none"
                 value={conteudoModal.value}
                 onChange={(e) => setConteudoModal((prev) => prev ? { ...prev, value: e.target.value } : null)}
                 placeholder="Digite o conteúdo..."
               />
             </div>
             <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
-              <button type="button" onClick={() => setConteudoModal(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
-              <button type="button" onClick={() => { if (conteudoModal) { atualizar(conteudoModal.id, { conteudo: conteudoModal.value }); setConteudoModal(null); } }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
+              <button type="button" onClick={() => setConteudoModal(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
+              <button type="button" onClick={() => { if (conteudoModal) { atualizar(conteudoModal.id, { conteudo: conteudoModal.value }); setConteudoModal(null); } }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
             </div>
           </div>
         </div>

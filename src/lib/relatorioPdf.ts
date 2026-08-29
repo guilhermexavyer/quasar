@@ -475,26 +475,42 @@ function renderizarTextoValorBanda(
     if (align === 'center') x = xBase + larguraMm / 2;
     else if (align === 'right') x = xBase + larguraMm;
 
-    // Background do valor (apenas no texto, sem englobar espaçamento)
+    // Caixa do valor (background + bordas), baseada no texto + paddings
+    const textStr = String(texto);
+    const textWidth = doc.getTextWidth(textStr);
+    const fontSizeMm = fontSizeCampo * 0.352778;
+    const pT = pxToMm((campo as any).paddingTopCampo ?? 2);
+    const pR = pxToMm((campo as any).paddingRightCampo ?? 5);
+    const pB = pxToMm((campo as any).paddingBottomCampo ?? 2);
+    const pL = pxToMm((campo as any).paddingLeftCampo ?? 5);
+    let bgX = x;
+    if (align === 'center') bgX = x - textWidth / 2 - pL;
+    else if (align === 'right') bgX = x - textWidth - pL;
+    else bgX = x - pL;
+    const ascMm = fontSizeMm * 1.0;
+    const descMm = fontSizeMm * 0.2;
+    const boxX = bgX;
+    const boxY = y - ascMm - pT;
+    const boxW = textWidth + pL + pR;
+    const boxH = ascMm + descMm + pT + pB;
+    // Background do valor (ignorado se transparente)
     const bgCampo = (campo as any).backgroundCampo;
-    if (bgCampo && bgCampo !== '#ffffff' && bgCampo !== '') {
+    if (!(campo as any).transparentCampo && bgCampo && bgCampo !== '#ffffff' && bgCampo !== '') {
       const bgRgb = hexToRgb(bgCampo);
       if (bgRgb) {
-        const textStr = String(texto);
-        const textWidth = doc.getTextWidth(textStr);
-        const fontSizeMm = fontSizeCampo * 0.352778;
-        const padX = 0.5;
-        const padY = 0.2;
-        let bgX = x;
-        if (align === 'center') bgX = x - textWidth / 2 - padX;
-        else if (align === 'right') bgX = x - textWidth - padX;
-        else bgX = x - padX;
-        // y é a baseline; ascender ≈ 1.0×fontSize cobre acentos, descender ≈ 0.2×
-        const ascMm = fontSizeMm * 1.0;
-        const descMm = fontSizeMm * 0.2;
         doc.setFillColor(bgRgb.r, bgRgb.g, bgRgb.b);
-        doc.rect(bgX, y - ascMm - padY, textWidth + padX * 2, ascMm + descMm + padY * 2, 'F');
+        doc.rect(boxX, boxY, boxW, boxH, 'F');
       }
+    }
+    // Bordas do elemento
+    const hasBorder = (campo as any).borderTopCampo || (campo as any).borderRightCampo || (campo as any).borderBottomCampo || (campo as any).borderLeftCampo;
+    if (hasBorder) {
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.2);
+      if ((campo as any).borderTopCampo) doc.line(boxX, boxY, boxX + boxW, boxY);
+      if ((campo as any).borderBottomCampo) doc.line(boxX, boxY + boxH, boxX + boxW, boxY + boxH);
+      if ((campo as any).borderLeftCampo) doc.line(boxX, boxY, boxX, boxY + boxH);
+      if ((campo as any).borderRightCampo) doc.line(boxX + boxW, boxY, boxX + boxW, boxY + boxH);
     }
 
     doc.text(String(texto), x, y, { align: align as 'left' | 'center' | 'right' });
