@@ -8,11 +8,11 @@ import ResizableTable from "@/components/ui/ResizableTable";
 
 export interface Banda {
   id: string;
-  nome: string;
-  colecao?: string;
-  posicao: number;
-  tipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
-  altura?: number;
+  ds_banda: string;
+  ie_colecao_principal?: string;
+  nr_posicao: number;
+  ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
+  nr_altura?: number;
   nr_sequencia?: number;
   nr_seq_relatorio?: number;
   campos?: any[];
@@ -160,6 +160,28 @@ export default function BandasRelatorioTable({
     setContextMenu(null);
   }
 
+  function duplicar(id: string) {
+    const original = bandas.find((b) => b.id === id);
+    if (!original) return;
+    const nextSeq = (Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
+    const nextPos = (Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1);
+    const clone: Banda = {
+      ...original,
+      id: gerarId(),
+      nr_sequencia: nextSeq,
+      nr_posicao: nextPos,
+      ds_banda: original.ds_banda,
+      campos: (original.campos ?? []).map((c: any) => ({ ...c, id: gerarId() })),
+      filtros: (original.filtros ?? []).map((f: any) => ({ ...f, id: gerarId() })),
+      ordenacao: (original.ordenacao ?? []).map((o: any) => ({ ...o, id: gerarId() })),
+    };
+    const idx = bandas.findIndex((b) => b.id === id);
+    const updated = [...bandas];
+    updated.splice(idx + 1, 0, clone);
+    onChange(updated);
+    setContextMenu(null);
+  }
+
   const columns = useMemo(() => [
     {
       key: "_actions",
@@ -197,30 +219,30 @@ export default function BandasRelatorioTable({
       render: (row: Banda) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {
-      key: "nome",
+      key: "ds_banda",
       label: "Banda",
       render: (row: Banda) => {
         if (editingId === row.id) {
           return (            <input
-              value={row.nome}
-              onChange={(e) => atualizar(row.id, { nome: e.target.value })}
+              value={row.ds_banda}
+              onChange={(e) => atualizar(row.id, { ds_banda: e.target.value })}
               className={inputClass}
             />
           );
         }
-        return <span className="text-sm">{row.nome || "---"}</span>;
+        return <span className="text-sm">{row.ds_banda || "---"}</span>;
       },
     },
     {
-      key: "colecao",
+      key: "ie_colecao_principal",
       label: "Coleção principal",
       render: (row: Banda) => {
-        const isCabecalhoOuRodape = row.tipo === 'cabecalho' || row.tipo === 'rodape';
+        const isCabecalhoOuRodape = row.ie_tipo_banda === 'cabecalho' || row.ie_tipo_banda === 'rodape';
         if (editingId === row.id) {
           return (
             <Select
-              value={row.colecao ?? ''}
-              onChange={(v) => atualizar(row.id, { colecao: v })}
+              value={row.ie_colecao_principal ?? ''}
+              onChange={(v) => atualizar(row.id, { ie_colecao_principal: v })}
               options={[{ value: '', label: '---' }, ...colecaoOptions]}
               showPlaceholder={false}
               className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
@@ -229,18 +251,18 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        return <span className="text-sm">{row.colecao || '---'}</span>;
+        return <span className="text-sm">{row.ie_colecao_principal || '---'}</span>;
       },
     },
     {
-      key: "tipo",
+      key: "ie_tipo_banda",
       label: "Tipo",
       render: (row: Banda) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.tipo ?? ''}
-              onChange={(v) => atualizar(row.id, { tipo: v as any })}
+              value={row.ie_tipo_banda ?? ''}
+              onChange={(v) => atualizar(row.id, { ie_tipo_banda: v as any })}
               options={[{ value: '', label: '---' }, { value: 'lista', label: 'Lista' }, { value: 'texto_valor', label: 'Texto/Valor' }, { value: 'cabecalho', label: 'Cabeçalho' }, { value: 'rodape', label: 'Rodapé' }]}
               showPlaceholder={false}
               className={inputClass}
@@ -248,12 +270,12 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        const lbl = row.tipo === 'lista' ? 'Lista' : row.tipo === 'texto_valor' ? 'Texto/Valor' : row.tipo === 'cabecalho' ? 'Cabeçalho' : row.tipo === 'rodape' ? 'Rodapé' : '---';
+        const lbl = row.ie_tipo_banda === 'lista' ? 'Lista' : row.ie_tipo_banda === 'texto_valor' ? 'Texto/Valor' : row.ie_tipo_banda === 'cabecalho' ? 'Cabeçalho' : row.ie_tipo_banda === 'rodape' ? 'Rodapé' : '---';
         return <span className="text-sm">{lbl}</span>;
       },
     },
     {
-      key: "posicao",
+      key: "nr_posicao",
       label: "Posição",
       width: 100,
       render: (row: Banda) => {
@@ -262,20 +284,20 @@ export default function BandasRelatorioTable({
             <input
               type="text"
               inputMode="numeric"
-              value={row.posicao}
+              value={row.nr_posicao}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9]/g, "");
-                atualizar(row.id, { posicao: v ? Number(v) : 0 });
+                atualizar(row.id, { nr_posicao: v ? Number(v) : 0 });
               }}
               className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
             />
           );
         }
-        return <span className="text-sm">{row.posicao || "---"}</span>;
+        return <span className="text-sm">{row.nr_posicao || "---"}</span>;
       },
     },
     {
-      key: "altura",
+      key: "nr_altura",
       label: "Altura",
       width: 80,
       render: (row: Banda) => {
@@ -284,16 +306,16 @@ export default function BandasRelatorioTable({
             <input
               type="text"
               inputMode="numeric"
-              value={row.altura ?? ''}
+              value={row.nr_altura ?? ''}
               onChange={(e) => {
                 const v = e.target.value.replace(/[^0-9]/g, "");
-                atualizar(row.id, { altura: v ? Number(v) : undefined });
+                atualizar(row.id, { nr_altura: v ? Number(v) : undefined });
               }}
               className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
             />
           );
         }
-        return <span className="text-sm">{row.altura != null ? row.altura : '---'}</span>;
+        return <span className="text-sm">{row.nr_altura != null ? row.nr_altura : '---'}</span>;
       },
     },
   ], [editingId, bandas]);
@@ -324,6 +346,7 @@ export default function BandasRelatorioTable({
           >
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setContextMenu(null); if (onViewBanda) { const b = bandas.find((x) => x.id === contextMenu.id); if (b) onViewBanda(b); } }}>Ver</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => duplicar(contextMenu.id)}>Duplicar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => excluir(contextMenu.id)}>Excluir</button>
           </div>
         </>

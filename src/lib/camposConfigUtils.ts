@@ -199,6 +199,28 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_manutencao.ds_correcoes", label: "Correções", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
   ],
+  relatorio: [
+    { key: "relatorio.ds_relatorio", label: "Descrição", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.ie_formato", label: "Formato", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.ds_nome_arquivo", label: "Nome do arquivo", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.ie_pagina", label: "Página", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.ie_orientacao", label: "Orientação", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.ie_borda", label: "Borda", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.nr_margem_superior", label: "Margem superior", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.nr_margem_inferior", label: "Margem inferior", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.nr_margem_esquerda", label: "Margem esquerda", tipo: "Relatório", colecao: "relatorio" },
+    { key: "relatorio.nr_margem_direita", label: "Margem direita", tipo: "Relatório", colecao: "relatorio" },
+
+    { key: "relatorio_bandas.ds_banda", label: "Banda", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.ie_tipo_banda", label: "Tipo", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.ie_colecao_principal", label: "Coleção principal", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.nr_posicao", label: "Posição", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.nr_altura", label: "Altura", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.ie_borda_superior", label: "Borda superior", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.ie_borda_inferior", label: "Borda inferior", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.ie_borda_esquerda", label: "Borda esquerda", tipo: "Banda", colecao: "relatorio_bandas" },
+    { key: "relatorio_bandas.ie_borda_direita", label: "Borda direita", tipo: "Banda", colecao: "relatorio_bandas" },
+  ],
   estruturaAcademica: [
     // Matrícula, Desligamento, Status e Motivo desligamento não são
     // configuráveis (campos fixos: desabilitados no formulário).

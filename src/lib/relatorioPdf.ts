@@ -105,6 +105,68 @@ function pxToMm(px: number): number {
 }
 
 /**
+ * Desenha uma borda ao redor da área de conteúdo (margens da página)
+ * conforme o estilo selecionado.
+ */
+function desenharBordaPagina(
+  doc: jsPDF,
+  estiloBorda: RelatorioConfigPdf['estiloBorda'],
+  marginTop: number,
+  marginBottom: number,
+  marginLeft: number,
+  marginRight: number,
+): void {
+  if (!estiloBorda) return;
+
+  const pageW = doc.internal.pageSize.getWidth();
+  const pageH = doc.internal.pageSize.getHeight();
+  const x1 = marginLeft;
+  const y1 = marginTop;
+  const x2 = pageW - marginRight;
+  const y2 = pageH - marginBottom;
+
+  doc.setDrawColor(0, 0, 0);
+  doc.setFillColor(255, 255, 255);
+
+  switch (estiloBorda) {
+    case 'solid_fina':
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([], 0);
+      doc.rect(x1, y1, x2 - x1, y2 - y1, 'S');
+      break;
+
+    case 'solid_grossa':
+      doc.setLineWidth(0.8);
+      doc.setLineDashPattern([], 0);
+      doc.rect(x1, y1, x2 - x1, y2 - y1, 'S');
+      break;
+
+    case 'dupla': {
+      const gap = 1.2;
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([], 0);
+      doc.rect(x1, y1, x2 - x1, y2 - y1, 'S');
+      doc.rect(x1 + gap, y1 + gap, (x2 - x1) - gap * 2, (y2 - y1) - gap * 2, 'S');
+      break;
+    }
+
+    case 'tracejada':
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([3, 2], 0);
+      doc.rect(x1, y1, x2 - x1, y2 - y1, 'S');
+      doc.setLineDashPattern([], 0);
+      break;
+
+    case 'pontilhada':
+      doc.setLineWidth(0.3);
+      doc.setLineDashPattern([0.8, 1.5], 0);
+      doc.rect(x1, y1, x2 - x1, y2 - y1, 'S');
+      doc.setLineDashPattern([], 0);
+      break;
+  }
+}
+
+/**
  * Formata valor para exibição (moeda, data, etc).
  */
 function formatarValor(valor: any, campo: RelatorioCampo): string {
@@ -144,6 +206,7 @@ function renderizarTabelaBanda(
   marginBottom: number,
   contentW: number,
   mapFontJsPdf: (fonte?: string) => string,
+  bordas?: { superior?: boolean; inferior?: boolean; esquerda?: boolean; direita?: boolean },
 ): number {
   if (campos.length === 0) return yStart;
 
@@ -160,10 +223,13 @@ function renderizarTabelaBanda(
 
   let y = yStart;
 
+  const bordaOffset = config.estiloBorda ? 2 : 0;
   function checkPage(needed: number) {
     if (y + needed > pageH - marginBottom) {
       doc.addPage();
-      y = marginTop;
+      y = marginTop + bordaOffset;
+      // Redesenhar borda na nova página
+      desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
       return true;
     }
     return false;
@@ -316,6 +382,21 @@ function renderizarTabelaBanda(
     y += rowH;
   }
 
+  // ── Desenhar bordas da banda (se configuradas) ──
+  if (bordas && (bordas.superior || bordas.inferior || bordas.esquerda || bordas.direita)) {
+    const totalH = y - yStart;
+    const x0 = marginLeft;
+    const x1 = marginLeft + contentW;
+    const y0 = yStart;
+    const y1 = yStart + totalH;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    if (bordas.superior) doc.line(x0, y0, x1, y0);
+    if (bordas.inferior) doc.line(x0, y1, x1, y1);
+    if (bordas.esquerda) doc.line(x0, y0, x0, y1);
+    if (bordas.direita) doc.line(x1, y0, x1, y1);
+  }
+
   return y;
 }
 
@@ -335,6 +416,9 @@ function renderizarTextoValorBanda(
   marginTop: number,
   mapFontJsPdf: (fonte?: string) => string,
   bandHeightMm?: number,
+  bordas?: { superior?: boolean; inferior?: boolean; esquerda?: boolean; direita?: boolean },
+  contentW?: number,
+  usuarioGeracao?: string,
 ): void {
   if (campos.length === 0) return;
 
@@ -356,6 +440,8 @@ function renderizarTextoValorBanda(
       texto = fmtHora(agora);
     } else if (tipoCampo === 'data_horario_geracao') {
       texto = `${fmtData(agora)} ${fmtHora(agora)}`;
+    } else if (tipoCampo === 'usuario_geracao') {
+      texto = usuarioGeracao ?? (relatorio as any).ds_usuario_criacao ?? '';
     } else if (reg && campo.chave) {
       const valor = obterValorCampo(reg, campo.chave);
       texto = formatarValor(valor, campo);
@@ -402,6 +488,21 @@ function renderizarTextoValorBanda(
       doc.line(lineX, lineY, lineX + textWidth, lineY);
     }
   });
+
+  // ── Desenhar bordas da banda Texto/Valor (se configuradas) ──
+  if (bordas && (bordas.superior || bordas.inferior || bordas.esquerda || bordas.direita) && contentW) {
+    const pageH = doc.internal.pageSize.getHeight();
+    const x0 = marginLeft;
+    const x1 = marginLeft + contentW;
+    const y0 = yBandStart;
+    const y1 = bandHeightMm != null ? yBandStart + bandHeightMm : pageH - 20;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    if (bordas.superior) doc.line(x0, y0, x1, y0);
+    if (bordas.inferior) doc.line(x0, y1, x1, y1);
+    if (bordas.esquerda) doc.line(x0, y0, x0, y1);
+    if (bordas.direita) doc.line(x1, y0, x1, y1);
+  }
 }
 
 
@@ -417,6 +518,11 @@ export interface BandaPdfData {
   tipo?: 'lista' | 'cabecalho' | 'rodape';
   /** Altura da banda em pixels (distância até a próxima). */
   altura?: number;
+  /** Bordas da banda. */
+  ie_borda_superior?: boolean;
+  ie_borda_inferior?: boolean;
+  ie_borda_esquerda?: boolean;
+  ie_borda_direita?: boolean;
   /** Campos da banda. */
   campos: RelatorioCampo[];
   /** Registros da banda. */
@@ -427,6 +533,7 @@ export function gerarPdf(
   relatorio: Relatorio,
   registros: Record<string, any>[],
   bandasRegistros?: BandaPdfData[],
+  usuarioGeracao?: string,
 ): void {
   const { configPdf } = relatorio;
   const config: RelatorioConfigPdf = configPdf ?? {
@@ -436,6 +543,7 @@ export function gerarPdf(
     cabecalho: { incluir: false },
     rodape: { incluir: false },
     incluirBordas: true,
+    estiloBorda: null,
     zebrado: true,
     tamanhoFonte: 10,
     quebraPaginaPorGrupo: false,
@@ -458,6 +566,11 @@ export function gerarPdf(
   const fontSize = config.tamanhoFonte;
   const lineHeight = fontSize * 0.5;
 
+  // ── Offset para o conteúdo ficar dentro da borda (empurra conteúdo abaixo da borda superior) ──
+  const BORDA_CONTEUDO_OFFSET = config.estiloBorda ? 2 : 0;
+
+  // ── Borda da página será desenhada após o cabeçalho ──
+
   function mapFontJsPdf(fonte?: string): string {
     const f = (fonte || '').toLowerCase();
     if (f.includes('courier') || f.includes('console') || f.includes('mono')) return 'courier';
@@ -466,7 +579,7 @@ export function gerarPdf(
   }
   const fontCampo = mapFontJsPdf(relatorio.fonteCampo);
 
-  let y = marginTop;
+  let y = marginTop + BORDA_CONTEUDO_OFFSET;
   let onNewPage: (() => void) | null = null;
 
   function checkPage(needed: number) {
@@ -487,26 +600,30 @@ export function gerarPdf(
     const bandaRodape = bandasOrdenadas.filter((b) => b.tipo === 'rodape');
     const bandasConteudo = bandasOrdenadas.filter((b) => b.tipo !== 'cabecalho' && b.tipo !== 'rodape');
 
-    // Renderizar cabeçalho de banda no topo de cada página
+    // Renderizar cabeçalho de banda no topo de cada página (abaixo da borda)
     function renderCabecalhoBanda() {
       bandaCabecalho.forEach((bc) => {
         renderizarTextoValorBanda(
           doc, relatorio, config, bc.campos, bc.registros,
-          y, marginLeft, marginTop, mapFontJsPdf,
+          y + BORDA_CONTEUDO_OFFSET, marginLeft, marginTop, mapFontJsPdf,
           bc.altura ? pxToMm(bc.altura) : undefined,
+          { superior: bc.ie_borda_superior, inferior: bc.ie_borda_inferior, esquerda: bc.ie_borda_esquerda, direita: bc.ie_borda_direita },
+          contentW, usuarioGeracao,
         );
         if (bc.altura) y += pxToMm(bc.altura);
       });
     }
 
-    // Renderizar rodapé de banda na base de cada página
+    // Renderizar rodapé de banda na base de cada página (acima da borda)
     function renderRodapeBanda() {
       bandaRodape.forEach((br) => {
-        const rodapeY = pageH - marginBottom - (br.altura ? pxToMm(br.altura) : 10);
+        const rodapeY = pageH - marginBottom - BORDA_CONTEUDO_OFFSET - (br.altura ? pxToMm(br.altura) : 10);
         renderizarTextoValorBanda(
           doc, relatorio, config, br.campos, br.registros,
           rodapeY, marginLeft, marginTop, mapFontJsPdf,
           br.altura ? pxToMm(br.altura) : undefined,
+          { superior: br.ie_borda_superior, inferior: br.ie_borda_inferior, esquerda: br.ie_borda_esquerda, direita: br.ie_borda_direita },
+          contentW, usuarioGeracao,
         );
       });
     }
@@ -514,11 +631,15 @@ export function gerarPdf(
     // Re-renderizar cabeçalho/rodapé a cada nova página
     onNewPage = () => {
       renderCabecalhoBanda();
+      desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
       renderRodapeBanda();
     };
 
     // Renderizar cabeçalho na primeira página
     renderCabecalhoBanda();
+
+    // Borda da página DEPOIS do cabeçalho (para englobá-lo)
+    desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
 
     let totalRegistros = 0;
 
@@ -537,12 +658,15 @@ export function gerarPdf(
           doc, relatorio, config, banda.campos, banda.registros,
           y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
           contentW, mapFontJsPdf,
+          { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
         );
       } else {
         renderizarTextoValorBanda(
           doc, relatorio, config, banda.campos, banda.registros,
           y, marginLeft, marginTop, mapFontJsPdf,
           banda.altura ? pxToMm(banda.altura) : undefined,
+          { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
+          contentW, usuarioGeracao,
         );
       }
       totalRegistros += banda.registros.length;
@@ -555,6 +679,12 @@ export function gerarPdf(
     // Pode ser adicionado via banda Rodapé com tipoCampo 'data_geracao' etc.
   } else {
     // ── Modo legado: tabela única ──
+    // Configurar onNewPage para redesenhar a borda em cada nova página
+    if (!onNewPage) {
+      onNewPage = () => {
+        desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
+      };
+    }
     y = renderizarTabelaBanda(
       doc, relatorio, config, relatorio.campos ?? [], registros,
       y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,

@@ -13,8 +13,8 @@ import { removerUndefined, montarUpdateComRemocoes } from "@/lib/firestoreUtils"
 import type { Relatorio } from "@/types/relatorio";
 import type { AuditAutor } from "@/services/auditService";
 
-const relatorioColecao = collection(db, "relatorios");
-const contadorDoc = doc(db, "_counters", "relatorios_sequence");
+const relatorioColecao = collection(db, "relatorio");
+const contadorDoc = doc(db, "_counters", "relatorio_sequence");
 
 async function obterProximoSequencia(): Promise<number> {
   try {
@@ -72,7 +72,7 @@ export async function criarRelatorio(
   });
 
   try {
-    const auditCol = collection(db, "relatorios", docRef.id, "auditoria");
+    const auditCol = collection(db, "relatorio", docRef.id, "auditoria");
     const snap = await getDoc(docRef);
     const full = snap.exists()
       ? snap.data()
@@ -96,7 +96,7 @@ export async function atualizarRelatorio(
   relatorio: Partial<Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "ds_usuario_criacao" | "ds_usuario_alteracao">>,
   autor?: AuditAutor
 ): Promise<void> {
-  const docRef = doc(db, "relatorios", id);
+  const docRef = doc(db, "relatorio", id);
   const snap = await getDoc(docRef);
   if (!snap.exists()) return;
 
@@ -121,7 +121,7 @@ export async function atualizarRelatorio(
   await updateDoc(docRef, updates);
 
   try {
-    const auditCol = collection(db, "relatorios", id, "auditoria");
+    const auditCol = collection(db, "relatorio", id, "auditoria");
     const full = removerUndefined({ ...currentData, ...relatorio, dt_alteracao: updates.dt_alteracao, ds_usuario_alteracao: updates.ds_usuario_alteracao }) as Record<string, any>;
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
@@ -136,6 +136,6 @@ export async function atualizarRelatorio(
 }
 
 export async function excluirRelatorio(id: string): Promise<void> {
-  const docRef = doc(db, "relatorios", id);
+  const docRef = doc(db, "relatorio", id);
   await deleteDoc(docRef);
 }

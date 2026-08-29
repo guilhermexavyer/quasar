@@ -7,7 +7,7 @@ export function formatRelatorioCellValue(key: keyof Relatorio, value: unknown): 
   if (!str) return "";
 
   switch (key) {
-    case "formato":
+    case "ie_formato":
       return str === "excel" ? "Excel (CSV)" : str === "pdf" ? "PDF" : str;
     case "dt_criacao":
     case "dt_alteracao":
@@ -60,6 +60,7 @@ export function defaultConfigPdf(): RelatorioConfigPdf {
       incluirNumeroPagina: true,
     },
     incluirBordas: true,
+    estiloBorda: null,
     zebrado: true,
     corZebra: "f8fafc",
     tamanhoFonte: 10,

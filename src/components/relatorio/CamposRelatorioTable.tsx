@@ -51,7 +51,7 @@ export interface CamposRelatorioRow {
   statusSistema?: boolean;
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor/Cabeçalho/Rodapé. */
-  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao';
+  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao';
   /** Conteúdo livre quando tipoCampo === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
@@ -217,6 +217,17 @@ export default function CamposRelatorioTable({
     setContextMenu(null);
   }
 
+  function duplicar(id: string) {
+    const original = campos.find((c) => c.id === id);
+    if (!original) return;
+    const clone: CamposRelatorioRow = { ...original, id: gerarId() };
+    const idx = campos.findIndex((c) => c.id === id);
+    const updated = [...campos];
+    updated.splice(idx + 1, 0, clone);
+    onChange(updated);
+    setContextMenu(null);
+  }
+
   const sortedCampos = [...campos].sort((a, b) => {
     if (!sortColumn) return 0;
     const av = a[sortColumn as keyof CamposRelatorioRow] ?? '';
@@ -371,15 +382,15 @@ export default function CamposRelatorioTable({
               value={row.tipoCampo ?? ''}
               onChange={(v) => atualizar(row.id, { tipoCampo: (v || undefined) as CamposRelatorioRow['tipoCampo'] })}
               options={ocultarColecaoCampo
-                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }]
-                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }]
+                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }]
+                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }]
               }
               showPlaceholder={true}
               className={inputClass}
             />
           );
         }
-        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração' };
+        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração' };
         const lbl = tipoLabels[row.tipoCampo ?? ''] ?? '---';
         return <span className="whitespace-nowrap">{lbl}</span>;
       },
@@ -677,7 +688,7 @@ export default function CamposRelatorioTable({
 
   // Filtrar colunas conforme a variante
   const textoValorHidden = new Set(['posicao', 'label', 'soma', 'estiloLabel', 'estiloSoma']);
-  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo']);
+  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo']);
   const colecaoCampoHidden = ocultarColecaoCampo ? new Set(['colecao', 'chave']) : new Set<string>();
   const visibleColumns = variant === 'texto_valor'
     ? columns.filter((c) => !textoValorHidden.has(c.key) && !colecaoCampoHidden.has(c.key))
@@ -712,6 +723,7 @@ export default function CamposRelatorioTable({
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
           >
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => duplicar(contextMenu.id)}>Duplicar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => excluir(contextMenu.id)}>Excluir</button>
             {variant === 'texto_valor' && (() => { const row = campos.find((c) => c.id === contextMenu.id); if (row?.tipoCampo === 'conteudo') { return (
               <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setConteudoModal({ id: contextMenu.id, value: row.conteudo ?? '' }); setContextMenu(null); }}>Conteúdo</button>

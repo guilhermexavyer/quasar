@@ -153,6 +153,17 @@ export default function OrdenacaoRelatorioTable({
     setContextMenu(null);
   }
 
+  function duplicar(id: string) {
+    const original = ordenacao.find((o) => o.id === id);
+    if (!original) return;
+    const clone: RelatorioOrdenacao = { ...original, id: gerarId() };
+    const idx = ordenacao.findIndex((o) => o.id === id);
+    const updated = [...ordenacao];
+    updated.splice(idx + 1, 0, clone);
+    onChange(updated);
+    setContextMenu(null);
+  }
+
   function moverParaCima(id: string) {
     const idx = ordenacao.findIndex((o) => o.id === id);
     if (idx <= 0) return;
@@ -277,6 +288,7 @@ export default function OrdenacaoRelatorioTable({
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
           >
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => duplicar(contextMenu.id)}>Duplicar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => excluir(contextMenu.id)}>Excluir</button>
             {ordenacao.length > 1 && (
               <>

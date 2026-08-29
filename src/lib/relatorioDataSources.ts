@@ -193,7 +193,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'relatorios',
+    value: 'relatorio',
     label: 'Relatórios',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },

@@ -5,9 +5,9 @@
 export interface Relatorio {
   id?: string;
   nr_sequencia: number;
-  /** Nome do relatório. */
+  /** Descrição do relatório. */
   ds_relatorio: string;
-  /** Descrição/observação. */
+  /** Observação. */
   ds_observacao?: string;
 
   /* ── Fonte de dados ── */
@@ -38,7 +38,23 @@ export interface Relatorio {
 
   /* ── Configuração de saída ── */
   /** Formato de saída: 'excel' ou 'pdf'. */
-  formato: 'excel' | 'pdf';
+  ie_formato: 'excel' | 'pdf';
+  /** Nome do arquivo de saída. */
+  ds_nome_arquivo?: string;
+  /** Tamanho da página (PDF). */
+  ie_pagina?: 'A4' | 'A3' | 'A5' | 'letter' | 'legal';
+  /** Orientação (PDF). */
+  ie_orientacao?: 'retrato' | 'paisagem';
+  /** Estilo da borda da página. */
+  ie_borda?: 'solid_fina' | 'solid_grossa' | 'dupla' | 'tracejada' | 'pontilhada' | null;
+  /** Margem superior (mm). */
+  nr_margem_superior?: number;
+  /** Margem inferior (mm). */
+  nr_margem_inferior?: number;
+  /** Margem esquerda (mm). */
+  nr_margem_esquerda?: number;
+  /** Margem direita (mm). */
+  nr_margem_direita?: number;
   /** Configurações específicas para Excel. */
   configExcel?: RelatorioConfigExcel;
   /** Configurações específicas para PDF. */
@@ -142,7 +158,7 @@ export interface RelatorioCampo {
   /** Se true, exibe o somatório dos valores desta coluna ao final do relatório. */
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor: 'valor' ou 'conteudo'. */
-  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao';
+  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao';
   /** Conteúdo livre quando tipoCampo === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
@@ -192,16 +208,25 @@ export interface RelatorioOrdenacao {
  */
 export interface RelatorioBanda {
   id: string;
+  nr_sequencia?: number;
   /** Nome da banda. */
-  nome: string;
-  /** Coleção principal da banda ( Firestore collection). */
-  colecao?: string;
+  ds_banda: string;
+  /** Coleção principal da banda. */
+  ie_colecao_principal?: string;
   /** Posição da banda no relatório. */
-  posicao: number;
+  nr_posicao: number;
   /** Tipo da banda. */
-  tipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
+  ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
   /** Altura da banda em pixels. */
-  altura?: number;
+  nr_altura?: number;
+  /** Borda superior da banda. */
+  ie_borda_superior?: boolean;
+  /** Borda inferior da banda. */
+  ie_borda_inferior?: boolean;
+  /** Borda esquerda da banda. */
+  ie_borda_esquerda?: boolean;
+  /** Borda direita da banda. */
+  ie_borda_direita?: boolean;
   /** Campos da lista (apenas para tipo 'lista'). */
   campos?: RelatorioCampo[];
   /** Filtros da lista. */
@@ -285,6 +310,8 @@ export interface RelatorioConfigPdf {
   };
   /** Se true, inclui bordas na tabela. */
   incluirBordas: boolean;
+  /** Estilo da borda da página (moldura nas margens). null = sem borda. */
+  estiloBorda?: 'solid_fina' | 'solid_grossa' | 'dupla' | 'tracejada' | 'pontilhada' | null;
   /** Se true, alterna cores nas linhas. */
   zebrado: boolean;
   /** Cor de preenchimento alternada (hex). */

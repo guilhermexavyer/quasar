@@ -10,7 +10,7 @@ import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import Select from "@/components/ui/Select";
 
 const RELATORIO_SELECT_OPTIONS = [
-  { value: 'relatorios', label: 'Relatórios' },
+  { value: 'relatorio', label: 'Relatórios' },
 ];
 
 interface RelatorioListViewProps {
@@ -27,6 +27,8 @@ interface RelatorioListViewProps {
   onManageSelectionChange: (v: string) => void;
   allowedSubmodulos?: string[];
   userId?: string;
+  initialColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
 }
 
 function formatCellValue(key: string, value: any): string {
@@ -66,8 +68,10 @@ export default function RelatorioListView({
   onSortChange,
   manageSelection,
   onManageSelectionChange,
-  allowedSubmodulos = ['relatorios'],
+  allowedSubmodulos = ['relatorio'],
   userId,
+  initialColumns,
+  onColumnsChange,
 }: RelatorioListViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
@@ -141,13 +145,18 @@ export default function RelatorioListView({
             ))}
           </div>
         ) : relatorios.length === 0 ? (
-          <div className="flex h-full items-center justify-center p-[15px]">
-            <p className="text-sm text-slate-500">Nenhum relatório configurado.</p>
+          <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
+            <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
+            <p className="mt-1 text-sm text-slate-500">
+              Clique em "Adicionar" para cadastrar um relatório.
+            </p>
           </div>
         ) : (
           <div className="flex-1 overflow-auto">
             <ResizableTable
               storageKeySuffix={userId}
+              initialColumns={initialColumns}
+              onColumnsChange={onColumnsChange}
               columns={COLUMNS.map((col) => ({
                 key: col.key,
                 label: col.label,

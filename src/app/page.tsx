@@ -290,7 +290,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.62.12";
+const SYSTEM_VERSION = "0.62.13";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -391,7 +391,7 @@ const PATRIMONIO_SELECT_OPTIONS = [
 ];
 
 const RELATORIO_SELECT_OPTIONS = [
-  { value: 'relatorios', label: 'Gerenciador de Relatórios' },
+  { value: 'relatorio', label: 'Gerenciador de Relatórios' },
 ];
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -820,7 +820,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'relatorio'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1202,23 +1202,30 @@ export default function Home() {
   const [relatorioParamValues, setRelatorioParamValues] = useState<Record<string, string>>({});
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
+  const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const relatorioAuditIdRef = useRef<string | null>(null);
+  const [relatorioAuditModalOpen, setRelatorioAuditModalOpen] = useState(false);
+  const [relatorioAuditLoading, setRelatorioAuditLoading] = useState(false);
+  const [relatorioAuditLogs, setRelatorioAuditLogs] = useState<AuditEntry[]>([]);
+  const [relatorioAuditBandaId, setRelatorioAuditBandaId] = useState<string | null>(null);
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
+  const bandaJustSavedRef = useRef(false);
 
   function handleRelatorioManageSelectionChange(v: string) {
     setRelatorioManageSelection(v);
     setRelatorioInteracted(true);
   }
 
-  // When the user navigates to relatorio section, auto-select 'relatorios' if interacted
+  // When the user navigates to relatorio section, auto-select 'relatorio' if interacted
   useEffect(() => {
     if (activeSection === 'relatorio' && relatorioInteracted && !relatorioManageSelection) {
-      setRelatorioManageSelection('relatorios');
+      setRelatorioManageSelection('relatorio');
     }
   }, [activeSection, relatorioInteracted, relatorioManageSelection]);
 
   const allowedRelatorioSubmodulos = useMemo(() => {
-    return ['relatorios'];
+    return ['relatorio'];
   }, []);
 
   function handleRelatorioSortChange(logicalIndex: number) {
@@ -1692,9 +1699,21 @@ export default function Home() {
     () => parseColunasConfig(currentUser?.config_colunas_as_perfil),
     [currentUser?.config_colunas_as_perfil]
   );
+  const relatorioColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_relatorio),
+    [currentUser?.config_colunas_relatorio]
+  );
+  const relatorioBandasColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_bandas),
+    [currentUser?.config_colunas_relatorio_bandas]
+  );
   const relatorioListaColunasConfig = useMemo(
     () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_lista),
     [currentUser?.config_colunas_relatorio_lista]
+  );
+  const relatorioDadosColunasConfig = useMemo(
+    () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_dados),
+    [currentUser?.config_colunas_relatorio_dados]
   );
   const relatorioFiltrosColunasConfig = useMemo(
     () => parseStringColunasConfig(currentUser?.config_colunas_relatorio_filtros),
@@ -2627,6 +2646,7 @@ export default function Home() {
     setRelatorioForm(null);
     setRelatorioView('builder');
     setMessage('');
+    setRelatorioAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   }
 
   function openRelatorioEditForm(relatorio: Relatorio) {
@@ -2634,6 +2654,12 @@ export default function Home() {
     setRelatorioForm(relatorio);
     setRelatorioView('builder');
     setMessage('');
+    setRelatorioAuditInfo({
+      createdAt: relatorio.dt_criacao ?? '',
+      updatedAt: relatorio.dt_alteracao ?? '',
+      createdBy: relatorio.ds_usuario_criacao ?? '',
+      updatedBy: relatorio.ds_usuario_alteracao ?? '',
+    });
   }
 
   function closeRelatorioBuilder() {
@@ -2643,6 +2669,15 @@ export default function Home() {
   }
 
   async function handleRelatorioSave(data: Omit<Relatorio, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>) {
+    // Se a banda já salvou e os dados não mudaram, mostrar loading e fechar
+    if (bandaJustSavedRef.current) {
+      bandaJustSavedRef.current = false;
+      setRelatorioSubmitting(true);
+      await new Promise((r) => setTimeout(r, 600));
+      setRelatorioSubmitting(false);
+      closeRelatorioBuilder();
+      return;
+    }
     setRelatorioSubmitting(true);
     setMessage('');
     try {
@@ -2660,6 +2695,25 @@ export default function Home() {
       setMessage('Erro ao salvar relatório.');
     } finally {
       setRelatorioSubmitting(false);
+    }
+  }
+
+  /** Salva a banda diretamente no Firestore (gera log de auditoria) */
+  async function handleBandaSave(bandasAtualizadas: any[]) {
+    if (!relatorioEditingId || !relatorioForm) return;
+    try {
+      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
+      // Monta o objeto completo do relatório com as bandas atualizadas
+      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorioForm as any;
+      const agora = new Date().toISOString();
+      await atualizarRelatorio(relatorioEditingId, { ...rest, bandas: bandasAtualizadas }, auditAutor);
+      bandaJustSavedRef.current = true;
+      // Atualiza o estado local com as bandas salvas
+      setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasAtualizadas, dt_alteracao: agora, ds_usuario_alteracao: auditAutor.usuarioNome } : prev);
+      setRelatorioAuditInfo((prev) => ({ ...prev, updatedAt: agora, updatedBy: auditAutor.usuarioNome }));
+      await loadRelatorios();
+    } catch (err) {
+      console.error('[BANDA SAVE] ERRO:', err);
     }
   }
 
@@ -2698,21 +2752,21 @@ export default function Home() {
     setMessage('');
     try {
       const todasBandas = relatorio.bandas ?? [];
-      const bandasComColecao = todasBandas.filter((b) => b.colecao);
-      const bandasSemColecao = todasBandas.filter((b) => !b.colecao);
+      const bandasComColecao = todasBandas.filter((b) => b.ie_colecao_principal);
+      const bandasSemColecao = todasBandas.filter((b) => !b.ie_colecao_principal);
 
-      if (relatorio.formato !== 'excel' && todasBandas.length > 0) {
+      if (relatorio.ie_formato !== 'excel' && todasBandas.length > 0) {
         // Modo Bandas: consultar cada banda separadamente
         const bandasPdfData: import('@/lib/relatorioPdf').BandaPdfData[] = [];
         let totalRegistros = 0;
 
         for (const banda of bandasComColecao) {
-          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.colecao!, campos: banda.campos ?? [], filtros: banda.filtros ?? [], ordenacao: banda.ordenacao ?? [] };
+          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: banda.filtros ?? [], ordenacao: banda.ordenacao ?? [] };
           const resultado = await executarConsultaRelatorio(relatorioBanda);
-          const dsBanda = getDataSource(banda.colecao!);
+          const dsBanda = getDataSource(banda.ie_colecao_principal!);
           const camposResolvidos = (banda.campos ?? []).map((c) => ({
             ...c,
-            chave: resolverChaveCampo(c, banda.colecao!, dsBanda?.campos ?? []),
+            chave: resolverChaveCampo(c, banda.ie_colecao_principal!, dsBanda?.campos ?? []),
           }));
           const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
             const regResolvido = { ...reg };
@@ -2723,22 +2777,22 @@ export default function Home() {
                 for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
                 const campoFinal = partes[partes.length - 1];
                 if (obj && typeof obj[campoFinal] === 'string') {
-                  obj[campoFinal] = resolverStatusLabel(c.colecao || banda.colecao!, obj[campoFinal]);
+                  obj[campoFinal] = resolverStatusLabel(c.colecao || banda.ie_colecao_principal!, obj[campoFinal]);
                 }
               }
             }
             return regResolvido;
           });
-          bandasPdfData.push({ nome: banda.nome || 'Banda', posicao: banda.posicao, tipo: banda.tipo as any, altura: banda.altura, campos: camposResolvidos, registros: registrosResolvidos });
+          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, campos: camposResolvidos, registros: registrosResolvidos });
           totalRegistros += registrosResolvidos.length;
         }
 
         // Bandas sem coleção (Cabeçalho/Rodapé) — sem consulta, apenas dados estáticos
         for (const banda of bandasSemColecao) {
-          bandasPdfData.push({ nome: banda.nome || 'Banda', posicao: banda.posicao, tipo: banda.tipo as any, altura: banda.altura, campos: banda.campos ?? [], registros: [{}] });
+          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, campos: banda.campos ?? [], registros: [{}] });
         }
 
-        gerarPdf(relatorio, [], bandasPdfData);
+        gerarPdf(relatorio, [], bandasPdfData, currentUser?.ds_usuario ?? undefined);
         setMessage(`Relatório gerado com sucesso! ${totalRegistros} registro(s) encontrado(s).`);
       } else {
         const resultado = await executarConsultaRelatorio(relatorio);
@@ -2768,10 +2822,10 @@ export default function Home() {
           return regResolvido;
         });
         const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
-        if (relatorio.formato === 'excel') {
+        if (relatorio.ie_formato === 'excel') {
           gerarERealizarDownloadExcel(relatorioResolvido, registrosResolvidos);
         } else {
-          gerarPdf(relatorioResolvido, registrosResolvidos);
+          gerarPdf(relatorioResolvido, registrosResolvidos, undefined, currentUser?.ds_usuario ?? undefined);
         }
         setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
       }
@@ -7274,6 +7328,18 @@ export default function Home() {
       });
   }
 
+  function handleRelatorioDadosColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_relatorio_dados: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_relatorio_dados: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Relatório Dados)', err);
+      });
+  }
+
   function handleRelatorioFiltrosColumnsChange(order: string[], widths: Record<string, number>) {
     if (!currentUser?.id) return;
     const serialized = serializeStringColunasConfig(order, widths);
@@ -7296,6 +7362,46 @@ export default function Home() {
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Relatório Ordenação)', err);
       });
+  }
+
+  function handleRelatorioColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_relatorio: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_relatorio: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Relatório)', err);
+      });
+  }
+
+  function handleRelatorioBandasColumnsChange(order: string[], widths: Record<string, number>) {
+    if (!currentUser?.id) return;
+    const serialized = serializeStringColunasConfig(order, widths);
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_relatorio_bandas: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, config_colunas_relatorio_bandas: serialized } : u));
+      })
+      .catch((err) => {
+        console.error('Erro ao salvar configuração de colunas (Relatório Bandas)', err);
+      });
+  }
+
+  async function openRelatorioAuditModal(relatorioId?: string | null, bandaId?: string | null) {
+    if (!relatorioId) return;
+    setAuditDocumentType('relatorio' as any);
+    setRelatorioAuditBandaId(bandaId ?? null);
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('relatorio', relatorioId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
   }
 
   function handleCgColumnsChange(config: ColunasConfig) {
@@ -8202,11 +8308,14 @@ export default function Home() {
                      userId={currentUser?.id}
                      initialListaColumns={relatorioListaColunasConfig}
                      onListaColumnsChange={handleRelatorioListaColumnsChange}
+                     initialDadosColumns={relatorioDadosColunasConfig}
+                     onDadosColumnsChange={handleRelatorioDadosColumnsChange}
                      initialFiltrosColumns={relatorioFiltrosColunasConfig}
                      onFiltrosColumnsChange={handleRelatorioFiltrosColumnsChange}
-                     initialOrdenacaoColumns={relatorioOrdenacaoColunasConfig}
-                     onOrdenacaoColumnsChange={handleRelatorioOrdenacaoColumnsChange}
-                     contextMenuItems={relatorioEditingId ? [
+                     initialOrdenacaoColumns={relatorioOrdenacaoColunasConfig}                      onOrdenacaoColumnsChange={handleRelatorioOrdenacaoColumnsChange}
+                      initialBandasColumns={relatorioBandasColunasConfig}
+                      onBandasColumnsChange={handleRelatorioBandasColumnsChange}
+                      contextMenuItems={relatorioEditingId ? [
                        { label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } },
                        { label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } },
                        { label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } },
@@ -8215,7 +8324,15 @@ export default function Home() {
                      onNextRecord={goToNextRelatorioRecord}
                      hasPrevRecord={hasPrevRelatorioRecord}
                      hasNextRecord={hasNextRelatorioRecord}
-                   />
+                     createdAt={relatorioAuditInfo.createdAt}
+                     updatedAt={relatorioAuditInfo.updatedAt}
+                     createdBy={relatorioAuditInfo.createdBy}
+                     updatedBy={relatorioAuditInfo.updatedBy}
+                     onOpenAudit={openRelatorioAuditModal}                      onOpenBandaAudit={openRelatorioAuditModal}
+                      onBandaSave={handleBandaSave}
+                      campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
+                      bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_bandas')}
+                    />
                 </div>
               ) : (
                 <RelatorioListView
@@ -8232,6 +8349,8 @@ export default function Home() {
                   onManageSelectionChange={handleRelatorioManageSelectionChange}
                   allowedSubmodulos={allowedRelatorioSubmodulos}
                   userId={currentUser?.id}
+                  initialColumns={relatorioColunasConfig}
+                  onColumnsChange={handleRelatorioColumnsChange}
                 />
               )
             ) : (
@@ -11239,6 +11358,50 @@ export default function Home() {
         const isAtivo = auditDocumentType === 'pat_ativo';
         const isParametros = auditDocumentType === 'pat_parametros';
         const isManutencao = auditDocumentType === 'pat_manutencao';
+        const isRelatorio = auditDocumentType === 'relatorio';
+        const isBanda = isRelatorio && !!relatorioAuditBandaId;
+        // Para bandas, extrair os dados da banda específica do array bandas
+        const extractBanda = (detalhes: any): Record<string, any> | null => {
+          if (!detalhes || !relatorioAuditBandaId) return null;
+          const bandas = detalhes.bandas;
+          if (!Array.isArray(bandas)) return null;
+          return bandas.find((b: any) => b.id === relatorioAuditBandaId) ?? null;
+        };
+        const bandaAfter = isBanda ? extractBanda(after) : null;
+        const bandaBefore = isBanda ? extractBanda(before) : null;
+        // Flattening: extrair campos aninhados (configPdf.*) para o relatório
+        const flattenRelatorio = (detalhes: any): Record<string, any> => {
+          if (!detalhes) return {};
+          const flat: Record<string, any> = {};
+          flat.nr_sequencia = detalhes.nr_sequencia;
+          flat.ds_relatorio = detalhes.ds_relatorio;
+          flat.formato = detalhes.ie_formato;
+          // Nome do arquivo: depende do formato
+          const cfg = detalhes.configPdf || detalhes.configExcel || {};
+          flat.titulo_arquivo = cfg.titulo || '';
+          // Config PDF
+          const pdf = detalhes.configPdf || {};
+          flat.pdf_pagina = pdf.tamanhoPagina || '';
+          flat.pdf_orientacao = pdf.orientacao || '';
+          flat.pdf_borda = pdf.estiloBorda || '';
+          const margens = pdf.margens || {};
+          flat.pdf_margem_superior = margens.superior ?? '';
+          flat.pdf_margem_inferior = margens.inferior ?? '';
+          flat.pdf_margem_esquerda = margens.esquerda ?? '';
+          flat.pdf_margem_direita = margens.direita ?? '';
+          // Bandas (resumo)
+          const bandas = detalhes.bandas;
+          if (Array.isArray(bandas)) {
+            flat.bandas_sequencia = bandas.map((b: any, i: number) =>
+              `${i + 1}. ${b.ds_banda || '(sem nome)'} [${b.ie_tipo_banda || '?'}]`
+            ).join('\n');
+          } else {
+            flat.bandas_sequencia = '';
+          }
+          return flat;
+        };
+        const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
+        const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
         const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo';
         const fieldsOrder = isPj
           ? [
@@ -11329,6 +11492,19 @@ export default function Home() {
           ? [
               'nr_seq_ativo', 'nr_seq_prestador_servico', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
+            ]
+          : isRelatorio && isBanda
+          ? [
+              'nome', 'tipo', 'largura', 'alinhamentoHorizontal', 'topoRegistro',
+              'alinhamento', 'estiloCampo', 'estiloLabel', 'estiloSoma', 'soma',
+              'corCampo', 'fonteCampo', 'tamanhoFonteCampo', 'posicao', 'colecao', 'chave',
+            ]
+          : isRelatorio
+          ? [
+              'nr_sequencia', 'ds_relatorio', 'formato', 'titulo_arquivo',
+              'pdf_pagina', 'pdf_orientacao', 'pdf_borda',
+              'pdf_margem_superior', 'pdf_margem_inferior', 'pdf_margem_esquerda', 'pdf_margem_direita',
+              'bandas_sequencia',
             ]
           : isCg
           ? [
@@ -11435,6 +11611,34 @@ export default function Home() {
                       dt_termino: 'Data de término',
                       ie_status_manutencao: 'Status',
                       vl_total: 'Valor total',
+                      ds_relatorio: 'Relatório',
+                      colecao: 'Coleção',
+                      formato: 'Formato',
+                      titulo_arquivo: 'Nome do arquivo',
+                      pdf_pagina: 'Página',
+                      pdf_orientacao: 'Orientação',
+                      pdf_borda: 'Borda',
+                      pdf_margem_superior: 'Margem superior',
+                      pdf_margem_inferior: 'Margem inferior',
+                      pdf_margem_esquerda: 'Margem esquerda',
+                      pdf_margem_direita: 'Margem direita',
+                      bandas_sequencia: 'Bandas',
+                      nome: 'Banda',
+                      tipo: 'Tipo',
+                      posicao: 'Posição',
+                      altura: 'Altura',
+                      largura: 'Largura',
+                      alinhamentoHorizontal: 'Esquerda',
+                      topoRegistro: 'Topo',
+                      alinhamento: 'Alinhamento',
+                      estiloCampo: 'Estilo registro',
+                      estiloLabel: 'Estilo label',
+                      estiloSoma: 'Estilo soma',
+                      soma: 'Soma',
+                      corCampo: 'Cor',
+                      fonteCampo: 'Fonte',
+                      tamanhoFonteCampo: 'Tamanho',
+                      chave: 'Campo',
                       cd_patrimonio: 'Patrimônio',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
@@ -11481,6 +11685,16 @@ export default function Home() {
                       if (field === 'ie_status') {
                         if (isColaborador) return formatColaboradorCellValue('ie_status', normalized);
                         return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
+                      }
+                      if (field === 'formato') {
+                        return String(normalized) === 'excel' ? 'Excel (CSV)' : String(normalized) === 'pdf' ? 'PDF' : String(normalized);
+                      }
+                      if (field === 'pdf_borda') {
+                        const map: Record<string, string> = { 'solid_fina': 'Sólida fina', 'solid_grossa': 'Sólida grossa', 'dupla': 'Dupla', 'tracejada': 'Tracejada', 'pontilhada': 'Pontilhada' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'pdf_orientacao') {
+                        return String(normalized) === 'retrato' ? 'Retrato' : String(normalized) === 'paisagem' ? 'Paisagem' : String(normalized);
                       }
                       // Responsáveis: array de { nr_seq_responsavel, nr_seq_grau_parentesco }.
                       if (field === 'responsaveis' && Array.isArray(normalized)) {
@@ -11615,6 +11829,18 @@ export default function Home() {
                           />
                         );
                       }
+                      if (field === 'bandas_sequencia') {
+                        const displayVal = getDisplay(field, val);
+                        const lines = displayVal.split('\n').filter((l: string) => l);
+                        return (
+                          <textarea
+                            disabled
+                            rows={Math.max(1, lines.length)}
+                            value={displayVal}
+                            className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none"
+                          />
+                        );
+                      }
                       // Valores múltiplos (arrays) são exibidos um em cima do outro.
                       if (Array.isArray(normalizeAuditValue(val))) {
                         return (
@@ -11639,18 +11865,22 @@ export default function Home() {
                       <div className="grid grid-cols-2 gap-x-6 gap-y-4 w-full">
                         <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Antes</div>
                         <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Depois</div>
-                        {fieldsOrder.map((field) => (
+                        {fieldsOrder.map((field) => {
+                          const effectiveBefore = isBanda ? bandaBefore : isRelatorio ? relatorioFlatBefore : before;
+                          const effectiveAfter = isBanda ? bandaAfter : isRelatorio ? relatorioFlatAfter : after;
+                          return (
                           <React.Fragment key={field}>
                             <div className="w-full min-w-0">
                               <div className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</div>
-                              {renderFieldValue(field, before ? (before as any)[field] : undefined)}
+                              {renderFieldValue(field, effectiveBefore ? (effectiveBefore as any)[field] : undefined)}
                             </div>
                             <div className="w-full min-w-0">
                               <div className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</div>
-                              {renderFieldValue(field, (after as any)[field])}
+                              {renderFieldValue(field, (effectiveAfter as any)[field])}
                             </div>
                           </React.Fragment>
-                        ))}
+                          );
+                        })}
                       </div>
                     );
                   })()}
