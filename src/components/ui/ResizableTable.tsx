@@ -106,15 +106,7 @@ export default function ResizableTable<T>({
       const savedOrder = saved.order.filter((k) => unpinned.includes(k));
       const extra = unpinned.filter((k) => !savedOrder.includes(k));
       setColumnOrder([...pinned, ...savedOrder, ...extra]);
-      // Respeitar width declarado na coluna: limpar largura salva para colunas
-      // que agora têm width definido (permite que novos defaults entrem em vigor).
-      const mergedWidths = { ...saved.widths };
-      columns.forEach((c) => {
-        if (c.width && c.width > 0) {
-          delete mergedWidths[c.key];
-        }
-      });
-      widthsRef.current = mergedWidths;
+      widthsRef.current = { ...saved.widths };
     } else {
       setColumnOrder([...pinned, ...unpinned]);
       widthsRef.current = {};
@@ -311,6 +303,10 @@ export default function ResizableTable<T>({
           break;
         }
       }
+
+      // Não permitir dropar colunas na seção de colunas fixas (pinned no início).
+      const pinnedCount = columnOrder.filter((k) => pinnedColumns.includes(k)).length;
+      targetIdx = Math.max(targetIdx, pinnedCount);
 
       const curVisualPos = columnOrder.indexOf(key);
       currentDropIdx = targetIdx !== curVisualPos && targetIdx !== curVisualPos + 1 ? targetIdx : null;
