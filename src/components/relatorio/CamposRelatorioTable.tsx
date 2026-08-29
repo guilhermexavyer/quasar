@@ -647,6 +647,35 @@ export default function CamposRelatorioTable({
       },
     },
     {
+      key: "backgroundCampo",
+      label: "Background",
+      width: 130,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          const bid = `bg-${row.id}`;
+          return (
+            <div className="relative" style={{ height: 26 }}>
+              <input
+                type="color"
+                id={bid}
+                value={row.backgroundCampo || '#ffffff'}
+                onChange={(e) => atualizar(row.id, { backgroundCampo: e.target.value })}
+                className="absolute opacity-0 w-0 h-0 pointer-events-none"
+              />
+              <div
+                className="w-full h-full cursor-pointer border border-slate-300"
+                style={{ backgroundColor: row.backgroundCampo || '#ffffff' }}
+                onClick={() => document.getElementById(bid)?.click()}
+              />
+            </div>
+          );
+        }
+        return (
+          <span className="block w-full h-4 border border-slate-300" style={{ backgroundColor: row.backgroundCampo || '#ffffff' }} />
+        );
+      },
+    },
+    {
       key: "fonteCampo",
       label: "Fonte",
       width: 130,
@@ -688,7 +717,7 @@ export default function CamposRelatorioTable({
 
   // Filtrar colunas conforme a variante
   const textoValorHidden = new Set(['posicao', 'label', 'soma', 'estiloLabel', 'estiloSoma']);
-  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo']);
+  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo', 'backgroundCampo']);
   const colecaoCampoHidden = ocultarColecaoCampo ? new Set(['colecao', 'chave']) : new Set<string>();
   const visibleColumns = variant === 'texto_valor'
     ? columns.filter((c) => !textoValorHidden.has(c.key) && !colecaoCampoHidden.has(c.key))
