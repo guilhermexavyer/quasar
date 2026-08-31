@@ -227,7 +227,8 @@ export default function CamposView({
   const menuCampo = campoMenu ? sortedCampos.find((c) => c.key === campoMenu.chave) : null;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 space-y-6">
+    <>
+      <div className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Altura mínima replica o header das listagens (botão Adicionar py-2.5 ≈ 42px):
           mantém o dropdown Pai e o container na mesma posição das demais funções. */}
       <div className="flex min-h-[42px] items-center gap-2">
@@ -375,6 +376,7 @@ export default function CamposView({
           </div>
         </div>
       </div>
+      </div>
 
       {campoMenu && menuCampo && selectedPerfil && podeAlterarStatusCampo && (
         <div ref={campoMenuRef}>
@@ -400,6 +402,6 @@ export default function CamposView({
           />
         </div>
       )}
-    </div>
+    </>
   );
 }

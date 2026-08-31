@@ -119,6 +119,8 @@ import {
   atualizarAtivo,
 } from "@/services/ativoService";
 import { obterParamCodigoPatrimonio } from "@/services/paramCodigoPatrimonioService";
+import { db } from "@/lib/firebase";
+import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -182,7 +184,7 @@ import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
 import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
-import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio } from "@/services/relatorioService";
+import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, salvarBandaAuditoria } from "@/services/relatorioService";
 import { gerarERealizarDownloadExcel } from "@/lib/relatorioExcel";
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
@@ -294,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.63.0";
+const SYSTEM_VERSION = "0.63.1";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2767,15 +2769,34 @@ export default function Home() {
     }
   }
 
-  /** Salva a banda diretamente no Firestore (gera log de auditoria) */
-  async function handleBandaSave(bandasAtualizadas: any[]) {
+  /** Salva a banda diretamente no Firestore e registra log de auditoria na coleção da banda */
+  async function handleBandaSave(bandasAtualizadas: any[], bandaDetailId?: string | null) {
     if (!relatorioEditingId || !relatorioForm) return;
     try {
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
-      // Monta o objeto completo do relatório com as bandas atualizadas
-      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorioForm as any;
       const agora = new Date().toISOString();
-      await atualizarRelatorio(relatorioEditingId, { ...rest, bandas: bandasAtualizadas }, auditAutor);
+      // Atualiza o documento do relatório SEM gerar log de auditoria no relatório
+      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorioForm as any;
+      const docRef = doc(db, 'relatorio', relatorioEditingId);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        await updateDoc(docRef, {
+          ...rest,
+          bandas: bandasAtualizadas,
+          dt_alteracao: agora,
+          ds_usuario_alteracao: auditAutor.usuarioNome,
+        });
+      }
+      // Registra log de auditoria APENAS na coleção da banda específica
+      if (bandaDetailId) {
+        const bandaAtual = bandasAtualizadas.find((b: any) => b.id === bandaDetailId);
+        const bandaAntiga = (relatorioForm as any).bandas?.find((b: any) => b.id === bandaDetailId) ?? null;
+        if (bandaAtual) {
+          const { id: _id, ...bandaDados } = bandaAtual;
+          const bandaAnteriorDados = bandaAntiga ? (() => { const { id: _aid, ...rest } = bandaAntiga; return rest; })() : null;
+          await salvarBandaAuditoria(bandaDetailId, bandaDados, bandaAnteriorDados, auditAutor);
+        }
+      }
       bandaJustSavedRef.current = true;
       // Atualiza o estado local com as bandas salvas
       setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasAtualizadas, dt_alteracao: agora, ds_usuario_alteracao: auditAutor.usuarioNome } : prev);
@@ -7500,8 +7521,14 @@ export default function Home() {
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const logs = await fetchAuditByDocumentId('relatorio', relatorioId);
-      setAuditLogs(logs);
+      // Se é auditoria de uma banda específica, lê da coleção da banda
+      if (bandaId) {
+        const logs = await fetchAuditByDocumentId('relatorio_bandas', bandaId);
+        setAuditLogs(logs);
+      } else {
+        const logs = await fetchAuditByDocumentId('relatorio', relatorioId);
+        setAuditLogs(logs);
+      }
     } catch (e) {
       setAuditLogs([]);
     } finally {
@@ -11573,15 +11600,9 @@ export default function Home() {
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
         const isBanda = isRelatorio && !!relatorioAuditBandaId;
-        // Para bandas, extrair os dados da banda específica do array bandas
-        const extractBanda = (detalhes: any): Record<string, any> | null => {
-          if (!detalhes || !relatorioAuditBandaId) return null;
-          const bandas = detalhes.bandas;
-          if (!Array.isArray(bandas)) return null;
-          return bandas.find((b: any) => b.id === relatorioAuditBandaId) ?? null;
-        };
-        const bandaAfter = isBanda ? extractBanda(after) : null;
-        const bandaBefore = isBanda ? extractBanda(before) : null;
+        // Para bandas, os detalhes já contêm os dados da banda diretamente
+        const bandaAfter = isBanda ? after : null;
+        const bandaBefore = isBanda ? before : null;
         // Flattening: extrair campos aninhados (configPdf.*) para o relatório
         const flattenRelatorio = (detalhes: any): Record<string, any> => {
           if (!detalhes) return {};
@@ -11705,12 +11726,10 @@ export default function Home() {
           ? [
               'nr_seq_ativo', 'nr_seq_prestador_servico', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
-            ]
-          : isRelatorio && isBanda
+            ]                      : isRelatorio && isBanda
           ? [
-              'nome', 'tipo', 'largura', 'alinhamentoHorizontal', 'topoRegistro',
-              'alinhamento', 'estiloCampo', 'estiloLabel', 'estiloSoma', 'soma',
-              'corCampo', 'fonteCampo', 'tamanhoFonteCampo', 'posicao', 'colecao', 'chave',
+              'ds_banda', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
+              'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
             ]
           : isRelatorio
           ? [
@@ -11824,8 +11843,7 @@ export default function Home() {
                       dt_termino: 'Data de término',
                       ie_status_manutencao: 'Status',
                       vl_total: 'Valor total',
-                      ds_relatorio: 'Relatório',
-                      colecao: 'Coleção',
+                      ds_relatorio: 'Descrição',
                       formato: 'Formato',
                       titulo_arquivo: 'Nome do arquivo',
                       pdf_pagina: 'Página',
@@ -11836,17 +11854,15 @@ export default function Home() {
                       pdf_margem_esquerda: 'Margem esquerda',
                       pdf_margem_direita: 'Margem direita',
                       bandas_sequencia: 'Bandas',
-                      nome: 'Banda',
-                      tipo: 'Tipo',
-                      posicao: 'Posição',
-                      altura: 'Altura',
-                      largura: 'Largura',
-                      alinhamentoHorizontal: 'Esquerda',
-                      topoRegistro: 'Topo',
-                      alinhamento: 'Alinhamento',
-                      estiloCampo: 'Estilo registro',
-                      estiloLabel: 'Estilo label',
-                      estiloSoma: 'Estilo soma',
+                      ds_banda: 'Banda',
+                      ie_tipo_banda: 'Tipo',
+                      ie_colecao_principal: 'Coleção principal',
+                      nr_posicao: 'Posição',
+                      nr_altura: 'Altura',
+                      ie_borda_superior: 'Borda superior',
+                      ie_borda_inferior: 'Borda inferior',
+                      ie_borda_esquerda: 'Borda esquerda',
+                      ie_borda_direita: 'Borda direita',
                       soma: 'Soma',
                       corCampo: 'Cor',
                       fonteCampo: 'Fonte',
@@ -11908,6 +11924,16 @@ export default function Home() {
                       }
                       if (field === 'pdf_orientacao') {
                         return String(normalized) === 'retrato' ? 'Retrato' : String(normalized) === 'paisagem' ? 'Paisagem' : String(normalized);
+                      }
+                      if (field === 'ie_tipo_banda') {
+                        const map: Record<string, string> = { 'lista': 'Lista', 'texto_valor': 'Texto/Valor', 'cabecalho': 'Cabeçalho', 'rodape': 'Rodapé' };
+                        return map[String(normalized)] ?? String(normalized);
+                      }
+                      if (field === 'ie_borda_superior' || field === 'ie_borda_inferior' || field === 'ie_borda_esquerda' || field === 'ie_borda_direita') {
+                        return String(normalized) === 'true' ? 'Sim' : String(normalized) === 'false' ? 'Não' : '---';
+                      }
+                      if (field === 'ie_colecao_principal') {
+                        return String(normalized) === '' ? '---' : String(normalized);
                       }
                       // Responsáveis: array de { nr_seq_responsavel, nr_seq_grau_parentesco }.
                       if (field === 'responsaveis' && Array.isArray(normalized)) {

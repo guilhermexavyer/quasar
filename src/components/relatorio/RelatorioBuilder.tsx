@@ -69,7 +69,7 @@ interface RelatorioBuilderProps {
   onOpenAudit?: (relatorioId?: string | null) => void;
   onOpenBandaAudit?: (relatorioId?: string | null, bandaId?: string | null) => void;
   /** Save direto no Firestore ao salvar a banda (gera log de auditoria) */
-  onBandaSave?: (bandas: any[]) => void;
+  onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => void;
   /** Regras de campos por perfil (colecao relatorios): campo → status (N/O/D). */
   campoRegras?: Record<string, CampoStatus>;
   /** Regras de campos por perfil (colecao relatorio_bandas): campo → status (N/O/D). */
@@ -407,7 +407,7 @@ export default function RelatorioBuilder({
             setBandas((prev) => {
               const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b);
               // Passa as bandas atualizadas diretamente para o save
-              setTimeout(() => onBandaSaveRef.current?.(updated), 0);
+              setTimeout(() => onBandaSaveRef.current?.(updated, currentBandaId), 0);
               return updated;
             });
           }
@@ -1165,7 +1165,7 @@ export default function RelatorioBuilder({
                       const o = ordenacaoRef.current;
                       setBandas((prev) => {
                         const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b);
-                        setTimeout(() => onBandaSaveRef.current?.(updated), 0);
+                        setTimeout(() => onBandaSaveRef.current?.(updated, currentBandaId), 0);
                         return updated;
                       });
                     }

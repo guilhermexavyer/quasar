@@ -74,9 +74,10 @@ export async function criarRelatorio(
   try {
     const auditCol = collection(db, "relatorio", docRef.id, "auditoria");
     const snap = await getDoc(docRef);
-    const full = snap.exists()
+    const rawFull = snap.exists()
       ? snap.data()
       : { ...dados, nr_sequencia, dt_criacao: agora, dt_alteracao: agora };
+    const { bandas: _b, ...full } = rawFull as any;
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? "-",
@@ -102,6 +103,7 @@ export async function atualizarRelatorio(
 
   const currentData = snap.data() as Record<string, any>;
   const hasChanges = Object.entries(relatorio).some(([key, value]) => {
+    if (key === "bandas") return false; // bandas têm auditoria própria
     const currentValue = currentData[key];
     const ehObjeto =
       (typeof value === "object" && value !== null) ||
@@ -122,7 +124,9 @@ export async function atualizarRelatorio(
 
   try {
     const auditCol = collection(db, "relatorio", id, "auditoria");
-    const full = removerUndefined({ ...currentData, ...relatorio, dt_alteracao: updates.dt_alteracao, ds_usuario_alteracao: updates.ds_usuario_alteracao }) as Record<string, any>;
+    const fullRaw = removerUndefined({ ...currentData, ...relatorio, dt_alteracao: updates.dt_alteracao, ds_usuario_alteracao: updates.ds_usuario_alteracao }) as Record<string, any>;
+    // Remove bandas do log do relatório — bandas têm sua própria auditoria
+    const { bandas: _bandas, ...full } = fullRaw;
     await addDoc(auditCol, {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome ?? "-",
@@ -138,4 +142,28 @@ export async function atualizarRelatorio(
 export async function excluirRelatorio(id: string): Promise<void> {
   const docRef = doc(db, "relatorio", id);
   await deleteDoc(docRef);
+}
+
+/** Salva auditoria de uma banda específica na coleção relatorio_bandas/{bandId}/auditoria */
+export async function salvarBandaAuditoria(
+  bandId: string,
+  bandaDados: Record<string, any>,
+  bandaAnterior: Record<string, any> | null,
+  autor?: AuditAutor
+): Promise<void> {
+  try {
+    const auditCol = collection(db, "relatorio_bandas", bandId, "auditoria");
+    const agora = new Date().toISOString();
+    const acao = bandaAnterior ? "update" : "create";
+    await addDoc(auditCol, {
+      usuarioId: autor?.usuarioId ?? null,
+      usuarioNome: autor?.usuarioNome ?? "-",
+      acao,
+      timestamp: agora,
+      detalhes: bandaDados,
+      ...(bandaAnterior ? { antes: bandaAnterior } : {}),
+    });
+  } catch (e) {
+    console.error("Erro ao registrar auditoria de banda", e);
+  }
 }
