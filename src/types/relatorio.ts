@@ -158,13 +158,17 @@ export interface RelatorioCampo {
   /** Se true, exibe o somatório dos valores desta coluna ao final do relatório. */
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor: 'valor' ou 'conteudo'. */
-  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao';
+  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
   /** Conteúdo livre quando tipoCampo === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
   fonteCampo?: string;
   /** Tamanho da fonte do campo em pontos (para banda Texto/Valor). */
   tamanhoFonteCampo?: number;
+  /** ID da imagem selecionada (quando tipoCampo === 'imagem'). */
+  imagemId?: string;
+  /** Tamanho da imagem em pixels (quando tipoCampo === 'imagem'). */
+  tamanhoImagem?: number;
 }
 
 /**

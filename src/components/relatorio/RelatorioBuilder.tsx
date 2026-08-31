@@ -76,6 +76,8 @@ interface RelatorioBuilderProps {
   bandaCampoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
   campoErros?: string[];
+  /** Lista de imagens cadastradas. */
+  imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
@@ -162,6 +164,7 @@ export default function RelatorioBuilder({
   campoRegras = {},
   bandaCampoRegras = {},
   campoErros = [],
+  imagens = [],
 }: RelatorioBuilderProps) {
   const onBandaSaveRef = useRef(onBandaSave);
   useEffect(() => { onBandaSaveRef.current = onBandaSave; }, [onBandaSave]);
@@ -442,7 +445,7 @@ export default function RelatorioBuilder({
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo, transparentCampo: c.transparentCampo,
         paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
         borderTopCampo: c.borderTopCampo, borderRightCampo: c.borderRightCampo, borderBottomCampo: c.borderBottomCampo, borderLeftCampo: c.borderLeftCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo, imagemId: c.imagemId, tamanhoImagem: c.tamanhoImagem,
       })),
       filtros: filtros.map((f) => ({ id: f.id, campo: f.campo, operador: f.operador, valor: f.valor, valorFinal: f.valorFinal, mascara: f.mascara, parametro: f.parametro })),
       ordenacao: ordenacao.map((o) => ({ id: o.id, campo: o.campo, direcao: o.direcao })),
@@ -485,7 +488,7 @@ export default function RelatorioBuilder({
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
     if (todosCampos.length === 0) errs.push("Selecione pelo menos um campo.");
-    if (todosCampos.some((c: any) => c.tipoCampo && c.tipoCampo !== 'conteudo' && c.tipoCampo !== 'data_geracao' && c.tipoCampo !== 'horario_geracao' && c.tipoCampo !== 'data_horario_geracao' && c.tipoCampo !== 'usuario_geracao' && !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    if (todosCampos.some((c: any) => c.tipoCampo && c.tipoCampo !== 'conteudo' && c.tipoCampo !== 'data_geracao' && c.tipoCampo !== 'horario_geracao' && c.tipoCampo !== 'data_horario_geracao' && c.tipoCampo !== 'usuario_geracao' && c.tipoCampo !== 'imagem' && !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
     setErros(errs);
     return errs.length === 0;
   }
@@ -514,7 +517,7 @@ export default function RelatorioBuilder({
         id: c.id, nr_sequencia: c.nr_sequencia, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo, transparentCampo: c.transparentCampo,
         paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo,
+        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo, imagemId: c.imagemId, tamanhoImagem: c.tamanhoImagem,
       }))),
       filtros: bandas.flatMap((b) => (b.filtros ?? []).filter((f: any) => f.campo)),
       ordenacao: bandas.flatMap((b) => (b.ordenacao ?? []).filter((o: any) => o.campo)),
@@ -892,7 +895,7 @@ export default function RelatorioBuilder({
           <section>
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">{bandaTipo === 'lista' ? 'Lista' : 'Dados'}</h2>
-              <button type="button" disabled={bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal}onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''; const seq = getNextCampoSeq(); setCampos((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, colecao: bandaTipo === 'lista' ? bColecao : '', chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#000000', backgroundCampo: '', transparentCampo: true, posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 100, formatacao: 'texto', statusSistema: false, soma: false, fonteCampo: 'Arial', tamanhoFonteCampo: 10, paddingTopCampo: 0, paddingRightCampo: 0, paddingBottomCampo: 0, paddingLeftCampo: 0, borderTopCampo: false, borderRightCampo: false, borderBottomCampo: false, borderLeftCampo: false }]); }} className={`text-sm cursor-pointer ${bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
+              <button type="button" disabled={bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal}onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''; const seq = getNextCampoSeq(); setCampos((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, colecao: bandaTipo === 'lista' ? bColecao : '', chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#000000', backgroundCampo: '', transparentCampo: true, posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 100, formatacao: 'texto', statusSistema: false, soma: false, fonteCampo: 'Arial', tamanhoFonteCampo: 10, imagemId: undefined, tamanhoImagem: 100, paddingTopCampo: 0, paddingRightCampo: 0, paddingBottomCampo: 0, paddingLeftCampo: 0, borderTopCampo: false, borderRightCampo: false, borderBottomCampo: false, borderLeftCampo: false }]); }} className={`text-sm cursor-pointer ${bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
             </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
@@ -907,6 +910,7 @@ export default function RelatorioBuilder({
                 variant={bandaTipo === 'lista' ? 'lista' : 'texto_valor'}
                 ocultarColecaoCampo={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
                 getNextSeq={getNextCampoSeq}
+                imagens={imagens}
               />
               </div>
               {bandaTipo === 'lista' && (

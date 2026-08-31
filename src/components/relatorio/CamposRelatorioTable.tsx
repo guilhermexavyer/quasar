@@ -29,6 +29,8 @@ interface CamposRelatorioTableProps {
   ocultarColecaoCampo?: boolean;
   /** Retorna o próximo nr_sequencia (nunca reutiliza). */
   getNextSeq?: () => number;
+  /** Lista de imagens cadastradas (para o campo Tipo = Imagem). */
+  imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
 }
 
 export interface CamposRelatorioRow {
@@ -65,17 +67,21 @@ export interface CamposRelatorioRow {
   statusSistema?: boolean;
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor/Cabeçalho/Rodapé. */
-  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao';
+  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
   /** Conteúdo livre quando tipoCampo === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
   fonteCampo?: string;
   /** Tamanho da fonte do campo em pontos (para banda Texto/Valor). */
   tamanhoFonteCampo?: number;
+  /** ID da imagem selecionada (quando tipoCampo === 'imagem'). */
+  imagemId?: string;
+  /** Tamanho da imagem em pixels. */
+  tamanhoImagem?: number;
 }
 
 /** Input numérico sem spinner, que permite apagar o 0. */
-function NumberInput({ value, onChange, min, max, className }: { value: number; onChange: (v: number) => void; min?: number; max?: number; className?: string }) {
+function NumberInput({ value, onChange, min, max, className, disabled }: { value: number; onChange: (v: number) => void; min?: number; max?: number; className?: string; disabled?: boolean }) {
   const [text, setText] = useState(String(value ?? ''));
   const [focused, setFocused] = useState(false);
 
@@ -92,6 +98,7 @@ function NumberInput({ value, onChange, min, max, className }: { value: number; 
       type="text"
       inputMode="numeric"
       className={className}
+      disabled={disabled}
       value={focused ? text : String(value ?? '')}
       onFocus={() => { setText(String(value ?? '')); setFocused(true); }}
       onChange={(e) => setText(e.target.value.replace(/[^0-9-]/g, ''))}
@@ -134,6 +141,7 @@ export default function CamposRelatorioTable({
   variant = 'lista',
   ocultarColecaoCampo = false,
   getNextSeq,
+  imagens = [],
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -405,15 +413,15 @@ export default function CamposRelatorioTable({
               value={row.tipoCampo ?? ''}
               onChange={(v) => atualizar(row.id, { tipoCampo: (v || undefined) as CamposRelatorioRow['tipoCampo'] })}
               options={ocultarColecaoCampo
-                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }]
-                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }]
+                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]
+                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]
               }
               showPlaceholder={true}
               className={inputClass}
             />
           );
         }
-        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração' };
+        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração', imagem: 'Imagem' };
         const lbl = tipoLabels[row.tipoCampo ?? ''] ?? '---';
         return <span className="whitespace-nowrap">{lbl}</span>;
       },
@@ -835,11 +843,56 @@ export default function CamposRelatorioTable({
         return <span>{row.tamanhoFonteCampo ?? 10}</span>;
       },
     },
+    {
+      key: "imagemId",
+      label: "Imagem",
+      width: 150,
+      render: (row: CamposRelatorioRow) => {
+        const desabilitado = row.tipoCampo !== 'imagem';
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.imagemId ?? ''}
+              onChange={(v) => atualizar(row.id, { imagemId: v || undefined })}
+              options={imagens.map((img) => ({ value: img.id, label: img.ds_imagem }))}
+              showPlaceholder={true}
+              disabled={desabilitado}
+              className={`${inputClass} ${desabilitado ? 'opacity-50' : ''}`}
+            />
+          );
+        }
+        if (desabilitado) return <span className="text-slate-400">---</span>;
+        const img = imagens.find((i) => i.id === row.imagemId);
+        return <span className="whitespace-nowrap truncate">{img?.ds_imagem ?? '---'}</span>;
+      },
+    },
+    {
+      key: "tamanhoImagem",
+      label: "Tamanho imagem",
+      width: 110,
+      render: (row: CamposRelatorioRow) => {
+        const desabilitado = row.tipoCampo !== 'imagem';
+        if (editingId === row.id) {
+          return (
+            <NumberInput
+              value={row.tamanhoImagem ?? 100}
+              onChange={(v) => atualizar(row.id, { tamanhoImagem: v })}
+              min={1}
+              max={2000}
+              disabled={desabilitado}
+              className={`${inputClass} ${desabilitado ? 'opacity-50' : ''}`}
+            />
+          );
+        }
+        if (desabilitado) return <span className="text-slate-400">---</span>;
+        return <span>{row.tamanhoImagem ?? 100}</span>;
+      },
+    },
   ];
 
   // Filtrar colunas conforme a variante
   const textoValorHidden = new Set(['posicao', 'label', 'soma', 'estiloLabel', 'estiloSoma']);
-  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo', 'backgroundCampo', 'paddingTopCampo', 'paddingRightCampo', 'paddingBottomCampo', 'paddingLeftCampo', 'borderTopCampo', 'borderRightCampo', 'borderBottomCampo', 'borderLeftCampo']);
+  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo', 'backgroundCampo', 'paddingTopCampo', 'paddingRightCampo', 'paddingBottomCampo', 'paddingLeftCampo', 'borderTopCampo', 'borderRightCampo', 'borderBottomCampo', 'borderLeftCampo', 'imagemId', 'tamanhoImagem']);
   const colecaoCampoHidden = ocultarColecaoCampo ? new Set(['colecao', 'chave']) : new Set<string>();
   const visibleColumns = variant === 'texto_valor'
     ? columns.filter((c) => !textoValorHidden.has(c.key) && !colecaoCampoHidden.has(c.key))
@@ -910,7 +963,6 @@ export default function CamposRelatorioTable({
                 className="w-full min-h-[300px] rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm resize-none focus:border-[#003056] focus:outline-none"
                 value={conteudoModal.value}
                 onChange={(e) => setConteudoModal((prev) => prev ? { ...prev, value: e.target.value } : null)}
-                placeholder="Digite o conteúdo..."
               />
             </div>
             <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">

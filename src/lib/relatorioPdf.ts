@@ -419,10 +419,13 @@ function renderizarTextoValorBanda(
   bordas?: { superior?: boolean; inferior?: boolean; esquerda?: boolean; direita?: boolean },
   contentW?: number,
   usuarioGeracao?: string,
+  imagensMap?: Record<string, string>,
 ): void {
   if (campos.length === 0) return;
 
   const reg = registros.length > 0 ? registros[0] : null;
+  const bordaOff = config.estiloBorda ? 2 : 0;
+  const yBandTop = yBandStart - bordaOff;
   const yBandEnd = bandHeightMm != null ? yBandStart + bandHeightMm : Infinity;
 
   const agora = new Date();
@@ -442,6 +445,22 @@ function renderizarTextoValorBanda(
       texto = `${fmtData(agora)} ${fmtHora(agora)}`;
     } else if (tipoCampo === 'usuario_geracao') {
       texto = usuarioGeracao ?? (relatorio as any).ds_usuario_criacao ?? '';
+    } else if (tipoCampo === 'imagem') {
+      // Renderizar imagem no PDF
+      const imagemId = (campo as any).imagemId;
+      if (!imagemId || !imagensMap?.[imagemId]) { texto = ''; } else {
+        const imgDataUrl = imagensMap[imagemId];
+        const tamanhoPx = (campo as any).tamanhoImagem ?? 100;
+        const tamanhoMm = pxToMm(tamanhoPx);
+        const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+        const yPos = yBandTop + pxToMm(campo.topoRegistro ?? 0);
+        if (yPos + tamanhoMm > yBandEnd) return;
+        try {
+          const fmt = imgDataUrl.includes('png') ? 'PNG' : 'JPEG';
+          doc.addImage(imgDataUrl, fmt, x, yPos, tamanhoMm, tamanhoMm);
+        } catch (e) { console.error('Erro ao adicionar imagem no PDF:', e); }
+        return;
+      }
     } else if (reg && campo.chave) {
       const valor = obterValorCampo(reg, campo.chave);
       texto = formatarValor(valor, campo);
@@ -454,8 +473,11 @@ function renderizarTextoValorBanda(
     const fontSizeCampo = (campo as any).tamanhoFonteCampo || relatorio.tamanhoFonteCampo || 10;
 
     const xBase = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
-    const y = yBandStart + pxToMm(campo.topoRegistro ?? 0);
     const larguraMm = pxToMm(campo.largura ?? 0);
+    const fontSizeMmCalc = fontSizeCampo * 0.352778;
+    const ascMmCalc = fontSizeMmCalc * 1.0;
+    const pTCalc = pxToMm((campo as any).paddingTopCampo ?? 2);
+    const y = yBandTop + pxToMm(campo.topoRegistro ?? 0) + ascMmCalc + pTCalc;
 
     // Ignorar itens que ultrapassam a altura da banda
     if (y > yBandEnd) return;
@@ -572,6 +594,7 @@ export function gerarPdf(
   registros: Record<string, any>[],
   bandasRegistros?: BandaPdfData[],
   usuarioGeracao?: string,
+  imagensMap?: Record<string, string>,
 ): void {
   const { configPdf } = relatorio;
   const config: RelatorioConfigPdf = configPdf ?? {
@@ -643,10 +666,10 @@ export function gerarPdf(
       bandaCabecalho.forEach((bc) => {
         renderizarTextoValorBanda(
           doc, relatorio, config, bc.campos, bc.registros,
-          y + BORDA_CONTEUDO_OFFSET, marginLeft, marginTop, mapFontJsPdf,
+          y, marginLeft, marginTop, mapFontJsPdf,
           bc.altura ? pxToMm(bc.altura) : undefined,
           { superior: bc.ie_borda_superior, inferior: bc.ie_borda_inferior, esquerda: bc.ie_borda_esquerda, direita: bc.ie_borda_direita },
-          contentW, usuarioGeracao,
+          contentW, usuarioGeracao, imagensMap,
         );
         if (bc.altura) y += pxToMm(bc.altura);
       });
@@ -661,7 +684,7 @@ export function gerarPdf(
           rodapeY, marginLeft, marginTop, mapFontJsPdf,
           br.altura ? pxToMm(br.altura) : undefined,
           { superior: br.ie_borda_superior, inferior: br.ie_borda_inferior, esquerda: br.ie_borda_esquerda, direita: br.ie_borda_direita },
-          contentW, usuarioGeracao,
+          contentW, usuarioGeracao, imagensMap,
         );
       });
     }
@@ -704,7 +727,7 @@ export function gerarPdf(
           y, marginLeft, marginTop, mapFontJsPdf,
           banda.altura ? pxToMm(banda.altura) : undefined,
           { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
-          contentW, usuarioGeracao,
+          contentW, usuarioGeracao, imagensMap,
         );
       }
       totalRegistros += banda.registros.length;

@@ -296,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.63.1";
+const SYSTEM_VERSION = "0.64.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1227,7 +1227,7 @@ export default function Home() {
   const [imagemSortAsc, setImagemSortAsc] = useState<boolean | null>(null);
   async function loadImagens() { try { const data = await obterImagens(); setImagens(data); } catch { /* */ } }
   function handleImagemSortChange(logicalIndex: number) { if (imagemSortColumn === logicalIndex) { if (imagemSortAsc === true) setImagemSortAsc(false); else if (imagemSortAsc === false) { setImagemSortColumn(null); setImagemSortAsc(null); } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } }
-  const filteredSortedImagens = useMemo(() => { const list = [...imagens]; if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
+  const filteredSortedImagens = useMemo(() => { const list = [...imagens]; if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'ds_usuario_criacao', 'dt_alteracao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
   async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
@@ -2882,7 +2882,30 @@ export default function Home() {
           bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, campos: banda.campos ?? [], registros: [{}] });
         }
 
-        gerarPdf(relatorio, [], bandasPdfData, currentUser?.ds_usuario ?? undefined);
+        // Pré-buscar imagens referenciadas nos campos
+        const imagemIds = new Set<string>();
+        for (const banda of (relatorio.bandas ?? [])) {
+          for (const c of (banda.campos ?? [])) {
+            if ((c as any).tipoCampo === 'imagem' && (c as any).imagemId) imagemIds.add((c as any).imagemId);
+          }
+        }
+        const imagensMap: Record<string, string> = {};
+        for (const imgId of imagemIds) {
+          const img = imagens.find((i) => i.id === imgId);
+          if (img?.ie_arquivo) {
+            try {
+              const resp = await fetch(img.ie_arquivo);
+              const blob = await resp.blob();
+              const dataUrl = await new Promise<string>((resolve) => {
+                const reader = new FileReader();
+                reader.onloadend = () => resolve(reader.result as string);
+                reader.readAsDataURL(blob);
+              });
+              imagensMap[imgId] = dataUrl;
+            } catch (e) { console.error('Erro ao buscar imagem:', imgId, e); }
+          }
+        }
+        gerarPdf(relatorio, [], bandasPdfData, currentUser?.ds_usuario ?? undefined, imagensMap);
         setMessage(`Relatório gerado com sucesso! ${totalRegistros} registro(s) encontrado(s).`);
       } else {
         const resultado = await executarConsultaRelatorio(relatorio);
@@ -2915,7 +2938,28 @@ export default function Home() {
         if (relatorio.ie_formato === 'excel') {
           gerarERealizarDownloadExcel(relatorioResolvido, registrosResolvidos);
         } else {
-          gerarPdf(relatorioResolvido, registrosResolvidos, undefined, currentUser?.ds_usuario ?? undefined);
+          // Pré-buscar imagens referenciadas nos campos
+          const imagemIds2 = new Set<string>();
+          for (const c of (relatorioResolvido.campos ?? [])) {
+            if ((c as any).tipoCampo === 'imagem' && (c as any).imagemId) imagemIds2.add((c as any).imagemId);
+          }
+          const imagensMap2: Record<string, string> = {};
+          for (const imgId of imagemIds2) {
+            const img = imagens.find((i) => i.id === imgId);
+            if (img?.ie_arquivo) {
+              try {
+                const resp = await fetch(img.ie_arquivo);
+                const blob = await resp.blob();
+                const dataUrl = await new Promise<string>((resolve) => {
+                  const reader = new FileReader();
+                  reader.onloadend = () => resolve(reader.result as string);
+                  reader.readAsDataURL(blob);
+                });
+                imagensMap2[imgId] = dataUrl;
+              } catch (e) { console.error('Erro ao buscar imagem:', imgId, e); }
+            }
+          }
+          gerarPdf(relatorioResolvido, registrosResolvidos, undefined, currentUser?.ds_usuario ?? undefined, imagensMap2);
         }
         setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
       }
@@ -8493,6 +8537,7 @@ export default function Home() {
                      updatedBy={relatorioAuditInfo.updatedBy}
                      onOpenAudit={openRelatorioAuditModal}                      onOpenBandaAudit={openRelatorioAuditModal}
                       onBandaSave={handleBandaSave}
+                      imagens={imagens}
                       campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
                       bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_bandas')}
                     />

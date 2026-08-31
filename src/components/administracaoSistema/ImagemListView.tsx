@@ -27,17 +27,7 @@ interface ImagemListViewProps {
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
 }
 
-const IMAGEM_COLUMNS: ResizableTableColumn<Imagem>[] = [
-  { key: "nr_sequencia", label: "#", width: 50 },
-  { key: "ds_imagem", label: "Descrição", width: 250 },
-  { key: "ie_arquivo", label: "Arquivo", width: 200, render: (row) => (
-    <span className="truncate">{row.ie_arquivo ? row.ie_arquivo.split('/').pop() : '---'}</span>
-  )},
-  { key: "dt_criacao", label: "Criação", width: 160, render: (row) => row.dt_criacao ? formatDate(row.dt_criacao) : '' },
-  { key: "ds_usuario_criacao", label: "Usuário criação", width: 130 },
-  { key: "dt_alteracao", label: "Alteração", width: 160, render: (row) => row.dt_alteracao ? formatDate(row.dt_alteracao) : '' },
-  { key: "ds_usuario_alteracao", label: "Usuário alteração", width: 130 },
-];
+
 
 export default function ImagemListView({
   loading,
@@ -80,6 +70,27 @@ export default function ImagemListView({
       setPageInput(String(pageCount));
     }
   }, [pageCount, currentPage]);
+
+  const [previewImg, setPreviewImg] = useState<Imagem | null>(null);
+
+  const IMAGEM_COLUMNS: ResizableTableColumn<Imagem>[] = useMemo(() => [
+    { key: "preview", label: "", width: 30, fixed: true, render: (row) => (
+      row.ie_arquivo ? (
+        <button type="button" onClick={(e) => { e.stopPropagation(); setPreviewImg(row); }} className="cursor-pointer p-0 bg-transparent border-none flex items-center justify-center" title="Pré-visualizar imagem">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+        </button>
+      ) : <span className="text-slate-400">---</span>
+    )},
+    { key: "nr_sequencia", label: "#", width: 50 },
+    { key: "ds_imagem", label: "Descrição", width: 250 },
+    { key: "ie_arquivo", label: "Arquivo", width: 200, render: (row) => (
+      <span className="truncate">{row.ie_arquivo ? row.ie_arquivo.split('/').pop() : '---'}</span>
+    )},
+    { key: "dt_criacao", label: "Criação", width: 160, render: (row) => row.dt_criacao ? formatDate(row.dt_criacao) : '' },
+    { key: "ds_usuario_criacao", label: "Usuário criação", width: 130 },
+    { key: "dt_alteracao", label: "Alteração", width: 160, render: (row) => row.dt_alteracao ? formatDate(row.dt_alteracao) : '' },
+    { key: "ds_usuario_alteracao", label: "Usuário alteração", width: 130 },
+  ], []);
 
   const IMAGEM_SELECT_OPTIONS = useMemo(() => [
     { value: 'campos', label: 'Campos' },
@@ -155,6 +166,7 @@ export default function ImagemListView({
                 setContextMenu({ x: e.clientX, y: e.clientY, section: 'administracaoSistema', item: row });
               }}
               rowClassName={(row) => row.id === selectedId ? 'row-selected' : ''}
+              pinnedColumns={["preview"]}
               initialColumns={initialColumns ?? null}
               onColumnsChange={onColumnsChange}
             />
@@ -241,6 +253,32 @@ export default function ImagemListView({
           </div>
         )}
       </div>
+
+      {/* Modal de pré-visualização da imagem */}
+      {previewImg && previewImg.ie_arquivo && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setPreviewImg(null)} />
+          <div className="relative w-full bg-white modal-dark p-0 shadow-xl shadow-black/20 flex flex-col" style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>{previewImg.ds_imagem || previewImg.ie_arquivo.split('/').pop()}</h2>
+              <button type="button" onClick={() => setPreviewImg(null)} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden', padding: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src={previewImg.ie_arquivo} alt={previewImg.ds_imagem} style={{ maxWidth: 'min(87vw, 87vh)', maxHeight: 'min(75vh, 75vw)', objectFit: 'contain', display: 'block' }} />
+            </div>
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button type="button" onClick={() => setPreviewImg(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>
+                Fechar
+              </button>
+              <button type="button" onClick={() => { const a = document.createElement('a'); a.href = previewImg.ie_arquivo; a.download = previewImg.ie_arquivo.split('/').pop() || 'imagem'; document.body.appendChild(a); a.click(); document.body.removeChild(a); }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>
+                Baixar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
