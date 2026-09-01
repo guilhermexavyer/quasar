@@ -237,10 +237,14 @@ export interface RelatorioBanda {
   ie_borda_direita?: boolean;
   /** Campos da lista (apenas para tipo 'lista'). */
   campos?: RelatorioCampo[];
-  /** Filtros da lista. */
-  filtros?: RelatorioFiltro[];
-  /** Ordenação da lista. */
-  ordenacao?: RelatorioOrdenacao[];
+  /** Data de criação da banda. */
+  dt_criacao?: string;
+  /** Data da última alteração da banda. */
+  dt_alteracao?: string;
+  /** Usuário que criou a banda. */
+  ds_usuario_criacao?: string;
+  /** Usuário que alterou a banda. */
+  ds_usuario_alteracao?: string;
 }
 
 /**

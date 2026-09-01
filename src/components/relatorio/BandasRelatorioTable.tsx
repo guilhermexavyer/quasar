@@ -30,6 +30,7 @@ interface BandasRelatorioTableProps {
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  onOpenBanda?: (banda: Banda) => void;
   onViewBanda?: (banda: Banda) => void;
   getNextBandaSeq?: () => number;
 }
@@ -42,6 +43,7 @@ export default function BandasRelatorioTable({
   userId,
   initialColumns,
   onColumnsChange,
+  onOpenBanda,
   onViewBanda,
   getNextBandaSeq,
 }: BandasRelatorioTableProps) {
@@ -222,7 +224,7 @@ export default function BandasRelatorioTable({
     },
     {
       key: "ds_banda",
-      label: "Banda",
+      label: "Descrição",
       render: (row: Banda) => {
         if (editingId === row.id) {
           return (            <input
@@ -261,18 +263,27 @@ export default function BandasRelatorioTable({
       label: "Tipo",
       render: (row: Banda) => {
         if (editingId === row.id) {
+          const jaTemCabecalho = bandas.some((b) => b.id !== row.id && b.ie_tipo_banda === 'cabecalho');
+          const jaTemRodape = bandas.some((b) => b.id !== row.id && b.ie_tipo_banda === 'rodape');
+          const tipoOptions = [
+            { value: '', label: '---' },
+            { value: 'lista', label: 'Lista' },
+            { value: 'texto_valor', label: 'Dados' },
+            ...(!jaTemCabecalho ? [{ value: 'cabecalho', label: 'Cabeçalho' }] : []),
+            ...(!jaTemRodape ? [{ value: 'rodape', label: 'Rodapé' }] : []),
+          ];
           return (
             <Select
               value={row.ie_tipo_banda ?? ''}
               onChange={(v) => atualizar(row.id, { ie_tipo_banda: v as any })}
-              options={[{ value: '', label: '---' }, { value: 'lista', label: 'Lista' }, { value: 'texto_valor', label: 'Texto/Valor' }, { value: 'cabecalho', label: 'Cabeçalho' }, { value: 'rodape', label: 'Rodapé' }]}
+              options={tipoOptions}
               showPlaceholder={false}
               className={inputClass}
               visibleOptions={7}
             />
           );
         }
-        const lbl = row.ie_tipo_banda === 'lista' ? 'Lista' : row.ie_tipo_banda === 'texto_valor' ? 'Texto/Valor' : row.ie_tipo_banda === 'cabecalho' ? 'Cabeçalho' : row.ie_tipo_banda === 'rodape' ? 'Rodapé' : '---';
+        const lbl = row.ie_tipo_banda === 'lista' ? 'Lista' : row.ie_tipo_banda === 'texto_valor' ? 'Dados' : row.ie_tipo_banda === 'cabecalho' ? 'Cabeçalho' : row.ie_tipo_banda === 'rodape' ? 'Rodapé' : '---';
         return <span className="text-sm">{lbl}</span>;
       },
     },
@@ -333,6 +344,7 @@ export default function BandasRelatorioTable({
         onSortChange={handleSort}
         onRowContextMenu={handleContextMenu}
         onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
+        onRowDoubleClick={(row) => { if (onOpenBanda) onOpenBanda(row); }}
         rowClassName={(row) => (selectedId === row.id || editingId === row.id) ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}
@@ -346,7 +358,7 @@ export default function BandasRelatorioTable({
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
           >
-            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setContextMenu(null); if (onViewBanda) { const b = bandas.find((x) => x.id === contextMenu.id); if (b) onViewBanda(b); } }}>Ver</button>
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { const b = bandas.find((x) => x.id === contextMenu.id); if (b && onViewBanda) onViewBanda(b); setContextMenu(null); }}>Ver</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => duplicar(contextMenu.id)}>Duplicar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => excluir(contextMenu.id)}>Excluir</button>

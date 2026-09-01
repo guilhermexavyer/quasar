@@ -296,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.64.0";
+const SYSTEM_VERSION = "0.65.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1201,6 +1201,7 @@ export default function Home() {
   const [relatorios, setRelatorios] = useState<Relatorio[]>([]);
   const [relatorioView, setRelatorioView] = useState<'list' | 'builder'>('list');
   const [relatorioEditingId, setRelatorioEditingId] = useState<string | null>(null);
+  const [relatorioBandasMode, setRelatorioBandasMode] = useState(false);
   const [relatorioForm, setRelatorioForm] = useState<Relatorio | null>(null);
   const [relatorioSubmitting, setRelatorioSubmitting] = useState(false);
   const [relatorioGerando, setRelatorioGerando] = useState(false);
@@ -1209,6 +1210,7 @@ export default function Home() {
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
   const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const [bandaAuditInfo, setBandaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const relatorioAuditIdRef = useRef<string | null>(null);
   const [relatorioAuditModalOpen, setRelatorioAuditModalOpen] = useState(false);
   const [relatorioAuditLoading, setRelatorioAuditLoading] = useState(false);
@@ -1345,13 +1347,21 @@ export default function Home() {
   function goToPrevRelatorioRecord() {
     if (!hasPrevRelatorioRecord) return;
     const previous = filteredSortedRelatorios[currentRelatorioEditIndex - 1];
-    openRelatorioEditForm(previous);
+    if (relatorioBandasMode) {
+      openRelatorioBandas(previous);
+    } else {
+      openRelatorioEditForm(previous);
+    }
   }
 
   function goToNextRelatorioRecord() {
     if (!hasNextRelatorioRecord) return;
     const next = filteredSortedRelatorios[currentRelatorioEditIndex + 1];
-    openRelatorioEditForm(next);
+    if (relatorioBandasMode) {
+      openRelatorioBandas(next);
+    } else {
+      openRelatorioEditForm(next);
+    }
   }
 
   // Lookup de ativo no formulário de manutenção.
@@ -2724,6 +2734,21 @@ export default function Home() {
     setRelatorioEditingId(relatorio.id ?? null);
     setRelatorioForm(relatorio);
     setRelatorioView('builder');
+    setRelatorioBandasMode(false);
+    setMessage('');
+    setRelatorioAuditInfo({
+      createdAt: relatorio.dt_criacao ?? '',
+      updatedAt: relatorio.dt_alteracao ?? '',
+      createdBy: relatorio.ds_usuario_criacao ?? '',
+      updatedBy: relatorio.ds_usuario_alteracao ?? '',
+    });
+  }
+
+  function openRelatorioBandas(relatorio: Relatorio) {
+    setRelatorioEditingId(relatorio.id ?? null);
+    setRelatorioForm(relatorio);
+    setRelatorioView('builder');
+    setRelatorioBandasMode(true);
     setMessage('');
     setRelatorioAuditInfo({
       createdAt: relatorio.dt_criacao ?? '',
@@ -2737,6 +2762,7 @@ export default function Home() {
     setRelatorioView('list');
     setRelatorioEditingId(null);
     setRelatorioForm(null);
+    setRelatorioBandasMode(false);
   }
 
   async function handleRelatorioSave(data: Omit<Relatorio, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>) {
@@ -2775,21 +2801,28 @@ export default function Home() {
     try {
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
       const agora = new Date().toISOString();
-      // Atualiza o documento do relatório SEM gerar log de auditoria no relatório
-      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorioForm as any;
+      // Atualiza o documento do relatório SEM alterar dt_alteracao/ds_usuario_alteracao do relatório
+      // A banda tem seus próprios timestamps independentes
+      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorioForm as any;      // Atualiza os timestamps da banda salva (independentemente do relatório)
+      const bandasComTimestamps = bandasAtualizadas.map((b: any) => {
+        if (b.id === bandaDetailId) {
+          return {
+            ...b,
+            dt_criacao: b.dt_criacao || agora,
+            dt_alteracao: agora,
+            ds_usuario_criacao: b.ds_usuario_criacao || auditAutor.usuarioNome,
+            ds_usuario_alteracao: auditAutor.usuarioNome,
+          };
+        }
+        return b;
+      });
       const docRef = doc(db, 'relatorio', relatorioEditingId);
-      const snap = await getDoc(docRef);
-      if (snap.exists()) {
-        await updateDoc(docRef, {
-          ...rest,
-          bandas: bandasAtualizadas,
-          dt_alteracao: agora,
-          ds_usuario_alteracao: auditAutor.usuarioNome,
-        });
-      }
+      await updateDoc(docRef, {
+        bandas: bandasComTimestamps,
+      });
       // Registra log de auditoria APENAS na coleção da banda específica
       if (bandaDetailId) {
-        const bandaAtual = bandasAtualizadas.find((b: any) => b.id === bandaDetailId);
+        const bandaAtual = bandasComTimestamps.find((b: any) => b.id === bandaDetailId);
         const bandaAntiga = (relatorioForm as any).bandas?.find((b: any) => b.id === bandaDetailId) ?? null;
         if (bandaAtual) {
           const { id: _id, ...bandaDados } = bandaAtual;
@@ -2798,9 +2831,7 @@ export default function Home() {
         }
       }
       bandaJustSavedRef.current = true;
-      // Atualiza o estado local com as bandas salvas
-      setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasAtualizadas, dt_alteracao: agora, ds_usuario_alteracao: auditAutor.usuarioNome } : prev);
-      setRelatorioAuditInfo((prev) => ({ ...prev, updatedAt: agora, updatedBy: auditAutor.usuarioNome }));
+      setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasComTimestamps } : prev);
       await loadRelatorios();
     } catch (err) {
       console.error('[BANDA SAVE] ERRO:', err);
@@ -2819,8 +2850,7 @@ export default function Home() {
 
   function handleRelatorioGerar(relatorio: Relatorio) {
     // Check for parameter filters (from both top-level and bandas)
-    const parametrosBandas = (relatorio.bandas ?? []).flatMap((b) => (b.filtros ?? []).filter((f) => f.parametro));
-    const parametros = [...parametrosBandas];
+    const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
     if (parametros.length > 0) {
       setRelatorioParamValues((prev) => {
         const initialValues: Record<string, string> = { ...prev };
@@ -2851,7 +2881,7 @@ export default function Home() {
         let totalRegistros = 0;
 
         for (const banda of bandasComColecao) {
-          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: banda.filtros ?? [], ordenacao: banda.ordenacao ?? [] };
+          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: relatorio.filtros ?? [], ordenacao: relatorio.ordenacao ?? [] };
           const resultado = await executarConsultaRelatorio(relatorioBanda);
           const dsBanda = getDataSource(banda.ie_colecao_principal!);
           const camposResolvidos = (banda.campos ?? []).map((c) => ({
@@ -2978,16 +3008,7 @@ export default function Home() {
       }
       return f;
     });
-    const updatedBandas = (relatorioParamModal.relatorio.bandas ?? []).map((b) => ({
-      ...b,
-      filtros: (b.filtros ?? []).map((f) => {
-        if (f.parametro && relatorioParamValues[f.id] !== undefined) {
-          return { ...f, valor: relatorioParamValues[f.id] };
-        }
-        return f;
-      }),
-    }));
-    const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros, bandas: updatedBandas };
+    const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
     setRelatorioParamModal(null);
     executarRelatorioGerar(updatedRelatorio);
   }
@@ -7803,6 +7824,7 @@ export default function Home() {
               const items: { label: string; onClick: () => void }[] = [];
               items.push({ label: 'Gerar relatório', onClick: () => { handleRelatorioGerar(contextMenu.item as Relatorio); setContextMenu(null); } });
               items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(contextMenu.item as Relatorio); setContextMenu(null); } });
+              items.push({ label: 'Bandas', onClick: () => { openRelatorioBandas(contextMenu.item as Relatorio); setContextMenu(null); } });
               return items;
             }
             if (contextMenu.section === 'administracaoSistema' && adminManageSelection === 'imagens') {
@@ -8538,6 +8560,7 @@ export default function Home() {
                      onOpenAudit={openRelatorioAuditModal}                      onOpenBandaAudit={openRelatorioAuditModal}
                       onBandaSave={handleBandaSave}
                       imagens={imagens}
+                      viewMode={relatorioBandasMode ? 'bandas' : 'form'}
                       campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
                       bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_bandas')}
                     />
@@ -8548,6 +8571,7 @@ export default function Home() {
                   relatorios={filteredSortedRelatorios}
                   openNewForm={openRelatorioNewForm}
                   openEditForm={openRelatorioEditForm}
+                  openBandas={openRelatorioBandas}
                   handleDelete={handleRelatorioDelete}
                   setContextMenu={setContextMenu}
                   sortColumn={relatorioSortColumn}
@@ -11899,7 +11923,7 @@ export default function Home() {
                       pdf_margem_esquerda: 'Margem esquerda',
                       pdf_margem_direita: 'Margem direita',
                       bandas_sequencia: 'Bandas',
-                      ds_banda: 'Banda',
+                      ds_banda: 'Descrição',
                       ie_tipo_banda: 'Tipo',
                       ie_colecao_principal: 'Coleção principal',
                       nr_posicao: 'Posição',

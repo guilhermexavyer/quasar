@@ -18,6 +18,7 @@ interface RelatorioListViewProps {
   relatorios: Relatorio[];
   openNewForm: () => void;
   openEditForm: (relatorio: Relatorio) => void;
+  openBandas: (relatorio: Relatorio) => void;
   handleDelete: (id: string) => void;
   setContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
@@ -61,6 +62,7 @@ export default function RelatorioListView({
   relatorios,
   openNewForm,
   openEditForm,
+  openBandas,
   handleDelete,
   setContextMenu,
   sortColumn,
@@ -80,7 +82,7 @@ export default function RelatorioListView({
   }
 
   function handleRowDoubleClick(rel: Relatorio) {
-    openEditForm(rel);
+    openBandas(rel);
   }
 
   function handleContextMenu(rel: Relatorio, e: ReactMouseEvent<HTMLTableRowElement>) {
@@ -178,6 +180,7 @@ export default function RelatorioListView({
                 if (idx >= 0) onSortChange(idx);
               }}
               onRowClick={handleRowClick}
+              onRowDoubleClick={handleRowDoubleClick}
               onRowContextMenu={handleContextMenu}
               rowClassName={(row) =>
                 row._id === selectedId ? "row-selected" : ""

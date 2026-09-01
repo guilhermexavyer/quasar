@@ -78,6 +78,8 @@ interface RelatorioBuilderProps {
   campoErros?: string[];
   /** Lista de imagens cadastradas. */
   imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
+  /** Modo de exibição: 'form' mostra Relatório+Saída, 'bandas' mostra apenas Bandas. */
+  viewMode?: 'form' | 'bandas';
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
@@ -165,7 +167,9 @@ export default function RelatorioBuilder({
   bandaCampoRegras = {},
   campoErros = [],
   imagens = [],
+  viewMode = 'form',
 }: RelatorioBuilderProps) {
+  const isBandasMode = viewMode === 'bandas';
   const onBandaSaveRef = useRef(onBandaSave);
   useEffect(() => { onBandaSaveRef.current = onBandaSave; }, [onBandaSave]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -194,12 +198,21 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; campos?: any[]; filtros?: any[]; ordenacao?: any[] };
+  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; campos?: any[]; filtros?: any[]; ordenacao?: any[]; dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string };
   const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
   const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
+  const [bandaViewMode, setBandaViewMode] = useState<'ver' | 'content'>('content');
+  const [bandasSubView, setBandasSubView] = useState<'bandas' | 'parametros'>('bandas');
   const bandaTipo = useMemo(() => bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda, [bandas, bandaDetailId]);
+
+  // Audit info da banda atual (quando dentro de uma banda)
+  const bandaSel = useMemo(() => bandas.find((b) => b.id === bandaDetailId), [bandas, bandaDetailId]);
+  const bandaCreatedAt = bandaSel?.dt_criacao ?? '';
+  const bandaUpdatedAt = bandaSel?.dt_alteracao ?? '';
+  const bandaCreatedBy = bandaSel?.ds_usuario_criacao ?? '';
+  const bandaUpdatedBy = bandaSel?.ds_usuario_alteracao ?? '';
 
   // Refs para evitar stale closures no Ctrl+S do modal banda
   const camposRef = useRef(campos);
@@ -232,15 +245,24 @@ export default function RelatorioBuilder({
       const c = camposRef.current;
       const f = filtrosRef.current;
       const o = ordenacaoRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b));
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
     const target = bandas.find((b) => b.id === bandaId);
     if (target) {
       setCampos(target.campos?.length ? [...target.campos] : []);
-      setFiltros(target.filtros?.length ? [...target.filtros] : []);
-      setOrdenacao(target.ordenacao?.length ? [...target.ordenacao] : []);
     }
     setBandaDetailId(bandaId);
+    setBandaViewMode('content');
+  }
+
+  function openBandaVer(bandaId: string) {
+    const currentBandaId = bandaDetailIdRef.current;
+    if (currentBandaId) {
+      const c = camposRef.current;
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
+    }
+    setBandaDetailId(bandaId);
+    setBandaViewMode('ver');
   }
 
   /** Fecha o modal da banda: salva dados na banda e limpa. Usa refs para evitar stale closures. */
@@ -250,7 +272,7 @@ export default function RelatorioBuilder({
       const c = camposRef.current;
       const f = filtrosRef.current;
       const o = ordenacaoRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b));
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
     setBandaDetailId(null);
     setCampos([]);
@@ -393,6 +415,9 @@ export default function RelatorioBuilder({
 
   const dataSource = useMemo(() => (colecao ? getDataSource(colecao) : undefined), [colecao]);
   const camposDisponiveis = dataSource?.campos ?? [];
+  // Campos disponíveis baseados na coleção da banda atual (para Filtros dentro do modal)
+  const bandaColecaoAtual = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ?? '';
+  const camposDisponiveisBanda = useMemo(() => (bandaColecaoAtual ? (getDataSource(bandaColecaoAtual)?.campos ?? []) : []), [bandaColecaoAtual]);
   const opcoesColecao = DATA_SOURCES.map((ds) => ({ value: ds.value, label: ds.value })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
 
   useEffect(() => {
@@ -408,7 +433,7 @@ export default function RelatorioBuilder({
             const f = filtrosRef.current;
             const o = ordenacaoRef.current;
             setBandas((prev) => {
-              const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b);
+              const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
               // Passa as bandas atualizadas diretamente para o save
               setTimeout(() => onBandaSaveRef.current?.(updated, currentBandaId), 0);
               return updated;
@@ -449,7 +474,7 @@ export default function RelatorioBuilder({
       })),
       filtros: filtros.map((f) => ({ id: f.id, campo: f.campo, operador: f.operador, valor: f.valor, valorFinal: f.valorFinal, mascara: f.mascara, parametro: f.parametro })),
       ordenacao: ordenacao.map((o) => ({ id: o.id, campo: o.campo, direcao: o.direcao })),
-      bandas: bandas.map((b) => ({ id: b.id, nr_sequencia: b.nr_sequencia, nr_seq_relatorio: b.nr_seq_relatorio, ds_banda: b.ds_banda, ie_colecao_principal: b.ie_colecao_principal, nr_posicao: b.nr_posicao, ie_tipo_banda: b.ie_tipo_banda, nr_altura: b.nr_altura, ie_borda_superior: b.ie_borda_superior, ie_borda_inferior: b.ie_borda_inferior, ie_borda_esquerda: b.ie_borda_esquerda, ie_borda_direita: b.ie_borda_direita, campos: b.campos, filtros: b.filtros, ordenacao: b.ordenacao })),
+      bandas: bandas.map((b) => ({ id: b.id, nr_sequencia: b.nr_sequencia, nr_seq_relatorio: b.nr_seq_relatorio, ds_banda: b.ds_banda, ie_colecao_principal: b.ie_colecao_principal, nr_posicao: b.nr_posicao, ie_tipo_banda: b.ie_tipo_banda, nr_altura: b.nr_altura, ie_borda_superior: b.ie_borda_superior, ie_borda_inferior: b.ie_borda_inferior, ie_borda_esquerda: b.ie_borda_esquerda, ie_borda_direita: b.ie_borda_direita, campos: b.campos })),
       ie_formato: formato,
       configExcel: formato === 'excel' ? configExcel : undefined,
       configPdf: formato === 'pdf' ? configPdf : undefined,
@@ -519,8 +544,8 @@ export default function RelatorioBuilder({
         paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
         posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo, imagemId: c.imagemId, tamanhoImagem: c.tamanhoImagem,
       }))),
-      filtros: bandas.flatMap((b) => (b.filtros ?? []).filter((f: any) => f.campo)),
-      ordenacao: bandas.flatMap((b) => (b.ordenacao ?? []).filter((o: any) => o.campo)),
+      filtros: filtros,
+      ordenacao: ordenacao,
       bandas: bandas.map((b) => ({ ...b })),
       ie_formato: formato,
       configExcel: formato === "excel" ? configExcel : undefined,
@@ -608,13 +633,23 @@ export default function RelatorioBuilder({
             </button>
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
-        >
-          Fechar
-        </button>
+        <div className="flex items-center gap-3">
+          {isBandasMode && !bandaDetailId && (
+            <div className="flex items-center">
+              <button type="button" onClick={() => setBandasSubView('bandas')}
+                className={`px-3 py-1.5 text-sm border cursor-pointer transition first:rounded-l-[3px] last:rounded-r-[3px] ${bandasSubView === 'bandas' ? 'bg-[#003056] text-white border-[#003056]' : 'bg-white text-[#066fc5] border-slate-300 hover:bg-slate-50'}`}>Bandas</button>
+              <button type="button" onClick={() => setBandasSubView('parametros')}
+                className={`px-3 py-1.5 text-sm border cursor-pointer transition first:rounded-l-[3px] last:rounded-r-[3px] -ml-px ${bandasSubView === 'parametros' ? 'bg-[#003056] text-white border-[#003056]' : 'bg-white text-[#066fc5] border-slate-300 hover:bg-slate-50'}`}>Parâmetros</button>
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={bandaDetailId ? () => closeBandaDetail() : onCancel}
+            className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
+          >
+            {bandaDetailId ? 'Voltar' : 'Fechar'}
+          </button>
+        </div>
       </div>
 
       {/* ── Erros ── */}
@@ -629,6 +664,8 @@ export default function RelatorioBuilder({
       {/* ── Formulário ── */}
       <form ref={formRef} onSubmit={handleSubmit} className="mt-4 flex-1 flex flex-col min-h-0">
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-9">
+          {!bandaDetailId && !isBandasMode && (
+          <>
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Relatório ── */}
           {/* ═══════════════════════════════════════════════ */}
@@ -740,14 +777,18 @@ export default function RelatorioBuilder({
               </div>
             )}
           </section>
+          </>
+          )}
 
           {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Bandas ── */}
+          {/* ── Seção: Bandas (modo bandas) ── */}
           {/* ═══════════════════════════════════════════════ */}
+          {!bandaDetailId && isBandasMode && bandasSubView === 'bandas' && (
+          <>
           <section className="mb-4">
             <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
               <h2 className="text-sm font-semibold text-slate-900">Bandas</h2>
-              <button type="button" onClick={() => { const seq = getNextBandaSeq(); setBandas((prev) => [...prev, { id: gerarId(), ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...prev.map((b) => b.nr_posicao ?? 0)) + 1), nr_sequencia: seq, nr_seq_relatorio: relatorio?.nr_sequencia, campos: [], filtros: [], ordenacao: [] }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+              <button type="button" onClick={() => { const seq = getNextBandaSeq(); setBandas((prev) => [...prev, { id: gerarId(), ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...prev.map((b) => b.nr_posicao ?? 0)) + 1), nr_sequencia: seq, nr_seq_relatorio: relatorio?.nr_sequencia, campos: [] }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
             </div>
             <BandasRelatorioTable
               bandas={bandas}
@@ -757,27 +798,46 @@ export default function RelatorioBuilder({
               userId={userId}
               initialColumns={initialBandasColumns}
               onColumnsChange={onBandasColumnsChange}
-              onViewBanda={(b) => openBandaDetail(b.id)}
+              onOpenBanda={(b) => openBandaDetail(b.id)}
+              onViewBanda={(b) => openBandaVer(b.id)}
               getNextBandaSeq={getNextBandaSeq}
             />
           </section>
+          </>
+          )}
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Seção: Parâmetros (modo bandas) ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          {!bandaDetailId && isBandasMode && bandasSubView === 'parametros' && (
+          <>
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
+              <h2 className="text-sm font-semibold text-slate-900">Parâmetros</h2>
+              <button type="button" onClick={() => { const seq = getNextFiltroSeq(); setFiltros((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
+            </div>
+            <FiltrosRelatorioTable
+              filtros={filtros}
+              onChange={setFiltros}
+              camposDisponiveis={camposDisponiveis}
+              onEditingChange={setEditingFiltro}
+              userId={userId}
+              initialColumns={initialFiltrosColumns}
+              onColumnsChange={onFiltrosColumnsChange}
+              getNextSeq={getNextFiltroSeq}
+            />
+          </section>
+          </>
+          )}
 
           {bandaDetailId ? (
-          /* ── Banda Detail Modal ── */
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">              <div className="absolute inset-0" onClick={() => closeBandaDetail()} />
-            <div className="relative w-full max-w-[95vw] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
-              <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
-                <h3 className="text-base font-semibold" style={{ color: '#000' }}>Banda</h3>
-                <button type="button" onClick={() => closeBandaDetail()} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                </button>
-              </div>
-              <div className="p-[15px] overflow-auto flex-1 space-y-9 min-h-[70vh]">
+          /* ── Banda Detail View (inline) ── */
+          <>
 
           {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Banda (dados da banda selecionada) ── */}
+          {/* ── Seção: Banda (dados da banda selecionada) — somente no modo 'ver' ── */}
           {/* ═══════════════════════════════════════════════ */}
-          {(() => {
+          {bandaViewMode === 'ver' && (() => {
             const bSel = bandas.find((b) => b.id === bandaDetailId);
             if (!bSel) return null;
             return (
@@ -792,7 +852,7 @@ export default function RelatorioBuilder({
                       className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="group">
-                    {renderFieldLabel('ds_banda', 'Banda', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('ds_banda', 'Descrição', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
                     <input type="text" value={bSel.ds_banda}
                       onChange={(e) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, ds_banda: e.target.value } : b))}
                       className={inputClass} />
@@ -805,9 +865,9 @@ export default function RelatorioBuilder({
                       options={[
                         { value: '', label: '---' },
                         { value: 'lista', label: 'Lista' },
-                        { value: 'texto_valor', label: 'Texto/Valor' },
-                        { value: 'cabecalho', label: 'Cabeçalho' },
-                        { value: 'rodape', label: 'Rodapé' },
+                        { value: 'texto_valor', label: 'Dados' },
+                        ...(!bandas.some((b) => b.id !== bandaDetailId && b.ie_tipo_banda === 'cabecalho') ? [{ value: 'cabecalho', label: 'Cabeçalho' }] : []),
+                        ...(!bandas.some((b) => b.id !== bandaDetailId && b.ie_tipo_banda === 'rodape') ? [{ value: 'rodape', label: 'Rodapé' }] : []),
                       ]}
                       showPlaceholder={false}
                       visibleOptions={7}
@@ -886,7 +946,7 @@ export default function RelatorioBuilder({
             );
           })()}
 
-          {(bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'lista' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'texto_valor' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'cabecalho' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'rodape') && (
+          {bandaViewMode === 'content' && (bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'lista' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'texto_valor' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'cabecalho' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'rodape') && (
           <>
 
           {/* ═══════════════════════════════════════════════ */}
@@ -1071,95 +1131,11 @@ export default function RelatorioBuilder({
               )}
 
           </section>
-
-          {(bandaTipo === 'lista' || bandaTipo === 'texto_valor') && (
-          <>
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Filtros ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section>
-            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Filtros</h2>
-              <button type="button" onClick={() => { const seq = getNextFiltroSeq(); setFiltros((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
-            </div>
-            <FiltrosRelatorioTable
-              filtros={filtros}
-              onChange={setFiltros}
-              camposDisponiveis={camposDisponiveis}
-              onEditingChange={setEditingFiltro}
-              userId={userId}
-              initialColumns={initialFiltrosColumns}
-              onColumnsChange={onFiltrosColumnsChange}
-              getNextSeq={getNextFiltroSeq}
-            />
-          </section>
           </>
           )}
 
-          {bandaTipo === 'lista' && (
-          <>
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Ordenação ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section>
-            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Ordenação</h2>
-              <button type="button" onClick={() => { const seq = getNextOrdSeq(); setOrdenacao((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: "", direcao: "asc" }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
-            </div>
-            <OrdenacaoRelatorioTable
-              ordenacao={ordenacao}
-              onChange={setOrdenacao}
-              camposDisponiveis={camposDisponiveis}
-              onEditingChange={setEditingOrdenacao}
-              userId={userId}
-              initialColumns={initialOrdenacaoColumns}
-              onColumnsChange={onOrdenacaoColumnsChange}
-              getNextSeq={getNextOrdSeq}
-            />
-          </section>
-          </>
-          )}
-          </>
-          )}
-          </div>
-              <div className="flex-shrink-0 flex items-center justify-between gap-3 px-[15px] py-3">
-                {/* Audit info na banda */}
-                {relatorio && (
-                  <div className="flex flex-col text-[12px] text-slate-500 min-w-0">
-                    <div className="relative group flex items-center gap-2">
-                      <span>Criado por {createdBy || '-'} em {createdAt ? new Date(createdAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
-                      <button
-                        type="button"
-                        onClick={() => onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
-                        aria-label="Abrir histórico de auditoria"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 8v4" />
-                          <path d="M12 16h.01" />
-                        </svg>
-                      </button>
-                    </div>
-                    <div className="relative group flex items-center gap-2 mt-1">
-                      <span>Alterado por {updatedBy || '-'} em {updatedAt ? new Date(updatedAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
-                      <button
-                        type="button"
-                        onClick={() => onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
-                        aria-label="Abrir histórico de auditoria"
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 8v4" />
-                          <path d="M12 16h.01" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                )}
+              <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
                 <div className="flex items-center gap-3 ml-auto">
-                  <button type="button" onClick={() => closeBandaDetail()} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
                   <button type="button" onClick={() => {
                     // Salvar dados da banda no estado local
                     const currentBandaId = bandaDetailIdRef.current;
@@ -1168,7 +1144,7 @@ export default function RelatorioBuilder({
                       const f = filtrosRef.current;
                       const o = ordenacaoRef.current;
                       setBandas((prev) => {
-                        const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], filtros: [...f], ordenacao: [...o] } : b);
+                        const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
                         setTimeout(() => onBandaSaveRef.current?.(updated, currentBandaId), 0);
                         return updated;
                       });
@@ -1182,45 +1158,43 @@ export default function RelatorioBuilder({
                   }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
                 </div>
               </div>
-            </div>
-          </div>
+          </>
           ) : null}
         </div>
 
         {/* ── Auditoria + Botões de ação ── */}
         <div className="mt-auto pt-4">
-          <div className="flex items-center justify-between gap-3">
-            {/* Audit info */}
-            {relatorio && (
+          <div className="flex items-center justify-between gap-3">            {/* Audit info - relatório ou banda (não exibe no modo bandas) */}
+            {relatorio && !isBandasMode && (
               <div className="flex flex-col text-[12px] text-slate-500 min-w-0">
                 <div className="relative group flex items-center gap-2">
-                  <span>Criado por {createdBy || '-'} em {createdAt ? new Date(createdAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
+                  <span>Criado por {bandaDetailId ? (bandaCreatedBy || '-') : (createdBy || '-')} em {(bandaDetailId ? bandaCreatedAt : createdAt) ? new Date(bandaDetailId ? (bandaCreatedAt || '') : (createdAt || '')).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
                   <button
                     type="button"
-                    onClick={() => onOpenAudit?.(relatorio.id ?? null)}
+                    onClick={() => bandaDetailId ? onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId) : onOpenAudit?.(relatorio.id ?? null)}
                     className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                     aria-label="Abrir histórico de auditoria"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8v4" />
-                      <path d="M12 16h.01" />
-                    </svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v4" />
+                          <path d="M12 16h.01" />
+                        </svg>
                   </button>
                 </div>
                 <div className="relative group flex items-center gap-2 mt-1">
-                  <span>Alterado por {updatedBy || '-'} em {updatedAt ? new Date(updatedAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
+                  <span>Alterado por {bandaDetailId ? (bandaUpdatedBy || '-') : (updatedBy || '-')} em {(bandaDetailId ? bandaUpdatedAt : updatedAt) ? new Date(bandaDetailId ? (bandaUpdatedAt || '') : (updatedAt || '')).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
                   <button
                     type="button"
-                    onClick={() => onOpenAudit?.(relatorio.id ?? null)}
+                    onClick={() => bandaDetailId ? onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId) : onOpenAudit?.(relatorio.id ?? null)}
                     className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                     aria-label="Abrir histórico de auditoria"
                   >
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="12" cy="12" r="10" />
-                      <path d="M12 8v4" />
-                      <path d="M12 16h.01" />
-                    </svg>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v4" />
+                          <path d="M12 16h.01" />
+                        </svg>
                   </button>
                 </div>
               </div>

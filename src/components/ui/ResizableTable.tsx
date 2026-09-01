@@ -24,6 +24,7 @@ interface ResizableTableProps<T> {
   sortAsc?: boolean;
   onSortChange?: (key: string) => void;
   onRowClick?: (row: T) => void;
+  onRowDoubleClick?: (row: T) => void;
   onRowContextMenu?: (row: T, e: ReactMouseEvent<HTMLTableRowElement>) => void;
   rowClassName?: (row: T) => string;
   /** Colunas fixas que ficam sempre à esquerda e não podem ser reordenadas/redimensionadas. */
@@ -50,6 +51,7 @@ export default function ResizableTable<T>({
   sortAsc = true,
   onSortChange,
   onRowClick,
+  onRowDoubleClick,
   onRowContextMenu,
   rowClassName,
   pinnedColumns = [],
@@ -442,6 +444,7 @@ export default function ResizableTable<T>({
                   key={rk}
                   className={`cursor-[context-menu] hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
                   onClick={() => onRowClick?.(row)}
+                  onDoubleClick={() => onRowDoubleClick?.(row)}
                   onContextMenu={(e) => {
                     e.preventDefault();
                     onRowContextMenu?.(row, e);
