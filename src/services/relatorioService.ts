@@ -103,7 +103,6 @@ export async function atualizarRelatorio(
 
   const currentData = snap.data() as Record<string, any>;
   const hasChanges = Object.entries(relatorio).some(([key, value]) => {
-    if (key === "bandas") return false; // bandas têm auditoria própria
     const currentValue = currentData[key];
     const ehObjeto =
       (typeof value === "object" && value !== null) ||

@@ -207,19 +207,21 @@ function renderizarTabelaBanda(
   contentW: number,
   mapFontJsPdf: (fonte?: string) => string,
   bordas?: { superior?: boolean; inferior?: boolean; esquerda?: boolean; direita?: boolean },
+  bandaConfig?: { espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number },
 ): number {
   if (campos.length === 0) return yStart;
 
-  const fontLabel = mapFontJsPdf(relatorio.fonteLabel);
-  const fontCampo = mapFontJsPdf(relatorio.fonteCampo);
-  const fontSizeLabel = relatorio.tamanhoFonteLabel || 10;
-  const fontSizeCampo = relatorio.tamanhoFonteCampo || 10;
+  // Usar config da banda se disponível, senão usar a do relatório
+  const fontLabel = mapFontJsPdf(bandaConfig?.fonteLabel ?? relatorio.fonteLabel);
+  const fontCampo = mapFontJsPdf(bandaConfig?.fonteCampo ?? relatorio.fonteCampo);
+  const fontSizeLabel = bandaConfig?.tamanhoFonteLabel ?? relatorio.tamanhoFonteLabel ?? 10;
+  const fontSizeCampo = bandaConfig?.tamanhoFonteCampo ?? relatorio.tamanhoFonteCampo ?? 10;
   const fontSize = config.tamanhoFonte;
   const cellPadding = 2;
-  const headerH = pxToMm(relatorio.espessuraLabel ?? 16);
-  const rowH = pxToMm(relatorio.espessuraCampo ?? 24);
+  const headerH = pxToMm(bandaConfig?.espessuraLabel ?? relatorio.espessuraLabel ?? 16);
+  const rowH = pxToMm(bandaConfig?.espessuraCampo ?? relatorio.espessuraCampo ?? 24);
 
-  const colWidths = campos.map((c) => pxToMm(c.largura ?? 30));
+  const colWidths = campos.map((c) => pxToMm(c.qt_largura ?? 30));
 
   let y = yStart;
 
@@ -238,7 +240,7 @@ function renderizarTabelaBanda(
   // Calcula empilhamento de campos
   const xGroupCount: Record<number, number> = {};
   const xGroupIndex: number[] = campos.map((c) => {
-    const xPos = c.alinhamentoHorizontal ?? 0;
+    const xPos = c.qt_esquerda ?? 0;
     const idx = xGroupCount[xPos] ?? 0;
     xGroupCount[xPos] = idx + 1;
     return idx;
@@ -252,11 +254,11 @@ function renderizarTabelaBanda(
   doc.setFontSize(fontSize);
 
   campos.forEach((campo, i) => {
-    doc.setFont(fontLabel, estiloPdf(campo.estiloLabel));
+    doc.setFont(fontLabel, estiloPdf(campo.ie_estilo_label));
     doc.setFontSize(fontSizeLabel);
-    const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+    const x = marginLeft + pxToMm(campo.qt_esquerda ?? 0);
     const w = colWidths[i];
-    const bg = relatorio.bgLabel;
+    const bg = bandaConfig?.bgLabel ?? relatorio.bgLabel;
     if (bg) {
       const rgb = hexToRgb(bg);
       if (rgb) doc.setFillColor(rgb.r, rgb.g, rgb.b);
@@ -266,16 +268,16 @@ function renderizarTabelaBanda(
       doc.setDrawColor(51, 51, 51);
       doc.rect(x, y, w, headerH, 'S');
     }
-    const labelCor = hexToRgb(relatorio.corLabelGlobal || '#1a1a1a');
+    const labelCor = hexToRgb(bandaConfig?.corLabelGlobal ?? (relatorio.corLabelGlobal || '#1a1a1a'));
     if (labelCor) doc.setTextColor(labelCor.r, labelCor.g, labelCor.b);
     else doc.setTextColor(26, 26, 26);
-    const labelAlign = campo.alinhamento ?? 'esquerda';
+    const labelAlign = campo.ie_alinhamento ?? 'esquerda';
     const labelTxtX = labelAlign === 'centro' ? x + w / 2 : labelAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
     const labelAlignOpt: 'left' | 'center' | 'right' = labelAlign === 'centro' ? 'center' : labelAlign === 'direita' ? 'right' : 'left';
-    const labelTxtY = y + fontSizeLabel * 0.35 + pxToMm(relatorio.topoLabel ?? 0);
+    const labelTxtY = y + fontSizeLabel * 0.35 + pxToMm(bandaConfig?.topoLabel ?? relatorio.topoLabel ?? 0);
     doc.text(truncateText(doc, campo.label, w - cellPadding * 2, fontSize), labelTxtX, labelTxtY, { align: labelAlignOpt });
-    if (temSublinhado(campo.estiloLabel)) {
-      desenharSublinhado(doc, labelTxtX, labelTxtY, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, relatorio.corLabelGlobal || '#1a1a1a');
+    if (temSublinhado(campo.ie_estilo_label)) {
+      desenharSublinhado(doc, labelTxtX, labelTxtY, truncateText(doc, campo.label, w - cellPadding * 2, fontSize), fontSize, labelAlignOpt, w, bandaConfig?.corLabelGlobal ?? (relatorio.corLabelGlobal || '#1a1a1a'));
     }
   });
 
@@ -296,9 +298,9 @@ function renderizarTabelaBanda(
     }
 
     campos.forEach((campo, i) => {
-      const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+      const x = marginLeft + pxToMm(campo.qt_esquerda ?? 0);
       const w = colWidths[i];
-      const chaveResolvida = campo.chave;
+      const chaveResolvida = campo.ie_campo;
       const valor = obterValorCampo(reg, chaveResolvida);
       const valorFmt = formatarValor(valor, campo);
 
@@ -307,11 +309,11 @@ function renderizarTabelaBanda(
         doc.rect(x, y, w, rowH, 'S');
       }
 
-      const campoCor = hexToRgb(relatorio.corCampoGlobal || '#1a1a1a');
+      const campoCor = hexToRgb(bandaConfig?.corCampoGlobal ?? (relatorio.corCampoGlobal || '#1a1a1a'));
       if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
       else doc.setTextColor(26, 26, 26);
 
-      if (relatorio.bgCampo === 'zebrado') {
+      if ((bandaConfig?.bgCampo ?? relatorio.bgCampo) === 'zebrado') {
         const isOdd = regIdx % 2 === 1;
         const zebraRgb = hexToRgb(isOdd ? '#ccc' : '#fff');
         if (zebraRgb) {
@@ -320,15 +322,15 @@ function renderizarTabelaBanda(
         }
       }
 
-      const campoAlign = campo.alinhamento ?? 'esquerda';
+      const campoAlign = campo.ie_alinhamento ?? 'esquerda';
       const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
-      const campoTxtY = y + pxToMm(relatorio.topoRegistro ?? 0) + fontSize * 0.35;
+      const campoTxtY = y + pxToMm(bandaConfig?.topoRegistro ?? relatorio.topoRegistro ?? 0) + fontSize * 0.35;
       const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
-      doc.setFont(fontCampo, estiloPdf(campo.estiloCampo));
+      doc.setFont(fontCampo, estiloPdf(campo.ie_estilo));
       doc.setFontSize(fontSizeCampo);
       doc.text(truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), campoTxtX, campoTxtY, { align: campoAlignOpt });
-      if (temSublinhado(campo.estiloCampo)) {
-        desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, relatorio.corCampoGlobal || '#1a1a1a');
+      if (temSublinhado(campo.ie_estilo)) {
+        desenharSublinhado(doc, campoTxtX, campoTxtY, truncateText(doc, valorFmt, w - cellPadding * 2, fontSize), fontSize, campoAlignOpt, w, bandaConfig?.corCampoGlobal ?? (relatorio.corCampoGlobal || '#1a1a1a'));
       }
     });
 
@@ -343,37 +345,37 @@ function renderizarTabelaBanda(
     for (const campo of camposComSoma) {
       let total = 0;
       for (const reg of registros) {
-        const val = obterValorCampo(reg, campo.chave);
+        const val = obterValorCampo(reg, campo.ie_campo);
         const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[.,]/g, (m) => m === ',' ? '.' : ''));
         if (!isNaN(num)) total += num;
       }
-      somas[campo.chave] = total;
+      somas[campo.ie_campo] = total;
     }
     campos.forEach((campo, i) => {
-      const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
+      const x = marginLeft + pxToMm(campo.qt_esquerda ?? 0);
       const w = colWidths[i];
       if (config.incluirBordas) {
         doc.setDrawColor(51, 51, 51);
         doc.rect(x, y, w, rowH, 'S');
       }
-      const campoCor = hexToRgb(relatorio.corCampoGlobal || '#1a1a1a');
+      const campoCor = hexToRgb(bandaConfig?.corCampoGlobal ?? (relatorio.corCampoGlobal || '#1a1a1a'));
       if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
       else doc.setTextColor(26, 26, 26);
-      const estiloSomaPdf = campo.estiloSoma || '';
-      const isNegritoSoma = estiloSomaPdf.includes('negrito');
-      const isItalicSoma = estiloSomaPdf.includes('italico');
+      const ie_estilo_somaPdf = campo.ie_estilo_soma || '';
+      const isNegritoSoma = ie_estilo_somaPdf.includes('negrito');
+      const isItalicSoma = ie_estilo_somaPdf.includes('italico');
       const fontStyleSoma: 'normal' | 'bold' | 'italic' | 'bolditalic' = isNegritoSoma && isItalicSoma ? 'bolditalic' : isNegritoSoma ? 'bold' : isItalicSoma ? 'italic' : 'normal';
       doc.setFont(fontCampo, fontStyleSoma);
       doc.setFontSize(fontSizeCampo);
-      const campoAlign = campo.alinhamento ?? 'esquerda';
+      const campoAlign = campo.ie_alinhamento ?? 'esquerda';
       const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
-      const campoTxtY = y + pxToMm(relatorio.topoRegistro ?? 0) + fontSizeCampo * 0.35;
+      const campoTxtY = y + pxToMm(bandaConfig?.topoRegistro ?? relatorio.topoRegistro ?? 0) + fontSizeCampo * 0.35;
       const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
-      if (campo.soma && somas[campo.chave] !== undefined) {
-        const somaTxt = truncateText(doc, formatarValor(somas[campo.chave], campo), w - cellPadding * 2, fontSizeCampo);
+      if (campo.soma && somas[campo.ie_campo] !== undefined) {
+        const somaTxt = truncateText(doc, formatarValor(somas[campo.ie_campo], campo), w - cellPadding * 2, fontSizeCampo);
         doc.text(somaTxt, campoTxtX, campoTxtY, { align: campoAlignOpt });
-        if (temSublinhado(estiloSomaPdf)) {
-          desenharSublinhado(doc, campoTxtX, campoTxtY, somaTxt, fontSizeCampo, campoAlignOpt, w, relatorio.corCampoGlobal || '#1a1a1a');
+        if (temSublinhado(ie_estilo_somaPdf)) {
+          desenharSublinhado(doc, campoTxtX, campoTxtY, somaTxt, fontSizeCampo, campoAlignOpt, w, bandaConfig?.corCampoGlobal ?? (relatorio.corCampoGlobal || '#1a1a1a'));
         }
       } else {
         doc.text('', campoTxtX, campoTxtY);
@@ -434,26 +436,26 @@ function renderizarTextoValorBanda(
 
   campos.forEach((campo) => {
     let texto: string;
-    const tipoCampo = (campo as any).tipoCampo;
-    if (tipoCampo === 'conteudo') {
+    const ie_tipo_elemento = (campo as any).ie_tipo_elemento;
+    if (ie_tipo_elemento === 'conteudo') {
       texto = (campo as any).conteudo ?? '';
-    } else if (tipoCampo === 'data_geracao') {
+    } else if (ie_tipo_elemento === 'data_geracao') {
       texto = fmtData(agora);
-    } else if (tipoCampo === 'horario_geracao') {
+    } else if (ie_tipo_elemento === 'horario_geracao') {
       texto = fmtHora(agora);
-    } else if (tipoCampo === 'data_horario_geracao') {
+    } else if (ie_tipo_elemento === 'data_horario_geracao') {
       texto = `${fmtData(agora)} ${fmtHora(agora)}`;
-    } else if (tipoCampo === 'usuario_geracao') {
+    } else if (ie_tipo_elemento === 'usuario_geracao') {
       texto = usuarioGeracao ?? (relatorio as any).ds_usuario_criacao ?? '';
-    } else if (tipoCampo === 'imagem') {
+    } else if (ie_tipo_elemento === 'imagem') {
       // Renderizar imagem no PDF
-      const imagemId = (campo as any).imagemId;
-      if (!imagemId || !imagensMap?.[imagemId]) { texto = ''; } else {
-        const imgDataUrl = imagensMap[imagemId];
-        const tamanhoPx = (campo as any).tamanhoImagem ?? 100;
+      const nr_seq_imagem = (campo as any).nr_seq_imagem;
+      if (!nr_seq_imagem || !imagensMap?.[nr_seq_imagem]) { texto = ''; } else {
+        const imgDataUrl = imagensMap[nr_seq_imagem];
+        const tamanhoPx = (campo as any).qt_tamanho_imagem ?? 100;
         const tamanhoMm = pxToMm(tamanhoPx);
-        const x = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
-        const yPos = yBandTop + pxToMm(campo.topoRegistro ?? 0);
+        const x = marginLeft + pxToMm(campo.qt_esquerda ?? 0);
+        const yPos = yBandTop + pxToMm(campo.qt_topo ?? 0);
         if (yPos + tamanhoMm > yBandEnd) return;
         try {
           const fmt = imgDataUrl.includes('png') ? 'PNG' : 'JPEG';
@@ -461,36 +463,36 @@ function renderizarTextoValorBanda(
         } catch (e) { console.error('Erro ao adicionar imagem no PDF:', e); }
         return;
       }
-    } else if (reg && campo.chave) {
-      const valor = obterValorCampo(reg, campo.chave);
+    } else if (reg && campo.ie_campo) {
+      const valor = obterValorCampo(reg, campo.ie_campo);
       texto = formatarValor(valor, campo);
     } else {
       return;
     }
     if (!texto) return;
 
-    const fontCampo = mapFontJsPdf((campo as any).fonteCampo || relatorio.fonteCampo);
-    const fontSizeCampo = (campo as any).tamanhoFonteCampo || relatorio.tamanhoFonteCampo || 10;
+    const fontCampo = mapFontJsPdf((campo as any).ie_fonte || relatorio.fonteCampo);
+    const fontSizeCampo = (campo as any).qt_fonte || relatorio.tamanhoFonteCampo || 10;
 
-    const xBase = marginLeft + pxToMm(campo.alinhamentoHorizontal ?? 0);
-    const larguraMm = pxToMm(campo.largura ?? 0);
+    const xBase = marginLeft + pxToMm(campo.qt_esquerda ?? 0);
+    const larguraMm = pxToMm(campo.qt_largura ?? 0);
     const fontSizeMmCalc = fontSizeCampo * 0.352778;
     const ascMmCalc = fontSizeMmCalc * 1.0;
-    const pTCalc = pxToMm((campo as any).paddingTopCampo ?? 2);
-    const y = yBandTop + pxToMm(campo.topoRegistro ?? 0) + ascMmCalc + pTCalc;
+    const pTCalc = pxToMm((campo as any).qt_padding_superior ?? 2);
+    const y = yBandTop + pxToMm(campo.qt_topo ?? 0) + ascMmCalc + pTCalc;
 
     // Ignorar itens que ultrapassam a altura da banda
     if (y > yBandEnd) return;
 
-    const corCampo = (campo as any).corCampo || relatorio.corCampoGlobal || '#1a1a1a';
-    const rgb = hexToRgb(corCampo);
+    const cd_cor = (campo as any).cd_cor || relatorio.corCampoGlobal || '#1a1a1a';
+    const rgb = hexToRgb(cd_cor);
     if (rgb) doc.setTextColor(rgb.r, rgb.g, rgb.b);
     else doc.setTextColor(26, 26, 26);
 
-    doc.setFont(fontCampo, estiloPdf(campo.estiloCampo));
+    doc.setFont(fontCampo, estiloPdf(campo.ie_estilo));
     doc.setFontSize(fontSizeCampo);
 
-    const align = campo.alinhamento === 'centro' ? 'center' : campo.alinhamento === 'direita' ? 'right' : 'left';
+    const align = campo.ie_alinhamento === 'centro' ? 'center' : campo.ie_alinhamento === 'direita' ? 'right' : 'left';
 
     // Calcular x final baseado na largura e alinhamento
     let x = xBase;
@@ -501,10 +503,10 @@ function renderizarTextoValorBanda(
     const textStr = String(texto);
     const textWidth = doc.getTextWidth(textStr);
     const fontSizeMm = fontSizeCampo * 0.352778;
-    const pT = pxToMm((campo as any).paddingTopCampo ?? 2);
-    const pR = pxToMm((campo as any).paddingRightCampo ?? 5);
-    const pB = pxToMm((campo as any).paddingBottomCampo ?? 2);
-    const pL = pxToMm((campo as any).paddingLeftCampo ?? 5);
+    const pT = pxToMm((campo as any).qt_padding_superior ?? 2);
+    const pR = pxToMm((campo as any).qt_padding_direita ?? 5);
+    const pB = pxToMm((campo as any).qt_padding_inferior ?? 2);
+    const pL = pxToMm((campo as any).qt_padding_esquerda ?? 5);
     let bgX = x;
     if (align === 'center') bgX = x - textWidth / 2 - pL;
     else if (align === 'right') bgX = x - textWidth - pL;
@@ -516,7 +518,7 @@ function renderizarTextoValorBanda(
     const boxW = textWidth + pL + pR;
     const boxH = ascMm + descMm + pT + pB;
     // Background do valor (ignorado se transparente)
-    const bgCampo = (campo as any).backgroundCampo;
+    const bgCampo = (campo as any).cd_background;
     if (!(campo as any).transparentCampo && bgCampo && bgCampo !== '#ffffff' && bgCampo !== '') {
       const bgRgb = hexToRgb(bgCampo);
       if (bgRgb) {
@@ -525,19 +527,19 @@ function renderizarTextoValorBanda(
       }
     }
     // Bordas do elemento
-    const hasBorder = (campo as any).borderTopCampo || (campo as any).borderRightCampo || (campo as any).borderBottomCampo || (campo as any).borderLeftCampo;
+    const hasBorder = (campo as any).ie_borda_superior === 'S' || (campo as any).ie_borda_direita === 'S' || (campo as any).ie_borda_inferior === 'S' || (campo as any).ie_borda_esquerda === 'S';
     if (hasBorder) {
       doc.setDrawColor(0);
       doc.setLineWidth(0.2);
-      if ((campo as any).borderTopCampo) doc.line(boxX, boxY, boxX + boxW, boxY);
-      if ((campo as any).borderBottomCampo) doc.line(boxX, boxY + boxH, boxX + boxW, boxY + boxH);
-      if ((campo as any).borderLeftCampo) doc.line(boxX, boxY, boxX, boxY + boxH);
-      if ((campo as any).borderRightCampo) doc.line(boxX + boxW, boxY, boxX + boxW, boxY + boxH);
+      if ((campo as any).ie_borda_superior === 'S') doc.line(boxX, boxY, boxX + boxW, boxY);
+      if ((campo as any).ie_borda_inferior === 'S') doc.line(boxX, boxY + boxH, boxX + boxW, boxY + boxH);
+      if ((campo as any).ie_borda_esquerda === 'S') doc.line(boxX, boxY, boxX, boxY + boxH);
+      if ((campo as any).ie_borda_direita === 'S') doc.line(boxX + boxW, boxY, boxX + boxW, boxY + boxH);
     }
 
     doc.text(String(texto), x, y, { align: align as 'left' | 'center' | 'right' });
 
-    if (temSublinhado(campo.estiloCampo)) {
+    if (temSublinhado(campo.ie_estilo)) {
       const textWidth = doc.getTextWidth(String(texto));
       const lineY = y + 0.5;
       let lineX = x;
@@ -583,6 +585,19 @@ export interface BandaPdfData {
   ie_borda_inferior?: boolean;
   ie_borda_esquerda?: boolean;
   ie_borda_direita?: boolean;
+  /** Configurações visuais da banda (sobrepõem as do relatório). */
+  espessuraLabel?: number;
+  topoLabel?: number;
+  espessuraCampo?: number;
+  topoRegistro?: number;
+  bgLabel?: string;
+  bgCampo?: string;
+  corLabelGlobal?: string;
+  corCampoGlobal?: string;
+  fonteLabel?: string;
+  tamanhoFonteLabel?: number;
+  fonteCampo?: string;
+  tamanhoFonteCampo?: number;
   /** Campos da banda. */
   campos: RelatorioCampo[];
   /** Registros da banda. */
@@ -720,6 +735,7 @@ export function gerarPdf(
           y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
           contentW, mapFontJsPdf,
           { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
+          { espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo },
         );
       } else {
         renderizarTextoValorBanda(
@@ -737,7 +753,7 @@ export function gerarPdf(
     renderRodapeBanda();
 
     // ── Total de registros (opcional) ──
-    // Pode ser adicionado via banda Rodapé com tipoCampo 'data_geracao' etc.
+    // Pode ser adicionado via banda Rodapé com ie_tipo_elemento 'data_geracao' etc.
   } else {
     // ── Modo legado: tabela única ──
     // Configurar onNewPage para redesenhar a borda em cada nova página

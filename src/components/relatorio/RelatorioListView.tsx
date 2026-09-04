@@ -42,7 +42,7 @@ function formatCellValue(key: string, value: any): string {
     }
   }
   if (key === "formato") {
-    return value === "excel" ? "Excel (CSV)" : "PDF";
+    return "PDF";
   }
   return String(value);
 }

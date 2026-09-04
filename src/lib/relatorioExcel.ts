@@ -147,7 +147,7 @@ export function gerarERealizarDownloadExcel(
 
   // ── Dados ──
   const dataRowStart = rowIdx;  for (const reg of registros) {
-    dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.chave), campo)));
+    dados.push(campos.map((campo) => formatarValor(obterValorCampo(reg, campo.ie_campo), campo)));
     rowIdx++;
   }
 
@@ -159,7 +159,7 @@ export function gerarERealizarDownloadExcel(
       if (campo.soma) {
         let total = 0;
         for (const reg of registros) {
-          const val = obterValorCampo(reg, campo.chave);
+          const val = obterValorCampo(reg, campo.ie_campo);
           const num = typeof val === 'number' ? val : parseFloat(String(val).replace(/[.,]/g, (m) => m === ',' ? '.' : ''));
           if (!isNaN(num)) total += num;
         }
@@ -204,12 +204,12 @@ export function gerarERealizarDownloadExcel(
           name: 'Calibri',
           sz: 11,
           bold: true,
-          ...estiloFonte(campo.estiloLabel),
+          ...estiloFonte(campo.ie_estilo_label),
           color: { rgb: hexToRgb(corTextoCabecalho) },
         },
         fill: { fgColor: { rgb: hexToRgb(corCabecalho) } },
         alignment: {
-          horizontal: campo.alinhamento === "centro" ? "center" : campo.alinhamento === "direita" ? "right" : "left",
+          horizontal: campo.ie_alinhamento === "centro" ? "center" : campo.ie_alinhamento === "direita" ? "right" : "left",
           vertical: "center",
         },
         border: (config.estiloCabecalho === "borda" || config.estiloCabecalho === "preenchido") ? makeBorder() : undefined,
@@ -228,23 +228,23 @@ export function gerarERealizarDownloadExcel(
       const cell = ws[cellRef];
       if (!cell) continue;
 
-      const estiloCampo = estiloFonte(campo.estiloCampo);
-      const hasStyle = Object.keys(estiloCampo).length > 0 || campo.corCampo || campo.backgroundCampo;
+      const ie_estilo = estiloFonte(campo.ie_estilo);
+      const hasStyle = Object.keys(ie_estilo).length > 0 || campo.cd_cor || campo.cd_background;
 
       if (hasStyle) {
         const s: any = {};
-        if (Object.keys(estiloCampo).length > 0) {
-          s.font = { name: 'Calibri', sz: 11, ...estiloCampo };
+        if (Object.keys(ie_estilo).length > 0) {
+          s.font = { name: 'Calibri', sz: 11, ...ie_estilo };
         }
-        if (campo.corCampo) {
+        if (campo.cd_cor) {
           if (!s.font) s.font = {};
-          s.font.color = { rgb: hexToRgb(campo.corCampo) };
+          s.font.color = { rgb: hexToRgb(campo.cd_cor) };
         }
-        if (campo.backgroundCampo) {
-          s.fill = { fgColor: { rgb: hexToRgb(campo.backgroundCampo) } };
+        if (campo.cd_background) {
+          s.fill = { fgColor: { rgb: hexToRgb(campo.cd_background) } };
         }
         s.alignment = {
-          horizontal: campo.alinhamento === "centro" ? "center" : campo.alinhamento === "direita" ? "right" : "left",
+          horizontal: campo.ie_alinhamento === "centro" ? "center" : campo.ie_alinhamento === "direita" ? "right" : "left",
           vertical: "center",
         };
         cell.s = s;
@@ -262,7 +262,7 @@ export function gerarERealizarDownloadExcel(
 
   // ── Largura das colunas ──
   ws["!cols"] = campos.map((campo) => ({
-    wch: campo.largura ? Math.max(campo.largura / 5, 10) : 15,
+    wch: campo.qt_largura ? Math.max(campo.qt_largura / 5, 10) : 15,
   }));
 
   // ── Filtros automáticos ──

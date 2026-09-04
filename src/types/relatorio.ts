@@ -117,9 +117,9 @@ export interface RelatorioCampo {
   /** Identificador único do campo. */
   id: string;
   /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
-  colecao?: string;
+  ie_colecao?: string;
   /** Chave do campo na coleção (ex.: 'ds_ativo'). Se vier de join, usar 'alias.campo'. */
-  chave: string;
+  ie_campo: string;
   /** Label exibido no cabeçalho da coluna. */
   label: string;
   /** Cor de fundo do label (cabeçalho). */
@@ -127,26 +127,26 @@ export interface RelatorioCampo {
   /** Cor do texto do label (cabeçalho). */
   corLabel?: string;
   /** Cor do texto do campo (dados). */
-  corCampo?: string;
+  cd_cor?: string;
   /** Cor de fundo do campo (dados). */
-  backgroundCampo?: string;
+  cd_background?: string;
   /** Posição/ordem do campo no relatório. */
   posicao?: number;
-  /** Largura da coluna (em caracteres para Excel, em pontos para PDF). */
-  largura?: number;
+  /** Largura da coluna (em pontos para PDF). */
+  qt_largura?: number;
   /** Distância em pixels da margem esquerda. */
-  alinhamentoHorizontal?: number;
+  qt_esquerda?: number;
   /** Distância em pixels do topo para a label. */
   topoLabel?: number;
   /** Distância em pixels do topo para o registro. */
-  topoRegistro?: number;
+  qt_topo?: number;
   /** Alinhamento horizontal (label e campo) dentro da largura da coluna. */
-  alinhamento?: 'esquerda' | 'centro' | 'direita';
+  ie_alinhamento?: 'esquerda' | 'centro' | 'direita';
   /** Estilo da label (cabeçalho). */
-  estiloLabel?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
+  ie_estilo_label?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
   /** Estilo do campo (dados). */
-  estiloCampo?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
-  estiloSoma?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
+  ie_estilo?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
+  ie_estilo_soma?: 'normal' | 'negrito' | 'italico' | 'sublinhado' | 'negrito_italico' | 'negrito_sublinhado' | 'italico_sublinhado' | 'negrito_italico_sublinhado';
   /** Formatação especial do dado. */
   formatacao?: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   /** Casas decimais (apenas para número/moeda). */
@@ -158,17 +158,17 @@ export interface RelatorioCampo {
   /** Se true, exibe o somatório dos valores desta coluna ao final do relatório. */
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor: 'valor' ou 'conteudo'. */
-  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
-  /** Conteúdo livre quando tipoCampo === 'conteudo'. */
+  ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
+  /** Conteúdo livre quando ie_tipo_elemento === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
-  fonteCampo?: string;
+  ie_fonte?: string;
   /** Tamanho da fonte do campo em pontos (para banda Texto/Valor). */
-  tamanhoFonteCampo?: number;
-  /** ID da imagem selecionada (quando tipoCampo === 'imagem'). */
-  imagemId?: string;
-  /** Tamanho da imagem em pixels (quando tipoCampo === 'imagem'). */
-  tamanhoImagem?: number;
+  qt_fonte?: number;
+  /** ID da imagem selecionada (quando ie_tipo_elemento === 'imagem'). */
+  nr_seq_imagem?: string;
+  /** Tamanho da imagem em pixels (quando ie_tipo_elemento === 'imagem'). */
+  qt_tamanho_imagem?: number;
 }
 
 /**
@@ -235,6 +235,19 @@ export interface RelatorioBanda {
   ie_borda_esquerda?: boolean;
   /** Borda direita da banda. */
   ie_borda_direita?: boolean;
+  /** Configurações visuais da banda (somente para tipo 'lista'). */
+  espessuraLabel?: number;
+  topoLabel?: number;
+  espessuraCampo?: number;
+  topoRegistro?: number;
+  bgLabel?: string;
+  bgCampo?: string;
+  corLabelGlobal?: string;
+  corCampoGlobal?: string;
+  fonteLabel?: string;
+  tamanhoFonteLabel?: number;
+  fonteCampo?: string;
+  tamanhoFonteCampo?: number;
   /** Campos da lista (apenas para tipo 'lista'). */
   campos?: RelatorioCampo[];
   /** Data de criação da banda. */

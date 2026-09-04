@@ -146,7 +146,7 @@ async function fetchColecao(nomeColecao: string): Promise<Record<string, any>[]>
  * O alias é usado para nomear o objeto aninhado no registro (ex.: 'marca' para 'nr_seq_marca').
  */
 function identificarFksNecessarias(
-  campos: { colecao?: string; chave: string }[],
+  campos: { ie_colecao?: string; ie_campo: string }[],
   colecaoPrincipal: string,
   dsPrincipal: DataSourceCampo[]
 ): Map<string, { fkFieldKey: string; alias: string }> {
@@ -155,8 +155,8 @@ function identificarFksNecessarias(
   // Quais coleções FK são usadas nos campos do relatório?
   const colecoesUsadas = new Set<string>();
   for (const campo of campos) {
-    if (campo.colecao && campo.colecao !== colecaoPrincipal) {
-      colecoesUsadas.add(campo.colecao);
+    if (campo.ie_colecao && campo.ie_colecao !== colecaoPrincipal) {
+      colecoesUsadas.add(campo.ie_colecao);
     }
   }
 
@@ -179,7 +179,7 @@ function identificarFksNecessarias(
 async function resolveColecoesFK(
   registros: Record<string, any>[],
   colecaoPrincipal: string,
-  camposRelatorio: { colecao?: string; chave: string }[],
+  camposRelatorio: { ie_colecao?: string; ie_campo: string }[],
   dsPrincipalCampos: DataSourceCampo[]
 ): Promise<{ resolvidos: Record<string, any>[]; lookups: Record<string, Record<number, string>> }> {
   const fksNecessarias = identificarFksNecessarias(camposRelatorio, colecaoPrincipal, dsPrincipalCampos);
@@ -270,8 +270,8 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
   );
 
   // Resolve campos computados
-  console.log('[DEBUG COMPUTED] campos:', campos.map((c) => ({ chave: c.chave, colecao: c.colecao, computed: (c as any).computed })), 'colecao:', colecao);
-  const temComputado = campos.some((c) => c.chave === 'ds_prestador_servico');
+  console.log('[DEBUG COMPUTED] campos:', campos.map((c) => ({ chave: c.ie_campo, ie_colecao: c.ie_colecao, computed: (c as any).computed })), 'colecao:', colecao);
+  const temComputado = campos.some((c) => c.ie_campo === 'ds_prestador_servico');
   console.log('[DEBUG COMPUTED] temComputado:', temComputado, 'isManut:', colecao === 'pat_manutencao');
   if (temComputado && colecao === 'pat_manutencao') {
     console.log('[DEBUG COMPUTED] Resolving ds_prestador_servico...');
@@ -329,20 +329,20 @@ export function resolverCampoColuna(campo: string, registros: Record<string, any
  * Se o campo vem de uma coleção FK, converte 'ds_marca' → 'marca.ds_marca'.
  */
 export function resolverChaveCampo(
-  campo: { colecao?: string; chave: string },
+  campo: { ie_colecao?: string; ie_campo: string },
   colecaoPrincipal: string,
   dsPrincipalCampos: DataSourceCampo[]
 ): string {
-  if (!campo.colecao || campo.colecao === colecaoPrincipal || campo.chave.includes('.')) {
-    return campo.chave;
+  if (!campo.ie_colecao || campo.ie_colecao === colecaoPrincipal || campo.ie_campo.includes('.')) {
+    return campo.ie_campo;
   }
   // Encontra o campo FK que aponta para esta coleção
   const fkCampo = dsPrincipalCampos.find(
-    (c) => c.isFK && c.fkColecao === campo.colecao
+    (c) => c.isFK && c.fkColecao === campo.ie_colecao
   );
-  if (!fkCampo) return campo.chave;
+  if (!fkCampo) return campo.ie_campo;
   const alias = fkCampo.key.replace(/^nr_seq_/, '');
-  return `${alias}.${campo.chave}`;
+  return `${alias}.${campo.ie_campo}`;
 }
 
 /**

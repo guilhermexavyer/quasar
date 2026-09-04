@@ -5,12 +5,10 @@ import Select from "@/components/ui/Select";
 import LoadingModal from "@/components/ui/LoadingModal";
 import { DATA_SOURCES, getDataSource } from "@/lib/relatorioDataSources";
 import {
-  defaultConfigExcel,
   defaultConfigPdf,
   gerarId,
   OPERADORES_FILTRO,
   TAMANHOS_PAGINA,
-  ESTILO_CABECALHO_EXCEL,
 } from "@/lib/relatorioUtils";
 import type {
   Relatorio,
@@ -69,7 +67,7 @@ interface RelatorioBuilderProps {
   onOpenAudit?: (relatorioId?: string | null) => void;
   onOpenBandaAudit?: (relatorioId?: string | null, bandaId?: string | null) => void;
   /** Save direto no Firestore ao salvar a banda (gera log de auditoria) */
-  onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => void;
+  onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => Promise<void> | void;
   /** Regras de campos por perfil (colecao relatorios): campo → status (N/O/D). */
   campoRegras?: Record<string, CampoStatus>;
   /** Regras de campos por perfil (colecao relatorio_bandas): campo → status (N/O/D). */
@@ -80,37 +78,38 @@ interface RelatorioBuilderProps {
   imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
   /** Modo de exibição: 'form' mostra Relatório+Saída, 'bandas' mostra apenas Bandas. */
   viewMode?: 'form' | 'bandas';
+  /** Dark mode ativo. */
+  darkMode?: boolean;
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
   return {
     id: c.id || gerarId(),
     nr_sequencia: c.nr_sequencia ?? 0,
-    colecao: c.colecao || colecaoPrincipal,
-    chave: c.chave || '',
+    ie_colecao: c.ie_colecao || colecaoPrincipal,
+    ie_campo: c.ie_campo || '',
     label: c.rotulo || c.label || '',
     backgroundLabel: c.backgroundLabel || '#e2e8f0',
     corLabel: c.corLabel || '#1a1a1a',
-    corCampo: c.corCampo || '#1a1a1a',
-    backgroundCampo: c.backgroundCampo || '',
+    cd_cor: c.cd_cor || '#1a1a1a',
+    cd_background: c.cd_background || '',
     transparentCampo: c.transparentCampo ?? false,
-    paddingTopCampo: c.paddingTopCampo ?? 0,
-    paddingRightCampo: c.paddingRightCampo ?? 0,
-    paddingBottomCampo: c.paddingBottomCampo ?? 0,
-    paddingLeftCampo: c.paddingLeftCampo ?? 0,
-    borderTopCampo: c.borderTopCampo ?? false,
-    borderRightCampo: c.borderRightCampo ?? false,
-    borderBottomCampo: c.borderBottomCampo ?? false,
-    borderLeftCampo: c.borderLeftCampo ?? false,
-    posicao: c.posicao ?? idx + 1,
-    alinhamentoHorizontal: c.alinhamentoHorizontal ?? 0,
+    qt_padding_superior: c.qt_padding_superior ?? 0,
+    qt_padding_direita: c.qt_padding_direita ?? 0,
+    qt_padding_inferior: c.qt_padding_inferior ?? 0,
+    qt_padding_esquerda: c.qt_padding_esquerda ?? 0,
+    ie_borda_superior: c.ie_borda_superior ?? 'N',
+    ie_borda_direita: c.ie_borda_direita ?? 'N',
+    ie_borda_inferior: c.ie_borda_inferior ?? 'N',
+    ie_borda_esquerda: c.ie_borda_esquerda ?? 'N',
+    qt_esquerda: c.qt_esquerda ?? 0,
     topoLabel: c.topoLabel ?? 0,
-    topoRegistro: c.topoRegistro ?? 0,
-    alinhamento: c.alinhamento ?? 'esquerda',
-    estiloLabel: c.estiloLabel ?? '',
-    estiloCampo: c.estiloCampo ?? '',
-    estiloSoma: c.estiloSoma ?? '',
-    largura: c.largura ?? 30,
+    qt_topo: c.qt_topo ?? 0,
+    ie_alinhamento: c.ie_alinhamento ?? 'esquerda',
+    ie_estilo_label: c.ie_estilo_label ?? '',
+    ie_estilo: c.ie_estilo ?? '',
+    ie_estilo_soma: c.ie_estilo_soma ?? '',
+    qt_largura: c.qt_largura ?? 30,
     formatacao: c.formatacao || 'texto',
     statusSistema: c.statusSistema ?? false,
     soma: c.soma ?? false,
@@ -168,10 +167,13 @@ export default function RelatorioBuilder({
   campoErros = [],
   imagens = [],
   viewMode = 'form',
+  darkMode = false,
 }: RelatorioBuilderProps) {
   const isBandasMode = viewMode === 'bandas';
+  const isDark = darkMode;
   const onBandaSaveRef = useRef(onBandaSave);
   useEffect(() => { onBandaSaveRef.current = onBandaSave; }, [onBandaSave]);
+
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
@@ -189,6 +191,35 @@ export default function RelatorioBuilder({
   const formRef = useRef<HTMLFormElement | null>(null);
 
   const [bandaSaving, setBandaSaving] = useState(false);
+
+  // ── Dirty state: detecta alterações não salvas ──
+  // Armazena o bandas/campos/filtros/ordenacao no momento do último save/load.
+  const savedBandasRef = useRef<string>('');
+  const savedCamposRef = useRef<string>('');
+  const savedFiltrosRef = useRef<string>('');
+  const savedOrdenacaoRef = useRef<string>('');
+  const [isDirty, setIsDirty] = useState(false);
+  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
+  const [pendingNav, setPendingNav] = useState<'prev' | 'next' | null>(null);
+  const pendingNavRef = useRef<'prev' | 'next' | null>(null);
+
+  /** Captura o estado "limpo" (salvo) para comparação futura. */
+  function refreshSnapshot() {
+    savedBandasRef.current = JSON.stringify(bandas);
+    savedCamposRef.current = JSON.stringify(campos);
+    savedFiltrosRef.current = JSON.stringify(filtros);
+    savedOrdenacaoRef.current = JSON.stringify(ordenacao);
+  }
+
+  /** Verifica se há alterações em relação ao último snapshot. */
+  function computeDirty(): boolean {
+    if (JSON.stringify(bandas) !== savedBandasRef.current) return true;
+    if (JSON.stringify(campos) !== savedCamposRef.current) return true;
+    if (JSON.stringify(filtros) !== savedFiltrosRef.current) return true;
+    if (JSON.stringify(ordenacao) !== savedOrdenacaoRef.current) return true;
+    return false;
+  }
+
   const [dsRelatorio, setDsRelatorio] = useState(relatorio?.ds_relatorio ?? "");
   const [colecao, setColecao] = useState(relatorio?.colecao ?? "");
   const [campos, setCampos] = useState<CamposRelatorioRow[]>(
@@ -198,17 +229,31 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; campos?: any[]; filtros?: any[]; ordenacao?: any[]; dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string };
+  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[]; _firestoreId?: string; dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string };
   const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
   const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
   const [bandaViewMode, setBandaViewMode] = useState<'ver' | 'content'>('content');
   const [bandasSubView, setBandasSubView] = useState<'bandas' | 'parametros'>('bandas');
-  const bandaTipo = useMemo(() => bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda, [bandas, bandaDetailId]);
+  const [bandaContentSubView, setBandaContentSubView] = useState<'dados' | 'ordenacao'>('dados');
+  const [campoDetailId, setCampoDetailId] = useState<string | null>(null);
+  const [pendingBanda, setPendingBanda] = useState<BandaState | null>(null);
+  const [pendingCampo, setPendingCampo] = useState<CamposRelatorioRow | null>(null);
+  const campoSel = useMemo(() => {
+    if (pendingCampo && pendingCampo.id === campoDetailId) return pendingCampo;
+    return campos.find((c) => c.id === campoDetailId);
+  }, [campos, campoDetailId, pendingCampo]);
+  const bandaTipo = useMemo(() => {
+    if (pendingBanda && pendingBanda.id === bandaDetailId) return pendingBanda.ie_tipo_banda;
+    return bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda;
+  }, [bandas, bandaDetailId, pendingBanda]);
 
   // Audit info da banda atual (quando dentro de uma banda)
-  const bandaSel = useMemo(() => bandas.find((b) => b.id === bandaDetailId), [bandas, bandaDetailId]);
+  const bandaSel = useMemo(() => {
+    if (pendingBanda && pendingBanda.id === bandaDetailId) return pendingBanda;
+    return bandas.find((b) => b.id === bandaDetailId);
+  }, [bandas, bandaDetailId, pendingBanda]);
   const bandaCreatedAt = bandaSel?.dt_criacao ?? '';
   const bandaUpdatedAt = bandaSel?.dt_alteracao ?? '';
   const bandaCreatedBy = bandaSel?.ds_usuario_criacao ?? '';
@@ -247,22 +292,76 @@ export default function RelatorioBuilder({
       const o = ordenacaoRef.current;
       setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
+    // Limpar estado de campo anterior para não abrir formulário de elemento
+    setPendingCampo(null);
+    setCampoDetailId(null);
     const target = bandas.find((b) => b.id === bandaId);
     if (target) {
       setCampos(target.campos?.length ? [...target.campos] : []);
     }
     setBandaDetailId(bandaId);
     setBandaViewMode('content');
+    setBandaContentSubView('dados');
+    // Carregar configurações visuais da banda selecionada
+    if (target) {
+      setEspessuraLabel(target.espessuraLabel ?? 16);
+      setTopoLabelVal(target.topoLabel ?? 0);
+      setEspessuraCampo(target.espessuraCampo ?? 24);
+      setTopoRegistroVal(target.topoRegistro ?? 0);
+      setBgLabel(target.bgLabel ?? '#e2e8f0');
+      setBgCampo(target.bgCampo ?? '');
+      setCorLabelGlobal(target.corLabelGlobal ?? '#1a1a1a');
+      setCorCampoGlobal(target.corCampoGlobal ?? '#1a1a1a');
+      setFonteLabel(target.fonteLabel ?? 'Arial');
+      setTamanhoFonteLabel(target.tamanhoFonteLabel ?? 10);
+      setFonteCampo(target.fonteCampo ?? 'Arial');
+      setTamanhoFonteCampo(target.tamanhoFonteCampo ?? 10);
+    }
   }
 
   function openBandaVer(bandaId: string) {
     const currentBandaId = bandaDetailIdRef.current;
-    if (currentBandaId) {
+    if (currentBandaId && !pendingBanda) {
       const c = camposRef.current;
       setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
     setBandaDetailId(bandaId);
     setBandaViewMode('ver');
+    setBandaContentSubView('dados');
+    // Carregar configurações visuais da banda selecionada
+    const bSel = (pendingBanda && pendingBanda.id === bandaId) ? pendingBanda : bandas.find((b) => b.id === bandaId);
+    if (bSel) {
+      setEspessuraLabel(bSel.espessuraLabel ?? 16);
+      setTopoLabelVal(bSel.topoLabel ?? 0);
+      setEspessuraCampo(bSel.espessuraCampo ?? 24);
+      setTopoRegistroVal(bSel.topoRegistro ?? 0);
+      setBgLabel(bSel.bgLabel ?? '#e2e8f0');
+      setBgCampo(bSel.bgCampo ?? '');
+      setCorLabelGlobal(bSel.corLabelGlobal ?? '#1a1a1a');
+      setCorCampoGlobal(bSel.corCampoGlobal ?? '#1a1a1a');
+      setFonteLabel(bSel.fonteLabel ?? 'Arial');
+      setTamanhoFonteLabel(bSel.tamanhoFonteLabel ?? 10);
+      setFonteCampo(bSel.fonteCampo ?? 'Arial');
+      setTamanhoFonteCampo(bSel.tamanhoFonteCampo ?? 10);
+    }
+  }
+
+  /** Atualiza a banda selecionada (funciona tanto para banda existente quanto pendente) */
+  function updateBandaSelecionada(updater: (b: BandaState) => BandaState) {
+    if (pendingBanda && pendingBanda.id === bandaDetailId) {
+      setPendingBanda((prev) => prev ? updater(prev) : prev);
+    } else {
+      setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? updater(b) : b));
+    }
+  }
+
+  /** Atualiza o campo selecionado (funciona tanto para campo existente quanto pendente) */
+  function updateCampoSelecionado(updater: (c: CamposRelatorioRow) => CamposRelatorioRow) {
+    if (pendingCampo && pendingCampo.id === campoDetailId) {
+      setPendingCampo((prev) => prev ? updater(prev) : prev);
+    } else {
+      setCampos((prev) => prev.map((c) => c.id === campoDetailId ? updater(c) : c));
+    }
   }
 
   /** Fecha o modal da banda: salva dados na banda e limpa. Usa refs para evitar stale closures. */
@@ -275,12 +374,12 @@ export default function RelatorioBuilder({
       setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
     setBandaDetailId(null);
+    setCampoDetailId(null);
     setCampos([]);
     setFiltros([]);
     setOrdenacao([]);
   }
-  const [formato, setFormato] = useState<'excel' | 'pdf'>(relatorio?.ie_formato ?? 'excel');
-  const [configExcel, setConfigExcel] = useState(relatorio?.configExcel ?? defaultConfigExcel());
+  const [formato] = useState<'pdf'>('pdf');
   const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
   const [espessuraLabel, setEspessuraLabel] = useState(relatorio?.espessuraLabel ?? 16);
   const [topoLabelVal, setTopoLabelVal] = useState(relatorio?.topoLabel ?? 0);
@@ -322,15 +421,27 @@ export default function RelatorioBuilder({
 
   /** fieldInfos para os campos da banda */
   const bandaFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
-    ds_banda: { type: 'string', field: 'ds_banda', collection: 'relatorio_bandas' },
-    ie_tipo_banda: { type: 'string', field: 'ie_tipo_banda', collection: 'relatorio_bandas' },
-    ie_colecao_principal: { type: 'string', field: 'ie_colecao_principal', collection: 'relatorio_bandas' },
-    nr_posicao: { type: 'int64', field: 'nr_posicao', collection: 'relatorio_bandas' },
-    nr_altura: { type: 'int64', field: 'nr_altura', collection: 'relatorio_bandas' },
-    ie_borda_superior: { type: 'boolean', field: 'ie_borda_superior', collection: 'relatorio_bandas' },
-    ie_borda_inferior: { type: 'boolean', field: 'ie_borda_inferior', collection: 'relatorio_bandas' },
-    ie_borda_esquerda: { type: 'boolean', field: 'ie_borda_esquerda', collection: 'relatorio_bandas' },
-    ie_borda_direita: { type: 'boolean', field: 'ie_borda_direita', collection: 'relatorio_bandas' },
+    ds_banda: { type: 'string', field: 'ds_banda', collection: 'relatorio_banda' },
+    ie_tipo_banda: { type: 'string', field: 'ie_tipo_banda', collection: 'relatorio_banda' },
+    ie_colecao_principal: { type: 'string', field: 'ie_colecao_principal', collection: 'relatorio_banda' },
+    nr_posicao: { type: 'int64', field: 'nr_posicao', collection: 'relatorio_banda' },
+    nr_altura: { type: 'int64', field: 'nr_altura', collection: 'relatorio_banda' },
+    ie_borda_superior: { type: 'boolean', field: 'ie_borda_superior', collection: 'relatorio_banda' },
+    ie_borda_inferior: { type: 'boolean', field: 'ie_borda_inferior', collection: 'relatorio_banda' },
+    ie_borda_esquerda: { type: 'boolean', field: 'ie_borda_esquerda', collection: 'relatorio_banda' },
+    ie_borda_direita: { type: 'boolean', field: 'ie_borda_direita', collection: 'relatorio_banda' },
+    espessuraLabel: { type: 'int64', field: 'espessuraLabel', collection: 'relatorio_banda' },
+    topoLabel: { type: 'int64', field: 'topoLabel', collection: 'relatorio_banda' },
+    espessuraCampo: { type: 'int64', field: 'espessuraCampo', collection: 'relatorio_banda' },
+    topoRegistro: { type: 'int64', field: 'topoRegistro', collection: 'relatorio_banda' },
+    bgLabel: { type: 'string', field: 'bgLabel', collection: 'relatorio_banda' },
+    bgCampo: { type: 'string', field: 'bgCampo', collection: 'relatorio_banda' },
+    corLabelGlobal: { type: 'string', field: 'corLabelGlobal', collection: 'relatorio_banda' },
+    corCampoGlobal: { type: 'string', field: 'corCampoGlobal', collection: 'relatorio_banda' },
+    fonteLabel: { type: 'string', field: 'fonteLabel', collection: 'relatorio_banda' },
+    tamanhoFonteLabel: { type: 'int64', field: 'tamanhoFonteLabel', collection: 'relatorio_banda' },
+    fonteCampo: { type: 'string', field: 'fonteCampo', collection: 'relatorio_banda' },
+    tamanhoFonteCampo: { type: 'int64', field: 'tamanhoFonteCampo', collection: 'relatorio_banda' },
   };
 
   /** Retorna o status (N/O/D) de um campo nas regras do perfil. */
@@ -377,6 +488,7 @@ export default function RelatorioBuilder({
   }
 
   // Reset estado quando relatório muda (navegação por setas)
+  const justNavigatedRef = useRef(false);
   const prevRelatorioIdRef = useRef(relatorio?.id);
   useEffect(() => {
     if (relatorio?.id !== prevRelatorioIdRef.current) {
@@ -391,8 +503,7 @@ export default function RelatorioBuilder({
       setFiltros(relatorio?.filtros?.length ? relatorio.filtros : []);
       setOrdenacao(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
       setBandas(relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
-      setFormato(relatorio?.ie_formato ?? 'excel');
-      setConfigExcel(relatorio?.configExcel ?? defaultConfigExcel());
+      // formato é sempre 'pdf' (Excel removido)
       setConfigPdf(relatorio?.configPdf ?? defaultConfigPdf());
       setEspessuraLabel(relatorio?.espessuraLabel ?? 16);
       setTopoLabelVal(relatorio?.topoLabel ?? 0);
@@ -410,8 +521,26 @@ export default function RelatorioBuilder({
       setEditingBanda(false);
       setEditingFiltro(false);
       setEditingOrdenacao(false);
+      // Marca que o relatório mudou — o snapshot será atualizado no próximo
+      // render (quando o estado já refletir os novos valores).
+      justNavigatedRef.current = true;
     }
   }, [relatorio]);
+
+  // ── Detectar alterações não salvas ──
+  // Usa justNavigatedRef para garantir que o snapshot seja capturado AFTER
+  // o estado ter sido atualizado pelo reset effect (no render seguinte).
+  useEffect(() => {
+    if (justNavigatedRef.current) {
+      // Navegação recém-ocorrida: o estado agora reflete o novo relatório.
+      // Atualizar snapshot e marcar como limpo.
+      justNavigatedRef.current = false;
+      refreshSnapshot();
+      setIsDirty(false);
+      return;
+    }
+    setIsDirty(computeDirty());
+  }, [bandas, campos, filtros, ordenacao, dsRelatorio]);
 
   const dataSource = useMemo(() => (colecao ? getDataSource(colecao) : undefined), [colecao]);
   const camposDisponiveis = dataSource?.campos ?? [];
@@ -420,43 +549,69 @@ export default function RelatorioBuilder({
   const camposDisponiveisBanda = useMemo(() => (bandaColecaoAtual ? (getDataSource(bandaColecaoAtual)?.campos ?? []) : []), [bandaColecaoAtual]);
   const opcoesColecao = DATA_SOURCES.map((ds) => ({ value: ds.value, label: ds.value })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
 
+  // Ctrl+S handler ref — always points to latest closure values
+  const ctrlSHandlerRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    ctrlSHandlerRef.current = () => {
+      if (bandaDetailId) {
+        (async () => {
+          let finalBandas: any[] = bandas;
+          if (pendingBanda && pendingBanda.id === bandaDetailId) {
+            const seq = getNextBandaSeq();
+            const newBanda = { ...pendingBanda, nr_sequencia: seq };
+            finalBandas = [...bandas, newBanda];
+            setBandas(finalBandas);
+            setPendingBanda(null);
+          }
+          const currentBandaId = bandaDetailIdRef.current;
+          if (currentBandaId) {
+            const c = camposRef.current;
+            finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
+            setBandas(finalBandas);
+          }
+          setBandaSaving(true);
+          try {
+            await onBandaSaveRef.current?.(finalBandas, currentBandaId);
+          } catch { /* handled inside handleBandaSave */ }
+          setBandaDetailId(null);
+          setBandaViewMode('content');
+          setCampos([]);
+          setBandaSaving(false);
+          refreshSnapshot();
+          setIsDirty(false);
+        })();
+        return;
+      }
+      if (isBandasMode) {
+        (async () => {
+          setBandaSaving(true);
+          try {
+            await onBandaSaveRef.current?.(bandas, undefined);
+          } catch { /* handled inside handleBandaSave */ }
+          setBandaSaving(false);
+          refreshSnapshot();
+          setIsDirty(false);
+        })();
+        return;
+      }
+      if (saving || isEditingAnyTable) return;
+      const f = formRef.current;
+      if (f && typeof (f as any).requestSubmit === 'function') {
+        (f as any).requestSubmit();
+      }
+    };
+  }); // No deps — runs every render to keep handler current
+
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
         e.preventDefault();
-        // Se o modal da banda está aberto, salva o modal + persiste no Firestore
-        if (bandaDetailId) {
-          // Salva os dados da banda no estado local primeiro
-          const currentBandaId = bandaDetailIdRef.current;
-          if (currentBandaId) {
-            const c = camposRef.current;
-            const f = filtrosRef.current;
-            const o = ordenacaoRef.current;
-            setBandas((prev) => {
-              const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
-              // Passa as bandas atualizadas diretamente para o save
-              setTimeout(() => onBandaSaveRef.current?.(updated, currentBandaId), 0);
-              return updated;
-            });
-          }
-          setBandaSaving(true);
-          setBandaDetailId(null);
-          setCampos([]);
-          setFiltros([]);
-          setOrdenacao([]);
-          setTimeout(() => setBandaSaving(false), 600);
-          return;
-        }
-        if (saving || isEditingAnyTable) return;
-        const f = formRef.current;
-        if (f && typeof (f as any).requestSubmit === 'function') {
-          (f as any).requestSubmit();
-        }
+        ctrlSHandlerRef.current();
       }
     }
     document.addEventListener('keydown', onKeyDown);
     return () => document.removeEventListener('keydown', onKeyDown);
-  }, [saving, isEditingAnyTable, bandaDetailId]);
+  }, []);
 
   // Sync form state back to parent so that "Gerar relatório" uses current data.
   useEffect(() => {
@@ -466,17 +621,17 @@ export default function RelatorioBuilder({
       ds_relatorio: dsRelatorio.trim(),
       colecao,
       campos: campos.map((c) => ({
-        id: c.id, nr_sequencia: c.nr_sequencia, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
-        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo, transparentCampo: c.transparentCampo,
-        paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
-        borderTopCampo: c.borderTopCampo, borderRightCampo: c.borderRightCampo, borderBottomCampo: c.borderBottomCampo, borderLeftCampo: c.borderLeftCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo, imagemId: c.imagemId, tamanhoImagem: c.tamanhoImagem,
+        id: c.id, nr_sequencia: c.nr_sequencia, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
+        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
+        qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
+        ie_borda_superior: c.ie_borda_superior ? 'S' : 'N', ie_borda_direita: c.ie_borda_direita ? 'S' : 'N', ie_borda_inferior: c.ie_borda_inferior ? 'S' : 'N', ie_borda_esquerda: c.ie_borda_esquerda ? 'S' : 'N',
+        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
       })),
       filtros: filtros.map((f) => ({ id: f.id, campo: f.campo, operador: f.operador, valor: f.valor, valorFinal: f.valorFinal, mascara: f.mascara, parametro: f.parametro })),
       ordenacao: ordenacao.map((o) => ({ id: o.id, campo: o.campo, direcao: o.direcao })),
-      bandas: bandas.map((b) => ({ id: b.id, nr_sequencia: b.nr_sequencia, nr_seq_relatorio: b.nr_seq_relatorio, ds_banda: b.ds_banda, ie_colecao_principal: b.ie_colecao_principal, nr_posicao: b.nr_posicao, ie_tipo_banda: b.ie_tipo_banda, nr_altura: b.nr_altura, ie_borda_superior: b.ie_borda_superior, ie_borda_inferior: b.ie_borda_inferior, ie_borda_esquerda: b.ie_borda_esquerda, ie_borda_direita: b.ie_borda_direita, campos: b.campos })),
+      bandas: bandas.map((b) => ({ id: b.id, _firestoreId: b._firestoreId, nr_sequencia: b.nr_sequencia, nr_seq_relatorio: b.nr_seq_relatorio, ds_banda: b.ds_banda, ie_colecao_principal: b.ie_colecao_principal, nr_posicao: b.nr_posicao, ie_tipo_banda: b.ie_tipo_banda, nr_altura: b.nr_altura, ie_borda_superior: b.ie_borda_superior, ie_borda_inferior: b.ie_borda_inferior, ie_borda_esquerda: b.ie_borda_esquerda, ie_borda_direita: b.ie_borda_direita, campos: b.campos })),
       ie_formato: formato,
-      configExcel: formato === 'excel' ? configExcel : undefined,
+      configExcel: undefined,
       configPdf: formato === 'pdf' ? configPdf : undefined,
       espessuraLabel,
       espessuraCampo,
@@ -491,7 +646,7 @@ export default function RelatorioBuilder({
     };
     onChange(synced);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dsRelatorio, colecao, campos, filtros, ordenacao, bandas, formato, configExcel, configPdf, espessuraLabel, topoLabelVal, espessuraCampo, topoRegistroVal, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
+  }, [dsRelatorio, colecao, campos, filtros, ordenacao, bandas, formato, configPdf, espessuraLabel, topoLabelVal, espessuraCampo, topoRegistroVal, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
 
   // ── Handlers ──
 
@@ -512,8 +667,7 @@ export default function RelatorioBuilder({
     const errs: string[] = [];
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
-    if (todosCampos.length === 0) errs.push("Selecione pelo menos um campo.");
-    if (todosCampos.some((c: any) => c.tipoCampo && c.tipoCampo !== 'conteudo' && c.tipoCampo !== 'data_geracao' && c.tipoCampo !== 'horario_geracao' && c.tipoCampo !== 'data_horario_geracao' && c.tipoCampo !== 'usuario_geracao' && c.tipoCampo !== 'imagem' && !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
     setErros(errs);
     return errs.length === 0;
   }
@@ -534,36 +688,52 @@ export default function RelatorioBuilder({
 
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
+    if (bandaDetailId || isBandasMode) return; // Don't submit form when inside banda detail or bandas mode
     if (!validar()) return;
     const result: Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao"> = {
       ds_relatorio: dsRelatorio.trim(),
       colecao: bandas[0]?.ie_colecao_principal || '',
       campos: bandas.flatMap((b) => (b.campos ?? []).map((c: any) => ({
-        id: c.id, nr_sequencia: c.nr_sequencia, colecao: c.colecao, chave: c.chave, rotulo: c.label, label: c.label,
-        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, corCampo: c.corCampo, backgroundCampo: c.backgroundCampo, transparentCampo: c.transparentCampo,
-        paddingTopCampo: c.paddingTopCampo, paddingRightCampo: c.paddingRightCampo, paddingBottomCampo: c.paddingBottomCampo, paddingLeftCampo: c.paddingLeftCampo,
-        posicao: c.posicao, largura: c.largura, alinhamentoHorizontal: c.alinhamentoHorizontal, topoLabel: c.topoLabel, topoRegistro: c.topoRegistro, alinhamento: c.alinhamento as RelatorioCampo['alinhamento'], estiloLabel: c.estiloLabel as RelatorioCampo['estiloLabel'], estiloCampo: c.estiloCampo as RelatorioCampo['estiloCampo'], estiloSoma: c.estiloSoma as RelatorioCampo['estiloSoma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, tipoCampo: c.tipoCampo, conteudo: c.conteudo, fonteCampo: c.fonteCampo, tamanhoFonteCampo: c.tamanhoFonteCampo, imagemId: c.imagemId, tamanhoImagem: c.tamanhoImagem,
+        id: c.id, nr_sequencia: c.nr_sequencia, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
+        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
+        qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
+        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
       }))),
       filtros: filtros,
       ordenacao: ordenacao,
       bandas: bandas.map((b) => ({ ...b })),
       ie_formato: formato,
-      configExcel: formato === "excel" ? configExcel : undefined,
+      configExcel: undefined,
       configPdf: formato === "pdf" ? configPdf : undefined,
-      espessuraLabel,
-      topoLabel: topoLabelVal,
-      espessuraCampo,
-      topoRegistro: topoRegistroVal,
-      bgLabel,
-      bgCampo,
-      corLabelGlobal,
-      corCampoGlobal,
-      fonteLabel,
-      tamanhoFonteLabel,
-      fonteCampo,
-      tamanhoFonteCampo,
     };
     onSave(deepClean(result));
+  }
+
+  // ── Navegação com verificação de alterações não salvas ──
+  function handleNavClick(direction: 'prev' | 'next') {
+    if (isDirty) {
+      pendingNavRef.current = direction;
+      setPendingNav(direction);
+      setShowUnsavedModal(true);
+    } else {
+      direction === 'prev' ? onPrevRecord?.() : onNextRecord?.();
+    }
+  }
+
+  async function handleSaveAndNavigate() {
+    const dir = pendingNavRef.current;
+    if (!dir) return;
+    setBandaSaving(true);
+    try {
+      await onBandaSaveRef.current?.(bandas, undefined);
+    } catch { /* error handled inside handleBandaSave */ }
+    refreshSnapshot();
+    setIsDirty(false);
+    setBandaSaving(false);
+    setShowUnsavedModal(false);
+    pendingNavRef.current = null;
+    setPendingNav(null);
+    dir === 'prev' ? onPrevRecord?.() : onNextRecord?.();
   }
 
   const labelClass = "block text-sm mb-1";
@@ -609,7 +779,7 @@ export default function RelatorioBuilder({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={onPrevRecord}
+              onClick={() => handleNavClick('prev')}
               disabled={!hasPrevRecord}
               className={hasPrevRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
               style={{ borderBottomColor: '#000' }}
@@ -621,7 +791,7 @@ export default function RelatorioBuilder({
             </button>
             <button
               type="button"
-              onClick={onNextRecord}
+              onClick={() => handleNavClick('next')}
               disabled={!hasNextRecord}
               className={hasNextRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
               style={{ borderBottomColor: '#000' }}
@@ -632,22 +802,77 @@ export default function RelatorioBuilder({
               </svg>
             </button>
           </div>
+          {/* ── Breadcrumb ── */}
+          {relatorio && (
+            <div className="flex items-center text-xs text-slate-500 ml-2 whitespace-nowrap overflow-hidden">
+              <span className="font-medium text-slate-700">{relatorio.nr_sequencia}</span>
+              <span className="mx-1">{dsRelatorio}</span>
+              {bandaDetailId && (() => {
+                const banda = bandas.find((b) => b.id === bandaDetailId);
+                if (!banda) return null;
+                return (
+                  <>
+                    <span className="mx-1 text-slate-400">&gt;</span>
+                    <span className="font-medium text-slate-700">{banda.nr_sequencia}</span>
+                    <span className="mx-1">{banda.ds_banda}</span>
+                  </>
+                );
+              })()}
+            </div>
+          )}
         </div>
         <div className="flex items-center gap-3">
           {isBandasMode && !bandaDetailId && (
-            <div className="flex items-center">
+            <div className="flex items-center rounded-[6px] p-[3px]" style={{ backgroundColor: isDark ? '#333333' : '#DDDDDD' }}>
               <button type="button" onClick={() => setBandasSubView('bandas')}
-                className={`px-3 py-1.5 text-sm border cursor-pointer transition first:rounded-l-[3px] last:rounded-r-[3px] ${bandasSubView === 'bandas' ? 'bg-[#003056] text-white border-[#003056]' : 'bg-white text-[#066fc5] border-slate-300 hover:bg-slate-50'}`}>Bandas</button>
+                className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
+                style={{ backgroundColor: bandasSubView === 'bandas' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Bandas</button>
               <button type="button" onClick={() => setBandasSubView('parametros')}
-                className={`px-3 py-1.5 text-sm border cursor-pointer transition first:rounded-l-[3px] last:rounded-r-[3px] -ml-px ${bandasSubView === 'parametros' ? 'bg-[#003056] text-white border-[#003056]' : 'bg-white text-[#066fc5] border-slate-300 hover:bg-slate-50'}`}>Parâmetros</button>
+                className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
+                style={{ backgroundColor: bandasSubView === 'parametros' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Parâmetros</button>
+            </div>
+          )}
+          {bandaDetailId && (
+            <div className="flex items-center rounded-[6px] p-[3px]" style={{ backgroundColor: isDark ? '#333333' : '#DDDDDD' }}>
+              <button type="button" onClick={() => setBandaContentSubView('dados')}
+                className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
+                style={{ backgroundColor: bandaContentSubView === 'dados' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Dados</button>
+              {bandaTipo === 'lista' && (
+                <button type="button" onClick={() => setBandaContentSubView('ordenacao')}
+                  className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
+                  style={{ backgroundColor: bandaContentSubView === 'ordenacao' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Ordenação</button>
+              )}
             </div>
           )}
           <button
             type="button"
-            onClick={bandaDetailId ? () => closeBandaDetail() : onCancel}
-            className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
+            onClick={
+              bandaDetailId ? () => {
+                // Adicionar campo na banda → abre tela Ver do elemento (pendente)
+                const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
+                const newId = gerarId();
+                const newCampo: CamposRelatorioRow = { id: newId, ie_colecao: bandaTipo === 'lista' ? bColecao : '', ie_campo: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', cd_cor: '#000000', cd_background: '', transparentCampo: true, qt_esquerda: 0, topoLabel: 0, qt_topo: 0, ie_alinhamento: "esquerda", ie_estilo_label: '', ie_estilo: '', ie_estilo_soma: '', qt_largura: 100, formatacao: 'texto', statusSistema: false, soma: false, ie_fonte: 'Arial', qt_fonte: 10, nr_seq_imagem: undefined, qt_tamanho_imagem: 100, qt_padding_superior: 0, qt_padding_direita: 0, qt_padding_inferior: 0, qt_padding_esquerda: 0, ie_borda_superior: 'N', ie_borda_direita: 'N', ie_borda_inferior: 'N', ie_borda_esquerda: 'N' };
+                setPendingCampo(newCampo);
+                setCampoDetailId(newId);
+              }
+              : isBandasMode ? () => {
+                  if (bandasSubView === 'bandas') {
+                    // Criar banda pendente e abrir tela Ver
+                    const newId = gerarId();
+                    const novaBanda: BandaState = { id: newId, ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1), nr_seq_relatorio: relatorio?.nr_sequencia, campos: [] };
+                    setPendingBanda(novaBanda);
+                    openBandaVer(newId);
+                  } else {
+                    const seq = getNextFiltroSeq();
+                    setFiltros((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }]);
+                  }
+                }
+              : onCancel
+            }
+            disabled={(!!bandaDetailId || !!campoDetailId) && bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal}
+            className={`inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2 disabled:text-slate-400 disabled:cursor-not-allowed ${campoDetailId ? 'hidden' : ''}`}
           >
-            {bandaDetailId ? 'Voltar' : 'Fechar'}
+            {bandaDetailId ? 'Adicionar' : isBandasMode ? 'Adicionar' : 'Fechar'}
           </button>
         </div>
       </div>
@@ -662,7 +887,7 @@ export default function RelatorioBuilder({
       )}
 
       {/* ── Formulário ── */}
-      <form ref={formRef} onSubmit={handleSubmit} className="mt-4 flex-1 flex flex-col min-h-0">
+      <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex-1 flex flex-col min-h-0">
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-9">
           {!bandaDetailId && !isBandasMode && (
           <>
@@ -684,14 +909,8 @@ export default function RelatorioBuilder({
             </div>
             <div className="sm:col-span-3 group">
               {renderFieldLabel('ie_formato', 'Formato', relatorioFieldInfos, 'relatorio', campoRegras)}
-              <Select
-                value={formato}
-                onChange={(v) => setFormato(v as 'excel' | 'pdf')}
-                options={[{ value: "excel", label: "Excel (CSV)" }, { value: "pdf", label: "PDF" }]}
-                showPlaceholder={false}
-                disabled={statusDe(campoRegras, 'ie_formato') === 'D'}
-                visibleOptions={7}
-                  />
+              <input value="PDF" disabled
+                className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
             </div>
 
           </div>
@@ -703,26 +922,7 @@ export default function RelatorioBuilder({
           <section>
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Saída</h2>
 
-            {formato === "excel" ? (
-              <div className="grid gap-[15px] sm:grid-cols-12">
-                <div className="sm:col-span-4 group">
-                  {renderFieldLabel('ds_nome_arquivo', 'Nome do arquivo', relatorioFieldInfos, 'relatorio', campoRegras)}
-                  <input value={configExcel.titulo ?? ""} onChange={(e) => setConfigExcel({ ...configExcel, titulo: e.target.value })} disabled={statusDe(campoRegras, 'ds_nome_arquivo') === 'D'} className={inputClass} />
-                </div>
-                <div className="sm:col-span-3 group">
-                  {renderFieldLabel('estiloCabecalho', 'Estilo cabeçalho', relatorioFieldInfos, 'relatorio')}
-                  <Select value={configExcel.estiloCabecalho} onChange={(v) => setConfigExcel({ ...configExcel, estiloCabecalho: v as any })} options={[...ESTILO_CABECALHO_EXCEL]} showPlaceholder={false} visibleOptions={7} />
-                </div>
-                <div className="sm:col-span-5 group">
-                  <label className={labelClass} style={{ color: '#666' }}>&nbsp;</label>
-                  <div className="flex items-center gap-4">
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.zebrado} onChange={() => setConfigExcel({ ...configExcel, zebrado: !configExcel.zebrado })} /><span>Zebrado</span></label>
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer"><input type="checkbox" checked={configExcel.filtrosAutomaticos} onChange={() => setConfigExcel({ ...configExcel, filtrosAutomaticos: !configExcel.filtrosAutomaticos })} /><span>Filtros auto</span></label>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-[15px]">
+            <div className="space-y-[15px]">
                 <div className="grid gap-[15px] sm:grid-cols-4">
                   <div className="group">
                     {renderFieldLabel('ds_nome_arquivo', 'Nome do arquivo', relatorioFieldInfos, 'relatorio', campoRegras)}
@@ -775,7 +975,6 @@ export default function RelatorioBuilder({
                   </div>
                 </div>
               </div>
-            )}
           </section>
           </>
           )}
@@ -786,10 +985,6 @@ export default function RelatorioBuilder({
           {!bandaDetailId && isBandasMode && bandasSubView === 'bandas' && (
           <>
           <section className="mb-4">
-            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Bandas</h2>
-              <button type="button" onClick={() => { const seq = getNextBandaSeq(); setBandas((prev) => [...prev, { id: gerarId(), ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...prev.map((b) => b.nr_posicao ?? 0)) + 1), nr_sequencia: seq, nr_seq_relatorio: relatorio?.nr_sequencia, campos: [] }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
-            </div>
             <BandasRelatorioTable
               bandas={bandas}
               onChange={setBandas}
@@ -812,10 +1007,6 @@ export default function RelatorioBuilder({
           {!bandaDetailId && isBandasMode && bandasSubView === 'parametros' && (
           <>
           <section className="mb-4">
-            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Parâmetros</h2>
-              <button type="button" onClick={() => { const seq = getNextFiltroSeq(); setFiltros((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }]); }} className="text-sm text-[#066fc5] hover:underline cursor-pointer">Adicionar</button>
-            </div>
             <FiltrosRelatorioTable
               filtros={filtros}
               onChange={setFiltros}
@@ -838,7 +1029,7 @@ export default function RelatorioBuilder({
           {/* ── Seção: Banda (dados da banda selecionada) — somente no modo 'ver' ── */}
           {/* ═══════════════════════════════════════════════ */}
           {bandaViewMode === 'ver' && (() => {
-            const bSel = bandas.find((b) => b.id === bandaDetailId);
+            const bSel = (pendingBanda && pendingBanda.id === bandaDetailId) ? pendingBanda : bandas.find((b) => b.id === bandaDetailId);
             if (!bSel) return null;
             return (
               <section>
@@ -847,21 +1038,21 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="grid grid-cols-6 gap-[15px]">
                   <div className="group">
-                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <input type="text" inputMode="numeric" value={bSel.nr_sequencia ?? ''} disabled
                       className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="group">
-                    {renderFieldLabel('ds_banda', 'Descrição', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('ds_banda', 'Descrição', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <input type="text" value={bSel.ds_banda}
-                      onChange={(e) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, ds_banda: e.target.value } : b))}
+                      onChange={(e) => updateBandaSelecionada((b) => ({ ...b, ds_banda: e.target.value }))}
                       className={inputClass} />
                   </div>
                   <div className="group">
-                    {renderFieldLabel('ie_tipo_banda', 'Tipo', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('ie_tipo_banda', 'Tipo', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <Select
                       value={bSel.ie_tipo_banda ?? ''}
-                      onChange={(v) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, ie_tipo_banda: v as any } : b))}
+                      onChange={(v) => updateBandaSelecionada((b) => ({ ...b, ie_tipo_banda: v as any }))}
                       options={[
                         { value: '', label: '---' },
                         { value: 'lista', label: 'Lista' },
@@ -874,10 +1065,10 @@ export default function RelatorioBuilder({
                     />
                   </div>
                   <div className="group">
-                    {renderFieldLabel('ie_colecao_principal', 'Coleção principal', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('ie_colecao_principal', 'Coleção principal', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <Select
                       value={bSel.ie_colecao_principal ?? ''}
-                      onChange={(v) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, ie_colecao_principal: v } : b))}
+                      onChange={(v) => updateBandaSelecionada((b) => ({ ...b, ie_colecao_principal: v }))}
                       options={[{ value: '', label: '---' }, ...opcoesColecao]}
                       showPlaceholder={false}
                       visibleOptions={7}
@@ -885,15 +1076,15 @@ export default function RelatorioBuilder({
                     />
                   </div>
                   <div className="group">
-                    {renderFieldLabel('nr_posicao', 'Posição', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('nr_posicao', 'Posição', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <input type="text" inputMode="numeric" value={bSel.nr_posicao ?? ''}
-                      onChange={(e) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, nr_posicao: Number(e.target.value) || 0 } : b))}
+                      onChange={(e) => updateBandaSelecionada((b) => ({ ...b, nr_posicao: Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group">
-                    {renderFieldLabel('nr_altura', 'Altura', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
+                    {renderFieldLabel('nr_altura', 'Altura', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <input type="text" inputMode="numeric" value={bSel.nr_altura ?? ''}
-                      onChange={(e) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, nr_altura: Number(e.target.value) || 0 } : b))}
+                      onChange={(e) => updateBandaSelecionada((b) => ({ ...b, nr_altura: Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                 </div>
@@ -910,7 +1101,7 @@ export default function RelatorioBuilder({
                         type="checkbox"
                         id={`${id}_${bSel.id}`}
                         checked={bSel[key] ?? false}
-                        onChange={(e) => setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? { ...b, [key]: e.target.checked } : b))}
+                        onChange={(e) => updateBandaSelecionada((b) => ({ ...b, [key]: e.target.checked }))}
                         className="cg-checkbox"
                       />
                       <label htmlFor={`${id}_${bSel.id}`} className="text-sm text-slate-700 cursor-pointer">
@@ -935,28 +1126,509 @@ export default function RelatorioBuilder({
                       {infoPopupField === key && (
                         <FieldInfoPopup
                           anchor={infoAnchor}
-                          meta={{ type: 'boolean', field: key, collection: 'relatorio_bandas' }}
+                          meta={{ type: 'boolean', field: key, collection: 'relatorio_banda' }}
                           onClose={() => setInfoPopupField(null)}
                         />
                       )}
                     </div>
                   ))}
                 </div>
+                {/* ── Configurações (somente para banda tipo Lista) ── */}
+                {bandaTipo === 'lista' && (
+                <>
+                  <div className="flex items-center justify-between mb-3 mt-6 border-b border-slate-200 pb-1">
+                    <h2 className="text-sm font-semibold text-slate-900">Configurações</h2>
+                  </div>
+                  <div className="grid grid-cols-6 gap-[15px]">
+                    {/* Linha 1: Espessura/Topo/Bg/Cor/Fonte/Tamanho label */}
+                    <div className="group">
+                      {renderFieldLabel('espessuraLabel', 'Espessura label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={espessuraLabel}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          const val = v ? Math.max(1, Number(v)) : 1;
+                          setEspessuraLabel(val);
+                          updateBandaSelecionada((b) => ({ ...b, espessuraLabel: val }));
+                        }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('topoLabel', 'Topo label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={topoLabelVal}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          const val = v ? Math.max(0, Number(v)) : 0;
+                          setTopoLabelVal(val);
+                          updateBandaSelecionada((b) => ({ ...b, topoLabel: val }));
+                        }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('bgLabel', 'Background label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <Select
+                        value={bgLabel}
+                        onChange={(v) => { setBgLabel(v); updateBandaSelecionada((b) => ({ ...b, bgLabel: v })); }}
+                        options={[{ value: '', label: '---' }, { value: '#e2e8f0', label: '#e2e8f0' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#334155', label: '#334155' }, { value: '#475569', label: '#475569' }, { value: '#64748b', label: '#64748b' }, { value: '#94a3b8', label: '#94a3b8' }, { value: '#cbd5e1', label: '#cbd5e1' }, { value: '#f1f5f9', label: '#f1f5f9' }, { value: '#fefce8', label: '#fefce8' }]}
+                        showPlaceholder={false}
+                        renderOption={(opt) => (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {opt.value ? (
+                              <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
+                            ) : null}
+                            <span>{opt.label}</span>
+                          </span>
+                        )}
+                      visibleOptions={7}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('corLabelGlobal', 'Cor label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <Select
+                        value={corLabelGlobal}
+                        onChange={(v) => { setCorLabelGlobal(v); updateBandaSelecionada((b) => ({ ...b, corLabelGlobal: v })); }}
+                        options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
+                        showPlaceholder={false}
+                        renderOption={(opt) => (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
+                            <span>{opt.label}</span>
+                          </span>
+                        )}
+                      visibleOptions={7}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('fonteLabel', 'Fonte label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <Select
+                        value={fonteLabel}
+                        onChange={(v) => { setFonteLabel(v); updateBandaSelecionada((b) => ({ ...b, fonteLabel: v })); }}
+                        options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
+                        showPlaceholder={false}
+                        visibleOptions={7}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('tamanhoFonteLabel', 'Tamanho fonte label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={tamanhoFonteLabel}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          const val = v ? Math.max(1, Number(v)) : 1;
+                          setTamanhoFonteLabel(val);
+                          updateBandaSelecionada((b) => ({ ...b, tamanhoFonteLabel: val }));
+                        }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                      />
+                    </div>
+                    {/* Linha 2: Espessura/Topo/Bg/Cor/Fonte/Tamanho registro */}
+                    <div className="group">
+                      {renderFieldLabel('espessuraCampo', 'Espessura registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={espessuraCampo}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          const val = v ? Math.max(1, Number(v)) : 1;
+                          setEspessuraCampo(val);
+                          updateBandaSelecionada((b) => ({ ...b, espessuraCampo: val }));
+                        }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('topoRegistro', 'Topo registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={topoRegistroVal}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          const val = v ? Math.max(0, Number(v)) : 0;
+                          setTopoRegistroVal(val);
+                          updateBandaSelecionada((b) => ({ ...b, topoRegistro: val }));
+                        }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('bgCampo', 'Background registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <Select
+                        value={bgCampo}
+                        onChange={(v) => { setBgCampo(v); updateBandaSelecionada((b) => ({ ...b, bgCampo: v })); }}
+                        options={[{ value: '', label: '---' }, { value: 'zebrado', label: 'Linhas zebradas' }]}
+                        showPlaceholder={false}
+                        renderOption={(opt) => (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            {opt.value === 'zebrado' ? (
+                              <span style={{ display: 'inline-flex', width: 14, height: 14, flexShrink: 0, border: '1px solid #ccc', borderRadius: 2, overflow: 'hidden' }}>
+                                <span style={{ flex: 1, background: '#fff' }} />
+                                <span style={{ flex: 1, background: '#ccc' }} />
+                              </span>
+                            ) : null}
+                            <span>{opt.label}</span>
+                          </span>
+                        )}
+                      visibleOptions={7}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('corCampoGlobal', 'Cor registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <Select
+                        value={corCampoGlobal}
+                        onChange={(v) => { setCorCampoGlobal(v); updateBandaSelecionada((b) => ({ ...b, corCampoGlobal: v })); }}
+                        options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
+                        showPlaceholder={false}
+                        renderOption={(opt) => (
+                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                            <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
+                            <span>{opt.label}</span>
+                          </span>
+                        )}
+                      visibleOptions={7}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('fonteCampo', 'Fonte registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <Select
+                        value={fonteCampo}
+                        onChange={(v) => { setFonteCampo(v); updateBandaSelecionada((b) => ({ ...b, fonteCampo: v })); }}
+                        options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
+                        showPlaceholder={false}
+                        visibleOptions={7}
+                      />
+                    </div>
+                    <div className="group">
+                      {renderFieldLabel('tamanhoFonteCampo', 'Tamanho fonte registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={tamanhoFonteCampo}
+                        onChange={(e) => {
+                          const v = e.target.value.replace(/[^0-9]/g, '');
+                          const val = v ? Math.max(1, Number(v)) : 1;
+                          setTamanhoFonteCampo(val);
+                          updateBandaSelecionada((b) => ({ ...b, tamanhoFonteCampo: val }));
+                        }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+                      />
+                    </div>
+                  </div>
+                </>
+                )}
               </section>
             );
           })()}
 
-          {bandaViewMode === 'content' && (bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'lista' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'texto_valor' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'cabecalho' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'rodape') && (
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Element (Campo) Ver Form ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          {campoDetailId && campoSel && (() => {
+            const tipoBanda = bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda;
+            const isTextoValor = tipoBanda === 'texto_valor';
+            const isCabeOuRodape = tipoBanda === 'cabecalho' || tipoBanda === 'rodape';
+            const ocultarColecaoCampo = false;
+            const textoValorHidden = tipoBanda !== 'lista';
+            const ESTILO_OPTS = [{ value: '', label: '---' }, { value: 'negrito', label: 'Negrito' }, { value: 'italico', label: 'Itálico' }, { value: 'sublinhado', label: 'Sublinhado' }, { value: 'negrito_italico', label: 'Negrito + Itálico' }, { value: 'negrito_sublinhado', label: 'Negrito + Sublinhado' }, { value: 'italico_sublinhado', label: 'Itálico + Sublinhado' }, { value: 'negrito_italico_sublinhado', label: 'Negrito + Itálico + Sublinhado' }];
+            const FONTES_OPTS = [{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }];
+            return (
+              <section>
+                {/* ── Identificação ── */}
+                <div className="mb-2 mt-2 border-b border-slate-200 pb-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Identificação</h3>
+                </div>
+                <div className="flex flex-wrap gap-[15px]">
+                  <div className="group flex-none w-[100px]">
+                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <input type="text" inputMode="numeric" value={campoSel.nr_sequencia ?? ''} disabled
+                      className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
+                  </div>
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('ie_tipo_elemento', 'Tipo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <Select
+                      value={campoSel.ie_tipo_elemento ?? ''}
+                      onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_tipo_elemento: (v || undefined) as any }))}
+                      options={
+                        tipoBanda === 'lista'
+                          ? [{ value: 'valor', label: 'Valor' }]
+                          : [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'imagem', label: 'Imagem' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'valor', label: 'Valor' }]
+                      }
+                      showPlaceholder={true}
+                      className={inputClass}
+                    />
+                  </div>
+                  {!ocultarColecaoCampo && (() => {
+                    const campoColecaoPrincipal = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
+                    const dsPrincipal = getDataSource(campoColecaoPrincipal);
+                    const fkFields = dsPrincipal?.campos.filter((c) => c.isFK && c.fkColecao) ?? [];
+                    const colecoesEl: { value: string; label: string }[] = [
+                      { value: campoColecaoPrincipal, label: campoColecaoPrincipal },
+                      ...fkFields.map((fk) => ({ value: fk.fkColecao!, label: fk.fkColecao! })).filter((o) => o.value !== campoColecaoPrincipal),
+                    ];
+                    const dsSel = getDataSource(campoSel.ie_colecao || '');
+                    const camposDaColecao = dsSel?.campos ?? [];
+                    return (
+                      <>
+                        <div className="group flex-1 min-w-[140px]">
+                          {renderFieldLabel('ie_colecao', 'Coleção', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                          <Select
+                            value={campoSel.ie_colecao ?? ''}
+                            onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_colecao: v, ie_campo: v !== c.ie_colecao ? '' : c.ie_campo }))}
+                            options={colecoesEl}
+                            showPlaceholder
+                            className={`${inputClass} ${textoValorHidden && campoSel.ie_tipo_elemento !== 'valor' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={textoValorHidden && campoSel.ie_tipo_elemento !== 'valor'}
+                            visibleOptions={7}
+                          />
+                        </div>
+                        <div className="group flex-1 min-w-[140px]">
+                          {renderFieldLabel('chave', 'Campo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                          <Select
+                            value={campoSel.statusSistema ? campoSel.ie_campo + '__sistema' : campoSel.ie_campo}
+                            onChange={(v) => {
+                              const isSistema = v.endsWith('__sistema');
+                              const chave = isSistema ? v.replace('__sistema', '') : v;
+                              updateCampoSelecionado((c) => ({ ...c, ie_campo: chave, statusSistema: isSistema }));
+                            }}
+                            options={camposDaColecao.flatMap((cd) => {
+                              if (cd.key === 'ie_status' || cd.key === 'ie_status_manutencao') {
+                                return [
+                                  { value: cd.key, label: cd.key + ' (banco)' },
+                                  { value: cd.key + '__sistema', label: cd.key + ' (sistema)' },
+                                ];
+                              }
+                              return [{ value: cd.key, label: cd.key }];
+                            })}
+                            showPlaceholder
+                            className={`${inputClass} ${textoValorHidden && campoSel.ie_tipo_elemento !== 'valor' ? 'opacity-50 cursor-not-allowed' : ''}`}
+                            disabled={textoValorHidden && campoSel.ie_tipo_elemento !== 'valor'}
+                            visibleOptions={7}
+                          />
+                        </div>
+                      </>
+                    );
+                  })()}
+                  {!textoValorHidden && (
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('label', 'Label', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <input type="text" value={campoSel.label ?? ''}
+                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, label: e.target.value }))}
+                      className={inputClass} />
+                  </div>
+                  )}
+                </div>
+
+                {/* ── Aparência ── */}
+                <div className="mb-2 mt-5 border-b border-slate-200 pb-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Aparência</h3>
+                </div>
+                <div>
+                  {/* Linha 1: Fonte, Tamanho fonte, Estilo, Estilo label, Estilo registro, Estilo soma, Cor, Background */}
+                  <div className="flex flex-wrap gap-[15px]">
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('ie_fonte', 'Fonte', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <Select value={campoSel.ie_fonte ?? 'Arial'} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_fonte: v }))} options={FONTES_OPTS} showPlaceholder={false} visibleOptions={7} />
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('qt_fonte', 'Tamanho fonte', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric" value={campoSel.qt_fonte ?? ''}
+                        onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_fonte: v ? Math.max(1, Number(v)) : 1 })); }}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('ie_estilo', tipoBanda === 'lista' ? 'Estilo registro' : 'Estilo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <Select value={campoSel.ie_estilo ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
+                    </div>
+                    {!textoValorHidden && (
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('ie_estilo_label', 'Estilo label', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <Select value={campoSel.ie_estilo_label ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_label: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
+                    </div>
+                    )}
+                    {!textoValorHidden && (
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('ie_estilo_soma', 'Estilo soma', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <Select value={campoSel.ie_estilo_soma ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_soma: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
+                    </div>
+                    )}
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('cd_cor', 'Cor', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <div className="relative" style={{ height: 34 }}>
+                        <input type="color" id={`cor-campo-${campoSel.id}`} value={campoSel.cd_cor || '#000000'}
+                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, cd_cor: e.target.value }))}
+                          className="absolute opacity-0 w-0 h-0 pointer-events-none" />
+                        <div className="w-full h-full cursor-pointer border border-slate-300"
+                          style={{ backgroundColor: campoSel.cd_cor || '#000000' }}
+                          onClick={() => document.getElementById(`cor-campo-${campoSel.id}`)?.click()} />
+                      </div>
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('cd_background', 'Background', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <div className="flex items-center gap-1">
+                        <div className="relative flex-1" style={{ height: 34 }}>
+                          <input type="color" id={`bg-campo-${campoSel.id}`} value={campoSel.cd_background || '#ffffff'}
+                            onChange={(e) => updateCampoSelecionado((c) => ({ ...c, cd_background: e.target.value }))}
+                            className="absolute opacity-0 w-0 h-0 pointer-events-none" />
+                          <div className="w-full h-full cursor-pointer border border-slate-300"
+                            style={{ backgroundColor: campoSel.transparentCampo ? 'transparent' : (campoSel.cd_background || '#ffffff'), backgroundImage: campoSel.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }}
+                            onClick={() => document.getElementById(`bg-campo-${campoSel.id}`)?.click()} />
+                        </div>
+                        <label className="flex items-center cursor-pointer" title="Fundo transparente">
+                          <input type="checkbox" checked={campoSel.transparentCampo ?? false}
+                            onChange={(e) => updateCampoSelecionado((c) => ({ ...c, transparentCampo: e.target.checked }))}
+                            className="cg-checkbox" />
+                        </label>
+                      </div>
+                    </div>
+                  </div>
+                  {/* Linha 2: Paddings e Bordas */}
+                  <div className="flex flex-wrap gap-[15px] mt-2">
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('qt_padding_superior', 'Padding superior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric"
+                        value={campoSel.qt_padding_superior === 0 ? '' : (campoSel.qt_padding_superior ?? '')}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_superior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                        className={inputClass} />
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('qt_padding_direita', 'Padding direita', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric"
+                        value={campoSel.qt_padding_direita === 0 ? '' : (campoSel.qt_padding_direita ?? '')}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_direita: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                        className={inputClass} />
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('qt_padding_inferior', 'Padding inferior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric"
+                        value={campoSel.qt_padding_inferior === 0 ? '' : (campoSel.qt_padding_inferior ?? '')}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_inferior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                        className={inputClass} />
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('qt_padding_esquerda', 'Padding esquerda', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric"
+                        value={campoSel.qt_padding_esquerda === 0 ? '' : (campoSel.qt_padding_esquerda ?? '')}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                        className={inputClass} />
+                    </div>
+                    <div className="group flex-none w-auto min-w-[110px]">
+                      <div className="flex items-center h-[34px] gap-2">
+                        <input type="checkbox" checked={campoSel.ie_borda_superior === 'S'}
+                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_superior: e.target.checked ? 'S' : 'N' }))}
+                          className="cg-checkbox" />
+                        {renderFieldLabel('ie_borda_superior', 'Borda superior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      </div>
+                    </div>
+                    <div className="group flex-none w-auto min-w-[110px]">
+                      <div className="flex items-center h-[34px] gap-2">
+                        <input type="checkbox" checked={campoSel.ie_borda_direita === 'S'}
+                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_direita: e.target.checked ? 'S' : 'N' }))}
+                          className="cg-checkbox" />
+                        {renderFieldLabel('ie_borda_direita', 'Borda direita', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      </div>
+                    </div>
+                    <div className="group flex-none w-auto min-w-[110px]">
+                      <div className="flex items-center h-[34px] gap-2">
+                        <input type="checkbox" checked={campoSel.ie_borda_inferior === 'S'}
+                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_inferior: e.target.checked ? 'S' : 'N' }))}
+                          className="cg-checkbox" />
+                        {renderFieldLabel('ie_borda_inferior', 'Borda inferior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      </div>
+                    </div>
+                    <div className="group flex-none w-auto min-w-[110px]">
+                      <div className="flex items-center h-[34px] gap-2">
+                        <input type="checkbox" checked={campoSel.ie_borda_esquerda === 'S'}
+                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_esquerda: e.target.checked ? 'S' : 'N' }))}
+                          className="cg-checkbox" />
+                        {renderFieldLabel('ie_borda_esquerda', 'Borda esquerda', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      </div>
+                    </div>
+                  </div>
+                  {/* Linha 3: Imagem, Tamanho imagem */}
+                  <div className="flex flex-wrap gap-[15px] mt-2">
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('nr_seq_imagem', 'Imagem', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <Select
+                        value={campoSel.nr_seq_imagem ?? ''}
+                        onChange={(v) => updateCampoSelecionado((c) => ({ ...c, nr_seq_imagem: v || undefined }))}
+                        options={[{ value: '', label: '---' }, ...(imagens ?? []).map((img: any) => ({ value: img.id || img.nr_sequencia, label: img.ds_imagem || img.ie_arquivo?.split('/').pop() || 'Imagem' }))!]}
+                        showPlaceholder={false} visibleOptions={7}
+                        disabled={campoSel.ie_tipo_elemento !== 'imagem'}
+                        className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                      />
+                    </div>
+                    <div className="group flex-1 min-w-[140px]">
+                      {renderFieldLabel('qt_tamanho_imagem', 'Tamanho imagem', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <input type="text" inputMode="numeric"
+                        value={campoSel.qt_tamanho_imagem === 0 ? '' : (campoSel.qt_tamanho_imagem ?? '')}
+                        onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_tamanho_imagem: v ? Math.max(1, Number(v)) : 0 })); }}
+                        disabled={campoSel.ie_tipo_elemento !== 'imagem'}
+                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${campoSel.ie_tipo_elemento !== 'imagem' ? 'disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500' : ''}`} />
+                    </div>
+                  </div>
+                  {/* Linha 4: Conteúdo */}
+                  <div className="flex flex-wrap gap-[15px] mt-2">
+                    <div className="group flex-1 min-w-full">
+                      {renderFieldLabel('conteudo', 'Conteúdo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      <textarea
+                        value={campoSel.conteudo ?? ''}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, conteudo: e.target.value }))}
+                        disabled={campoSel.ie_tipo_elemento !== 'conteudo'}
+                        className={`${inputClass} min-h-[80px] resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                      />
+                    </div>
+                  </div>
+                </div>
+
+                {/* ── Posicionamento ── */}
+                <div className="mb-2 mt-5 border-b border-slate-200 pb-1">
+                  <h3 className="text-sm font-semibold text-slate-900">Posicionamento</h3>
+                </div>
+                <div className="flex flex-wrap gap-[15px]">
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('qt_esquerda', 'Esquerda', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <input type="text" inputMode="numeric"
+                      value={campoSel.qt_esquerda === 0 ? '' : (campoSel.qt_esquerda ?? '')}
+                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                      className={inputClass} />
+                  </div>
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('qt_topo', 'Topo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <input type="text" inputMode="numeric"
+                      value={campoSel.qt_topo === 0 ? '' : (campoSel.qt_topo ?? '')}
+                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_topo: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                      className={inputClass} />
+                  </div>
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('qt_largura', 'Largura', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <input type="text" inputMode="numeric"
+                      value={campoSel.qt_largura === 0 ? '' : (campoSel.qt_largura ?? '')}
+                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_largura: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
+                      className={inputClass} />
+                  </div>
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('ie_alinhamento', 'Alinhamento', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <Select
+                      value={campoSel.ie_alinhamento ?? 'esquerda'}
+                      onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_alinhamento: v }))}
+                      options={[{ value: 'esquerda', label: 'Esquerda' }, { value: 'centro', label: 'Centro' }, { value: 'direita', label: 'Direita' }]}
+                      showPlaceholder={false} visibleOptions={7}
+                    />
+                  </div>
+                  {!textoValorHidden && (
+                  <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('soma', 'Soma', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <div className="flex items-center h-[34px]">
+                      <input type="checkbox" checked={campoSel.soma ?? false}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, soma: e.target.checked }))}
+                        className="cg-checkbox" />
+                    </div>
+                  </div>
+                  )}
+                </div>
+              </section>
+            );
+          })()}
+
+          {bandaViewMode === 'content' && !campoDetailId && bandaContentSubView === 'dados' && (bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'lista' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'texto_valor' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'cabecalho' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'rodape') && (
           <>
 
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Lista/Dados ── */}
           {/* ═══════════════════════════════════════════════ */}
           <section>
-            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">{bandaTipo === 'lista' ? 'Lista' : 'Dados'}</h2>
-              <button type="button" disabled={bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal}onClick={() => { const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''; const seq = getNextCampoSeq(); setCampos((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, colecao: bandaTipo === 'lista' ? bColecao : '', chave: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', corCampo: '#000000', backgroundCampo: '', transparentCampo: true, posicao: prev.length + 1, alinhamentoHorizontal: 0, topoLabel: 0, topoRegistro: 0, alinhamento: 'esquerda', estiloLabel: '', estiloCampo: '', estiloSoma: '', largura: 100, formatacao: 'texto', statusSistema: false, soma: false, fonteCampo: 'Arial', tamanhoFonteCampo: 10, imagemId: undefined, tamanhoImagem: 100, paddingTopCampo: 0, paddingRightCampo: 0, paddingBottomCampo: 0, paddingLeftCampo: 0, borderTopCampo: false, borderRightCampo: false, borderBottomCampo: false, borderLeftCampo: false }]); }} className={`text-sm cursor-pointer ${bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ? 'text-slate-400 dark:text-[#3f3f46] cursor-not-allowed' : 'text-[#066fc5] hover:underline'}`}>Adicionar</button>
-            </div>
             <div className="overflow-x-auto">
               <CamposRelatorioTable
                 campos={campos}
@@ -971,193 +1643,40 @@ export default function RelatorioBuilder({
                 ocultarColecaoCampo={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
                 getNextSeq={getNextCampoSeq}
                 imagens={imagens}
+                bandaTipo={bandaTipo}
+                onViewCampo={(campo) => {
+                  // Ver elemento: abre o formulário do campo em modo leitura
+                  setPendingCampo(null);
+                  setCampoDetailId(campo.id);
+                }}
               />
               </div>
-              {bandaTipo === 'lista' && (
-              <div className="grid grid-cols-6 gap-[15px] mt-3">
-                {/* Linha 1: Espessura/Bg/Cor/Fonte/Tamanho label */}
-                <div className="group">
-                  {renderFieldLabel('espessuraLabel', 'Espessura label', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={espessuraLabel}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, '');
-                      setEspessuraLabel(v ? Math.max(1, Number(v)) : 1);
-                    }}
-                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('topoLabel', 'Topo label', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={topoLabelVal}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, '');
-                      setTopoLabelVal(v ? Math.max(0, Number(v)) : 0);
-                    }}
-                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('bgLabel', 'Background label', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <Select
-                    value={bgLabel}
-                    onChange={(v) => setBgLabel(v)}
-                    options={[{ value: '', label: '---' }, { value: '#e2e8f0', label: '#e2e8f0' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#334155', label: '#334155' }, { value: '#475569', label: '#475569' }, { value: '#64748b', label: '#64748b' }, { value: '#94a3b8', label: '#94a3b8' }, { value: '#cbd5e1', label: '#cbd5e1' }, { value: '#f1f5f9', label: '#f1f5f9' }, { value: '#fefce8', label: '#fefce8' }]}
-                    showPlaceholder={false} disabled={formato === "excel"}
-                    renderOption={(opt) => (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {opt.value ? (
-                          <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
-                        ) : null}
-                        <span>{opt.label}</span>
-                      </span>
-                    )}
-                  visibleOptions={7}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('corLabel', 'Cor label', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <Select
-                    value={corLabelGlobal}
-                    onChange={(v) => setCorLabelGlobal(v)}
-                    options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
-                    showPlaceholder={false} disabled={formato === "excel"}
-                    renderOption={(opt) => (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
-                        <span>{opt.label}</span>
-                      </span>
-                    )}
-                  visibleOptions={7}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('fonteLabel', 'Fonte label', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <Select
-                    value={fonteLabel}
-                    onChange={(v) => setFonteLabel(v)}
-                    options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
-                    showPlaceholder={false} disabled={formato === "excel"}
-                                      visibleOptions={7}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('tamanhoFonteLabel', 'Tamanho fonte label', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={tamanhoFonteLabel}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, '');
-                      setTamanhoFonteLabel(v ? Math.max(1, Number(v)) : 1);
-                    }}
-                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />
-                </div>
-                {/* Linha 2: Espessura/Bg/Cor/Fonte/Tamanho registro */}
-                <div className="group">
-                  {renderFieldLabel('espessuraCampo', 'Espessura registro', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={espessuraCampo}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, '');
-                      setEspessuraCampo(v ? Math.max(1, Number(v)) : 1);
-                    }}
-                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('topoRegistro', 'Topo registro', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={topoRegistroVal}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, '');
-                      setTopoRegistroVal(v ? Math.max(0, Number(v)) : 0);
-                    }}
-                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('bgCampo', 'Background registro', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <Select
-                    value={bgCampo}
-                    onChange={(v) => setBgCampo(v)}
-                    options={[{ value: '', label: '---' }, { value: 'zebrado', label: 'Linhas zebradas' }]}
-                    showPlaceholder={false} disabled={formato === "excel"}
-                    renderOption={(opt) => (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        {opt.value === 'zebrado' ? (
-                          <span style={{ display: 'inline-flex', width: 14, height: 14, flexShrink: 0, border: '1px solid #ccc', borderRadius: 2, overflow: 'hidden' }}>
-                            <span style={{ flex: 1, background: '#fff' }} />
-                            <span style={{ flex: 1, background: '#ccc' }} />
-                          </span>
-                        ) : null}
-                        <span>{opt.label}</span>
-                      </span>
-                    )}
-                  visibleOptions={7}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('corCampo', 'Cor registro', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <Select
-                    value={corCampoGlobal}
-                    onChange={(v) => setCorCampoGlobal(v)}
-                    options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
-                    showPlaceholder={false} disabled={formato === "excel"}
-                    renderOption={(opt) => (
-                      <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                        <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
-                        <span>{opt.label}</span>
-                      </span>
-                    )}
-                  visibleOptions={7}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('fonteCampo', 'Fonte registro', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <Select
-                    value={fonteCampo}
-                    onChange={(v) => setFonteCampo(v)}
-                    options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
-                    showPlaceholder={false} disabled={formato === "excel"}
-                                      visibleOptions={7}
-                  />
-                </div>
-                <div className="group">
-                  {renderFieldLabel('tamanhoFonteCampo', 'Tamanho fonte registro', bandaFieldInfos, 'relatorio_bandas', bandaCampoRegras)}
-                  <input type="text" inputMode="numeric" disabled={formato === "excel"} value={tamanhoFonteCampo}
-                    onChange={(e) => {
-                      const v = e.target.value.replace(/[^0-9]/g, '');
-                      setTamanhoFonteCampo(v ? Math.max(1, Number(v)) : 1);
-                    }}
-                    className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                  />                </div>
-              </div>
-              )}
 
           </section>
           </>
           )}
 
-              <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
-                <div className="flex items-center gap-3 ml-auto">
-                  <button type="button" onClick={() => {
-                    // Salvar dados da banda no estado local
-                    const currentBandaId = bandaDetailIdRef.current;
-                    if (currentBandaId) {
-                      const c = camposRef.current;
-                      const f = filtrosRef.current;
-                      const o = ordenacaoRef.current;
-                      setBandas((prev) => {
-                        const updated = prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
-                        setTimeout(() => onBandaSaveRef.current?.(updated, currentBandaId), 0);
-                        return updated;
-                      });
-                    }
-                    setBandaSaving(true);
-                    setBandaDetailId(null);
-                    setCampos([]);
-                    setFiltros([]);
-                    setOrdenacao([]);
-                    setTimeout(() => setBandaSaving(false), 600);
-                  }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
-                </div>
-              </div>
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Seção: Ordenação (apenas banda tipo Lista) ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          {bandaViewMode === 'content' && !campoDetailId && bandaContentSubView === 'ordenacao' && bandaTipo === 'lista' && (
+          <>
+          <section>
+            <OrdenacaoRelatorioTable
+              ordenacao={ordenacao}
+              onChange={setOrdenacao}
+              camposDisponiveis={camposDisponiveisBanda}
+              onEditingChange={setEditingOrdenacao}
+              userId={userId}
+              initialColumns={initialOrdenacaoColumns}
+              onColumnsChange={onOrdenacaoColumnsChange}
+              getNextSeq={getNextOrdSeq}
+            />
+          </section>
+          </>
+          )}
+
+
           </>
           ) : null}
         </div>
@@ -1202,15 +1721,62 @@ export default function RelatorioBuilder({
             <div className="flex items-center gap-3 ml-auto">
               <button
                 type="button"
-                onClick={onCancel}
+                onClick={campoDetailId ? () => { setPendingCampo(null); setCampoDetailId(null); } : bandaDetailId ? () => { setPendingBanda(null); closeBandaDetail(); } : onCancel}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >
-                Cancelar
+                {(bandaDetailId || campoDetailId) ? 'Voltar' : 'Cancelar'}
               </button>
               <button
-                type="submit"
+                type={(bandaDetailId && !campoDetailId) || isBandasMode ? 'button' : 'submit'}
                 disabled={saving}
+                onClick={campoDetailId ? () => {
+                  // Salvar campo pendente → adiciona ao array com nr_sequencia
+                  if (pendingCampo && pendingCampo.id === campoDetailId) {
+                    const seq = getNextCampoSeq();
+                    setCampos((prev) => [...prev, { ...pendingCampo, nr_sequencia: seq }]);
+                    setPendingCampo(null);
+                  }
+                  setCampoDetailId(null);
+                } : bandaDetailId ? async () => {
+                  // 1) Commit pending banda to array (if new)
+                  let finalBandas: any[] = bandas;
+                  if (pendingBanda && pendingBanda.id === bandaDetailId) {
+                    const seq = getNextBandaSeq();
+                    const newBanda = { ...pendingBanda, nr_sequencia: seq };
+                    finalBandas = [...bandas, newBanda];
+                    setBandas(finalBandas);
+                    setPendingBanda(null);
+                  }
+                  // 2) Update campos on target banda
+                  const currentBandaId = bandaDetailIdRef.current;
+                  if (currentBandaId) {
+                    const c = camposRef.current;
+                    finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
+                    setBandas(finalBandas);
+                  }
+                  // 3) Save to Firestore and get back with _firestoreId
+                  setBandaSaving(true);
+                  try {
+                    await onBandaSaveRef.current?.(finalBandas, currentBandaId);
+                  } catch { /* error handled inside handleBandaSave */ }
+                  // 4) Close detail view
+                  setBandaDetailId(null);
+                  setBandaViewMode('content');
+                  setCampos([]);
+                  setBandaSaving(false);
+                  refreshSnapshot();
+                  setIsDirty(false);
+                } : isBandasMode ? async () => {
+                  // Salvar lista de bandas no Firestore (inclui exclusões)
+                  setBandaSaving(true);
+                  try {
+                    await onBandaSaveRef.current?.(bandas, undefined);
+                  } catch { /* error handled inside handleBandaSave */ }
+                  setBandaSaving(false);
+                  refreshSnapshot();
+                  setIsDirty(false);
+                } : undefined}
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -1220,6 +1786,48 @@ export default function RelatorioBuilder({
           </div>
         </div>
       </form>
+
+      {/* ── Modal: Alterações não salvas ── */}
+      {showUnsavedModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
+          <div className="absolute inset-0" onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }} />
+          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h3 className="text-base font-semibold" style={{ color: '#000' }}>Alterações não salvas</h3>
+              <button
+                type="button"
+                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="p-[15px]">
+              <p className="text-sm text-slate-700">As alterações não foram salvas. Deseja salvar?</p>
+            </div>
+            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
+              <button
+                type="button"
+                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={handleSaveAndNavigate}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <LoadingModal open={saving} message="Carregando..." />
       <LoadingModal open={bandaSaving} message="Carregando..." />
     </div>

@@ -1,4 +1,4 @@
-import type { Relatorio, RelatorioConfigExcel, RelatorioConfigPdf } from "@/types/relatorio";
+import type { Relatorio, RelatorioConfigPdf } from "@/types/relatorio";
 
 /** Label para o status de um relatório (formato legível). */
 export function formatRelatorioCellValue(key: keyof Relatorio, value: unknown): string {
@@ -8,7 +8,7 @@ export function formatRelatorioCellValue(key: keyof Relatorio, value: unknown): 
 
   switch (key) {
     case "ie_formato":
-      return str === "excel" ? "Excel (CSV)" : str === "pdf" ? "PDF" : str;
+      return str === "pdf" ? "PDF" : str;
     case "dt_criacao":
     case "dt_alteracao":
       try {
@@ -19,22 +19,6 @@ export function formatRelatorioCellValue(key: keyof Relatorio, value: unknown): 
     default:
       return str;
   }
-}
-
-/** Configuração padrão para Excel. */
-export function defaultConfigExcel(): RelatorioConfigExcel {
-  return {
-    titulo: '',
-    incluirCabecalho: true,
-    incluirRodape: true,
-    estiloCabecalho: "preenchido" as const,
-    corCabecalho: "4472C4",
-    corTextoCabecalho: "FFFFFF",
-    zebrado: true,
-    filtrosAutomaticos: false,
-    congelarPrimeiraLinha: true,
-    orientacao: "retrato" as const,
-  };
 }
 
 /** Configuração padrão para PDF. */
@@ -122,9 +106,4 @@ export const TAMANHOS_PAGINA = [
   { value: "legal", label: "Legal" },
 ] as const;
 
-/** Opções de formatação de cabeçalho Excel. */
-export const ESTILO_CABECALHO_EXCEL = [
-  { value: "preenchido", label: "Preenchimento colorido" },
-  { value: "borda", label: "Borda inferior" },
-  { value: "nenhum", label: "Nenhum" },
-] as const;
+

@@ -7,7 +7,6 @@ import { gerarId, FORMATOS_CAMPO } from "@/lib/relatorioUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
-import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
@@ -21,7 +20,7 @@ interface CamposRelatorioTableProps {
   userId?: string;
   /** Configuração inicial de colunas (do Firestore). */
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
-  /** Callback ao alterar ordem/largura das colunas. */
+  /** Callback ao alterar ordem/qt_largura das colunas. */
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   /** Variante: 'lista' (padrão) ou 'texto_valor'. Controla quais colunas aparecem. */
   variant?: 'lista' | 'texto_valor';
@@ -31,6 +30,10 @@ interface CamposRelatorioTableProps {
   getNextSeq?: () => number;
   /** Lista de imagens cadastradas (para o campo Tipo = Imagem). */
   imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
+  /** Tipo da banda atual (para desabilitar Tipo em bandas Lista). */
+  bandaTipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
+  /** Callback ao clicar 'Ver' no menu de contexto. */
+  onViewCampo?: (campo: CamposRelatorioRow) => void;
 }
 
 export interface CamposRelatorioRow {
@@ -38,46 +41,45 @@ export interface CamposRelatorioRow {
   /** Sequência do campo (nunca reutilizada). */
   nr_sequencia?: number;
   /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
-  colecao: string;
-  chave: string;
+  ie_colecao: string;
+  ie_campo: string;
   label: string;
   backgroundLabel: string;
   corLabel: string;
-  corCampo: string;
-  backgroundCampo: string;
+  cd_cor: string;
+  cd_background: string;
   transparentCampo?: boolean;
-  paddingTopCampo?: number;
-  paddingRightCampo?: number;
-  paddingBottomCampo?: number;
-  paddingLeftCampo?: number;
-  borderTopCampo?: boolean;
-  borderRightCampo?: boolean;
-  borderBottomCampo?: boolean;
-  borderLeftCampo?: boolean;
-  posicao: number;
-  alinhamentoHorizontal: number;
+  qt_padding_superior?: number;
+  qt_padding_direita?: number;
+  qt_padding_inferior?: number;
+  qt_padding_esquerda?: number;
+  ie_borda_superior?: string;
+  ie_borda_direita?: string;
+  ie_borda_inferior?: string;
+  ie_borda_esquerda?: string;
+  qt_esquerda: number;
   topoLabel: number;
-  topoRegistro: number;
-  alinhamento: string;
-  estiloLabel: string;
-  estiloCampo: string;
-  estiloSoma: string;
-  largura: number;
+  qt_topo: number;
+  ie_alinhamento: string;
+  ie_estilo_label: string;
+  ie_estilo: string;
+  ie_estilo_soma: string;
+  qt_largura: number;
   formatacao: 'texto' | 'numero' | 'moeda' | 'data' | 'data_hora' | 'porcentagem';
   statusSistema?: boolean;
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor/Cabeçalho/Rodapé. */
-  tipoCampo?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
-  /** Conteúdo livre quando tipoCampo === 'conteudo'. */
+  ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
+  /** Conteúdo livre quando ie_tipo_elemento === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
-  fonteCampo?: string;
+  ie_fonte?: string;
   /** Tamanho da fonte do campo em pontos (para banda Texto/Valor). */
-  tamanhoFonteCampo?: number;
-  /** ID da imagem selecionada (quando tipoCampo === 'imagem'). */
-  imagemId?: string;
+  qt_fonte?: number;
+  /** ID da imagem selecionada (quando ie_tipo_elemento === 'imagem'). */
+  nr_seq_imagem?: string;
   /** Tamanho da imagem em pixels. */
-  tamanhoImagem?: number;
+  qt_tamanho_imagem?: number;
 }
 
 /** Input numérico sem spinner, que permite apagar o 0. */
@@ -142,6 +144,8 @@ export default function CamposRelatorioTable({
   ocultarColecaoCampo = false,
   getNextSeq,
   imagens = [],
+  bandaTipo,
+  onViewCampo,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -151,10 +155,6 @@ export default function CamposRelatorioTable({
     onEditingChange?.(editingId !== null);
   }, [editingId, onEditingChange]);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
-  const [conteudoModal, setConteudoModal] = useState<{ id: string; value: string } | null>(null);
-  const [conteudoInfoOpen, setConteudoInfoOpen] = useState(false);
-  const [conteudoInfoAnchor, setConteudoInfoAnchor] = useState<HTMLElement | null>(null);
-
   useEffect(() => {
     if (!contextMenu) return;
     const close = () => setContextMenu(null);
@@ -211,15 +211,15 @@ export default function CamposRelatorioTable({
       if (c.id !== id) return c;
       const atualizado = { ...c, ...updates };
       // Se mudou a coleção, reseta a chave
-      if (updates.colecao && updates.colecao !== c.colecao) {
-        atualizado.chave = '';
+      if (updates.ie_colecao && updates.ie_colecao !== c.ie_colecao) {
+        atualizado.ie_campo = '';
         atualizado.label = '';
         atualizado.statusSistema = false;
       }
       // Se mudou a chave, atualiza label e formatação
-      if (updates.chave && updates.chave !== c.chave) {
-        const camposDaColecao = camposPorColecao[atualizado.colecao] ?? [];
-        const campoDef = camposDaColecao.find((cd) => cd.key === updates.chave);
+      if (updates.ie_campo && updates.ie_campo !== c.ie_campo) {
+        const camposDaColecao = camposPorColecao[atualizado.ie_colecao] ?? [];
+        const campoDef = camposDaColecao.find((cd) => cd.key === updates.ie_campo);
         if (campoDef) {
           atualizado.label = campoDef.label;
           if (campoDef.tipo === "number") atualizado.formatacao = "numero";
@@ -402,27 +402,27 @@ export default function CamposRelatorioTable({
       label: "#",
       width: 40,
       render: (row: CamposRelatorioRow) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
-    },
-    {      key: "tipoCampo",
+    },    {      key: "ie_tipo_elemento",
       label: "Tipo",
       width: 130,
       render: (row: CamposRelatorioRow) => {
+        const isLista = bandaTipo === 'lista';
         if (editingId === row.id) {
           return (
             <Select
-              value={row.tipoCampo ?? ''}
-              onChange={(v) => atualizar(row.id, { tipoCampo: (v || undefined) as CamposRelatorioRow['tipoCampo'] })}
+              value={isLista ? 'valor' : (row.ie_tipo_elemento ?? '')}
+              onChange={(v) => atualizar(row.id, { ie_tipo_elemento: (v || undefined) as CamposRelatorioRow['ie_tipo_elemento'] })}
               options={ocultarColecaoCampo
                 ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]
-                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]
-              }
+                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]}
               showPlaceholder={true}
-              className={inputClass}
+              className={`${inputClass} ${isLista ? 'opacity-50 cursor-not-allowed' : ''}`}
+              disabled={isLista}
             />
           );
         }
         const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração', imagem: 'Imagem' };
-        const lbl = tipoLabels[row.tipoCampo ?? ''] ?? '---';
+        const lbl = tipoLabels[row.ie_tipo_elemento ?? ''] ?? '---';
         return <span className="whitespace-nowrap">{lbl}</span>;
       },
     },
@@ -430,12 +430,12 @@ export default function CamposRelatorioTable({
       label: "Coleção",
       width: 130,
       render: (row: CamposRelatorioRow) => {
-        const desabilitado = variant === 'texto_valor' && row.tipoCampo !== 'valor';
+        const desabilitado = variant === 'texto_valor' && row.ie_tipo_elemento !== 'valor';
         if (editingId === row.id) {
           return (
             <Select
-              value={row.colecao}
-              onChange={(v) => atualizar(row.id, { colecao: v })}
+              value={row.ie_colecao}
+              onChange={(v) => atualizar(row.id, { ie_colecao: v })}
               options={colecoesDisponiveis}
               showPlaceholder={false}
               className={`${inputClass} ${desabilitado ? 'opacity-50 cursor-not-allowed' : ''}`}
@@ -443,23 +443,23 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        return <span className={`truncate block ${desabilitado ? 'text-slate-400' : ''}`}>{desabilitado ? '---' : (row.colecao || '---')}</span>;
+        return <span className={`truncate block ${desabilitado ? 'text-slate-400' : ''}`}>{desabilitado ? '---' : (row.ie_colecao || '---')}</span>;
       },
     },
     {      key: "chave",
       label: "Campo",
       width: 130,
       render: (row: CamposRelatorioRow) => {
-        const desabilitadoCampo = variant === 'texto_valor' && row.tipoCampo !== 'valor';
+        const desabilitadoCampo = variant === 'texto_valor' && row.ie_tipo_elemento !== 'valor';
         if (desabilitadoCampo) {
           return <span className="text-slate-400">---</span>;
         }
         if (editingId === row.id) {
-          const camposDaColecao = camposPorColecao[row.colecao] ?? [];
+          const camposDaColecao = camposPorColecao[row.ie_colecao] ?? [];
           const usadas = new Set(
             campos
-              .filter((c) => c.chave && c.colecao === row.colecao && c.chave !== row.chave)
-              .map((c) => c.chave)
+              .filter((c) => c.ie_campo && c.ie_colecao === row.ie_colecao && c.ie_campo !== row.ie_campo)
+              .map((c) => c.ie_campo)
           );
           // Gera opções, duplicando ie_status com opção (sistema)
           const opcoes: { value: string; label: string }[] = [];
@@ -475,11 +475,11 @@ export default function CamposRelatorioTable({
           }
           return (
             <Select
-              value={row.statusSistema ? row.chave + '__sistema' : row.chave}
+              value={row.statusSistema ? row.ie_campo + '__sistema' : row.ie_campo}
               onChange={(v) => {
                 const isSistema = v.endsWith('__sistema');
                 const chave = isSistema ? v.replace('__sistema', '') : v;
-                atualizar(row.id, { chave, statusSistema: isSistema });
+                atualizar(row.id, { ie_campo: chave, statusSistema: isSistema });
               }}
               options={opcoes}
               showPlaceholder
@@ -487,7 +487,7 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        const display = row.statusSistema ? row.chave + ' (sistema)' : row.chave;
+        const display = row.statusSistema ? row.ie_campo + ' (sistema)' : row.ie_campo;
         return <span className="truncate block">{display || '---'}</span>;
       },
     },
@@ -503,25 +503,14 @@ export default function CamposRelatorioTable({
       },
     },
     {
-      key: "posicao",
-      label: "Posição",
-      width: 130,
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <NumberInput value={row.posicao ?? 1} onChange={(v) => atualizar(row.id, { posicao: v })} min={1} className={inputClass} />;
-        }
-        return <span>{row.posicao ?? '—'}</span>;
-      },
-    },
-    {
-      key: "alinhamentoHorizontal",
+      key: "qt_esquerda",
       label: "Esquerda",
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.alinhamentoHorizontal ?? 0} onChange={(v) => atualizar(row.id, { alinhamentoHorizontal: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_esquerda ?? 0} onChange={(v) => atualizar(row.id, { qt_esquerda: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.alinhamentoHorizontal ?? 0}</span>;
+        return <span>{row.qt_esquerda ?? 0}</span>;
       },
     },
 
@@ -533,8 +522,8 @@ export default function CamposRelatorioTable({
         if (editingId === row.id) {
           return (
             <Select
-              value={row.alinhamento || 'esquerda'}
-              onChange={(v) => atualizar(row.id, { alinhamento: v })}
+              value={row.ie_alinhamento || 'esquerda'}
+              onChange={(v) => atualizar(row.id, { ie_alinhamento: v })}
               options={[
                 { value: 'esquerda', label: 'Esquerda' },
                 { value: 'centro', label: 'Centro' },
@@ -545,79 +534,79 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        const lbl = row.alinhamento === 'centro' ? 'Centro' : row.alinhamento === 'direita' ? 'Direita' : 'Esquerda';
+        const lbl = row.ie_alinhamento === 'centro' ? 'Centro' : row.ie_alinhamento === 'direita' ? 'Direita' : 'Esquerda';
         return <span className="whitespace-nowrap">{lbl}</span>;
       },
     },
     {
-      key: "estiloLabel",
+      key: "ie_estilo_label",
       label: "Estilo label",
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.estiloLabel || ''}
-              onChange={(v) => atualizar(row.id, { estiloLabel: v })}
+              value={row.ie_estilo_label || ''}
+              onChange={(v) => atualizar(row.id, { ie_estilo_label: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
               className={inputClass}
             />
           );
         }
-        const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloLabel);
+        const opt = ESTILO_OPCOES.find((o) => o.value === row.ie_estilo_label);
         return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
       },
     },
     {
-      key: "estiloCampo",
+      key: "ie_estilo",
       label: variant === 'texto_valor' ? 'Estilo' : 'Estilo registro',
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.estiloCampo || ''}
-              onChange={(v) => atualizar(row.id, { estiloCampo: v })}
+              value={row.ie_estilo || ''}
+              onChange={(v) => atualizar(row.id, { ie_estilo: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
               className={inputClass}
             />
           );
         }
-        const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloCampo);
+        const opt = ESTILO_OPCOES.find((o) => o.value === row.ie_estilo);
         return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
       },
     },
     {
-      key: "estiloSoma",
+      key: "ie_estilo_soma",
       label: "Estilo soma",
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.estiloSoma || ''}
-              onChange={(v) => atualizar(row.id, { estiloSoma: v })}
+              value={row.ie_estilo_soma || ''}
+              onChange={(v) => atualizar(row.id, { ie_estilo_soma: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
               className={inputClass}
             />
           );
         }
-        const opt = ESTILO_OPCOES.find((o) => o.value === row.estiloSoma);
+        const opt = ESTILO_OPCOES.find((o) => o.value === row.ie_estilo_soma);
         return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
       },
     },
     {
-      key: "largura",
+      key: "qt_largura",
       label: "Largura",
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.largura ?? 30} onChange={(v) => atualizar(row.id, { largura: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_largura ?? 30} onChange={(v) => atualizar(row.id, { qt_largura: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.largura ?? 30}</span>;
+        return <span>{row.qt_largura ?? 30}</span>;
       },
     },
     {
@@ -643,13 +632,13 @@ export default function CamposRelatorioTable({
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.topoRegistro ?? 0} onChange={(v) => atualizar(row.id, { topoRegistro: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_topo ?? 0} onChange={(v) => atualizar(row.id, { qt_topo: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.topoRegistro ?? 0}</span>;
+        return <span>{row.qt_topo ?? 0}</span>;
       },
     },
     {
-      key: "corCampo",
+      key: "cd_cor",
       label: "Cor",
       width: 130,
       render: (row: CamposRelatorioRow) => {
@@ -660,25 +649,25 @@ export default function CamposRelatorioTable({
               <input
                 type="color"
                 id={cid}
-                value={row.corCampo || '#1a1a1a'}
-                onChange={(e) => atualizar(row.id, { corCampo: e.target.value })}
+                value={row.cd_cor || '#1a1a1a'}
+                onChange={(e) => atualizar(row.id, { cd_cor: e.target.value })}
                 className="absolute opacity-0 w-0 h-0 pointer-events-none"
               />
               <div
                 className="w-full h-full cursor-pointer"
-                style={{ backgroundColor: row.corCampo || '#1a1a1a' }}
+                style={{ backgroundColor: row.cd_cor || '#1a1a1a' }}
                 onClick={() => document.getElementById(cid)?.click()}
               />
             </div>
           );
         }
         return (
-          <span className="block w-full h-4" style={{ backgroundColor: row.corCampo || '#1a1a1a' }} />
+          <span className="block w-full h-4" style={{ backgroundColor: row.cd_cor || '#1a1a1a' }} />
         );
       },
     },
     {
-      key: "backgroundCampo",
+      key: "cd_background",
       label: "Background",
       width: 130,
       render: (row: CamposRelatorioRow) => {
@@ -690,13 +679,13 @@ export default function CamposRelatorioTable({
                 <input
                   type="color"
                   id={bid}
-                  value={row.backgroundCampo || '#ffffff'}
-                  onChange={(e) => atualizar(row.id, { backgroundCampo: e.target.value })}
+                  value={row.cd_background || '#ffffff'}
+                  onChange={(e) => atualizar(row.id, { cd_background: e.target.value })}
                   className="absolute opacity-0 w-0 h-0 pointer-events-none"
                 />
                 <div
                   className="w-full h-full cursor-pointer border border-slate-300"
-                  style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.backgroundCampo || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }}
+                  style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.cd_background || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }}
                   onClick={() => document.getElementById(bid)?.click()}
                 />
               </div>
@@ -709,151 +698,151 @@ export default function CamposRelatorioTable({
           );
         }
         return (
-          <span className="block w-full h-4 border border-slate-300" style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.backgroundCampo || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }} />
+          <span className="block w-full h-4 border border-slate-300" style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.cd_background || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }} />
         );
       },
     },
     {
-      key: "paddingTopCampo",
-      label: "Padding top",
+      key: "qt_padding_superior",
+      label: "Padding superior",
       width: 100,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.paddingTopCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingTopCampo: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_padding_superior ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_superior: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.paddingTopCampo ?? 0}</span>;
+        return <span>{row.qt_padding_superior ?? 0}</span>;
       },
     },
     {
-      key: "paddingRightCampo",
-      label: "Padding right",
+      key: "qt_padding_direita",
+      label: "Padding direita",
       width: 100,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.paddingRightCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingRightCampo: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_padding_direita ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_direita: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.paddingRightCampo ?? 0}</span>;
+        return <span>{row.qt_padding_direita ?? 0}</span>;
       },
     },
     {
-      key: "paddingBottomCampo",
-      label: "Padding bottom",
+      key: "qt_padding_inferior",
+      label: "Padding inferior",
       width: 100,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.paddingBottomCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingBottomCampo: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_padding_inferior ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_inferior: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.paddingBottomCampo ?? 0}</span>;
+        return <span>{row.qt_padding_inferior ?? 0}</span>;
       },
     },
     {
-      key: "paddingLeftCampo",
-      label: "Padding left",
+      key: "qt_padding_esquerda",
+      label: "Padding esquerda",
       width: 100,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.paddingLeftCampo ?? 0} onChange={(v) => atualizar(row.id, { paddingLeftCampo: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_padding_esquerda ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_esquerda: v })} min={0} className={inputClass} />;
         }
-        return <span>{row.paddingLeftCampo ?? 0}</span>;
+        return <span>{row.qt_padding_esquerda ?? 0}</span>;
       },
     },
     {
-      key: "borderTopCampo",
+      key: "ie_borda_superior",
       label: "Border top",
       width: 100,
       render: (row: CamposRelatorioRow) => (
         <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.borderTopCampo ?? false}
-            onChange={(e) => atualizar(row.id, { borderTopCampo: e.target.checked })}
+          <input type="checkbox" checked={row.ie_borda_superior === 'S'}
+            onChange={(e) => atualizar(row.id, { ie_borda_superior: e.target.checked ? 'S' : 'N' })}
             className="cg-checkbox" />
         </span>
       ),
     },
     {
-      key: "borderRightCampo",
+      key: "ie_borda_direita",
       label: "Border right",
       width: 100,
       render: (row: CamposRelatorioRow) => (
         <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.borderRightCampo ?? false}
-            onChange={(e) => atualizar(row.id, { borderRightCampo: e.target.checked })}
+          <input type="checkbox" checked={row.ie_borda_direita === 'S'}
+            onChange={(e) => atualizar(row.id, { ie_borda_direita: e.target.checked ? 'S' : 'N' })}
             className="cg-checkbox" />
         </span>
       ),
     },
     {
-      key: "borderBottomCampo",
+      key: "ie_borda_inferior",
       label: "Border bottom",
       width: 100,
       render: (row: CamposRelatorioRow) => (
         <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.borderBottomCampo ?? false}
-            onChange={(e) => atualizar(row.id, { borderBottomCampo: e.target.checked })}
+          <input type="checkbox" checked={row.ie_borda_inferior === 'S'}
+            onChange={(e) => atualizar(row.id, { ie_borda_inferior: e.target.checked ? 'S' : 'N' })}
             className="cg-checkbox" />
         </span>
       ),
     },
     {
-      key: "borderLeftCampo",
+      key: "ie_borda_esquerda",
       label: "Border left",
       width: 100,
       render: (row: CamposRelatorioRow) => (
         <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.borderLeftCampo ?? false}
-            onChange={(e) => atualizar(row.id, { borderLeftCampo: e.target.checked })}
+          <input type="checkbox" checked={row.ie_borda_esquerda === 'S'}
+            onChange={(e) => atualizar(row.id, { ie_borda_esquerda: e.target.checked ? 'S' : 'N' })}
             className="cg-checkbox" />
         </span>
       ),
     },
     {
-      key: "fonteCampo",
+      key: "ie_fonte",
       label: "Fonte",
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.fonteCampo || 'Arial'}
-              onChange={(v) => atualizar(row.id, { fonteCampo: v })}
+              value={row.ie_fonte || 'Arial'}
+              onChange={(v) => atualizar(row.id, { ie_fonte: v })}
               options={FONTES_OPCOES}
               showPlaceholder={false}
               className={inputClass}
             />
           );
         }
-        return <span className="whitespace-nowrap">{row.fonteCampo || 'Arial'}</span>;
+        return <span className="whitespace-nowrap">{row.ie_fonte || 'Arial'}</span>;
       },
     },
     {
-      key: "tamanhoFonteCampo",
-      label: "Tamanho",
+      key: "qt_fonte",
+      label: "Tamanho fonte",
       width: 90,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
           return (
             <NumberInput
-              value={row.tamanhoFonteCampo ?? 10}
-              onChange={(v) => atualizar(row.id, { tamanhoFonteCampo: v })}
+              value={row.qt_fonte ?? 10}
+              onChange={(v) => atualizar(row.id, { qt_fonte: v })}
               min={1}
               max={72}
               className={inputClass}
             />
           );
         }
-        return <span>{row.tamanhoFonteCampo ?? 10}</span>;
+        return <span>{row.qt_fonte ?? 10}</span>;
       },
     },
     {
-      key: "imagemId",
+      key: "nr_seq_imagem",
       label: "Imagem",
       width: 150,
       render: (row: CamposRelatorioRow) => {
-        const desabilitado = row.tipoCampo !== 'imagem';
+        const desabilitado = row.ie_tipo_elemento !== 'imagem';
         if (editingId === row.id) {
           return (
             <Select
-              value={row.imagemId ?? ''}
-              onChange={(v) => atualizar(row.id, { imagemId: v || undefined })}
+              value={row.nr_seq_imagem ?? ''}
+              onChange={(v) => atualizar(row.id, { nr_seq_imagem: v || undefined })}
               options={imagens.map((img) => ({ value: img.id, label: img.ds_imagem }))}
               showPlaceholder={true}
               disabled={desabilitado}
@@ -862,21 +851,21 @@ export default function CamposRelatorioTable({
           );
         }
         if (desabilitado) return <span className="text-slate-400">---</span>;
-        const img = imagens.find((i) => i.id === row.imagemId);
+        const img = imagens.find((i) => i.id === row.nr_seq_imagem);
         return <span className="whitespace-nowrap truncate">{img?.ds_imagem ?? '---'}</span>;
       },
     },
     {
-      key: "tamanhoImagem",
+      key: "qt_tamanho_imagem",
       label: "Tamanho imagem",
       width: 110,
       render: (row: CamposRelatorioRow) => {
-        const desabilitado = row.tipoCampo !== 'imagem';
+        const desabilitado = row.ie_tipo_elemento !== 'imagem';
         if (editingId === row.id) {
           return (
             <NumberInput
-              value={row.tamanhoImagem ?? 100}
-              onChange={(v) => atualizar(row.id, { tamanhoImagem: v })}
+              value={row.qt_tamanho_imagem ?? 100}
+              onChange={(v) => atualizar(row.id, { qt_tamanho_imagem: v })}
               min={1}
               max={2000}
               disabled={desabilitado}
@@ -885,14 +874,14 @@ export default function CamposRelatorioTable({
           );
         }
         if (desabilitado) return <span className="text-slate-400">---</span>;
-        return <span>{row.tamanhoImagem ?? 100}</span>;
+        return <span>{row.qt_tamanho_imagem ?? 100}</span>;
       },
     },
   ];
 
   // Filtrar colunas conforme a variante
-  const textoValorHidden = new Set(['posicao', 'label', 'soma', 'estiloLabel', 'estiloSoma']);
-  const listaHidden = new Set(['fonteCampo', 'tamanhoFonteCampo', 'corCampo', 'backgroundCampo', 'paddingTopCampo', 'paddingRightCampo', 'paddingBottomCampo', 'paddingLeftCampo', 'borderTopCampo', 'borderRightCampo', 'borderBottomCampo', 'borderLeftCampo', 'imagemId', 'tamanhoImagem']);
+  const textoValorHidden = new Set(['label', 'soma', 'ie_estilo_label', 'ie_estilo', 'ie_estilo_soma']);
+  const listaHidden = new Set(['ie_fonte', 'qt_fonte', 'cd_cor', 'cd_background', 'qt_padding_superior', 'qt_padding_direita', 'qt_padding_inferior', 'qt_padding_esquerda', 'ie_borda_superior', 'ie_borda_direita', 'ie_borda_inferior', 'ie_borda_esquerda', 'nr_seq_imagem', 'qt_tamanho_imagem']);
   const colecaoCampoHidden = ocultarColecaoCampo ? new Set(['colecao', 'chave']) : new Set<string>();
   const visibleColumns = variant === 'texto_valor'
     ? columns.filter((c) => !textoValorHidden.has(c.key) && !colecaoCampoHidden.has(c.key))
@@ -926,51 +915,12 @@ export default function CamposRelatorioTable({
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
           >
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { const row = campos.find((c) => c.id === contextMenu.id); if (row && onViewCampo) onViewCampo(row); setContextMenu(null); }}>Ver</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => duplicar(contextMenu.id)}>Duplicar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => excluir(contextMenu.id)}>Excluir</button>
-            {variant === 'texto_valor' && (() => { const row = campos.find((c) => c.id === contextMenu.id); if (row?.tipoCampo === 'conteudo') { return (
-              <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setConteudoModal({ id: contextMenu.id, value: row.conteudo ?? '' }); setContextMenu(null); }}>Conteúdo</button>
-            ); } return null; })()}
           </div>
         </>
-      )}
-      {conteudoModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="absolute inset-0" onClick={() => setConteudoModal(null)} />
-          <div className="relative w-full max-w-[700px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[80vh] flex flex-col">
-            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h3 className="text-base font-semibold" style={{ color: '#000' }}>Conteúdo</h3>
-              <button type="button" onClick={() => setConteudoModal(null)} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="p-[15px] overflow-auto flex-1">
-              <div className="relative text-sm mb-1 group" style={{ color: '#666' }}>
-                <div className="inline-flex items-center gap-2 w-full">
-                  <span>Conteúdo</span>
-                  <button type="button" onClick={(e) => { setConteudoInfoAnchor(e.currentTarget); setConteudoInfoOpen((v) => !v); }}
-                    className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${conteudoInfoOpen ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                    aria-label="Informações do campo">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
-                  </button>
-                  {conteudoInfoOpen && (
-                    <FieldInfoPopup anchor={conteudoInfoAnchor} meta={{ type: 'string', field: 'ds_conteudo', collection: 'relatorio_campos' }} onClose={() => setConteudoInfoOpen(false)} />
-                  )}
-                </div>
-              </div>
-              <textarea
-                className="w-full min-h-[300px] rounded-[3px] border border-slate-300 bg-white px-3 py-2 text-sm resize-none focus:border-[#003056] focus:outline-none"
-                value={conteudoModal.value}
-                onChange={(e) => setConteudoModal((prev) => prev ? { ...prev, value: e.target.value } : null)}
-              />
-            </div>
-            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
-              <button type="button" onClick={() => setConteudoModal(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>Cancelar</button>
-              <button type="button" onClick={() => { if (conteudoModal) { atualizar(conteudoModal.id, { conteudo: conteudoModal.value }); setConteudoModal(null); } }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Salvar</button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );

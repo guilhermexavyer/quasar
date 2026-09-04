@@ -184,8 +184,8 @@ import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
 import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
-import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, salvarBandaAuditoria } from "@/services/relatorioService";
-import { gerarERealizarDownloadExcel } from "@/lib/relatorioExcel";
+import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio } from "@/services/relatorioService";
+
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
@@ -296,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.65.0";
+const SYSTEM_VERSION = "0.66.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2744,9 +2744,8 @@ export default function Home() {
     });
   }
 
-  function openRelatorioBandas(relatorio: Relatorio) {
+  async function openRelatorioBandas(relatorio: Relatorio) {
     setRelatorioEditingId(relatorio.id ?? null);
-    setRelatorioForm(relatorio);
     setRelatorioView('builder');
     setRelatorioBandasMode(true);
     setMessage('');
@@ -2756,6 +2755,20 @@ export default function Home() {
       createdBy: relatorio.ds_usuario_criacao ?? '',
       updatedBy: relatorio.ds_usuario_alteracao ?? '',
     });
+    // Load bandas from relatorio_banda collection
+    const nrSeqRelatorio = (relatorio as any).nr_sequencia;
+    if (nrSeqRelatorio) {
+      try {
+        const { obterBandasPorRelatorio } = await import('@/services/relatorioServiceBandas');
+        const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
+        const bandasMapeadas = bandasDb.map((b: any) => ({ ...b, _firestoreId: b.id, id: b.id }));
+        setRelatorioForm({ ...relatorio, bandas: bandasMapeadas } as any);
+      } catch {
+        setRelatorioForm(relatorio);
+      }
+    } else {
+      setRelatorioForm(relatorio);
+    }
   }
 
   function closeRelatorioBuilder() {
@@ -2766,7 +2779,7 @@ export default function Home() {
   }
 
   async function handleRelatorioSave(data: Omit<Relatorio, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>) {
-    // Se a banda já salvou e os dados não mudaram, mostrar loading e fechar
+    // Se a banda já salvou, mostrar loading e fechar (não re-salvar bandas)
     if (bandaJustSavedRef.current) {
       bandaJustSavedRef.current = false;
       setRelatorioSubmitting(true);
@@ -2779,12 +2792,13 @@ export default function Home() {
     setMessage('');
     try {
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
-      if (relatorioEditingId) {
+      if (!relatorioEditingId) {
+        const savedId = await criarRelatorio(data, auditAutor);
+        setMessage('Relatório criado com sucesso!');
+        // Bandas são salvas exclusivamente via handleBandaSave (relatorio_banda collection)
+      } else {
         await atualizarRelatorio(relatorioEditingId, data, auditAutor);
         setMessage('Relatório atualizado com sucesso!');
-      } else {
-        await criarRelatorio(data, auditAutor);
-        setMessage('Relatório criado com sucesso!');
       }
       await loadRelatorios();
       closeRelatorioBuilder();
@@ -2795,51 +2809,90 @@ export default function Home() {
     }
   }
 
-  /** Salva a banda diretamente no Firestore e registra log de auditoria na coleção da banda */
+  /** Salva bandas na coleção relatorio_banda (coleção separada) e mantém relatorio.bandas sincronizado para retrocompatibilidade. */
+  const savingBandaRef = useRef(false);
   async function handleBandaSave(bandasAtualizadas: any[], bandaDetailId?: string | null) {
-    if (!relatorioEditingId || !relatorioForm) return;
+    if (savingBandaRef.current) return;
+    savingBandaRef.current = true;
     try {
+      if (!relatorioEditingId || !relatorioForm) return;
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
       const agora = new Date().toISOString();
-      // Atualiza o documento do relatório SEM alterar dt_alteracao/ds_usuario_alteracao do relatório
-      // A banda tem seus próprios timestamps independentes
-      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorioForm as any;      // Atualiza os timestamps da banda salva (independentemente do relatório)
-      const bandasComTimestamps = bandasAtualizadas.map((b: any) => {
-        if (b.id === bandaDetailId) {
-          return {
-            ...b,
-            dt_criacao: b.dt_criacao || agora,
-            dt_alteracao: agora,
-            ds_usuario_criacao: b.ds_usuario_criacao || auditAutor.usuarioNome,
-            ds_usuario_alteracao: auditAutor.usuarioNome,
-          };
-        }
-        return b;
-      });
-      const docRef = doc(db, 'relatorio', relatorioEditingId);
-      await updateDoc(docRef, {
-        bandas: bandasComTimestamps,
-      });
-      // Registra log de auditoria APENAS na coleção da banda específica
-      if (bandaDetailId) {
-        const bandaAtual = bandasComTimestamps.find((b: any) => b.id === bandaDetailId);
-        const bandaAntiga = (relatorioForm as any).bandas?.find((b: any) => b.id === bandaDetailId) ?? null;
-        if (bandaAtual) {
-          const { id: _id, ...bandaDados } = bandaAtual;
-          const bandaAnteriorDados = bandaAntiga ? (() => { const { id: _aid, ...rest } = bandaAntiga; return rest; })() : null;
-          await salvarBandaAuditoria(bandaDetailId, bandaDados, bandaAnteriorDados, auditAutor);
+      const nrSeqRelatorio = (relatorioForm as any).nr_sequencia;
+      const { criarBanda, atualizarBanda } = await import('@/services/relatorioServiceBandas');
+
+      // ── Salvar cada banda individualmente na coleção relatorio_banda ──
+      const bandasSalvas: any[] = [];
+      for (const b of bandasAtualizadas) {
+        const bandaData: Record<string, any> = {
+          nr_seq_relatorio: nrSeqRelatorio,
+          ds_banda: b.ds_banda ?? '',
+          ie_tipo_banda: b.ie_tipo_banda ?? '',
+          ie_colecao_principal: b.ie_colecao_principal ?? '',
+          nr_posicao: b.nr_posicao ?? 0,
+          nr_altura: b.nr_altura ?? 0,
+          ie_borda_superior: b.ie_borda_superior ?? false,
+          ie_borda_inferior: b.ie_borda_inferior ?? false,
+          ie_borda_esquerda: b.ie_borda_esquerda ?? false,
+          ie_borda_direita: b.ie_borda_direita ?? false,
+          espessuraLabel: b.espessuraLabel,
+          topoLabel: b.topoLabel,
+          espessuraCampo: b.espessuraCampo,
+          topoRegistro: b.topoRegistro,
+          bgLabel: b.bgLabel,
+          bgCampo: b.bgCampo,
+          corLabelGlobal: b.corLabelGlobal,
+          corCampoGlobal: b.corCampoGlobal,
+          fonteLabel: b.fonteLabel,
+          tamanhoFonteLabel: b.tamanhoFonteLabel,
+          fonteCampo: b.fonteCampo,
+          tamanhoFonteCampo: b.tamanhoFonteCampo,
+          campos: b.campos ?? [],
+        };
+
+        if (b._firestoreId) {
+          // Banda já existe no Firestore — atualizar
+          await atualizarBanda(b._firestoreId, bandaData, auditAutor);
+          bandasSalvas.push({ ...b, dt_alteracao: agora, ds_usuario_alteracao: auditAutor.usuarioNome });
+        } else {
+          // Banda nova — criar
+          const newId = await criarBanda(bandaData, auditAutor);
+          bandasSalvas.push({ ...b, _firestoreId: newId, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: auditAutor.usuarioNome, ds_usuario_alteracao: auditAutor.usuarioNome });
         }
       }
+
+      // ── Excluir bandas removidas da lista ──
+      const { obterBandasPorRelatorio, excluirBanda } = await import('@/services/relatorioServiceBandas');
+      const bandasExistentes = await obterBandasPorRelatorio(nrSeqRelatorio);
+      const idsMantidos = new Set(bandasSalvas.map((b) => b._firestoreId).filter(Boolean));
+      for (const be of bandasExistentes) {
+        if (!idsMantidos.has(be.id)) {
+          await excluirBanda(be.id);
+        }
+      }
+
+      // ── Manter relatorio.bandas sincronizado (retrocompatibilidade) ──
+      const docRef = doc(db, 'relatorio', relatorioEditingId);
+      await updateDoc(docRef, { bandas: bandasSalvas });
+
       bandaJustSavedRef.current = true;
-      setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasComTimestamps } : prev);
+      setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasSalvas } : prev);
       await loadRelatorios();
     } catch (err) {
       console.error('[BANDA SAVE] ERRO:', err);
+    } finally {
+      savingBandaRef.current = false;
     }
   }
 
   async function handleRelatorioDelete(id: string) {
     try {
+      // Excluir bandas vinculadas ao relatório na coleção relatorio_banda
+      const { obterBandasPorRelatorioId, excluirBanda } = await import('@/services/relatorioServiceBandas');
+      const bandasExistentes = await obterBandasPorRelatorioId(id);
+      for (const b of bandasExistentes) {
+        await excluirBanda(b.id);
+      }
       await excluirRelatorio(id);
       await loadRelatorios();
       setMessage('Relatório excluído com sucesso!');
@@ -2875,7 +2928,7 @@ export default function Home() {
       const bandasComColecao = todasBandas.filter((b) => b.ie_colecao_principal);
       const bandasSemColecao = todasBandas.filter((b) => !b.ie_colecao_principal);
 
-      if (relatorio.ie_formato !== 'excel' && todasBandas.length > 0) {
+      if (todasBandas.length > 0) {
         // Modo Bandas: consultar cada banda separadamente
         const bandasPdfData: import('@/lib/relatorioPdf').BandaPdfData[] = [];
         let totalRegistros = 0;
@@ -2886,18 +2939,18 @@ export default function Home() {
           const dsBanda = getDataSource(banda.ie_colecao_principal!);
           const camposResolvidos = (banda.campos ?? []).map((c) => ({
             ...c,
-            chave: resolverChaveCampo(c, banda.ie_colecao_principal!, dsBanda?.campos ?? []),
+            ie_campo: resolverChaveCampo(c, banda.ie_colecao_principal!, dsBanda?.campos ?? []),
           }));
           const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
             const regResolvido = { ...reg };
             for (const c of camposResolvidos) {
-              if (c.statusSistema && c.chave) {
-                const partes = c.chave.split('.');
+              if (c.statusSistema && c.ie_campo) {
+                const partes = c.ie_campo.split('.');
                 let obj: any = regResolvido;
                 for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
                 const campoFinal = partes[partes.length - 1];
                 if (obj && typeof obj[campoFinal] === 'string') {
-                  obj[campoFinal] = resolverStatusLabel(c.colecao || banda.ie_colecao_principal!, obj[campoFinal]);
+                  obj[campoFinal] = resolverStatusLabel(c.ie_colecao || banda.ie_colecao_principal!, obj[campoFinal]);
                 }
               }
             }
@@ -2913,14 +2966,14 @@ export default function Home() {
         }
 
         // Pré-buscar imagens referenciadas nos campos
-        const imagemIds = new Set<string>();
+        const nr_seq_imagems = new Set<string>();
         for (const banda of (relatorio.bandas ?? [])) {
           for (const c of (banda.campos ?? [])) {
-            if ((c as any).tipoCampo === 'imagem' && (c as any).imagemId) imagemIds.add((c as any).imagemId);
+            if ((c as any).ie_tipo_elemento === 'imagem' && (c as any).nr_seq_imagem) nr_seq_imagems.add((c as any).nr_seq_imagem);
           }
         }
         const imagensMap: Record<string, string> = {};
-        for (const imgId of imagemIds) {
+        for (const imgId of nr_seq_imagems) {
           const img = imagens.find((i) => i.id === imgId);
           if (img?.ie_arquivo) {
             try {
@@ -2947,34 +3000,31 @@ export default function Home() {
         const dsPrincipal = getDataSource(relatorio.colecao);
         const camposResolvidos = relatorio.campos.map((c) => ({
           ...c,
-          chave: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
+          ie_campo: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
         }));
         const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
           const regResolvido = { ...reg };
           for (const c of camposResolvidos) {
-            if (c.statusSistema && c.chave) {
-              const partes = c.chave.split('.');
+            if (c.statusSistema && c.ie_campo) {
+              const partes = c.ie_campo.split('.');
               let obj: any = regResolvido;
               for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
               const campoFinal = partes[partes.length - 1];
               if (obj && typeof obj[campoFinal] === 'string') {
-                obj[campoFinal] = resolverStatusLabel(c.colecao || relatorio.colecao, obj[campoFinal]);
+                obj[campoFinal] = resolverStatusLabel(c.ie_colecao || relatorio.colecao, obj[campoFinal]);
               }
             }
           }
           return regResolvido;
         });
         const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
-        if (relatorio.ie_formato === 'excel') {
-          gerarERealizarDownloadExcel(relatorioResolvido, registrosResolvidos);
-        } else {
-          // Pré-buscar imagens referenciadas nos campos
-          const imagemIds2 = new Set<string>();
+        // Pré-buscar imagens referenciadas nos campos
+          const nr_seq_imagems2 = new Set<string>();
           for (const c of (relatorioResolvido.campos ?? [])) {
-            if ((c as any).tipoCampo === 'imagem' && (c as any).imagemId) imagemIds2.add((c as any).imagemId);
+            if ((c as any).ie_tipo_elemento === 'imagem' && (c as any).nr_seq_imagem) nr_seq_imagems2.add((c as any).nr_seq_imagem);
           }
           const imagensMap2: Record<string, string> = {};
-          for (const imgId of imagemIds2) {
+          for (const imgId of nr_seq_imagems2) {
             const img = imagens.find((i) => i.id === imgId);
             if (img?.ie_arquivo) {
               try {
@@ -2990,7 +3040,6 @@ export default function Home() {
             }
           }
           gerarPdf(relatorioResolvido, registrosResolvidos, undefined, currentUser?.ds_usuario ?? undefined, imagensMap2);
-        }
         setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
       }
     } catch (err: any) {
@@ -3240,13 +3289,13 @@ export default function Home() {
     }
   }
 
-  async function openImagemAuditModal(imagemId?: string | null) {
-    if (!imagemId) return;
+  async function openImagemAuditModal(nr_seq_imagem?: string | null) {
+    if (!nr_seq_imagem) return;
     setAuditDocumentType('imagem');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const logs = await fetchAuditByDocumentId('imagem', imagemId);
+      const logs = await fetchAuditByDocumentId('imagem', nr_seq_imagem);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -7588,7 +7637,7 @@ export default function Home() {
     try {
       // Se é auditoria de uma banda específica, lê da coleção da banda
       if (bandaId) {
-        const logs = await fetchAuditByDocumentId('relatorio_bandas', bandaId);
+        const logs = await fetchAuditByDocumentId('relatorio_banda', bandaId);
         setAuditLogs(logs);
       } else {
         const logs = await fetchAuditByDocumentId('relatorio', relatorioId);
@@ -8561,8 +8610,9 @@ export default function Home() {
                       onBandaSave={handleBandaSave}
                       imagens={imagens}
                       viewMode={relatorioBandasMode ? 'bandas' : 'form'}
+                      darkMode={darkMode}
                       campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
-                      bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_bandas')}
+                      bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
                     />
                 </div>
               ) : (
@@ -11680,7 +11730,7 @@ export default function Home() {
           flat.ds_relatorio = detalhes.ds_relatorio;
           flat.formato = detalhes.ie_formato;
           // Nome do arquivo: depende do formato
-          const cfg = detalhes.configPdf || detalhes.configExcel || {};
+          const cfg = detalhes.configPdf || {};
           flat.titulo_arquivo = cfg.titulo || '';
           // Config PDF
           const pdf = detalhes.configPdf || {};
@@ -11932,11 +11982,21 @@ export default function Home() {
                       ie_borda_inferior: 'Borda inferior',
                       ie_borda_esquerda: 'Borda esquerda',
                       ie_borda_direita: 'Borda direita',
+                      espessuraLabel: 'Espessura label',
+                      topoLabel: 'Topo label',
+                      espessuraCampo: 'Espessura registro',
+                      topoRegistro: 'Topo registro',
+                      bgLabel: 'Background label',
+                      bgCampo: 'Background registro',
+                      corLabelGlobal: 'Cor label',
+                      corCampoGlobal: 'Cor registro',
+                      fonteLabel: 'Fonte label',
+                      tamanhoFonteLabel: 'Tamanho fonte label',
+                      fonteCampo: 'Fonte registro',
+                      tamanhoFonteCampo: 'Tamanho fonte registro',
                       soma: 'Soma',
-                      corCampo: 'Cor',
-                      fonteCampo: 'Fonte',
-                      tamanhoFonteCampo: 'Tamanho',
-                      chave: 'Campo',
+                      cd_cor: 'Cor',
+                      ie_campo: 'Campo',
                       cd_patrimonio: 'Patrimônio',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
@@ -11985,7 +12045,7 @@ export default function Home() {
                         return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
                       }
                       if (field === 'formato') {
-                        return String(normalized) === 'excel' ? 'Excel (CSV)' : String(normalized) === 'pdf' ? 'PDF' : String(normalized);
+                        return String(normalized) === 'pdf' ? 'PDF' : String(normalized);
                       }
                       if (field === 'pdf_borda') {
                         const map: Record<string, string> = { 'solid_fina': 'Sólida fina', 'solid_grossa': 'Sólida grossa', 'dupla': 'Dupla', 'tracejada': 'Tracejada', 'pontilhada': 'Pontilhada' };
