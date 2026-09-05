@@ -719,38 +719,86 @@ export function gerarPdf(
 
     let totalRegistros = 0;
 
-    bandasConteudo.forEach((banda, idx) => {
-      // Aplicar offset de altura da banda anterior
-      if (idx > 0 && bandasConteudo[idx - 1].altura) {
-        y += pxToMm(bandasConteudo[idx - 1].altura!);
-      } else if (idx > 0) {
-        y += 4; // Pequeno espaço padrão entre bandas
+    // Separa as bandas de conteúdo: 'lista' gera uma tabela; as demais
+    // ('Dados' / texto_valor) formam o desenho de UM registro na página.
+    const bandasLista = bandasConteudo.filter((b) => b.tipo === 'lista');
+    const bandasDados = bandasConteudo.filter((b) => b.tipo !== 'lista');
+
+    if (bandasLista.length === 0 && bandasDados.length > 0) {
+      // Layout de formulário (bandas Dados): quando a consulta retorna mais de
+      // um registro, o bloco de bandas é repetido — uma página por registro —
+      // repetindo em cada página as bandas Cabeçalho, o rodapé e a borda.
+      const qtdPaginas = Math.max(1, ...bandasDados.map((b) => b.registros.length));
+      totalRegistros = qtdPaginas;
+
+      for (let r = 0; r < qtdPaginas; r++) {
+        if (r > 0) {
+          // Nova página com cabeçalho repetido e borda redesenhada
+          doc.addPage();
+          y = marginTop + BORDA_CONTEUDO_OFFSET;
+          renderCabecalhoBanda();
+          desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
+        }
+
+        bandasDados.forEach((banda, idx) => {
+          // Aplicar offset de altura da banda anterior
+          if (idx > 0) {
+            const bandaAnterior = bandasDados[idx - 1];
+            if (bandaAnterior.altura) {
+              y += pxToMm(bandaAnterior.altura);
+            } else {
+              y += 4; // Pequeno espaço padrão entre bandas
+            }
+          }
+
+          const registro = banda.registros[r];
+          renderizarTextoValorBanda(
+            doc, relatorio, config, banda.campos,
+            registro !== undefined ? [registro] : [],
+            y, marginLeft, marginTop, mapFontJsPdf,
+            banda.altura ? pxToMm(banda.altura) : undefined,
+            { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
+            contentW, usuarioGeracao, imagensMap,
+          );
+        });
+
+        // Renderizar rodapé de banda nesta página
+        renderRodapeBanda();
       }
+    } else {
+      bandasConteudo.forEach((banda, idx) => {
+        // Aplicar offset de altura da banda anterior
+        if (idx > 0 && bandasConteudo[idx - 1].altura) {
+          y += pxToMm(bandasConteudo[idx - 1].altura!);
+        } else if (idx > 0) {
+          y += 4; // Pequeno espaço padrão entre bandas
+        }
 
-      checkPage(8);
+        checkPage(8);
 
-      if (banda.tipo === 'lista') {
-        y = renderizarTabelaBanda(
-          doc, relatorio, config, banda.campos, banda.registros,
-          y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
-          contentW, mapFontJsPdf,
-          { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
-          { espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo },
-        );
-      } else {
-        renderizarTextoValorBanda(
-          doc, relatorio, config, banda.campos, banda.registros,
-          y, marginLeft, marginTop, mapFontJsPdf,
-          banda.altura ? pxToMm(banda.altura) : undefined,
-          { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
-          contentW, usuarioGeracao, imagensMap,
-        );
-      }
-      totalRegistros += banda.registros.length;
-    });
+        if (banda.tipo === 'lista') {
+          y = renderizarTabelaBanda(
+            doc, relatorio, config, banda.campos, banda.registros,
+            y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
+            contentW, mapFontJsPdf,
+            { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
+            { espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo },
+          );
+        } else {
+          renderizarTextoValorBanda(
+            doc, relatorio, config, banda.campos, banda.registros,
+            y, marginLeft, marginTop, mapFontJsPdf,
+            banda.altura ? pxToMm(banda.altura) : undefined,
+            { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
+            contentW, usuarioGeracao, imagensMap,
+          );
+        }
+        totalRegistros += banda.registros.length;
+      });
 
-    // Renderizar rodapé de banda
-    renderRodapeBanda();
+      // Renderizar rodapé de banda
+      renderRodapeBanda();
+    }
 
     // ── Total de registros (opcional) ──
     // Pode ser adicionado via banda Rodapé com ie_tipo_elemento 'data_geracao' etc.
