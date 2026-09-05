@@ -227,6 +227,7 @@ import CadastroGeralFormView, { type CadastroGeralFormData } from "@/components/
 import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/components/cadastrosGerais/CadastroGeralFilterModal";
 import PessoaJuridicaFilterModal, { type PessoaJuridicaFilterForm } from "@/components/pessoaJuridica/PessoaJuridicaFilterModal";
 import Select from "@/components/ui/Select";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import type { Sexo } from "@/types/sexo";
 import type { EstadoCivil } from "@/types/estadoCivil";
 import type { CorRaca } from "@/types/corRaca";
@@ -296,7 +297,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.4";
+const SYSTEM_VERSION = "0.66.5";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1209,6 +1210,8 @@ export default function Home() {
   const [relatorioGerando, setRelatorioGerando] = useState(false);
   const [relatorioParamModal, setRelatorioParamModal] = useState<{ relatorio: Relatorio; parametros: RelatorioFiltro[] } | null>(null);
   const [relatorioParamValues, setRelatorioParamValues] = useState<Record<string, string>>({});
+  // Parâmetros obrigatórios vazios após tentar gerar (borda vermelha no modal).
+  const [paramGerarFaltantes, setParamGerarFaltantes] = useState<string[]>([]);
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
   const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -2983,6 +2986,7 @@ export default function Home() {
           }
           return initialValues;
         });
+        setParamGerarFaltantes([]);
         setRelatorioParamModal({ relatorio, parametros });
         return;
       }
@@ -3121,6 +3125,12 @@ export default function Home() {
 
   function handleRelatorioParamConfirm() {
     if (!relatorioParamModal) return;
+    const faltantes = relatorioParamModal.parametros.filter((p) => p.ie_obrigatorio && !(relatorioParamValues[p.id] ?? '').trim());
+    if (faltantes.length > 0) {
+      setParamGerarFaltantes(faltantes.map((p) => p.id));
+      setMessage('Preencha todos os campos obrigatórios antes de gerar o relatório.');
+      return;
+    }
     const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
       if (f.parametro && relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
         return { ...f, valor: relatorioParamValues[f.id] };
@@ -3128,6 +3138,7 @@ export default function Home() {
       return f;
     });
     const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
+    setParamGerarFaltantes([]);
     setRelatorioParamModal(null);
     executarRelatorioGerar(updatedRelatorio);
     setRelatorioParamValues({});
@@ -12704,12 +12715,18 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               {relatorioParamModal.parametros.map((filtro) => {
-                const ds = getDataSource(relatorioParamModal.relatorio.colecao);
+                const ds = getDataSource(filtro.ie_colecao || relatorioParamModal.relatorio.colecao);
                 const campoLabel = ds?.campos.find((cd) => cd.key === filtro.campo)?.label || filtro.campo;
                 const operadorLabel = OPERADORES_FILTRO.find((o) => o.value === filtro.operador)?.label || filtro.operador;
+                const rotuloParametro = (filtro.ds_label || '').trim() || `${campoLabel} ${operadorLabel}`;
                 return (
                   <div key={filtro.id}>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>{campoLabel} {operadorLabel}</label>
+                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                      <span className="inline-flex items-center gap-1">
+                        {filtro.ie_obrigatorio && <RequiredAsterisk />}
+                        <span>{rotuloParametro}</span>
+                      </span>
+                    </label>
                     <input
                       type="text"
                       inputMode={filtro.mascara === 'decimal' ? 'decimal' : filtro.mascara === 'inteiro' || filtro.mascara === 'data' || filtro.mascara === 'cpf' || filtro.mascara === 'telefone' ? 'numeric' : undefined}
@@ -12717,6 +12734,7 @@ export default function Home() {
                       placeholder={filtro.mascara === 'data' ? 'DD/MM/AAAA' : filtro.mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
                       value={relatorioParamValues[filtro.id] ?? ''}
                       onChange={(e) => {
+                        setParamGerarFaltantes((prev) => prev.filter((id) => id !== filtro.id));
                         let val = e.target.value;
                         if (filtro.mascara === 'data') {
                           const digits = val.replace(/\D/g, '').slice(0, 8);
@@ -12744,7 +12762,7 @@ export default function Home() {
                         }
                         setRelatorioParamValues((prev) => ({ ...prev, [filtro.id]: val }));
                       }}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                      className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${paramGerarFaltantes.includes(filtro.id) ? 'border-red-500' : 'border-slate-300'}`}
                     />
                   </div>
                 );

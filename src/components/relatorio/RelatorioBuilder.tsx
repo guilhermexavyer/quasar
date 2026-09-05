@@ -540,6 +540,8 @@ export default function RelatorioBuilder({
     valor: { type: 'string', field: 'valor', collection: 'relatorio_parametro' },
     conector: { type: 'string', field: 'conector', collection: 'relatorio_parametro' },
     parametro: { type: 'boolean', field: 'parametro', collection: 'relatorio_parametro' },
+    ds_label: { type: 'string', field: 'ds_label', collection: 'relatorio_parametro' },
+    ie_obrigatorio: { type: 'boolean', field: 'ie_obrigatorio', collection: 'relatorio_parametro' },
   };
 
   /** Retorna o status (N/O/D) de um campo nas regras do perfil. */
@@ -1355,9 +1357,36 @@ export default function RelatorioBuilder({
                   <input type="checkbox" checked={filtroSel.parametro ?? false}
                     onChange={(e) => {
                       if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                        setPendingFiltro((prev) => prev ? { ...prev, parametro: e.target.checked } : prev);
+                        setPendingFiltro((prev) => prev ? { ...prev, parametro: e.target.checked, ie_obrigatorio: e.target.checked ? prev.ie_obrigatorio : false } : prev);
                       } else {
-                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, parametro: e.target.checked } : f));
+                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, parametro: e.target.checked, ie_obrigatorio: e.target.checked ? f.ie_obrigatorio : false } : f));
+                      }
+                    }}
+                    className="cg-checkbox" />
+                </span>
+              </div>
+              <div className="group">
+                {renderFieldLabel('ds_label', 'Label', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <input type="text" value={filtroSel.ds_label ?? ''}
+                  onChange={(e) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, ds_label: e.target.value } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ds_label: e.target.value } : f));
+                    }
+                  }}
+                  className={inputClass} />
+              </div>
+              <div className="group">
+                {renderFieldLabel('ie_obrigatorio', 'Obrigatório', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <span className="flex items-center h-[34px]">
+                  <input type="checkbox" checked={filtroSel.ie_obrigatorio ?? false}
+                    disabled={!filtroSel.parametro}
+                    onChange={(e) => {
+                      if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                        setPendingFiltro((prev) => prev ? { ...prev, ie_obrigatorio: e.target.checked } : prev);
+                      } else {
+                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_obrigatorio: e.target.checked } : f));
                       }
                     }}
                     className="cg-checkbox" />

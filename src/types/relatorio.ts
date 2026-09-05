@@ -199,6 +199,10 @@ export interface RelatorioFiltro {
   mascara?: 'data' | 'decimal' | 'inteiro' | 'texto' | 'cpf' | 'telefone';
   /** Se true, o valor será informado pelo usuário ao gerar o relatório. */
   parametro?: boolean;
+  /** Label personalizada exibida no modal de Parâmetros ao gerar o relatório. */
+  ds_label?: string;
+  /** Se true, o preenchimento no modal de Parâmetros é obrigatório. */
+  ie_obrigatorio?: boolean;
 }
 
 /**

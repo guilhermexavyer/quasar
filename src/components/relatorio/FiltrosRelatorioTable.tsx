@@ -487,7 +487,43 @@ export default function FiltrosRelatorioTable({
             <input
               type="checkbox"
               checked={row.parametro ?? false}
-              onChange={(e) => atualizar(row.id, { parametro: e.target.checked })}
+              onChange={(e) => atualizar(row.id, { parametro: e.target.checked, ie_obrigatorio: e.target.checked ? row.ie_obrigatorio : false })}
+              className="cg-checkbox"
+            />
+          </span>
+        );
+      },
+    },
+    {
+      key: "ds_label",
+      label: "Label",
+      width: 150,
+      render: (row: RelatorioFiltro) => {
+        if (editingId === row.id) {
+          return (
+            <input
+              type="text"
+              value={row.ds_label ?? ''}
+              onChange={(e) => atualizar(row.id, { ds_label: e.target.value })}
+              className={`${inputClass} flex-1 min-w-0`}
+            />
+          );
+        }
+        return <span className="truncate block">{row.ds_label || "---"}</span>;
+      },
+    },
+    {
+      key: "ie_obrigatorio",
+      label: "Obrigatório",
+      width: 90,
+      render: (row: RelatorioFiltro) => {
+        return (
+          <span className="flex items-center justify-center">
+            <input
+              type="checkbox"
+              checked={row.ie_obrigatorio ?? false}
+              disabled={!row.parametro}
+              onChange={(e) => atualizar(row.id, { ie_obrigatorio: e.target.checked })}
               className="cg-checkbox"
             />
           </span>
