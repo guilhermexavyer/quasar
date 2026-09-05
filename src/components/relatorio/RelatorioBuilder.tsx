@@ -72,6 +72,8 @@ interface RelatorioBuilderProps {
   campoRegras?: Record<string, CampoStatus>;
   /** Regras de campos por perfil (colecao relatorio_bandas): campo → status (N/O/D). */
   bandaCampoRegras?: Record<string, CampoStatus>;
+  /** Regras de campos por perfil (colecao relatorio_parametro): campo → status (N/O/D). */
+  parametroCampoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
   campoErros?: string[];
   /** Lista de imagens cadastradas. */
@@ -174,6 +176,7 @@ export default function RelatorioBuilder({
   onBandaSave,
   campoRegras = {},
   bandaCampoRegras = {},
+  parametroCampoRegras = {},
   campoErros = [],
   imagens = [],
   viewMode = 'form',
@@ -280,6 +283,15 @@ export default function RelatorioBuilder({
       setBandas(next.length ? next.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
     }
   }, [relatorio?.bandas]);
+  // Sincroniza filtros (parâmetros) quando o pai atualiza relatorio.filtros (ex.: após fetch async)
+  const filtrosDataRef = useRef(relatorio?.filtros ?? []);
+  useEffect(() => {
+    const next = relatorio?.filtros ?? [];
+    if (JSON.stringify(next) !== JSON.stringify(filtrosDataRef.current)) {
+      filtrosDataRef.current = next;
+      setFiltros(next.length ? next : []);
+    }
+  }, [relatorio?.filtros]);
   const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
   const lastBandaDetailIdRef = useRef<string | null>(null);
   useEffect(() => { if (bandaDetailId) lastBandaDetailIdRef.current = bandaDetailId; }, [bandaDetailId]);
@@ -517,6 +529,17 @@ export default function RelatorioBuilder({
     fonteCampo: { type: 'string', field: 'fonteCampo', collection: 'relatorio_banda' },
     tamanhoFonteCampo: { type: 'int64', field: 'tamanhoFonteCampo', collection: 'relatorio_banda' },
     ds_elemento: { type: 'string', field: 'ds_elemento', collection: 'relatorio_banda_elemento' },
+  };
+
+  /** fieldInfos para os campos do parâmetro (relatorio_parametro) */
+  const parametroFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
+    ie_colecao: { type: 'string', field: 'ie_colecao', collection: 'relatorio_parametro' },
+    campo: { type: 'string', field: 'campo', collection: 'relatorio_parametro' },
+    operador: { type: 'string', field: 'operador', collection: 'relatorio_parametro' },
+    mascara: { type: 'string', field: 'mascara', collection: 'relatorio_parametro' },
+    valor: { type: 'string', field: 'valor', collection: 'relatorio_parametro' },
+    conector: { type: 'string', field: 'conector', collection: 'relatorio_parametro' },
+    parametro: { type: 'boolean', field: 'parametro', collection: 'relatorio_parametro' },
   };
 
   /** Retorna o status (N/O/D) de um campo nas regras do perfil. */
@@ -761,7 +784,7 @@ export default function RelatorioBuilder({
         ie_borda_superior: c.ie_borda_superior ? 'S' : 'N', ie_borda_direita: c.ie_borda_direita ? 'S' : 'N', ie_borda_inferior: c.ie_borda_inferior ? 'S' : 'N', ie_borda_esquerda: c.ie_borda_esquerda ? 'S' : 'N',
         qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
       })),
-      filtros: filtros.map((f) => ({ id: f.id, campo: f.campo, operador: f.operador, valor: f.valor, valorFinal: f.valorFinal, mascara: f.mascara, parametro: f.parametro })),
+      filtros: filtros.map((f) => ({ ...f })),
       ordenacao: ordenacao.map((o) => ({ id: o.id, campo: o.campo, direcao: o.direcao })),
       bandas: bandas.map((b) => ({ id: b.id, _firestoreId: b._firestoreId, nr_sequencia: b.nr_sequencia, nr_seq_relatorio: b.nr_seq_relatorio, ds_banda: b.ds_banda, ie_colecao_principal: b.ie_colecao_principal, nr_posicao: b.nr_posicao, ie_tipo_banda: b.ie_tipo_banda, nr_altura: b.nr_altura, ie_borda_superior: b.ie_borda_superior, ie_borda_inferior: b.ie_borda_inferior, ie_borda_esquerda: b.ie_borda_esquerda, ie_borda_direita: b.ie_borda_direita, campos: b.campos })),
       ie_formato: formato,
@@ -1222,7 +1245,7 @@ export default function RelatorioBuilder({
             {filtroSel && (
             <div className="grid grid-cols-3 gap-[15px]">
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Coleção</label>
+                {renderFieldLabel('ie_colecao', 'Coleção', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.ie_colecao ?? ''}
                   onChange={(v) => {
@@ -1239,7 +1262,7 @@ export default function RelatorioBuilder({
                 />
               </div>
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Campo</label>
+                {renderFieldLabel('campo', 'Campo', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.campo}
                   onChange={(v) => {
@@ -1249,7 +1272,7 @@ export default function RelatorioBuilder({
                       setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, campo: v } : f));
                     }
                   }}
-                  options={(filtroSel.ie_colecao ? (getDataSource(filtroSel.ie_colecao)?.campos ?? []) : []).map((cd) => ({ value: cd.key, label: cd.label }))}
+                  options={(filtroSel.ie_colecao ? (getDataSource(filtroSel.ie_colecao)?.campos ?? []) : []).map((cd) => ({ value: cd.key, label: cd.key }))}
                   showPlaceholder
                   disabled={!filtroSel.ie_colecao}
                   visibleOptions={7}
@@ -1257,7 +1280,7 @@ export default function RelatorioBuilder({
                 />
               </div>
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Operador</label>
+                {renderFieldLabel('operador', 'Operador', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.operador}
                   onChange={(v) => {
@@ -1274,7 +1297,7 @@ export default function RelatorioBuilder({
                 />
               </div>
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Máscara</label>
+                {renderFieldLabel('mascara', 'Máscara', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.mascara ?? 'texto'}
                   onChange={(v) => {
@@ -1298,7 +1321,7 @@ export default function RelatorioBuilder({
                 />
               </div>
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Valor</label>
+                {renderFieldLabel('valor', 'Valor', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <input type="text" value={filtroSel.valor ?? ''}
                   onChange={(e) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
@@ -1310,7 +1333,7 @@ export default function RelatorioBuilder({
                   className={inputClass} />
               </div>
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Conector</label>
+                {renderFieldLabel('conector', 'Conector', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.conector ?? 'E'}
                   onChange={(v) => {
@@ -1327,7 +1350,7 @@ export default function RelatorioBuilder({
                 />
               </div>
               <div className="group">
-                <label className="block text-xs font-medium text-slate-600 mb-1">Parâmetro</label>
+                {renderFieldLabel('parametro', 'Parâmetro', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <span className="flex items-center h-[34px]">
                   <input type="checkbox" checked={filtroSel.parametro ?? false}
                     onChange={(e) => {

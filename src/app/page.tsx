@@ -296,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.2";
+const SYSTEM_VERSION = "0.66.3";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2738,9 +2738,8 @@ export default function Home() {
     setRelatorioAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   }
 
-  function openRelatorioEditForm(relatorio: Relatorio) {
+  async function openRelatorioEditForm(relatorio: Relatorio) {
     setRelatorioEditingId(relatorio.id ?? null);
-    setRelatorioForm(relatorio);
     setRelatorioView('builder');
     setRelatorioBandasMode(false);
     bandaJustSavedRef.current = false;
@@ -2751,6 +2750,17 @@ export default function Home() {
       createdBy: relatorio.ds_usuario_criacao ?? '',
       updatedBy: relatorio.ds_usuario_alteracao ?? '',
     });
+    // Carregar parâmetros frescos da coleção relatorio_parametro
+    const nrSeqRelatorio = (relatorio as any).nr_sequencia;
+    if (nrSeqRelatorio) {
+      try {
+        const { obterParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
+        const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
+        setRelatorioForm({ ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : relatorio.filtros } as any);
+        return;
+      } catch { /* usar dados locais */ }
+    }
+    setRelatorioForm(relatorio);
   }
 
   async function openRelatorioBandas(relatorio: Relatorio) {
@@ -2953,6 +2963,14 @@ export default function Home() {
           );
           relatorio = { ...relatorio, bandas: bandasComElementos } as any;
         }
+        // Carregar parâmetros frescos da coleção relatorio_parametro
+        if (nrSeqRelatorio) {
+          try {
+            const { obterParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
+            const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
+            relatorio = { ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : relatorio.filtros } as any;
+          } catch { /* usar dados locais */ }
+        }
       } catch { /* usar dados locais como fallback */ }
       const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
       if (parametros.length > 0) {
@@ -3104,7 +3122,7 @@ export default function Home() {
   function handleRelatorioParamConfirm() {
     if (!relatorioParamModal) return;
     const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
-      if (f.parametro && relatorioParamValues[f.id] !== undefined) {
+      if (f.parametro && relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
         return { ...f, valor: relatorioParamValues[f.id] };
       }
       return f;
@@ -3112,6 +3130,7 @@ export default function Home() {
     const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
     setRelatorioParamModal(null);
     executarRelatorioGerar(updatedRelatorio);
+    setRelatorioParamValues({});
   }
 
   async function handleRelatorioDuplicate(relatorio: Relatorio) {

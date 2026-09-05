@@ -43,7 +43,7 @@ const parametroColecao = collection(db, "relatorio_parametro");
 export async function obterParametrosPorRelatorio(nrSeqRelatorio: number): Promise<Record<string, any>[]> {
   const q = query(parametroColecao, where("nr_seq_relatorio", "==", nrSeqRelatorio));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, ...rest }; });
+  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, _firestoreId: d.id, ...rest }; });
 }
 
 /** Cria um novo parâmetro. */

@@ -396,15 +396,14 @@ export default function FiltrosRelatorioTable({
             <Select
               value={row.campo}
               onChange={(v) => atualizar(row.id, { campo: v })}
-              options={camposDaColecao.map((cd) => ({ value: cd.key, label: cd.label }))}
+              options={camposDaColecao.map((cd) => ({ value: cd.key, label: cd.key }))}
               showPlaceholder
               disabled={!row.ie_colecao}
               className={inputClass}
             />
           );
         }
-        const found = camposDisponiveis.find((cd) => cd.key === row.campo);
-        return <span className="truncate block">{found?.label || "---"}</span>;
+        return <span className="truncate block">{row.campo || "---"}</span>;
       },
     },
     {
@@ -457,6 +456,25 @@ export default function FiltrosRelatorioTable({
           return <span className="truncate block">{row.valor ?? "---"} até {row.valorFinal ?? "---"}</span>;
         }
         return <span className="truncate block">{row.valor ?? "---"}</span>;
+      },
+    },
+    {
+      key: "conector",
+      label: "Conector",
+      width: 90,
+      render: (row: RelatorioFiltro) => {
+        if (editingId === row.id) {
+          return (
+            <Select
+              value={row.conector ?? 'E'}
+              onChange={(v) => atualizar(row.id, { conector: v as any })}
+              options={[{ value: 'E', label: 'E' }, { value: 'OU', label: 'OU' }]}
+              showPlaceholder={false}
+              className={inputClass}
+            />
+          );
+        }
+        return <span className="truncate block">{row.conector ?? '---'}</span>;
       },
     },
     {
