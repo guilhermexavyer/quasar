@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
+import { useState, useRef, useCallback, useEffect } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Relatorio } from "@/types/relatorio";
@@ -30,6 +30,8 @@ interface RelatorioListViewProps {
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  /** ID do registro selecionado (controlado pelo pai). */
+  selectedRecordId?: string | null;
 }
 
 function formatCellValue(key: string, value: any): string {
@@ -74,8 +76,10 @@ export default function RelatorioListView({
   userId,
   initialColumns,
   onColumnsChange,
+  selectedRecordId,
 }: RelatorioListViewProps) {
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(selectedRecordId ?? null);
+  useEffect(() => { if (selectedRecordId != null) setSelectedId(selectedRecordId); }, [selectedRecordId]);
 
   function handleRowClick(rel: Relatorio) {
     setSelectedId(rel.id ?? null);

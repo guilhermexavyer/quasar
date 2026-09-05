@@ -34,12 +34,20 @@ interface CamposRelatorioTableProps {
   bandaTipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
   /** Callback ao clicar 'Ver' no menu de contexto. */
   onViewCampo?: (campo: CamposRelatorioRow) => void;
+  /** Callback ao excluir um campo (para deletar do Firestore). */
+  onDeleteCampo?: (campo: CamposRelatorioRow) => void;
+  /** Callback ao duplicar um campo (para salvar no Firestore). */
+  onDuplicateCampo?: (original: CamposRelatorioRow) => Promise<CamposRelatorioRow | null>;
 }
 
 export interface CamposRelatorioRow {
   id: string;
   /** Sequência do campo (nunca reutilizada). */
   nr_sequencia?: number;
+  /** Descrição do elemento. */
+  ds_elemento?: string;
+  /** ID do Firestore (quando o elemento já foi salvo). */
+  _firestoreId?: string;
   /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
   ie_colecao: string;
   ie_campo: string;
@@ -146,6 +154,8 @@ export default function CamposRelatorioTable({
   imagens = [],
   bandaTipo,
   onViewCampo,
+  onDeleteCampo,
+  onDuplicateCampo,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -238,7 +248,12 @@ export default function CamposRelatorioTable({
   }
 
   function excluir(id: string) {
-    onChange(campos.filter((c) => c.id !== id));
+    const campo = campos.find((c) => c.id === id);
+    if (campo && onDeleteCampo) {
+      onDeleteCampo(campo);
+    } else {
+      onChange(campos.filter((c) => c.id !== id));
+    }
     if (editingId === id) setEditingId(null);
     setContextMenu(null);
   }
@@ -246,11 +261,22 @@ export default function CamposRelatorioTable({
   function duplicar(id: string) {
     const original = campos.find((c) => c.id === id);
     if (!original) return;
-    const clone: CamposRelatorioRow = { ...original, id: gerarId(), nr_sequencia: getNextSeq ? getNextSeq() : (Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1) };
-    const idx = campos.findIndex((c) => c.id === id);
-    const updated = [...campos];
-    updated.splice(idx + 1, 0, clone);
-    onChange(updated);
+    if (onDuplicateCampo) {
+      onDuplicateCampo(original).then((saved) => {
+        if (saved) {
+          const idx = campos.findIndex((c) => c.id === id);
+          const updated = [...campos];
+          updated.splice(idx + 1, 0, saved);
+          onChange(updated);
+        }
+      });
+    } else {
+      const clone: CamposRelatorioRow = { ...original, id: gerarId(), nr_sequencia: getNextSeq ? getNextSeq() : (Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1) };
+      const idx = campos.findIndex((c) => c.id === id);
+      const updated = [...campos];
+      updated.splice(idx + 1, 0, clone);
+      onChange(updated);
+    }
     setContextMenu(null);
   }
 
@@ -402,7 +428,20 @@ export default function CamposRelatorioTable({
       label: "#",
       width: 40,
       render: (row: CamposRelatorioRow) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
-    },    {      key: "ie_tipo_elemento",
+    },
+    {
+      key: "ds_elemento",
+      label: "Descrição",
+      width: 150,
+      render: (row: CamposRelatorioRow) => {
+        if (editingId === row.id) {
+          return <input value={row.ds_elemento ?? ''} onChange={(e) => atualizar(row.id, { ds_elemento: e.target.value })} className={inputClass} />;
+        }
+        return <span className="truncate block">{row.ds_elemento || '---'}</span>;
+      },
+    },
+    {
+      key: "ie_tipo_elemento",
       label: "Tipo",
       width: 130,
       render: (row: CamposRelatorioRow) => {
@@ -701,98 +740,6 @@ export default function CamposRelatorioTable({
           <span className="block w-full h-4 border border-slate-300" style={{ backgroundColor: row.transparentCampo ? 'transparent' : (row.cd_background || '#ffffff'), backgroundImage: row.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }} />
         );
       },
-    },
-    {
-      key: "qt_padding_superior",
-      label: "Padding superior",
-      width: 100,
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <NumberInput value={row.qt_padding_superior ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_superior: v })} min={0} className={inputClass} />;
-        }
-        return <span>{row.qt_padding_superior ?? 0}</span>;
-      },
-    },
-    {
-      key: "qt_padding_direita",
-      label: "Padding direita",
-      width: 100,
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <NumberInput value={row.qt_padding_direita ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_direita: v })} min={0} className={inputClass} />;
-        }
-        return <span>{row.qt_padding_direita ?? 0}</span>;
-      },
-    },
-    {
-      key: "qt_padding_inferior",
-      label: "Padding inferior",
-      width: 100,
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <NumberInput value={row.qt_padding_inferior ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_inferior: v })} min={0} className={inputClass} />;
-        }
-        return <span>{row.qt_padding_inferior ?? 0}</span>;
-      },
-    },
-    {
-      key: "qt_padding_esquerda",
-      label: "Padding esquerda",
-      width: 100,
-      render: (row: CamposRelatorioRow) => {
-        if (editingId === row.id) {
-          return <NumberInput value={row.qt_padding_esquerda ?? 0} onChange={(v) => atualizar(row.id, { qt_padding_esquerda: v })} min={0} className={inputClass} />;
-        }
-        return <span>{row.qt_padding_esquerda ?? 0}</span>;
-      },
-    },
-    {
-      key: "ie_borda_superior",
-      label: "Border top",
-      width: 100,
-      render: (row: CamposRelatorioRow) => (
-        <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.ie_borda_superior === 'S'}
-            onChange={(e) => atualizar(row.id, { ie_borda_superior: e.target.checked ? 'S' : 'N' })}
-            className="cg-checkbox" />
-        </span>
-      ),
-    },
-    {
-      key: "ie_borda_direita",
-      label: "Border right",
-      width: 100,
-      render: (row: CamposRelatorioRow) => (
-        <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.ie_borda_direita === 'S'}
-            onChange={(e) => atualizar(row.id, { ie_borda_direita: e.target.checked ? 'S' : 'N' })}
-            className="cg-checkbox" />
-        </span>
-      ),
-    },
-    {
-      key: "ie_borda_inferior",
-      label: "Border bottom",
-      width: 100,
-      render: (row: CamposRelatorioRow) => (
-        <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.ie_borda_inferior === 'S'}
-            onChange={(e) => atualizar(row.id, { ie_borda_inferior: e.target.checked ? 'S' : 'N' })}
-            className="cg-checkbox" />
-        </span>
-      ),
-    },
-    {
-      key: "ie_borda_esquerda",
-      label: "Border left",
-      width: 100,
-      render: (row: CamposRelatorioRow) => (
-        <span className="flex items-center justify-center">
-          <input type="checkbox" checked={row.ie_borda_esquerda === 'S'}
-            onChange={(e) => atualizar(row.id, { ie_borda_esquerda: e.target.checked ? 'S' : 'N' })}
-            className="cg-checkbox" />
-        </span>
-      ),
     },
     {
       key: "ie_fonte",

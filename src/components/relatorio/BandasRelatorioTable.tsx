@@ -33,6 +33,12 @@ interface BandasRelatorioTableProps {
   onOpenBanda?: (banda: Banda) => void;
   onViewBanda?: (banda: Banda) => void;
   getNextBandaSeq?: () => number;
+  /** ID do registro selecionado (controlado pelo pai). */
+  selectedRecordId?: string | null;
+  /** Callback ao excluir uma banda (para modal de confirmação). */
+  onDeleteBanda?: (banda: Banda) => void;
+  /** Callback ao duplicar uma banda (para salvar no Firestore). */
+  onDuplicateBanda?: (original: Banda) => Promise<Banda | null>;
 }
 
 export default function BandasRelatorioTable({
@@ -46,9 +52,13 @@ export default function BandasRelatorioTable({
   onOpenBanda,
   onViewBanda,
   getNextBandaSeq,
+  selectedRecordId,
+  onDeleteBanda,
+  onDuplicateBanda,
 }: BandasRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(selectedRecordId ?? null);
+  useEffect(() => { if (selectedRecordId != null) setSelectedId(selectedRecordId); }, [selectedRecordId]);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -160,29 +170,45 @@ export default function BandasRelatorioTable({
   }
 
   function excluir(id: string) {
-    onChange(bandas.filter((b) => b.id !== id));
+    const banda = bandas.find((b) => b.id === id);
+    if (banda && onDeleteBanda) {
+      onDeleteBanda(banda);
+    } else {
+      onChange(bandas.filter((b) => b.id !== id));
+    }
     setContextMenu(null);
   }
 
   function duplicar(id: string) {
     const original = bandas.find((b) => b.id === id);
     if (!original) return;
-    const nextSeq = getNextBandaSeq ? getNextBandaSeq() : (Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
-    const nextPos = (Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1);
-    const clone: Banda = {
-      ...original,
-      id: gerarId(),
-      nr_sequencia: nextSeq,
-      nr_posicao: nextPos,
-      ds_banda: original.ds_banda,
-      campos: (original.campos ?? []).map((c: any) => ({ ...c, id: gerarId() })),
-      filtros: (original.filtros ?? []).map((f: any) => ({ ...f, id: gerarId() })),
-      ordenacao: (original.ordenacao ?? []).map((o: any) => ({ ...o, id: gerarId() })),
-    };
-    const idx = bandas.findIndex((b) => b.id === id);
-    const updated = [...bandas];
-    updated.splice(idx + 1, 0, clone);
-    onChange(updated);
+    if (onDuplicateBanda) {
+      onDuplicateBanda(original).then((saved) => {
+        if (saved) {
+          const idx = bandas.findIndex((b) => b.id === id);
+          const updated = [...bandas];
+          updated.splice(idx + 1, 0, saved);
+          onChange(updated);
+        }
+      });
+    } else {
+      const nextSeq = getNextBandaSeq ? getNextBandaSeq() : (Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
+      const nextPos = (Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1);
+      const clone: Banda = {
+        ...original,
+        id: gerarId(),
+        nr_sequencia: nextSeq,
+        nr_posicao: nextPos,
+        ds_banda: original.ds_banda,
+        campos: (original.campos ?? []).map((c: any) => ({ ...c, id: gerarId() })),
+        filtros: (original.filtros ?? []).map((f: any) => ({ ...f, id: gerarId() })),
+        ordenacao: (original.ordenacao ?? []).map((o: any) => ({ ...o, id: gerarId() })),
+      };
+      const idx = bandas.findIndex((b) => b.id === id);
+      const updated = [...bandas];
+      updated.splice(idx + 1, 0, clone);
+      onChange(updated);
+    }
     setContextMenu(null);
   }
 

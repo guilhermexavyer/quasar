@@ -80,12 +80,20 @@ interface RelatorioBuilderProps {
   viewMode?: 'form' | 'bandas';
   /** Dark mode ativo. */
   darkMode?: boolean;
+  /** Navegação do breadcrumb: volta para a lista de relatórios. */
+  onNavigateToList?: () => void;
+  /** Excluir elemento (modal de confirmação). */
+  onDeleteCampo?: (campo: CamposRelatorioRow) => void;  /** Excluir banda (modal de confirmação). */
+  onDeleteBanda?: (banda: any) => void;
+  /** Ref para expor funções de exclusão para page.tsx. */
+  stateActionsRef?: React.MutableRefObject<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>;
 }
 
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
   return {
     id: c.id || gerarId(),
     nr_sequencia: c.nr_sequencia ?? 0,
+    ds_elemento: c.ds_elemento ?? '',
     ie_colecao: c.ie_colecao || colecaoPrincipal,
     ie_campo: c.ie_campo || '',
     label: c.rotulo || c.label || '',
@@ -168,11 +176,29 @@ export default function RelatorioBuilder({
   imagens = [],
   viewMode = 'form',
   darkMode = false,
+  onNavigateToList,
+  onDeleteCampo,
+  onDeleteBanda,
+  stateActionsRef,
 }: RelatorioBuilderProps) {
   const isBandasMode = viewMode === 'bandas';
   const isDark = darkMode;
   const onBandaSaveRef = useRef(onBandaSave);
   useEffect(() => { onBandaSaveRef.current = onBandaSave; }, [onBandaSave]);
+
+  // Expor setters para page.tsx (estável, sem causar re-renders)
+  const removeCampoRef = useRef<(campoId: string) => void>(() => {});
+  const removeBandaRef = useRef<(bandaId: string) => void>(() => {});
+  removeCampoRef.current = (campoId: string) => setCampos((prev) => prev.filter((c) => c.id !== campoId));
+  removeBandaRef.current = (bandaId: string) => setBandas((prev) => prev.filter((b) => b.id !== bandaId));
+  useEffect(() => {
+    if (stateActionsRef) {
+      stateActionsRef.current = {
+        removeCampo: (id: string) => removeCampoRef.current(id),
+        removeBanda: (id: string) => removeBandaRef.current(id),
+      };
+    }
+  }, [stateActionsRef]);
 
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -233,7 +259,18 @@ export default function RelatorioBuilder({
   const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
+  // Sincroniza bandas quando o pai atualiza relatorio.bandas (ex.: após fetch async)
+  const bandasDataRef = useRef(relatorio?.bandas ?? []);
+  useEffect(() => {
+    const next = relatorio?.bandas ?? [];
+    if (JSON.stringify(next) !== JSON.stringify(bandasDataRef.current)) {
+      bandasDataRef.current = next;
+      setBandas(next.length ? next.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
+    }
+  }, [relatorio?.bandas]);
   const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
+  const lastBandaDetailIdRef = useRef<string | null>(null);
+  useEffect(() => { if (bandaDetailId) lastBandaDetailIdRef.current = bandaDetailId; }, [bandaDetailId]);
   const [bandaViewMode, setBandaViewMode] = useState<'ver' | 'content'>('content');
   const [bandasSubView, setBandasSubView] = useState<'bandas' | 'parametros'>('bandas');
   const [bandaContentSubView, setBandaContentSubView] = useState<'dados' | 'ordenacao'>('dados');
@@ -355,12 +392,20 @@ export default function RelatorioBuilder({
     }
   }
 
-  /** Atualiza o campo selecionado (funciona tanto para campo existente quanto pendente) */
+  /** Atualiza o campo selecionado e salva no Firestore se for elemento existente */
   function updateCampoSelecionado(updater: (c: CamposRelatorioRow) => CamposRelatorioRow) {
     if (pendingCampo && pendingCampo.id === campoDetailId) {
       setPendingCampo((prev) => prev ? updater(prev) : prev);
     } else {
       setCampos((prev) => prev.map((c) => c.id === campoDetailId ? updater(c) : c));
+      // Salvar no Firestore se for elemento existente (firestoreId já salvo no array)
+      const campoAtual = campos.find((c) => c.id === campoDetailId);
+      if (campoAtual?._firestoreId) {
+        const updated = updater(campoAtual);
+        import('@/services/relatorioServiceBandas').then(({ atualizarElemento }) => {
+          atualizarElemento(campoAtual._firestoreId!, { ...updated, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }).catch(() => {});
+        });
+      }
     }
   }
 
@@ -442,6 +487,7 @@ export default function RelatorioBuilder({
     tamanhoFonteLabel: { type: 'int64', field: 'tamanhoFonteLabel', collection: 'relatorio_banda' },
     fonteCampo: { type: 'string', field: 'fonteCampo', collection: 'relatorio_banda' },
     tamanhoFonteCampo: { type: 'int64', field: 'tamanhoFonteCampo', collection: 'relatorio_banda' },
+    ds_elemento: { type: 'string', field: 'ds_elemento', collection: 'relatorio_banda_elemento' },
   };
 
   /** Retorna o status (N/O/D) de um campo nas regras do perfil. */
@@ -553,7 +599,33 @@ export default function RelatorioBuilder({
   const ctrlSHandlerRef = useRef<() => void>(() => {});
   useEffect(() => {
     ctrlSHandlerRef.current = () => {
-      if (bandaDetailId) {
+      if (campoDetailId && pendingCampo && pendingCampo.id === campoDetailId) {
+        // Salvar campo novo → Firestore
+        (async () => {
+          setBandaSaving(true);
+          try {
+            const seq = getNextCampoSeq();
+            const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
+            const { criarElemento } = await import('@/services/relatorioServiceBandas');
+            const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+            const campoData = {
+              ...pendingCampo,
+              nr_sequencia: seq,
+              nr_seq_banda: nrSeqBanda ?? 0,
+              nr_seq_relatorio: relatorio?.nr_sequencia ?? 0,
+            };
+            const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
+            setCampos((prev) => [...prev, { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq }]);
+            setPendingCampo(null);
+          } finally {
+            setBandaSaving(false);
+          }
+        })();
+        setCampoDetailId(null);
+        return;
+      }
+      if (bandaDetailId && bandaViewMode === 'ver') {
+        // Formulário de banda → salvar banda
         (async () => {
           let finalBandas: any[] = bandas;
           if (pendingBanda && pendingBanda.id === bandaDetailId) {
@@ -582,19 +654,8 @@ export default function RelatorioBuilder({
         })();
         return;
       }
-      if (isBandasMode) {
-        (async () => {
-          setBandaSaving(true);
-          try {
-            await onBandaSaveRef.current?.(bandas, undefined);
-          } catch { /* handled inside handleBandaSave */ }
-          setBandaSaving(false);
-          refreshSnapshot();
-          setIsDirty(false);
-        })();
-        return;
-      }
-      if (saving || isEditingAnyTable) return;
+      // Tabelas (bandas/elementos) e outros: nada
+      if (isBandasMode || saving || isEditingAnyTable) return;
       const f = formRef.current;
       if (f && typeof (f as any).requestSubmit === 'function') {
         (f as any).requestSubmit();
@@ -621,7 +682,7 @@ export default function RelatorioBuilder({
       ds_relatorio: dsRelatorio.trim(),
       colecao,
       campos: campos.map((c) => ({
-        id: c.id, nr_sequencia: c.nr_sequencia, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
+        id: c.id, nr_sequencia: c.nr_sequencia, ds_elemento: c.ds_elemento, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
         qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
         ie_borda_superior: c.ie_borda_superior ? 'S' : 'N', ie_borda_direita: c.ie_borda_direita ? 'S' : 'N', ie_borda_inferior: c.ie_borda_inferior ? 'S' : 'N', ie_borda_esquerda: c.ie_borda_esquerda ? 'S' : 'N',
@@ -694,7 +755,7 @@ export default function RelatorioBuilder({
       ds_relatorio: dsRelatorio.trim(),
       colecao: bandas[0]?.ie_colecao_principal || '',
       campos: bandas.flatMap((b) => (b.campos ?? []).map((c: any) => ({
-        id: c.id, nr_sequencia: c.nr_sequencia, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
+        id: c.id, nr_sequencia: c.nr_sequencia, ds_elemento: c.ds_elemento, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
         qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
         qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
@@ -804,17 +865,48 @@ export default function RelatorioBuilder({
           </div>
           {/* ── Breadcrumb ── */}
           {relatorio && (
-            <div className="flex items-center text-xs text-slate-500 ml-2 whitespace-nowrap overflow-hidden">
-              <span className="font-medium text-slate-700">{relatorio.nr_sequencia}</span>
-              <span className="mx-1">{dsRelatorio}</span>
+            <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: isDark ? '#fff' : '#000', border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999' }}>
+              <span
+                className="cursor-pointer hover-breadcrumb"
+                style={{ borderBottom: '1px solid transparent' }}
+                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = isDark ? '#fff' : '#000'; }}
+                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'; }}
+                onClick={() => onNavigateToList?.()}
+              >
+                <span className="font-medium" style={{ color: isDark ? '#fff' : '#000' }}>{relatorio.nr_sequencia}</span>
+                <span className="ml-1" style={{ color: isDark ? '#ddd' : '#333' }}>{dsRelatorio}</span>
+              </span>
               {bandaDetailId && (() => {
                 const banda = bandas.find((b) => b.id === bandaDetailId);
                 if (!banda) return null;
                 return (
                   <>
-                    <span className="mx-1 text-slate-400">&gt;</span>
-                    <span className="font-medium text-slate-700">{banda.nr_sequencia}</span>
-                    <span className="mx-1">{banda.ds_banda}</span>
+                    <span className="mx-1" style={{ color: isDark ? '#fff' : '#000' }}>&gt;</span>
+                    <span
+                      className="cursor-pointer hover-breadcrumb"
+                      style={{ borderBottom: '1px solid transparent' }}
+                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = isDark ? '#fff' : '#000'; }}
+                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'; }}
+                      onClick={() => {
+                        // Fecha a banda diretamente (sem async) — bandas já estão em state
+                        const currentBandaId = bandaDetailIdRef.current;
+                        if (currentBandaId) {
+                          const c = camposRef.current;
+                          setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
+                        }
+                        setPendingCampo(null);
+                        setCampoDetailId(null);
+                        setBandaDetailId(null);
+                        setBandaViewMode('content');
+                        setBandasSubView('bandas');
+                        setCampos([]);
+                        setFiltros([]);
+                        setOrdenacao([]);
+                      }}
+                    >
+                      <span className="font-medium" style={{ color: isDark ? '#fff' : '#000' }}>{banda.nr_sequencia}</span>
+                      <span className="ml-1" style={{ color: isDark ? '#ddd' : '#333' }}>{banda.ds_banda}</span>
+                    </span>
                   </>
                 );
               })()}
@@ -823,25 +915,23 @@ export default function RelatorioBuilder({
         </div>
         <div className="flex items-center gap-3">
           {isBandasMode && !bandaDetailId && (
-            <div className="flex items-center rounded-[6px] p-[3px]" style={{ backgroundColor: isDark ? '#333333' : '#DDDDDD' }}>
+            <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: isDark ? '#fff' : '#000' }}>
               <button type="button" onClick={() => setBandasSubView('bandas')}
-                className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
-                style={{ backgroundColor: bandasSubView === 'bandas' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Bandas</button>
+                className="text-xs font-medium cursor-pointer transition"
+                style={{ borderBottom: bandasSubView === 'bandas' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Bandas</button>
               <button type="button" onClick={() => setBandasSubView('parametros')}
-                className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
-                style={{ backgroundColor: bandasSubView === 'parametros' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Parâmetros</button>
+                className="text-xs font-medium cursor-pointer transition"
+                style={{ borderBottom: bandasSubView === 'parametros' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Parâmetros</button>
             </div>
           )}
-          {bandaDetailId && (
-            <div className="flex items-center rounded-[6px] p-[3px]" style={{ backgroundColor: isDark ? '#333333' : '#DDDDDD' }}>
+          {bandaDetailId && bandaTipo === 'lista' && (
+            <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: isDark ? '#fff' : '#000' }}>
               <button type="button" onClick={() => setBandaContentSubView('dados')}
-                className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
-                style={{ backgroundColor: bandaContentSubView === 'dados' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Dados</button>
-              {bandaTipo === 'lista' && (
-                <button type="button" onClick={() => setBandaContentSubView('ordenacao')}
-                  className="px-3 py-[3px] text-[11px] leading-none font-medium cursor-pointer transition rounded-[4px]"
-                  style={{ backgroundColor: bandaContentSubView === 'ordenacao' ? (isDark ? '#555555' : '#BBBBBB') : 'transparent', color: isDark ? '#FFFFFF' : '#000000' }}>Ordenação</button>
-              )}
+                className="text-xs font-medium cursor-pointer transition"
+                style={{ borderBottom: bandaContentSubView === 'dados' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Dados</button>
+              <button type="button" onClick={() => setBandaContentSubView('ordenacao')}
+                className="text-xs font-medium cursor-pointer transition"
+                style={{ borderBottom: bandaContentSubView === 'ordenacao' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Ordenação</button>
             </div>
           )}
           <button
@@ -851,7 +941,7 @@ export default function RelatorioBuilder({
                 // Adicionar campo na banda → abre tela Ver do elemento (pendente)
                 const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
                 const newId = gerarId();
-                const newCampo: CamposRelatorioRow = { id: newId, ie_colecao: bandaTipo === 'lista' ? bColecao : '', ie_campo: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', cd_cor: '#000000', cd_background: '', transparentCampo: true, qt_esquerda: 0, topoLabel: 0, qt_topo: 0, ie_alinhamento: "esquerda", ie_estilo_label: '', ie_estilo: '', ie_estilo_soma: '', qt_largura: 100, formatacao: 'texto', statusSistema: false, soma: false, ie_fonte: 'Arial', qt_fonte: 10, nr_seq_imagem: undefined, qt_tamanho_imagem: 100, qt_padding_superior: 0, qt_padding_direita: 0, qt_padding_inferior: 0, qt_padding_esquerda: 0, ie_borda_superior: 'N', ie_borda_direita: 'N', ie_borda_inferior: 'N', ie_borda_esquerda: 'N' };
+                const newCampo: CamposRelatorioRow = { id: newId, ie_colecao: bandaTipo === 'lista' ? bColecao : '', ie_campo: '', ds_elemento: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', cd_cor: '#000000', cd_background: '', transparentCampo: true, qt_esquerda: 0, topoLabel: 0, qt_topo: 0, ie_alinhamento: "esquerda", ie_estilo_label: '', ie_estilo: '', ie_estilo_soma: '', qt_largura: 100, formatacao: 'texto', statusSistema: false, soma: false, ie_fonte: 'Arial', qt_fonte: 10, nr_seq_imagem: undefined, qt_tamanho_imagem: 100, qt_padding_superior: 0, qt_padding_direita: 0, qt_padding_inferior: 0, qt_padding_esquerda: 0, ie_borda_superior: 'N', ie_borda_direita: 'N', ie_borda_inferior: 'N', ie_borda_esquerda: 'N' };
                 setPendingCampo(newCampo);
                 setCampoDetailId(newId);
               }
@@ -996,6 +1086,27 @@ export default function RelatorioBuilder({
               onOpenBanda={(b) => openBandaDetail(b.id)}
               onViewBanda={(b) => openBandaVer(b.id)}
               getNextBandaSeq={getNextBandaSeq}
+              selectedRecordId={lastBandaDetailIdRef.current}
+              onDeleteBanda={onDeleteBanda}
+              onDuplicateBanda={async (original) => {
+                setBandaSaving(true);
+                try {
+                  const { criarBanda, criarElemento } = await import('@/services/relatorioServiceBandas');
+                  const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                  const { id: _oldId, _firestoreId: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
+                  const { id: newBandaId, nr_sequencia: savedSeq } = await criarBanda({ ...rest, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                  // Duplicar elementos filhos
+                  const novosCampos: any[] = [];
+                  for (const c of (_oldCampos ?? [])) {
+                    const { id: _cId, _firestoreId: _cFs, ...cRest } = c;
+                    const { id: cNewId, nr_sequencia: cSeq } = await criarElemento({ ...cRest, nr_seq_banda: savedSeq, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                    novosCampos.push({ ...cRest, id: cNewId, _firestoreId: cNewId, nr_sequencia: cSeq });
+                  }
+                  return { ...rest, id: newBandaId, _firestoreId: newBandaId, nr_sequencia: savedSeq, campos: novosCampos } as any;
+                } finally {
+                  setBandaSaving(false);
+                }
+              }}
             />
           </section>
           </>
@@ -1336,6 +1447,14 @@ export default function RelatorioBuilder({
                       className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
+                    {renderFieldLabel('ds_elemento', 'Descrição', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    <input type="text" value={campoSel.ds_elemento ?? ''}
+                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ds_elemento: e.target.value }))}
+                      className={inputClass} />
+                  </div>
+                </div>
+                <div className="flex flex-wrap gap-[15px] mt-2">
+                  <div className="group flex-1 min-w-[140px]">
                     {renderFieldLabel('ie_tipo_elemento', 'Tipo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
                     <Select
                       value={campoSel.ie_tipo_elemento ?? ''}
@@ -1629,7 +1748,6 @@ export default function RelatorioBuilder({
           {/* ── Seção: Lista/Dados ── */}
           {/* ═══════════════════════════════════════════════ */}
           <section>
-            <div className="overflow-x-auto">
               <CamposRelatorioTable
                 campos={campos}
                 onChange={setCampos}
@@ -1649,8 +1767,22 @@ export default function RelatorioBuilder({
                   setPendingCampo(null);
                   setCampoDetailId(campo.id);
                 }}
+                onDeleteCampo={onDeleteCampo}
+                onDuplicateCampo={async (original) => {
+                  setBandaSaving(true);
+                  try {
+                    const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
+                    const { criarElemento } = await import('@/services/relatorioServiceBandas');
+                    const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                    const { id: _oldId, _firestoreId: _oldFs, ...rest } = original;
+                    const campoData = { ...rest, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
+                    const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
+                    return { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq } as CamposRelatorioRow;
+                  } finally {
+                    setBandaSaving(false);
+                  }
+                }}
               />
-              </div>
 
           </section>
           </>
@@ -1718,6 +1850,7 @@ export default function RelatorioBuilder({
                 </div>
               </div>
             )}
+            {(!isBandasMode || (bandaDetailId && bandaViewMode === 'ver') || campoDetailId) && (
             <div className="flex items-center gap-3 ml-auto">
               <button
                 type="button"
@@ -1731,15 +1864,26 @@ export default function RelatorioBuilder({
                 type={(bandaDetailId && !campoDetailId) || isBandasMode ? 'button' : 'submit'}
                 disabled={saving}
                 onClick={campoDetailId ? () => {
-                  // Salvar campo pendente → adiciona ao array com nr_sequencia
+                  // Salvar campo: pendente (novo) → salva direto no Firestore
                   if (pendingCampo && pendingCampo.id === campoDetailId) {
-                    const seq = getNextCampoSeq();
-                    setCampos((prev) => [...prev, { ...pendingCampo, nr_sequencia: seq }]);
-                    setPendingCampo(null);
+                    (async () => {
+                      setBandaSaving(true);
+                      try {
+                        const seq = getNextCampoSeq();
+                        const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
+                        const { criarElemento } = await import('@/services/relatorioServiceBandas');
+                        const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                        const campoData = { ...pendingCampo, nr_sequencia: seq, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
+                        const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
+                        setCampos((prev) => [...prev, { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq }]);
+                        setPendingCampo(null);
+                      } finally {
+                        setBandaSaving(false);
+                      }
+                    })();
                   }
                   setCampoDetailId(null);
                 } : bandaDetailId ? async () => {
-                  // 1) Commit pending banda to array (if new)
                   let finalBandas: any[] = bandas;
                   if (pendingBanda && pendingBanda.id === bandaDetailId) {
                     const seq = getNextBandaSeq();
@@ -1748,31 +1892,19 @@ export default function RelatorioBuilder({
                     setBandas(finalBandas);
                     setPendingBanda(null);
                   }
-                  // 2) Update campos on target banda
                   const currentBandaId = bandaDetailIdRef.current;
                   if (currentBandaId) {
                     const c = camposRef.current;
                     finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
                     setBandas(finalBandas);
                   }
-                  // 3) Save to Firestore and get back with _firestoreId
                   setBandaSaving(true);
                   try {
                     await onBandaSaveRef.current?.(finalBandas, currentBandaId);
-                  } catch { /* error handled inside handleBandaSave */ }
-                  // 4) Close detail view
+                  } catch { /* handled inside handleBandaSave */ }
                   setBandaDetailId(null);
                   setBandaViewMode('content');
                   setCampos([]);
-                  setBandaSaving(false);
-                  refreshSnapshot();
-                  setIsDirty(false);
-                } : isBandasMode ? async () => {
-                  // Salvar lista de bandas no Firestore (inclui exclusões)
-                  setBandaSaving(true);
-                  try {
-                    await onBandaSaveRef.current?.(bandas, undefined);
-                  } catch { /* error handled inside handleBandaSave */ }
                   setBandaSaving(false);
                   refreshSnapshot();
                   setIsDirty(false);
@@ -1783,6 +1915,7 @@ export default function RelatorioBuilder({
                 Salvar
               </button>
             </div>
+            )}
           </div>
         </div>
       </form>

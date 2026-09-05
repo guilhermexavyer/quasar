@@ -85,12 +85,14 @@ export default function Select({
     return () => document.removeEventListener("mousedown", handleClose);
   }, [open]);
 
-  // Calcula posição fixa do dropdown e decide se abre para cima ou para baixo.
+  // Limpa dropdownPos quando o dropdown fecha (sem depender de items).
   useLayoutEffect(() => {
-    if (!open || !rootRef.current) {
-      if (!open) setDropdownPos(null);
-      return;
-    }
+    if (!open) setDropdownPos(null);
+  }, [open]);
+
+  // Calcula posição apenas quando o dropdown está aberto.
+  useLayoutEffect(() => {
+    if (!open || !rootRef.current) return;
     const triggerRect = rootRef.current.getBoundingClientRect();
     const listHeight = Math.min(items.length, visibleOptions) * ROW_HEIGHT;
     const spaceBelow = window.innerHeight - triggerRect.bottom - 12;

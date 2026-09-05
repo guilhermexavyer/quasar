@@ -157,6 +157,8 @@ export interface RelatorioCampo {
   statusSistema?: boolean;
   /** Se true, exibe o somatório dos valores desta coluna ao final do relatório. */
   soma?: boolean;
+  /** Descrição do elemento. */
+  ds_elemento?: string;
   /** Tipo do campo na banda Texto/Valor: 'valor' ou 'conteudo'. */
   ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
   /** Conteúdo livre quando ie_tipo_elemento === 'conteudo'. */

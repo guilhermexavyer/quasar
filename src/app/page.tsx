@@ -296,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.0";
+const SYSTEM_VERSION = "0.66.1";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1201,6 +1201,8 @@ export default function Home() {
   const [relatorios, setRelatorios] = useState<Relatorio[]>([]);
   const [relatorioView, setRelatorioView] = useState<'list' | 'builder'>('list');
   const [relatorioEditingId, setRelatorioEditingId] = useState<string | null>(null);
+  const lastRelatorioEditingIdRef = useRef<string | null>(null);
+  useEffect(() => { if (relatorioEditingId) lastRelatorioEditingIdRef.current = relatorioEditingId; }, [relatorioEditingId]);
   const [relatorioBandasMode, setRelatorioBandasMode] = useState(false);
   const [relatorioForm, setRelatorioForm] = useState<Relatorio | null>(null);
   const [relatorioSubmitting, setRelatorioSubmitting] = useState(false);
@@ -1219,6 +1221,9 @@ export default function Home() {
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
   const bandaJustSavedRef = useRef(false);
+
+  // ── Callbacks de exclusão remota (campo / banda) ──
+  const relatorioStateActionsRef = useRef<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>(null);
 
   // ── Imagens (Administração do Sistema) ──
   const [imagens, setImagens] = useState<Imagem[]>([]);
@@ -1420,6 +1425,9 @@ export default function Home() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [confirmDeleteMessage, setConfirmDeleteMessage] = useState('');
   const [confirmDeleteAction, setConfirmDeleteAction] = useState<(() => void) | null>(null);
+  const [confirmDeleteType, setConfirmDeleteType] = useState<string>('');
+  const [confirmDeleteItemId, setConfirmDeleteItemId] = useState<string>('');
+  const [confirmDeleteExtra, setConfirmDeleteExtra] = useState<any>(null);
   const [darkMode, setDarkMode] = useState<boolean>(false);
   const [menuOrder, setMenuOrder] = useState<SectionType[]>(DEFAULT_SECTION_ORDER);
   const [dragSection, setDragSection] = useState<SectionType | null>(null);
@@ -2735,6 +2743,7 @@ export default function Home() {
     setRelatorioForm(relatorio);
     setRelatorioView('builder');
     setRelatorioBandasMode(false);
+    bandaJustSavedRef.current = false;
     setMessage('');
     setRelatorioAuditInfo({
       createdAt: relatorio.dt_criacao ?? '',
@@ -2746,8 +2755,10 @@ export default function Home() {
 
   async function openRelatorioBandas(relatorio: Relatorio) {
     setRelatorioEditingId(relatorio.id ?? null);
+    setRelatorioForm(relatorio);
     setRelatorioView('builder');
     setRelatorioBandasMode(true);
+    bandaJustSavedRef.current = false;
     setMessage('');
     setRelatorioAuditInfo({
       createdAt: relatorio.dt_criacao ?? '',
@@ -2759,10 +2770,17 @@ export default function Home() {
     const nrSeqRelatorio = (relatorio as any).nr_sequencia;
     if (nrSeqRelatorio) {
       try {
-        const { obterBandasPorRelatorio } = await import('@/services/relatorioServiceBandas');
+        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
         const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
-        const bandasMapeadas = bandasDb.map((b: any) => ({ ...b, _firestoreId: b.id, id: b.id }));
-        setRelatorioForm({ ...relatorio, bandas: bandasMapeadas } as any);
+        // Carregar elementos de cada banda da coleção relatorio_banda_elemento
+        const bandasComElementos = await Promise.all(
+          bandasDb.map(async (b: any) => {
+            const elementosRaw = b.nr_sequencia ? await obterElementosPorBandaSeq(b.nr_sequencia) : [];
+            const elementos = elementosRaw.map((e: any) => ({ ...e, _firestoreId: e.id }));
+            return { ...b, _firestoreId: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
+          })
+        );
+        setRelatorioForm({ ...relatorio, bandas: bandasComElementos } as any);
       } catch {
         setRelatorioForm(relatorio);
       }
@@ -2814,8 +2832,10 @@ export default function Home() {
   async function handleBandaSave(bandasAtualizadas: any[], bandaDetailId?: string | null) {
     if (savingBandaRef.current) return;
     savingBandaRef.current = true;
+    const safetyTimer = setTimeout(() => { savingBandaRef.current = false; }, 30000);
     try {
       if (!relatorioEditingId || !relatorioForm) return;
+      if (!bandasAtualizadas || bandasAtualizadas.length === 0) return;
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
       const agora = new Date().toISOString();
       const nrSeqRelatorio = (relatorioForm as any).nr_sequencia;
@@ -2856,7 +2876,7 @@ export default function Home() {
           bandasSalvas.push({ ...b, dt_alteracao: agora, ds_usuario_alteracao: auditAutor.usuarioNome });
         } else {
           // Banda nova — criar
-          const newId = await criarBanda(bandaData, auditAutor);
+          const { id: newId } = await criarBanda(bandaData, auditAutor);
           bandasSalvas.push({ ...b, _firestoreId: newId, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: auditAutor.usuarioNome, ds_usuario_alteracao: auditAutor.usuarioNome });
         }
       }
@@ -2881,6 +2901,7 @@ export default function Home() {
     } catch (err) {
       console.error('[BANDA SAVE] ERRO:', err);
     } finally {
+      clearTimeout(safetyTimer);
       savingBandaRef.current = false;
     }
   }
@@ -8575,6 +8596,7 @@ export default function Home() {
             ) : activeSection === "relatorio" ? (
               relatorioView === 'builder' ? (
                 <div className="flex flex-col h-full">                   <RelatorioBuilder
+                     key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
                      relatorio={relatorioForm}
                      onSave={handleRelatorioSave}
                      onCancel={closeRelatorioBuilder}
@@ -8613,6 +8635,24 @@ export default function Home() {
                       darkMode={darkMode}
                       campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
                       bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
+                      onNavigateToList={closeRelatorioBuilder}
+                      onDeleteCampo={(campo) => {
+                        setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${campo.nr_sequencia ?? ''}?`);
+                        setConfirmDeleteType('campo');
+                        setConfirmDeleteItemId(campo.id);
+                        setConfirmDeleteExtra({ _firestoreId: campo._firestoreId });
+                        setConfirmDeleteAction(null);
+                        setConfirmDeleteOpen(true);
+                      }}
+                      onDeleteBanda={(banda) => {
+                        setConfirmDeleteMessage(`Deseja mesmo excluir a banda ${banda.nr_sequencia ?? ''}?`);
+                        setConfirmDeleteType('banda');
+                        setConfirmDeleteItemId(banda.id);
+                        setConfirmDeleteExtra({ _firestoreId: banda._firestoreId });
+                        setConfirmDeleteAction(null);
+                        setConfirmDeleteOpen(true);
+                      }}
+                      stateActionsRef={relatorioStateActionsRef}
                     />
                 </div>
               ) : (
@@ -8633,6 +8673,7 @@ export default function Home() {
                   userId={currentUser?.id}
                   initialColumns={relatorioColunasConfig}
                   onColumnsChange={handleRelatorioColumnsChange}
+                  selectedRecordId={lastRelatorioEditingIdRef.current}
                 />
               )
             ) : (
@@ -10395,7 +10436,39 @@ export default function Home() {
                 type="button"
                 onClick={() => {
                   setConfirmDeleteOpen(false);
-                  confirmDeleteAction?.();
+                  if (confirmDeleteAction) {
+                    confirmDeleteAction();
+                  } else if (confirmDeleteType === 'campo') {
+                    const extra = confirmDeleteExtra;
+                    // Excluir do Firestore
+                    if (extra?._firestoreId) {
+                      import('@/services/relatorioServiceBandas').then(({ excluirElemento }) => {
+                        excluirElemento(extra._firestoreId).then(() => setMessage('Registro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir registro.'));
+                      });
+                    }
+                    // Remover do array local + state do RelatorioBuilder
+                    relatorioStateActionsRef.current?.removeCampo(confirmDeleteItemId);
+                    setRelatorioForm((prev) => {
+                      if (!prev || !prev.bandas) return prev;
+                      return { ...prev, bandas: prev.bandas.map((b: any) => ({ ...b, campos: (b.campos ?? []).filter((c: any) => c.id !== confirmDeleteItemId) })) } as any;
+                    });
+                  } else if (confirmDeleteType === 'banda') {
+                    const extra = confirmDeleteExtra;
+                    if (extra?._firestoreId) {
+                      import('@/services/relatorioServiceBandas').then(({ excluirBanda }) => {
+                        excluirBanda(extra._firestoreId).then(() => setMessage('Banda excluída com sucesso!')).catch(() => setMessage('Erro ao excluir banda.'));
+                      });
+                    }
+                    // Remover do array local + state do RelatorioBuilder
+                    relatorioStateActionsRef.current?.removeBanda(confirmDeleteItemId);
+                    setRelatorioForm((prev) => {
+                      if (!prev || !prev.bandas) return prev;
+                      return { ...prev, bandas: prev.bandas.filter((b: any) => b.id !== confirmDeleteItemId) } as any;
+                    });
+                  }
+                  setConfirmDeleteType('');
+                  setConfirmDeleteItemId('');
+                  setConfirmDeleteExtra(null);
                 }}
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
