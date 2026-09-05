@@ -181,6 +181,8 @@ export interface RelatorioFiltro {
   id: string;
   /** Sequência do filtro (nunca reutilizada). */
   nr_sequencia?: number;
+  /** Coleção do campo a ser filtrado. */
+  ie_colecao?: string;
   /** Chave do campo a ser filtrado. */
   campo: string;
   /** Operador de comparação. */

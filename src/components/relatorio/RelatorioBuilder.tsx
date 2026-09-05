@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect } from "react";
+import { useState, useMemo, useRef, useEffect, useCallback } from "react";
 import Select from "@/components/ui/Select";
 import LoadingModal from "@/components/ui/LoadingModal";
 import { DATA_SOURCES, getDataSource } from "@/lib/relatorioDataSources";
@@ -85,6 +85,8 @@ interface RelatorioBuilderProps {
   /** Excluir elemento (modal de confirmação). */
   onDeleteCampo?: (campo: CamposRelatorioRow) => void;  /** Excluir banda (modal de confirmação). */
   onDeleteBanda?: (banda: any) => void;
+  /** Excluir parâmetro (modal de confirmação). */
+  onDeleteFiltro?: (filtro: RelatorioFiltro) => void;
   /** Ref para expor funções de exclusão para page.tsx. */
   stateActionsRef?: React.MutableRefObject<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>;
 }
@@ -179,6 +181,7 @@ export default function RelatorioBuilder({
   onNavigateToList,
   onDeleteCampo,
   onDeleteBanda,
+  onDeleteFiltro,
   stateActionsRef,
 }: RelatorioBuilderProps) {
   const isBandasMode = viewMode === 'bandas';
@@ -189,7 +192,16 @@ export default function RelatorioBuilder({
   // Expor setters para page.tsx (estável, sem causar re-renders)
   const removeCampoRef = useRef<(campoId: string) => void>(() => {});
   const removeBandaRef = useRef<(bandaId: string) => void>(() => {});
-  removeCampoRef.current = (campoId: string) => setCampos((prev) => prev.filter((c) => c.id !== campoId));
+  removeCampoRef.current = (campoId: string) => {
+    setCampos((prev) => {
+      const next = prev.filter((c) => c.id !== campoId);
+      const currentBandaId = bandaDetailIdRef.current;
+      if (currentBandaId) {
+        setBandas((prevB) => prevB.map((b) => b.id === currentBandaId ? { ...b, campos: next } : b));
+      }
+      return next;
+    });
+  };
   removeBandaRef.current = (bandaId: string) => setBandas((prev) => prev.filter((b) => b.id !== bandaId));
   useEffect(() => {
     if (stateActionsRef) {
@@ -275,8 +287,14 @@ export default function RelatorioBuilder({
   const [bandasSubView, setBandasSubView] = useState<'bandas' | 'parametros'>('bandas');
   const [bandaContentSubView, setBandaContentSubView] = useState<'dados' | 'ordenacao'>('dados');
   const [campoDetailId, setCampoDetailId] = useState<string | null>(null);
+  const [filtroDetailId, setFiltroDetailId] = useState<string | null>(null);
   const [pendingBanda, setPendingBanda] = useState<BandaState | null>(null);
   const [pendingCampo, setPendingCampo] = useState<CamposRelatorioRow | null>(null);
+  const [pendingFiltro, setPendingFiltro] = useState<RelatorioFiltro | null>(null);
+  const filtroSel = useMemo(() => {
+    if (pendingFiltro && pendingFiltro.id === filtroDetailId) return pendingFiltro;
+    return filtros.find((f) => f.id === filtroDetailId);
+  }, [filtros, filtroDetailId, pendingFiltro]);
   const campoSel = useMemo(() => {
     if (pendingCampo && pendingCampo.id === campoDetailId) return pendingCampo;
     return campos.find((c) => c.id === campoDetailId);
@@ -319,6 +337,18 @@ export default function RelatorioBuilder({
   function getNextCampoSeq() { const v = nextCampoSeqRef.current; nextCampoSeqRef.current = v + 1; return v; }
   function getNextFiltroSeq() { const v = nextFiltroSeqRef.current; nextFiltroSeqRef.current = v + 1; return v; }
   function getNextOrdSeq() { const v = nextOrdSeqRef.current; nextOrdSeqRef.current = v + 1; return v; }
+
+  /** Sincroniza campos entre o state local e bandas[i].campos */
+  const syncCampos = useCallback((updater: React.SetStateAction<CamposRelatorioRow[]>) => {
+    setCampos((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      const currentBandaId = bandaDetailIdRef.current;
+      if (currentBandaId) {
+        setBandas((prevB) => prevB.map((b) => b.id === currentBandaId ? { ...b, campos: next } : b));
+      }
+      return next;
+    });
+  }, []);
 
   /** Abre o modal da banda: salva dados globais na banda anterior e carrega dados da banda alvo */
   function openBandaDetail(bandaId: string) {
@@ -383,6 +413,11 @@ export default function RelatorioBuilder({
     }
   }
 
+  function openFiltroVer(filtroId: string) {
+    setFiltroDetailId(filtroId);
+    setPendingFiltro(null);
+  }
+
   /** Atualiza a banda selecionada (funciona tanto para banda existente quanto pendente) */
   function updateBandaSelecionada(updater: (b: BandaState) => BandaState) {
     if (pendingBanda && pendingBanda.id === bandaDetailId) {
@@ -392,20 +427,14 @@ export default function RelatorioBuilder({
     }
   }
 
-  /** Atualiza o campo selecionado e salva no Firestore se for elemento existente */
+  /** Atualiza o campo selecionado (salva apenas ao clicar Salvar/Ctrl+S) */
   function updateCampoSelecionado(updater: (c: CamposRelatorioRow) => CamposRelatorioRow) {
     if (pendingCampo && pendingCampo.id === campoDetailId) {
       setPendingCampo((prev) => prev ? updater(prev) : prev);
     } else {
+      // Atualiza apenas o state local (NÃO sincroniza com bandas)
+      // para que Cancelar possa restaurar os dados originais
       setCampos((prev) => prev.map((c) => c.id === campoDetailId ? updater(c) : c));
-      // Salvar no Firestore se for elemento existente (firestoreId já salvo no array)
-      const campoAtual = campos.find((c) => c.id === campoDetailId);
-      if (campoAtual?._firestoreId) {
-        const updated = updater(campoAtual);
-        import('@/services/relatorioServiceBandas').then(({ atualizarElemento }) => {
-          atualizarElemento(campoAtual._firestoreId!, { ...updated, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }).catch(() => {});
-        });
-      }
     }
   }
 
@@ -599,29 +628,73 @@ export default function RelatorioBuilder({
   const ctrlSHandlerRef = useRef<() => void>(() => {});
   useEffect(() => {
     ctrlSHandlerRef.current = () => {
-      if (campoDetailId && pendingCampo && pendingCampo.id === campoDetailId) {
-        // Salvar campo novo → Firestore
+      if (campoDetailId) {
+        if (pendingCampo && pendingCampo.id === campoDetailId) {
+          // Salvar campo novo → Firestore
+          (async () => {
+            setBandaSaving(true);
+            try {
+              const seq = getNextCampoSeq();
+              const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
+              const { criarElemento } = await import('@/services/relatorioServiceBandas');
+              const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+              const campoData = {
+                ...pendingCampo,
+                nr_sequencia: seq,
+                nr_seq_banda: nrSeqBanda ?? 0,
+                nr_seq_relatorio: relatorio?.nr_sequencia ?? 0,
+              };
+              const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
+              const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq };
+              syncCampos((prev) => [...prev, novoCampo]);
+              setPendingCampo(null);
+            } finally {
+              setBandaSaving(false);
+            }
+          })();
+          setCampoDetailId(null);
+          return;
+        }
+        // Campo existente: salvar explicitamente no Firestore
         (async () => {
           setBandaSaving(true);
           try {
-            const seq = getNextCampoSeq();
-            const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-            const { criarElemento } = await import('@/services/relatorioServiceBandas');
-            const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
-            const campoData = {
-              ...pendingCampo,
-              nr_sequencia: seq,
-              nr_seq_banda: nrSeqBanda ?? 0,
-              nr_seq_relatorio: relatorio?.nr_sequencia ?? 0,
-            };
-            const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
-            setCampos((prev) => [...prev, { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq }]);
-            setPendingCampo(null);
+            const campoAtual = campos.find((c) => c.id === campoDetailId);
+            if (campoAtual?._firestoreId) {
+              const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
+              const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+              await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+            }
           } finally {
             setBandaSaving(false);
           }
         })();
         setCampoDetailId(null);
+        return;
+      }
+      if (filtroDetailId) {
+        // Salvar filtro no Firestore
+        (async () => {
+          setBandaSaving(true);
+          try {
+            const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
+            const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+            if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+              const { id: _oldId, ...filtroData } = pendingFiltro;
+              const { id: newId, nr_sequencia: savedSeq } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+              setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq } as any]);
+            } else {
+              const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
+              if ((filtroAtual as any)?._firestoreId) {
+                await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+              }
+            }
+          } finally {
+            setBandaSaving(false);
+          }
+        })();
+        setPendingFiltro(null);
+        setFiltroDetailId(null);
         return;
       }
       if (bandaDetailId && bandaViewMode === 'ver') {
@@ -953,8 +1026,11 @@ export default function RelatorioBuilder({
                     setPendingBanda(novaBanda);
                     openBandaVer(newId);
                   } else {
+                    const newId = gerarId();
                     const seq = getNextFiltroSeq();
-                    setFiltros((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const }]);
+                    const novoFiltro: RelatorioFiltro = { id: newId, nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const };
+                    setPendingFiltro(novoFiltro);
+                    setFiltroDetailId(newId);
                   }
                 }
               : onCancel
@@ -1115,7 +1191,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Parâmetros (modo bandas) ── */}
           {/* ═══════════════════════════════════════════════ */}
-          {!bandaDetailId && isBandasMode && bandasSubView === 'parametros' && (
+          {!bandaDetailId && !filtroDetailId && isBandasMode && bandasSubView === 'parametros' && (
           <>
           <section className="mb-4">
             <FiltrosRelatorioTable
@@ -1127,9 +1203,146 @@ export default function RelatorioBuilder({
               initialColumns={initialFiltrosColumns}
               onColumnsChange={onFiltrosColumnsChange}
               getNextSeq={getNextFiltroSeq}
+              colecaoOptions={opcoesColecao}
+              onViewFiltro={(f) => openFiltroVer(f.id)}
+              onDeleteFiltro={onDeleteFiltro}
             />
           </section>
           </>
+          )}
+
+          {/* ═══════════════════════════════════════════════ */}
+          {/* ── Seção: Filtro Detail View (inline) ── */}
+          {/* ═══════════════════════════════════════════════ */}
+          {filtroDetailId && !bandaDetailId && isBandasMode && (
+          <section className="mb-4">
+            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
+              <h2 className="text-sm font-semibold text-slate-900">Parâmetro</h2>
+            </div>
+            {filtroSel && (
+            <div className="grid grid-cols-3 gap-[15px]">
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Coleção</label>
+                <Select
+                  value={filtroSel.ie_colecao ?? ''}
+                  onChange={(v) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, ie_colecao: v, campo: '' } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_colecao: v, campo: '' } : f));
+                    }
+                  }}
+                  options={[{ value: '', label: '---' }, ...opcoesColecao]}
+                  showPlaceholder={false}
+                  visibleOptions={7}
+                  className={inputClass}
+                />
+              </div>
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Campo</label>
+                <Select
+                  value={filtroSel.campo}
+                  onChange={(v) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, campo: v } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, campo: v } : f));
+                    }
+                  }}
+                  options={(filtroSel.ie_colecao ? (getDataSource(filtroSel.ie_colecao)?.campos ?? []) : []).map((cd) => ({ value: cd.key, label: cd.label }))}
+                  showPlaceholder
+                  disabled={!filtroSel.ie_colecao}
+                  visibleOptions={7}
+                  className={inputClass}
+                />
+              </div>
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Operador</label>
+                <Select
+                  value={filtroSel.operador}
+                  onChange={(v) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, operador: v as any } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, operador: v as any } : f));
+                    }
+                  }}
+                  options={[...OPERADORES_FILTRO]}
+                  showPlaceholder={false}
+                  visibleOptions={7}
+                  className={inputClass}
+                />
+              </div>
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Máscara</label>
+                <Select
+                  value={filtroSel.mascara ?? 'texto'}
+                  onChange={(v) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, mascara: v as any } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, mascara: v as any } : f));
+                    }
+                  }}
+                  options={[
+                    { value: 'texto', label: 'Texto' },
+                    { value: 'data', label: 'Data' },
+                    { value: 'decimal', label: 'Decimal' },
+                    { value: 'inteiro', label: 'Inteiro' },
+                    { value: 'cpf', label: 'CPF' },
+                    { value: 'telefone', label: 'Telefone' },
+                  ]}
+                  showPlaceholder={false}
+                  visibleOptions={7}
+                  className={inputClass}
+                />
+              </div>
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Valor</label>
+                <input type="text" value={filtroSel.valor ?? ''}
+                  onChange={(e) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, valor: e.target.value } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, valor: e.target.value } : f));
+                    }
+                  }}
+                  className={inputClass} />
+              </div>
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Conector</label>
+                <Select
+                  value={filtroSel.conector ?? 'E'}
+                  onChange={(v) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, conector: v as any } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, conector: v as any } : f));
+                    }
+                  }}
+                  options={[{ value: 'E', label: 'E' }, { value: 'OU', label: 'OU' }]}
+                  showPlaceholder={false}
+                  visibleOptions={7}
+                  className={inputClass}
+                />
+              </div>
+              <div className="group">
+                <label className="block text-xs font-medium text-slate-600 mb-1">Parâmetro</label>
+                <span className="flex items-center h-[34px]">
+                  <input type="checkbox" checked={filtroSel.parametro ?? false}
+                    onChange={(e) => {
+                      if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                        setPendingFiltro((prev) => prev ? { ...prev, parametro: e.target.checked } : prev);
+                      } else {
+                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, parametro: e.target.checked } : f));
+                      }
+                    }}
+                    className="cg-checkbox" />
+                </span>
+              </div>
+            </div>
+            )}
+          </section>
           )}
 
           {bandaDetailId ? (
@@ -1750,7 +1963,7 @@ export default function RelatorioBuilder({
           <section>
               <CamposRelatorioTable
                 campos={campos}
-                onChange={setCampos}
+                onChange={syncCampos}
                 camposDisponiveis={camposDisponiveis}
                 colecaoPrincipal={bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''}
                 onEditingChange={setEditingCampo}
@@ -1850,15 +2063,32 @@ export default function RelatorioBuilder({
                 </div>
               </div>
             )}
-            {(!isBandasMode || (bandaDetailId && bandaViewMode === 'ver') || campoDetailId) && (
+            {(!isBandasMode || (bandaDetailId && bandaViewMode === 'ver') || campoDetailId || filtroDetailId) && (
             <div className="flex items-center gap-3 ml-auto">
               <button
                 type="button"
-                onClick={campoDetailId ? () => { setPendingCampo(null); setCampoDetailId(null); } : bandaDetailId ? () => { setPendingBanda(null); closeBandaDetail(); } : onCancel}
+                onClick={campoDetailId ? () => {
+                  // Cancelar elemento: restaurar dados originais
+                  const originalBanda = bandas.find((b) => b.id === bandaDetailId);
+                  if (originalBanda?.campos) {
+                    syncCampos(originalBanda.campos);
+                  }
+                  setPendingCampo(null);
+                  setCampoDetailId(null);
+                } : filtroDetailId ? () => {
+                  // Cancelar filtro: restaurar dados originais se existente
+                  const originalFiltro = filtros.find((f) => f.id === filtroDetailId);
+                  if (pendingFiltro && pendingFiltro.id === filtroDetailId && originalFiltro) {
+                    // Filtro novo cancelado: remover do array
+                    setFiltros((prev) => prev.filter((f) => f.id !== filtroDetailId));
+                  }
+                  setPendingFiltro(null);
+                  setFiltroDetailId(null);
+                } : bandaDetailId ? () => { setPendingBanda(null); closeBandaDetail(); } : onCancel}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >
-                {(bandaDetailId || campoDetailId) ? 'Voltar' : 'Cancelar'}
+                {(bandaDetailId && !campoDetailId && !filtroDetailId) ? 'Voltar' : 'Cancelar'}
               </button>
               <button
                 type={(bandaDetailId && !campoDetailId) || isBandasMode ? 'button' : 'submit'}
@@ -1875,14 +2105,53 @@ export default function RelatorioBuilder({
                         const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
                         const campoData = { ...pendingCampo, nr_sequencia: seq, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
                         const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
-                        setCampos((prev) => [...prev, { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq }]);
+                        const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq };
+                        syncCampos((prev) => [...prev, novoCampo]);
                         setPendingCampo(null);
+                      } finally {
+                        setBandaSaving(false);
+                      }
+                    })();
+                  } else {
+                    // Campo existente: salvar explicitamente no Firestore
+                    (async () => {
+                      setBandaSaving(true);
+                      try {
+                        const campoAtual = campos.find((c) => c.id === campoDetailId);
+                        if (campoAtual?._firestoreId) {
+                          const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
+                          const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                          await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+                        }
                       } finally {
                         setBandaSaving(false);
                       }
                     })();
                   }
                   setCampoDetailId(null);
+                } : filtroDetailId ? () => {
+                  // Salvar filtro no Firestore
+                  (async () => {
+                    setBandaSaving(true);
+                    try {
+                      const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
+                      const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                      if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                        const { id: _oldId, ...filtroData } = pendingFiltro;
+                        const { id: newId, nr_sequencia: savedSeq } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                        setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq } as any]);
+                      } else {
+                        const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
+                        if ((filtroAtual as any)?._firestoreId) {
+                          await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                        }
+                      }
+                    } finally {
+                      setBandaSaving(false);
+                    }
+                  })();
+                  setPendingFiltro(null);
+                  setFiltroDetailId(null);
                 } : bandaDetailId ? async () => {
                   let finalBandas: any[] = bandas;
                   if (pendingBanda && pendingBanda.id === bandaDetailId) {

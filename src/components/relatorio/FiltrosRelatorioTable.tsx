@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { DataSourceCampo } from "@/types/relatorio";
+import { getDataSource } from "@/lib/relatorioDataSources";
 import { gerarId } from "@/lib/relatorioUtils";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import Select from "@/components/ui/Select";
@@ -18,6 +19,12 @@ interface FiltrosRelatorioTableProps {
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   getNextSeq?: () => number;
+  /** Opções de coleção do sistema. */
+  colecaoOptions?: { value: string; label: string }[];
+  /** Callback ao clicar 'Ver' no menu de contexto. */
+  onViewFiltro?: (filtro: RelatorioFiltro) => void;
+  /** Callback ao excluir um filtro (para deletar do Firestore). */
+  onDeleteFiltro?: (filtro: RelatorioFiltro) => void;
 }
 
 const MASCARA_OPTIONS = [
@@ -79,6 +86,9 @@ export default function FiltrosRelatorioTable({
   initialColumns,
   onColumnsChange,
   getNextSeq,
+  colecaoOptions = [],
+  onViewFiltro,
+  onDeleteFiltro,
 }: FiltrosRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -195,7 +205,12 @@ export default function FiltrosRelatorioTable({
 
   function excluir(id: string) {
     if (filtros.length <= 1) return;
-    onChange(filtros.filter((f) => f.id !== id));
+    const filtro = filtros.find((f) => f.id === id);
+    if (onDeleteFiltro && filtro) {
+      onDeleteFiltro(filtro);
+    } else {
+      onChange(filtros.filter((f) => f.id !== id));
+    }
     setContextMenu(null);
   }
 
@@ -353,16 +368,37 @@ export default function FiltrosRelatorioTable({
       render: (row: RelatorioFiltro) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {
-      key: "campo",
-      label: "Campo",
+      key: "ie_colecao",
+      label: "Coleção",
+      width: 150,
       render: (row: RelatorioFiltro) => {
         if (editingId === row.id) {
           return (
             <Select
+              value={row.ie_colecao ?? ''}
+              onChange={(v) => atualizar(row.id, { ie_colecao: v, campo: '' })}
+              options={[{ value: '', label: '---' }, ...colecaoOptions]}
+              showPlaceholder={false}
+              className={inputClass}
+            />
+          );
+        }
+        return <span className="truncate block">{row.ie_colecao || '---'}</span>;
+      },
+    },
+    {
+      key: "campo",
+      label: "Campo",
+      render: (row: RelatorioFiltro) => {
+        if (editingId === row.id) {
+          const camposDaColecao = row.ie_colecao ? (getDataSource(row.ie_colecao)?.campos ?? []) : [];
+          return (
+            <Select
               value={row.campo}
               onChange={(v) => atualizar(row.id, { campo: v })}
-              options={camposDisponiveis.map((cd) => ({ value: cd.key, label: cd.label }))}
+              options={camposDaColecao.map((cd) => ({ value: cd.key, label: cd.label }))}
               showPlaceholder
+              disabled={!row.ie_colecao}
               className={inputClass}
             />
           );
@@ -440,7 +476,7 @@ export default function FiltrosRelatorioTable({
         );
       },
     },
-  ], [editingId, filtros, camposDisponiveis]);
+  ], [editingId, filtros, camposDisponiveis, colecaoOptions]);
 
   return (
     <div className="relative">
@@ -466,6 +502,7 @@ export default function FiltrosRelatorioTable({
             className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
           >
+            <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { const f = filtros.find((x) => x.id === contextMenu.id); if (f && onViewFiltro) onViewFiltro(f); setContextMenu(null); }}>Ver</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setEditingId(contextMenu.id); setContextMenu(null); }}>Editar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => duplicar(contextMenu.id)}>Duplicar</button>
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => excluir(contextMenu.id)}>Excluir</button>

@@ -296,7 +296,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.1";
+const SYSTEM_VERSION = "0.66.2";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2780,7 +2780,13 @@ export default function Home() {
             return { ...b, _firestoreId: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
           })
         );
-        setRelatorioForm({ ...relatorio, bandas: bandasComElementos } as any);
+        // Carregar parâmetros da coleção relatorio_parametro
+        let parametrosDb: any[] = [];
+        try {
+          const { obterParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
+          parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
+        } catch { /* ignore */ }
+        setRelatorioForm({ ...relatorio, bandas: bandasComElementos, filtros: parametrosDb.length > 0 ? parametrosDb : relatorio.filtros } as any);
       } catch {
         setRelatorioForm(relatorio);
       }
@@ -2923,22 +2929,47 @@ export default function Home() {
   }
 
   function handleRelatorioGerar(relatorio: Relatorio) {
-    // Check for parameter filters (from both top-level and bandas)
-    const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
-    if (parametros.length > 0) {
-      setRelatorioParamValues((prev) => {
-        const initialValues: Record<string, string> = { ...prev };
-        for (const p of parametros) {
-          if (initialValues[p.id] === undefined) {
-            initialValues[p.id] = p.valor ?? '';
-          }
+    // Sempre buscar dados atualizados do Firestore antes de gerar
+    (async () => {
+      try {
+        const { getDoc } = await import('firebase/firestore');
+        const { db } = await import('@/lib/firebase');
+        const docSnap = await getDoc((await import('firebase/firestore')).doc(db, 'relatorio', relatorio.id!));
+        if (docSnap.exists()) {
+          const { id: _fid, ...rest } = docSnap.data() as any;
+          relatorio = { id: docSnap.id, ...rest } as Relatorio;
         }
-        return initialValues;
-      });
-      setRelatorioParamModal({ relatorio, parametros });
-      return;
-    }
-    executarRelatorioGerar(relatorio);
+        // Buscar bandas frescas
+        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
+        const nrSeqRelatorio = (relatorio as any).nr_sequencia;
+        if (nrSeqRelatorio) {
+          const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
+          const bandasComElementos = await Promise.all(
+            bandasDb.map(async (b: any) => {
+              const elementosRaw = b.nr_sequencia ? await obterElementosPorBandaSeq(b.nr_sequencia) : [];
+              const elementos = elementosRaw.map((e: any) => ({ ...e, _firestoreId: e.id }));
+              return { ...b, _firestoreId: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
+            })
+          );
+          relatorio = { ...relatorio, bandas: bandasComElementos } as any;
+        }
+      } catch { /* usar dados locais como fallback */ }
+      const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
+      if (parametros.length > 0) {
+        setRelatorioParamValues((prev) => {
+          const initialValues: Record<string, string> = { ...prev };
+          for (const p of parametros) {
+            if (initialValues[p.id] === undefined) {
+              initialValues[p.id] = p.valor ?? '';
+            }
+          }
+          return initialValues;
+        });
+        setRelatorioParamModal({ relatorio, parametros });
+        return;
+      }
+      executarRelatorioGerar(relatorio);
+    })();
   }
 
   async function executarRelatorioGerar(relatorio: Relatorio) {
@@ -8652,6 +8683,14 @@ export default function Home() {
                         setConfirmDeleteAction(null);
                         setConfirmDeleteOpen(true);
                       }}
+                      onDeleteFiltro={(f) => {
+                        setConfirmDeleteMessage(`Deseja mesmo excluir o parâmetro ${f.nr_sequencia ?? ''}?`);
+                        setConfirmDeleteType('filtro');
+                        setConfirmDeleteItemId(f.id);
+                        setConfirmDeleteExtra({ _firestoreId: (f as any)._firestoreId });
+                        setConfirmDeleteAction(null);
+                        setConfirmDeleteOpen(true);
+                      }}
                       stateActionsRef={relatorioStateActionsRef}
                     />
                 </div>
@@ -10464,6 +10503,17 @@ export default function Home() {
                     setRelatorioForm((prev) => {
                       if (!prev || !prev.bandas) return prev;
                       return { ...prev, bandas: prev.bandas.filter((b: any) => b.id !== confirmDeleteItemId) } as any;
+                    });
+                  } else if (confirmDeleteType === 'filtro') {
+                    const extra = confirmDeleteExtra;
+                    if (extra?._firestoreId) {
+                      import('@/services/relatorioServiceParametros').then(({ excluirParametro }) => {
+                        excluirParametro(extra._firestoreId).then(() => setMessage('Parâmetro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir parâmetro.'));
+                      });
+                    }
+                    setRelatorioForm((prev) => {
+                      if (!prev) return prev;
+                      return { ...prev, filtros: (prev.filtros ?? []).filter((f: any) => f.id !== confirmDeleteItemId) } as any;
                     });
                   }
                   setConfirmDeleteType('');
