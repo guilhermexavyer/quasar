@@ -70,8 +70,10 @@ interface RelatorioBuilderProps {
   onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => Promise<void> | void;
   /** Regras de campos por perfil (colecao relatorios): campo → status (N/O/D). */
   campoRegras?: Record<string, CampoStatus>;
-  /** Regras de campos por perfil (colecao relatorio_bandas): campo → status (N/O/D). */
+  /** Regras de campos por perfil (colecao relatorio_banda): campo → status (N/O/D). */
   bandaCampoRegras?: Record<string, CampoStatus>;
+  /** Regras de campos por perfil (colecao relatorio_banda_elemento): campo → status (N/O/D). */
+  elementoCampoRegras?: Record<string, CampoStatus>;
   /** Regras de campos por perfil (colecao relatorio_parametro): campo → status (N/O/D). */
   parametroCampoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
@@ -130,12 +132,12 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
 
 const EMPTY_FILTRO: () => RelatorioFiltro = () => ({
   id: gerarId(),
-  campo: "",
+  ie_campo: "",
   operador: "igual",
-  valor: "",
+  vl_padrao: "",
   valorFinal: "",
-  mascara: "texto",
-  parametro: false,
+  ie_mascara: "texto",
+  ie_parametro: false,
 });
 
 const RELATORIO_SELECT_OPTIONS = [
@@ -176,6 +178,7 @@ export default function RelatorioBuilder({
   onBandaSave,
   campoRegras = {},
   bandaCampoRegras = {},
+  elementoCampoRegras = {},
   parametroCampoRegras = {},
   campoErros = [],
   imagens = [],
@@ -533,13 +536,14 @@ export default function RelatorioBuilder({
 
   /** fieldInfos para os campos do parâmetro (relatorio_parametro) */
   const parametroFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
+    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio_parametro' },
     ie_colecao: { type: 'string', field: 'ie_colecao', collection: 'relatorio_parametro' },
-    campo: { type: 'string', field: 'campo', collection: 'relatorio_parametro' },
+    ie_campo: { type: 'string', field: 'ie_campo', collection: 'relatorio_parametro' },
     operador: { type: 'string', field: 'operador', collection: 'relatorio_parametro' },
-    mascara: { type: 'string', field: 'mascara', collection: 'relatorio_parametro' },
-    valor: { type: 'string', field: 'valor', collection: 'relatorio_parametro' },
-    conector: { type: 'string', field: 'conector', collection: 'relatorio_parametro' },
-    parametro: { type: 'boolean', field: 'parametro', collection: 'relatorio_parametro' },
+    ie_mascara: { type: 'string', field: 'ie_mascara', collection: 'relatorio_parametro' },
+    vl_padrao: { type: 'string', field: 'vl_padrao', collection: 'relatorio_parametro' },
+    ie_conector: { type: 'string', field: 'ie_conector', collection: 'relatorio_parametro' },
+    ie_parametro: { type: 'boolean', field: 'ie_parametro', collection: 'relatorio_parametro' },
     ds_label: { type: 'string', field: 'ds_label', collection: 'relatorio_parametro' },
     ie_obrigatorio: { type: 'boolean', field: 'ie_obrigatorio', collection: 'relatorio_parametro' },
   };
@@ -1026,7 +1030,7 @@ export default function RelatorioBuilder({
             <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: isDark ? '#fff' : '#000' }}>
               <button type="button" onClick={() => setBandaContentSubView('dados')}
                 className="text-xs font-medium cursor-pointer transition"
-                style={{ borderBottom: bandaContentSubView === 'dados' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Dados</button>
+                style={{ borderBottom: bandaContentSubView === 'dados' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Elementos</button>
               <button type="button" onClick={() => setBandaContentSubView('ordenacao')}
                 className="text-xs font-medium cursor-pointer transition"
                 style={{ borderBottom: bandaContentSubView === 'ordenacao' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Ordenação</button>
@@ -1053,7 +1057,7 @@ export default function RelatorioBuilder({
                   } else {
                     const newId = gerarId();
                     const seq = getNextFiltroSeq();
-                    const novoFiltro: RelatorioFiltro = { id: newId, nr_sequencia: seq, campo: '', operador: 'igual' as const, valor: '', valorFinal: '', conector: 'E' as const, mascara: 'texto' as const };
+                    const novoFiltro: RelatorioFiltro = { id: newId, nr_sequencia: seq, ie_campo: '', operador: 'igual' as const, vl_padrao: '', valorFinal: '', ie_conector: 'E' as const, ie_mascara: 'texto' as const };
                     setPendingFiltro(novoFiltro);
                     setFiltroDetailId(newId);
                   }
@@ -1245,16 +1249,22 @@ export default function RelatorioBuilder({
               <h2 className="text-sm font-semibold text-slate-900">Parâmetro</h2>
             </div>
             {filtroSel && (
-            <div className="grid grid-cols-3 gap-[15px]">
-              <div className="group">
+            <div className="space-y-[15px]">
+            <div className="grid grid-cols-7 gap-[15px]">
+              <div className="group col-span-1">
+                {renderFieldLabel('nr_sequencia', 'Sequência', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <input type="text" inputMode="numeric" value={filtroSel.nr_sequencia ?? ''} disabled
+                  className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
+              </div>
+              <div className="group col-span-2">
                 {renderFieldLabel('ie_colecao', 'Coleção', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.ie_colecao ?? ''}
                   onChange={(v) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ie_colecao: v, campo: '' } : prev);
+                      setPendingFiltro((prev) => prev ? { ...prev, ie_colecao: v, ie_campo: '' } : prev);
                     } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_colecao: v, campo: '' } : f));
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_colecao: v, ie_campo: '' } : f));
                     }
                   }}
                   options={[{ value: '', label: '---' }, ...opcoesColecao]}
@@ -1263,15 +1273,15 @@ export default function RelatorioBuilder({
                   className={inputClass}
                 />
               </div>
-              <div className="group">
-                {renderFieldLabel('campo', 'Campo', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+              <div className="group col-span-2">
+                {renderFieldLabel('ie_campo', 'Campo', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
-                  value={filtroSel.campo}
+                  value={filtroSel.ie_campo}
                   onChange={(v) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, campo: v } : prev);
+                      setPendingFiltro((prev) => prev ? { ...prev, ie_campo: v } : prev);
                     } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, campo: v } : f));
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_campo: v } : f));
                     }
                   }}
                   options={(filtroSel.ie_colecao ? (getDataSource(filtroSel.ie_colecao)?.campos ?? []) : []).map((cd) => ({ value: cd.key, label: cd.key }))}
@@ -1281,32 +1291,29 @@ export default function RelatorioBuilder({
                   className={inputClass}
                 />
               </div>
-              <div className="group">
-                {renderFieldLabel('operador', 'Operador', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <Select
-                  value={filtroSel.operador}
-                  onChange={(v) => {
+              <div className="group col-span-2">
+                {renderFieldLabel('ds_label', 'Label', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <input type="text" value={filtroSel.ds_label ?? ''}
+                  onChange={(e) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, operador: v as any } : prev);
+                      setPendingFiltro((prev) => prev ? { ...prev, ds_label: e.target.value } : prev);
                     } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, operador: v as any } : f));
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ds_label: e.target.value } : f));
                     }
                   }}
-                  options={[...OPERADORES_FILTRO]}
-                  showPlaceholder={false}
-                  visibleOptions={7}
-                  className={inputClass}
-                />
+                  className={inputClass} />
               </div>
-              <div className="group">
-                {renderFieldLabel('mascara', 'Máscara', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+            </div>
+            <div className="grid grid-cols-8 gap-[15px] mt-[15px]">
+              <div className="group col-span-2">
+                {renderFieldLabel('ie_mascara', 'Máscara', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
-                  value={filtroSel.mascara ?? 'texto'}
+                  value={filtroSel.ie_mascara ?? 'texto'}
                   onChange={(v) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, mascara: v as any } : prev);
+                      setPendingFiltro((prev) => prev ? { ...prev, ie_mascara: v as any } : prev);
                     } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, mascara: v as any } : f));
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_mascara: v as any } : f));
                     }
                   }}
                   options={[
@@ -1322,27 +1329,27 @@ export default function RelatorioBuilder({
                   className={inputClass}
                 />
               </div>
-              <div className="group">
-                {renderFieldLabel('valor', 'Valor', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <input type="text" value={filtroSel.valor ?? ''}
+              <div className="group col-span-2">
+                {renderFieldLabel('vl_padrao', 'Valor padrão', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <input type="text" value={filtroSel.vl_padrao ?? ''}
                   onChange={(e) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, valor: e.target.value } : prev);
+                      setPendingFiltro((prev) => prev ? { ...prev, vl_padrao: e.target.value } : prev);
                     } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, valor: e.target.value } : f));
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, vl_padrao: e.target.value } : f));
                     }
                   }}
                   className={inputClass} />
               </div>
-              <div className="group">
-                {renderFieldLabel('conector', 'Conector', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+              <div className="group col-span-2">
+                {renderFieldLabel('ie_conector', 'Conector', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
-                  value={filtroSel.conector ?? 'E'}
+                  value={filtroSel.ie_conector ?? 'E'}
                   onChange={(v) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, conector: v as any } : prev);
+                      setPendingFiltro((prev) => prev ? { ...prev, ie_conector: v as any } : prev);
                     } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, conector: v as any } : f));
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_conector: v as any } : f));
                     }
                   }}
                   options={[{ value: 'E', label: 'E' }, { value: 'OU', label: 'OU' }]}
@@ -1351,37 +1358,24 @@ export default function RelatorioBuilder({
                   className={inputClass}
                 />
               </div>
-              <div className="group">
-                {renderFieldLabel('parametro', 'Parâmetro', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <span className="flex items-center h-[34px]">
-                  <input type="checkbox" checked={filtroSel.parametro ?? false}
+              <div className="group col-span-1">
+                <label className="flex items-center h-[34px] gap-2 cursor-pointer">
+                  <input type="checkbox" checked={filtroSel.ie_parametro ?? false}
                     onChange={(e) => {
                       if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                        setPendingFiltro((prev) => prev ? { ...prev, parametro: e.target.checked, ie_obrigatorio: e.target.checked ? prev.ie_obrigatorio : false } : prev);
+                        setPendingFiltro((prev) => prev ? { ...prev, ie_parametro: e.target.checked, ie_obrigatorio: e.target.checked ? prev.ie_obrigatorio : false } : prev);
                       } else {
-                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, parametro: e.target.checked, ie_obrigatorio: e.target.checked ? f.ie_obrigatorio : false } : f));
+                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_parametro: e.target.checked, ie_obrigatorio: e.target.checked ? f.ie_obrigatorio : false } : f));
                       }
                     }}
                     className="cg-checkbox" />
-                </span>
+                  {renderFieldLabel('ie_parametro', 'Parâmetro', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                </label>
               </div>
-              <div className="group">
-                {renderFieldLabel('ds_label', 'Label', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <input type="text" value={filtroSel.ds_label ?? ''}
-                  onChange={(e) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ds_label: e.target.value } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ds_label: e.target.value } : f));
-                    }
-                  }}
-                  className={inputClass} />
-              </div>
-              <div className="group">
-                {renderFieldLabel('ie_obrigatorio', 'Obrigatório', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <span className="flex items-center h-[34px]">
+              <div className="group col-span-1">
+                <label className="flex items-center h-[34px] gap-2 cursor-pointer">
                   <input type="checkbox" checked={filtroSel.ie_obrigatorio ?? false}
-                    disabled={!filtroSel.parametro}
+                    disabled={!filtroSel.ie_parametro}
                     onChange={(e) => {
                       if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
                         setPendingFiltro((prev) => prev ? { ...prev, ie_obrigatorio: e.target.checked } : prev);
@@ -1390,8 +1384,10 @@ export default function RelatorioBuilder({
                       }
                     }}
                     className="cg-checkbox" />
-                </span>
+                  {renderFieldLabel('ie_obrigatorio', 'Obrigatório', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                </label>
               </div>
+            </div>
             </div>
             )}
           </section>
@@ -1707,12 +1703,12 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="flex flex-wrap gap-[15px]">
                   <div className="group flex-none w-[100px]">
-                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric" value={campoSel.nr_sequencia ?? ''} disabled
                       className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ds_elemento', 'Descrição', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('ds_elemento', 'Descrição', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" value={campoSel.ds_elemento ?? ''}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ds_elemento: e.target.value }))}
                       className={inputClass} />
@@ -1720,7 +1716,7 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="flex flex-wrap gap-[15px] mt-2">
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ie_tipo_elemento', 'Tipo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('ie_tipo_elemento', 'Tipo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <Select
                       value={campoSel.ie_tipo_elemento ?? ''}
                       onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_tipo_elemento: (v || undefined) as any }))}
@@ -1746,7 +1742,7 @@ export default function RelatorioBuilder({
                     return (
                       <>
                         <div className="group flex-1 min-w-[140px]">
-                          {renderFieldLabel('ie_colecao', 'Coleção', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                          {renderFieldLabel('ie_colecao', 'Coleção', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                           <Select
                             value={campoSel.ie_colecao ?? ''}
                             onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_colecao: v, ie_campo: v !== c.ie_colecao ? '' : c.ie_campo }))}
@@ -1758,7 +1754,7 @@ export default function RelatorioBuilder({
                           />
                         </div>
                         <div className="group flex-1 min-w-[140px]">
-                          {renderFieldLabel('chave', 'Campo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                          {renderFieldLabel('ie_campo', 'Campo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                           <Select
                             value={campoSel.statusSistema ? campoSel.ie_campo + '__sistema' : campoSel.ie_campo}
                             onChange={(v) => {
@@ -1786,7 +1782,7 @@ export default function RelatorioBuilder({
                   })()}
                   {!textoValorHidden && (
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('label', 'Label', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('label', 'Label', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" value={campoSel.label ?? ''}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, label: e.target.value }))}
                       className={inputClass} />
@@ -1802,33 +1798,33 @@ export default function RelatorioBuilder({
                   {/* Linha 1: Fonte, Tamanho fonte, Estilo, Estilo label, Estilo registro, Estilo soma, Cor, Background */}
                   <div className="flex flex-wrap gap-[15px]">
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_fonte', 'Fonte', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('ie_fonte', 'Fonte', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_fonte ?? 'Arial'} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_fonte: v }))} options={FONTES_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_fonte', 'Tamanho fonte', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('qt_fonte', 'Tamanho fonte', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric" value={campoSel.qt_fonte ?? ''}
                         onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_fonte: v ? Math.max(1, Number(v)) : 1 })); }}
                         className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo', tipoBanda === 'lista' ? 'Estilo registro' : 'Estilo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('ie_estilo', tipoBanda === 'lista' ? 'Estilo registro' : 'Estilo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_estilo ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     {!textoValorHidden && (
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo_label', 'Estilo label', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('ie_estilo_label', 'Estilo label', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_estilo_label ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_label: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     )}
                     {!textoValorHidden && (
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo_soma', 'Estilo soma', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('ie_estilo_soma', 'Estilo soma', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_estilo_soma ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_soma: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     )}
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('cd_cor', 'Cor', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('cd_cor', 'Cor', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <div className="relative" style={{ height: 34 }}>
                         <input type="color" id={`cor-campo-${campoSel.id}`} value={campoSel.cd_cor || '#000000'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, cd_cor: e.target.value }))}
@@ -1839,7 +1835,7 @@ export default function RelatorioBuilder({
                       </div>
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('cd_background', 'Background', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('cd_background', 'Background', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <div className="flex items-center gap-1">
                         <div className="relative flex-1" style={{ height: 34 }}>
                           <input type="color" id={`bg-campo-${campoSel.id}`} value={campoSel.cd_background || '#ffffff'}
@@ -1860,28 +1856,28 @@ export default function RelatorioBuilder({
                   {/* Linha 2: Paddings e Bordas */}
                   <div className="flex flex-wrap gap-[15px] mt-2">
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_superior', 'Padding superior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('qt_padding_superior', 'Padding superior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_superior === 0 ? '' : (campoSel.qt_padding_superior ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_superior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                         className={inputClass} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_direita', 'Padding direita', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('qt_padding_direita', 'Padding direita', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_direita === 0 ? '' : (campoSel.qt_padding_direita ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_direita: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                         className={inputClass} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_inferior', 'Padding inferior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('qt_padding_inferior', 'Padding inferior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_inferior === 0 ? '' : (campoSel.qt_padding_inferior ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_inferior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                         className={inputClass} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_esquerda', 'Padding esquerda', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('qt_padding_esquerda', 'Padding esquerda', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_esquerda === 0 ? '' : (campoSel.qt_padding_esquerda ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
@@ -1892,7 +1888,7 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_superior === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_superior: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_superior', 'Borda superior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                        {renderFieldLabel('ie_borda_superior', 'Borda superior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                     <div className="group flex-none w-auto min-w-[110px]">
@@ -1900,7 +1896,7 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_direita === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_direita: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_direita', 'Borda direita', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                        {renderFieldLabel('ie_borda_direita', 'Borda direita', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                     <div className="group flex-none w-auto min-w-[110px]">
@@ -1908,7 +1904,7 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_inferior === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_inferior: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_inferior', 'Borda inferior', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                        {renderFieldLabel('ie_borda_inferior', 'Borda inferior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                     <div className="group flex-none w-auto min-w-[110px]">
@@ -1916,14 +1912,14 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_esquerda === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_esquerda: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_esquerda', 'Borda esquerda', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                        {renderFieldLabel('ie_borda_esquerda', 'Borda esquerda', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                   </div>
                   {/* Linha 3: Imagem, Tamanho imagem */}
                   <div className="flex flex-wrap gap-[15px] mt-2">
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('nr_seq_imagem', 'Imagem', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('nr_seq_imagem', 'Imagem', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select
                         value={campoSel.nr_seq_imagem ?? ''}
                         onChange={(v) => updateCampoSelecionado((c) => ({ ...c, nr_seq_imagem: v || undefined }))}
@@ -1934,7 +1930,7 @@ export default function RelatorioBuilder({
                       />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_tamanho_imagem', 'Tamanho imagem', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('qt_tamanho_imagem', 'Tamanho imagem', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_tamanho_imagem === 0 ? '' : (campoSel.qt_tamanho_imagem ?? '')}
                         onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_tamanho_imagem: v ? Math.max(1, Number(v)) : 0 })); }}
@@ -1945,7 +1941,7 @@ export default function RelatorioBuilder({
                   {/* Linha 4: Conteúdo */}
                   <div className="flex flex-wrap gap-[15px] mt-2">
                     <div className="group flex-1 min-w-full">
-                      {renderFieldLabel('conteudo', 'Conteúdo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                      {renderFieldLabel('conteudo', 'Conteúdo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <textarea
                         value={campoSel.conteudo ?? ''}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, conteudo: e.target.value }))}
@@ -1962,28 +1958,28 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="flex flex-wrap gap-[15px]">
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_esquerda', 'Esquerda', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('qt_esquerda', 'Esquerda', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric"
                       value={campoSel.qt_esquerda === 0 ? '' : (campoSel.qt_esquerda ?? '')}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_topo', 'Topo', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('qt_topo', 'Topo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric"
                       value={campoSel.qt_topo === 0 ? '' : (campoSel.qt_topo ?? '')}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_topo: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_largura', 'Largura', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('qt_largura', 'Largura', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric"
                       value={campoSel.qt_largura === 0 ? '' : (campoSel.qt_largura ?? '')}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_largura: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ie_alinhamento', 'Alinhamento', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('ie_alinhamento', 'Alinhamento', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <Select
                       value={campoSel.ie_alinhamento ?? 'esquerda'}
                       onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_alinhamento: v }))}
@@ -1993,7 +1989,7 @@ export default function RelatorioBuilder({
                   </div>
                   {!textoValorHidden && (
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('soma', 'Soma', bandaFieldInfos, 'relatorio_banda_elemento', bandaCampoRegras)}
+                    {renderFieldLabel('soma', 'Soma', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <div className="flex items-center h-[34px]">
                       <input type="checkbox" checked={campoSel.soma ?? false}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, soma: e.target.checked }))}

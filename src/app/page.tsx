@@ -297,7 +297,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.5";
+const SYSTEM_VERSION = "0.66.6";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2757,9 +2757,10 @@ export default function Home() {
     const nrSeqRelatorio = (relatorio as any).nr_sequencia;
     if (nrSeqRelatorio) {
       try {
-        const { obterParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
+        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
         const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
-        setRelatorioForm({ ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : relatorio.filtros } as any);
+        const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
+        setRelatorioForm({ ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any);
         return;
       } catch { /* usar dados locais */ }
     }
@@ -2795,11 +2796,12 @@ export default function Home() {
         );
         // Carregar parâmetros da coleção relatorio_parametro
         let parametrosDb: any[] = [];
+        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
         try {
-          const { obterParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
           parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
         } catch { /* ignore */ }
-        setRelatorioForm({ ...relatorio, bandas: bandasComElementos, filtros: parametrosDb.length > 0 ? parametrosDb : relatorio.filtros } as any);
+        const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
+        setRelatorioForm({ ...relatorio, bandas: bandasComElementos, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any);
       } catch {
         setRelatorioForm(relatorio);
       }
@@ -2969,19 +2971,20 @@ export default function Home() {
         // Carregar parâmetros frescos da coleção relatorio_parametro
         if (nrSeqRelatorio) {
           try {
-            const { obterParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
+            const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
             const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
-            relatorio = { ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : relatorio.filtros } as any;
+            const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
+            relatorio = { ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any;
           } catch { /* usar dados locais */ }
         }
       } catch { /* usar dados locais como fallback */ }
-      const parametros = (relatorio.filtros ?? []).filter((f) => f.parametro);
+      const parametros = (relatorio.filtros ?? []).filter((f) => f.ie_parametro);
       if (parametros.length > 0) {
         setRelatorioParamValues((prev) => {
           const initialValues: Record<string, string> = { ...prev };
           for (const p of parametros) {
             if (initialValues[p.id] === undefined) {
-              initialValues[p.id] = p.valor ?? '';
+              initialValues[p.id] = p.vl_padrao ?? '';
             }
           }
           return initialValues;
@@ -3132,8 +3135,8 @@ export default function Home() {
       return;
     }
     const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
-      if (f.parametro && relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
-        return { ...f, valor: relatorioParamValues[f.id] };
+      if (f.ie_parametro && relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
+        return { ...f, vl_padrao: relatorioParamValues[f.id] };
       }
       return f;
     });
@@ -8696,6 +8699,8 @@ export default function Home() {
                       darkMode={darkMode}
                       campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
                       bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
+                      elementoCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda_elemento')}
+                      parametroCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_parametro')}
                       onNavigateToList={closeRelatorioBuilder}
                       onDeleteCampo={(campo) => {
                         setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${campo.nr_sequencia ?? ''}?`);
@@ -12716,7 +12721,7 @@ export default function Home() {
             <div className="grid gap-[15px] p-[15px]">
               {relatorioParamModal.parametros.map((filtro) => {
                 const ds = getDataSource(filtro.ie_colecao || relatorioParamModal.relatorio.colecao);
-                const campoLabel = ds?.campos.find((cd) => cd.key === filtro.campo)?.label || filtro.campo;
+                const campoLabel = ds?.campos.find((cd) => cd.key === filtro.ie_campo)?.label || filtro.ie_campo;
                 const operadorLabel = OPERADORES_FILTRO.find((o) => o.value === filtro.operador)?.label || filtro.operador;
                 const rotuloParametro = (filtro.ds_label || '').trim() || `${campoLabel} ${operadorLabel}`;
                 return (
@@ -12729,31 +12734,31 @@ export default function Home() {
                     </label>
                     <input
                       type="text"
-                      inputMode={filtro.mascara === 'decimal' ? 'decimal' : filtro.mascara === 'inteiro' || filtro.mascara === 'data' || filtro.mascara === 'cpf' || filtro.mascara === 'telefone' ? 'numeric' : undefined}
-                      maxLength={filtro.mascara === 'data' ? 10 : filtro.mascara === 'cpf' ? 14 : filtro.mascara === 'telefone' ? 15 : undefined}
-                      placeholder={filtro.mascara === 'data' ? 'DD/MM/AAAA' : filtro.mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
+                      inputMode={filtro.ie_mascara === 'decimal' ? 'decimal' : filtro.ie_mascara === 'inteiro' || filtro.ie_mascara === 'data' || filtro.ie_mascara === 'cpf' || filtro.ie_mascara === 'telefone' ? 'numeric' : undefined}
+                      maxLength={filtro.ie_mascara === 'data' ? 10 : filtro.ie_mascara === 'cpf' ? 14 : filtro.ie_mascara === 'telefone' ? 15 : undefined}
+                      placeholder={filtro.ie_mascara === 'data' ? 'DD/MM/AAAA' : filtro.ie_mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.ie_mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
                       value={relatorioParamValues[filtro.id] ?? ''}
                       onChange={(e) => {
                         setParamGerarFaltantes((prev) => prev.filter((id) => id !== filtro.id));
                         let val = e.target.value;
-                        if (filtro.mascara === 'data') {
+                        if (filtro.ie_mascara === 'data') {
                           const digits = val.replace(/\D/g, '').slice(0, 8);
                           if (digits.length <= 2) val = digits;
                           else if (digits.length <= 4) val = digits.slice(0, 2) + '/' + digits.slice(2);
                           else val = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
-                        } else if (filtro.mascara === 'inteiro') {
+                        } else if (filtro.ie_mascara === 'inteiro') {
                           val = val.replace(/\D/g, '');
-                        } else if (filtro.mascara === 'decimal') {
+                        } else if (filtro.ie_mascara === 'decimal') {
                           const digits = val.replace(/\D/g, '');
                           if (digits) val = (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
                           else val = '';
-                        } else if (filtro.mascara === 'cpf') {
+                        } else if (filtro.ie_mascara === 'cpf') {
                           const digits = val.replace(/\D/g, '').slice(0, 11);
                           if (digits.length <= 3) val = digits;
                           else if (digits.length <= 6) val = digits.slice(0, 3) + '.' + digits.slice(3);
                           else if (digits.length <= 9) val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6);
                           else val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6, 9) + '-' + digits.slice(9);
-                        } else if (filtro.mascara === 'telefone') {
+                        } else if (filtro.ie_mascara === 'telefone') {
                           const digits = val.replace(/\D/g, '').slice(0, 11);
                           if (digits.length <= 2) val = digits;
                           else if (digits.length <= 6) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2);

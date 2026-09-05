@@ -184,21 +184,21 @@ export interface RelatorioFiltro {
   /** Coleção do campo a ser filtrado. */
   ie_colecao?: string;
   /** Chave do campo a ser filtrado. */
-  campo: string;
+  ie_campo: string;
   /** Operador de comparação. */
   operador: 'igual' | 'diferente' | 'maior' | 'menor' | 'maior_igual' | 'menor_igual' 
     | 'contem' | 'nao_contem' | 'inicia_com' | 'termina_com'
     | 'entre' | 'vazio' | 'nao_vazio';
-  /** Valor de comparação (para operadores binários). */
-  valor?: string;
+  /** Valor padrão de comparação (para operadores binários). */
+  vl_padrao?: string;
   /** Valor final (para operador 'entre'). */
   valorFinal?: string;
   /** Conector lógico com o filtro anterior. */
-  conector?: 'E' | 'OU';
+  ie_conector?: 'E' | 'OU';
   /** Máscara de formatação do valor. */
-  mascara?: 'data' | 'decimal' | 'inteiro' | 'texto' | 'cpf' | 'telefone';
+  ie_mascara?: 'data' | 'decimal' | 'inteiro' | 'texto' | 'cpf' | 'telefone';
   /** Se true, o valor será informado pelo usuário ao gerar o relatório. */
-  parametro?: boolean;
+  ie_parametro?: boolean;
   /** Label personalizada exibida no modal de Parâmetros ao gerar o relatório. */
   ds_label?: string;
   /** Se true, o preenchimento no modal de Parâmetros é obrigatório. */

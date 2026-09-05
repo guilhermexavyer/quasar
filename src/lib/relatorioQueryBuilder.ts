@@ -75,7 +75,10 @@ function applyClientSideFilters(
 ): Record<string, any>[] {
   return registros.filter((reg) => {
     for (const filtro of filtros) {
-      const { campo, operador, valor, valorFinal } = filtro;
+      const { operador, valorFinal } = filtro;
+      // Compatibilidade com dados antigos (campo/valor) e novos (ie_campo/vl_padrao)
+      const campo = filtro.ie_campo ?? (filtro as any).campo;
+      const valor = filtro.vl_padrao ?? (filtro as any).valor;
       // Ignora filtros sem campo ou sem valor (exceto vazio/nao_vazio)
       if (!campo) continue;
       if (operador !== 'vazio' && operador !== 'nao_vazio' && (!valor || valor.trim() === '') && (!valorFinal || valorFinal.trim() === '')) continue;

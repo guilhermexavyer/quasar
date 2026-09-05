@@ -230,22 +230,22 @@ export default function FiltrosRelatorioTable({
       return <span className="text-xs text-slate-400">—</span>;
     }
 
-    const mascara = row.mascara ?? "texto";
+    const mascara = row.ie_mascara ?? "texto";
 
     if (row.operador === "entre") {
       return (
         <div className="flex items-center gap-1">
-          {renderValorField(row, "valor", mascara, "De")}
+          {renderValorField(row, "vl_padrao", mascara, "De")}
           {renderValorField(row, "valorFinal", mascara, "Até")}
         </div>
       );
     }
 
-    return renderValorField(row, "valor", mascara);
+    return renderValorField(row, "vl_padrao", mascara);
   }
 
-  function renderValorField(row: RelatorioFiltro, field: "valor" | "valorFinal", mascara: string, placeholder?: string) {
-    const val = field === "valor" ? (row.valor ?? "") : (row.valorFinal ?? "");
+  function renderValorField(row: RelatorioFiltro, field: "vl_padrao" | "valorFinal", mascara: string, placeholder?: string) {
+    const val = field === "vl_padrao" ? (row.vl_padrao ?? "") : (row.valorFinal ?? "");
 
     if (mascara === "data") {
       return (
@@ -376,7 +376,7 @@ export default function FiltrosRelatorioTable({
           return (
             <Select
               value={row.ie_colecao ?? ''}
-              onChange={(v) => atualizar(row.id, { ie_colecao: v, campo: '' })}
+              onChange={(v) => atualizar(row.id, { ie_colecao: v, ie_campo: '' })}
               options={[{ value: '', label: '---' }, ...colecaoOptions]}
               showPlaceholder={false}
               className={inputClass}
@@ -387,15 +387,15 @@ export default function FiltrosRelatorioTable({
       },
     },
     {
-      key: "campo",
+      key: "ie_campo",
       label: "Campo",
       render: (row: RelatorioFiltro) => {
         if (editingId === row.id) {
           const camposDaColecao = row.ie_colecao ? (getDataSource(row.ie_colecao)?.campos ?? []) : [];
           return (
             <Select
-              value={row.campo}
-              onChange={(v) => atualizar(row.id, { campo: v })}
+              value={row.ie_campo}
+              onChange={(v) => atualizar(row.id, { ie_campo: v })}
               options={camposDaColecao.map((cd) => ({ value: cd.key, label: cd.key }))}
               showPlaceholder
               disabled={!row.ie_colecao}
@@ -403,7 +403,7 @@ export default function FiltrosRelatorioTable({
             />
           );
         }
-        return <span className="truncate block">{row.campo || "---"}</span>;
+        return <span className="truncate block">{row.ie_campo || "---"}</span>;
       },
     },
     {
@@ -426,59 +426,59 @@ export default function FiltrosRelatorioTable({
       },
     },
     {
-      key: "mascara",
+      key: "ie_mascara",
       label: "Máscara",
       render: (row: RelatorioFiltro) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.mascara ?? "texto"}
-              onChange={(v) => atualizar(row.id, { mascara: v as any })}
+              value={row.ie_mascara ?? "texto"}
+              onChange={(v) => atualizar(row.id, { ie_mascara: v as any })}
               options={MASCARA_OPTIONS}
               showPlaceholder={false}
               className={inputClass}
             />
           );
         }
-        const found = MASCARA_OPTIONS.find((o) => o.value === (row.mascara ?? "texto"));
+        const found = MASCARA_OPTIONS.find((o) => o.value === (row.ie_mascara ?? "texto"));
         return <span className="truncate block">{found?.label || "Texto"}</span>;
       },
     },
     {
-      key: "valor",
-      label: "Valor",
+      key: "vl_padrao",
+      label: "Valor padrão",
       render: (row: RelatorioFiltro) => {
         if (editingId === row.id) {
           return renderValorInput(row);
         }
         if (["vazio", "nao_vazio"].includes(row.operador)) return <span>—</span>;
         if (row.operador === "entre") {
-          return <span className="truncate block">{row.valor ?? "---"} até {row.valorFinal ?? "---"}</span>;
+          return <span className="truncate block">{row.vl_padrao ?? "---"} até {row.valorFinal ?? "---"}</span>;
         }
-        return <span className="truncate block">{row.valor ?? "---"}</span>;
+        return <span className="truncate block">{row.vl_padrao ?? "---"}</span>;
       },
     },
     {
-      key: "conector",
+      key: "ie_conector",
       label: "Conector",
       width: 90,
       render: (row: RelatorioFiltro) => {
         if (editingId === row.id) {
           return (
             <Select
-              value={row.conector ?? 'E'}
-              onChange={(v) => atualizar(row.id, { conector: v as any })}
+              value={row.ie_conector ?? 'E'}
+              onChange={(v) => atualizar(row.id, { ie_conector: v as any })}
               options={[{ value: 'E', label: 'E' }, { value: 'OU', label: 'OU' }]}
               showPlaceholder={false}
               className={inputClass}
             />
           );
         }
-        return <span className="truncate block">{row.conector ?? '---'}</span>;
+        return <span className="truncate block">{row.ie_conector ?? '---'}</span>;
       },
     },
     {
-      key: "parametro",
+      key: "ie_parametro",
       label: "Parâmetro",
       width: 90,
       render: (row: RelatorioFiltro) => {
@@ -486,8 +486,8 @@ export default function FiltrosRelatorioTable({
           <span className="flex items-center justify-center">
             <input
               type="checkbox"
-              checked={row.parametro ?? false}
-              onChange={(e) => atualizar(row.id, { parametro: e.target.checked, ie_obrigatorio: e.target.checked ? row.ie_obrigatorio : false })}
+              checked={row.ie_parametro ?? false}
+              onChange={(e) => atualizar(row.id, { ie_parametro: e.target.checked, ie_obrigatorio: e.target.checked ? row.ie_obrigatorio : false })}
               className="cg-checkbox"
             />
           </span>
@@ -522,7 +522,7 @@ export default function FiltrosRelatorioTable({
             <input
               type="checkbox"
               checked={row.ie_obrigatorio ?? false}
-              disabled={!row.parametro}
+              disabled={!row.ie_parametro}
               onChange={(e) => atualizar(row.id, { ie_obrigatorio: e.target.checked })}
               className="cg-checkbox"
             />

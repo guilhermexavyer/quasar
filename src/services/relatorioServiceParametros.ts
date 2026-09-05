@@ -39,11 +39,31 @@ async function obterProximoSequenciaParametro(): Promise<number> {
 
 const parametroColecao = collection(db, "relatorio_parametro");
 
+/**
+ * Normaliza um documento de parâmetro, convertendo os nomes antigos de campos
+ * (campo, mascara, valor, conector, parametro) para os novos (ie_campo, ie_mascara,
+ * vl_padrao, ie_conector, ie_parametro).
+ */
+export function normalizarParametroDoc(raw: Record<string, any>): Record<string, any> {
+  const out: Record<string, any> = { ...raw };
+  if (out.ie_campo === undefined && out.campo !== undefined) out.ie_campo = out.campo;
+  if (out.ie_mascara === undefined && out.mascara !== undefined) out.ie_mascara = out.mascara;
+  if (out.vl_padrao === undefined && out.valor !== undefined) out.vl_padrao = out.valor;
+  if (out.ie_conector === undefined && out.conector !== undefined) out.ie_conector = out.conector;
+  if (out.ie_parametro === undefined && out.parametro !== undefined) out.ie_parametro = out.parametro;
+  delete out.campo;
+  delete out.mascara;
+  delete out.valor;
+  delete out.conector;
+  delete out.parametro;
+  return out;
+}
+
 /** Retorna todos os parâmetros de um relatório (por nr_seq_relatorio). */
 export async function obterParametrosPorRelatorio(nrSeqRelatorio: number): Promise<Record<string, any>[]> {
   const q = query(parametroColecao, where("nr_seq_relatorio", "==", nrSeqRelatorio));
   const snap = await getDocs(q);
-  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, _firestoreId: d.id, ...rest }; });
+  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, _firestoreId: d.id, ...normalizarParametroDoc(rest) }; });
 }
 
 /** Cria um novo parâmetro. */
