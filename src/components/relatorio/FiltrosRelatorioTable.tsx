@@ -8,7 +8,9 @@ import { gerarId } from "@/lib/relatorioUtils";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import type { RelatorioFiltro } from "@/types/relatorio";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 
 interface FiltrosRelatorioTableProps {
   filtros: RelatorioFiltro[];
@@ -132,6 +134,9 @@ export default function FiltrosRelatorioTable({
       return sortAsc ? cmp : -cmp;
     });
   }, [filtros, sortColumn, sortAsc]);
+
+  const pagination = usePagination(sortedFiltros.length);
+  const paginatedFiltros = pagination.slice(sortedFiltros);
 
   // ── Enter / Ctrl+S ──
   const pendingFocusCol = useRef<number | null>(null);
@@ -383,7 +388,7 @@ export default function FiltrosRelatorioTable({
             />
           );
         }
-        return <span className="truncate block">{row.ie_colecao || '---'}</span>;
+        return <span className="truncate block">{row.ie_colecao || ''}</span>;
       },
     },
     {
@@ -403,7 +408,7 @@ export default function FiltrosRelatorioTable({
             />
           );
         }
-        return <span className="truncate block">{row.ie_campo || "---"}</span>;
+        return <span className="truncate block">{row.ie_campo || ''}</span>;
       },
     },
     {
@@ -422,7 +427,7 @@ export default function FiltrosRelatorioTable({
           );
         }
         const found = OPERADORES_FILTRO.find((o) => o.value === row.operador);
-        return <span className="truncate block">{found?.label || "---"}</span>;
+        return <span className="truncate block">{found?.label || ""}</span>;
       },
     },
     {
@@ -451,11 +456,11 @@ export default function FiltrosRelatorioTable({
         if (editingId === row.id) {
           return renderValorInput(row);
         }
-        if (["vazio", "nao_vazio"].includes(row.operador)) return <span>—</span>;
+        if (["vazio", "nao_vazio"].includes(row.operador)) return <span></span>;
         if (row.operador === "entre") {
-          return <span className="truncate block">{row.vl_padrao ?? "---"} até {row.valorFinal ?? "---"}</span>;
+          return <span className="truncate block">{row.vl_padrao ?? ""}{row.vl_padrao && row.valorFinal ? " até " : ""}{row.valorFinal ?? ""}</span>;
         }
-        return <span className="truncate block">{row.vl_padrao ?? "---"}</span>;
+        return <span className="truncate block">{row.vl_padrao ?? ""}</span>;
       },
     },
     {
@@ -474,7 +479,7 @@ export default function FiltrosRelatorioTable({
             />
           );
         }
-        return <span className="truncate block">{row.ie_conector ?? '---'}</span>;
+        return <span className="truncate block">{row.ie_conector ?? ''}</span>;
       },
     },
     {
@@ -509,7 +514,7 @@ export default function FiltrosRelatorioTable({
             />
           );
         }
-        return <span className="truncate block">{row.ds_label || "---"}</span>;
+        return <span className="truncate block">{row.ds_label || ""}</span>;
       },
     },
     {
@@ -530,13 +535,36 @@ export default function FiltrosRelatorioTable({
         );
       },
     },
+    {
+      key: "dt_criacao",
+      label: "Criação",
+      width: 160,
+      render: (row: RelatorioFiltro) => <span className="text-sm">{formatDate(String(row.dt_criacao ?? '')) || ''}</span>,
+    },
+    {
+      key: "dt_alteracao",
+      label: "Alteração",
+      width: 160,
+      render: (row: RelatorioFiltro) => <span className="text-sm">{formatDate(String(row.dt_alteracao ?? '')) || ''}</span>,
+    },
+    {
+      key: "ds_usuario_criacao",
+      label: "Usuário criação",
+      render: (row: RelatorioFiltro) => <span className="text-sm">{row.ds_usuario_criacao || ''}</span>,
+    },
+    {
+      key: "ds_usuario_alteracao",
+      label: "Usuário alteração",
+      render: (row: RelatorioFiltro) => <span className="text-sm">{row.ds_usuario_alteracao || ''}</span>,
+    },
   ], [editingId, filtros, camposDisponiveis, colecaoOptions]);
 
   return (
-    <div className="relative">
+    <div className="relative flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={columns}
-        rows={sortedFiltros}
+        rows={paginatedFiltros}
         rowKey={(row) => row.id}
         sortColumn={sortColumn}
         sortAsc={sortAsc}
@@ -548,6 +576,15 @@ export default function FiltrosRelatorioTable({
         storageKeySuffix={userId}
         initialColumns={initialColumns}
         onColumnsChange={onColumnsChange}
+      />
+      </div>
+
+      <PaginationFooter
+        totalRecords={sortedFiltros.length}
+        currentPage={pagination.currentPage}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setCurrentPage}
+        onPageSizeChange={pagination.setPageSize}
       />
 
       {contextMenu && (

@@ -8,6 +8,8 @@ import { DATA_SOURCES } from "@/lib/relatorioDataSources";
 import ResizableTable from "@/components/ui/ResizableTable";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import Select from "@/components/ui/Select";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
+import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 
 const RELATORIO_SELECT_OPTIONS = [
   { value: 'relatorio', label: 'Relatórios' },
@@ -37,11 +39,7 @@ interface RelatorioListViewProps {
 function formatCellValue(key: string, value: any): string {
   if (value == null || value === "") return "";
   if (key === "dt_alteracao" || key === "dt_criacao") {
-    try {
-      return new Date(value).toLocaleDateString("pt-BR");
-    } catch {
-      return String(value);
-    }
+    return formatDate(String(value));
   }
   if (key === "formato") {
     return "PDF";
@@ -51,10 +49,12 @@ function formatCellValue(key: string, value: any): string {
 
 const COLUMNS = [
   { key: "nr_sequencia", label: "#", align: "center" as const },
-  { key: "ds_relatorio", label: "Nome" },
+  { key: "ds_relatorio", label: "Descrição" },
   { key: "formato", label: "Formato" },
   { key: "dt_criacao", label: "Criação" },
   { key: "dt_alteracao", label: "Alteração" },
+  { key: "ds_usuario_criacao", label: "Usuário criação" },
+  { key: "ds_usuario_alteracao", label: "Usuário alteração" },
 ];
 
 const COLUMN_KEYS = COLUMNS.map((c) => c.key);
@@ -103,11 +103,15 @@ export default function RelatorioListView({
   const rows = relatorios.map((rel) => ({
     ...rel,
     _id: rel.id ?? String(rel.nr_sequencia),
+    formato: rel.ie_formato ?? '',
     colecaoLabel: DATA_SOURCES.find((ds) => ds.value === rel.colecao)?.label ?? rel.colecao,
     qtdCampos: rel.campos?.length ?? 0,
     qtdFiltros: rel.filtros?.length ?? 0,
     qtdOrdenacao: rel.ordenacao?.length ?? 0,
   }));
+
+  const pagination = usePagination(rows.length);
+  const paginatedRows = pagination.slice(rows);
 
   const showPlaceholder = !manageSelection;
   const selectOptions = RELATORIO_SELECT_OPTIONS.filter((o) => allowedSubmodulos.includes(o.value));
@@ -158,6 +162,7 @@ export default function RelatorioListView({
             </p>
           </div>
         ) : (
+          <>
           <div className="flex-1 overflow-auto">
             <ResizableTable
               storageKeySuffix={userId}
@@ -175,7 +180,7 @@ export default function RelatorioListView({
                   return formatCellValue(col.key, row[col.key]);
                 },
               }))}
-              rows={rows}
+              rows={paginatedRows}
               rowKey={(row) => row._id}
               sortColumn={sortColumn != null ? COLUMN_KEYS[sortColumn] ?? null : null}
               sortAsc={sortAsc ?? true}
@@ -191,6 +196,14 @@ export default function RelatorioListView({
               }
             />
           </div>
+          <PaginationFooter
+            totalRecords={rows.length}
+            currentPage={pagination.currentPage}
+            pageSize={pagination.pageSize}
+            onPageChange={pagination.setCurrentPage}
+            onPageSizeChange={pagination.setPageSize}
+          />
+          </>
         )}
       </div>
     </div>

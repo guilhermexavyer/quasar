@@ -6,6 +6,8 @@ import type { DataSourceCampo, RelatorioOrdenacao } from "@/types/relatorio";
 import { gerarId } from "@/lib/relatorioUtils";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
+import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
@@ -78,6 +80,9 @@ export default function OrdenacaoRelatorioTable({
       return sortAsc ? cmp : -cmp;
     });
   }, [ordenacao, sortColumn, sortAsc]);
+
+  const pagination = usePagination(sortedOrdenacao.length);
+  const paginatedOrdenacao = pagination.slice(sortedOrdenacao);
 
   // ── Enter / Ctrl+S ──
   const pendingFocusCol = useRef<number | null>(null);
@@ -226,7 +231,7 @@ export default function OrdenacaoRelatorioTable({
       width: 80,
       render: (row: RelatorioOrdenacao) => {
         const idx = ordenacao.findIndex((o) => o.id === row.id);
-        return <span className="text-sm">{idx >= 0 ? `${idx + 1}º` : "---"}</span>;
+        return <span className="text-sm">{idx >= 0 ? `${idx + 1}º` : ''}</span>;
       },
     },
     {
@@ -246,7 +251,7 @@ export default function OrdenacaoRelatorioTable({
           );
         }
         const found = camposDisponiveis.find((cd) => cd.key === row.campo);
-        return <span className="text-sm">{found ? found.label : (row.campo || "---")}</span>;
+        return <span className="text-sm">{found ? found.label : (row.campo || '')}</span>;
       },
     },
     {
@@ -269,13 +274,36 @@ export default function OrdenacaoRelatorioTable({
         return <span className="text-sm">{row.direcao === "desc" ? "Decrescente" : "Crescente"}</span>;
       },
     },
+    {
+      key: "dt_criacao",
+      label: "Criação",
+      width: 160,
+      render: (row: RelatorioOrdenacao) => <span className="text-sm">{formatDate(String(row.dt_criacao ?? ''))}</span>,
+    },
+    {
+      key: "dt_alteracao",
+      label: "Alteração",
+      width: 160,
+      render: (row: RelatorioOrdenacao) => <span className="text-sm">{formatDate(String(row.dt_alteracao ?? ''))}</span>,
+    },
+    {
+      key: "ds_usuario_criacao",
+      label: "Usuário criação",
+      render: (row: RelatorioOrdenacao) => <span className="text-sm">{row.ds_usuario_criacao || ''}</span>,
+    },
+    {
+      key: "ds_usuario_alteracao",
+      label: "Usuário alteração",
+      render: (row: RelatorioOrdenacao) => <span className="text-sm">{row.ds_usuario_alteracao || ''}</span>,
+    },
   ], [editingId, camposDisponiveis, ordenacao]);
 
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={columns}
-        rows={sortedOrdenacao}
+        rows={paginatedOrdenacao}
         rowKey={(row) => row.id}
         sortColumn={sortColumn}
         sortAsc={sortAsc}
@@ -287,6 +315,15 @@ export default function OrdenacaoRelatorioTable({
         storageKeySuffix={userId}
         initialColumns={initialColumns}
         onColumnsChange={onColumnsChange}
+      />
+      </div>
+
+      <PaginationFooter
+        totalRecords={sortedOrdenacao.length}
+        currentPage={pagination.currentPage}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setCurrentPage}
+        onPageSizeChange={pagination.setPageSize}
       />
 
       {contextMenu && (

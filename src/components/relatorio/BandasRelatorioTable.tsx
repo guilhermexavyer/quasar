@@ -5,6 +5,8 @@ import type { MouseEvent as ReactMouseEvent } from "react";
 import { gerarId } from "@/lib/relatorioUtils";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
+import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 
 export interface Banda {
   id: string;
@@ -18,6 +20,10 @@ export interface Banda {
   campos?: any[];
   filtros?: any[];
   ordenacao?: any[];
+  ds_usuario_criacao?: string;
+  ds_usuario_alteracao?: string;
+  dt_criacao?: string;
+  dt_alteracao?: string;
 }
 
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
@@ -260,7 +266,7 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        return <span className="text-sm">{row.ds_banda || "---"}</span>;
+        return <span className="text-sm">{row.ds_banda || ''}</span>;
       },
     },
     {
@@ -281,7 +287,7 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        return <span className="text-sm">{row.ie_colecao_principal || '---'}</span>;
+        return <span className="text-sm">{row.ie_colecao_principal || ''}</span>;
       },
     },
     {
@@ -309,7 +315,7 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        const lbl = row.ie_tipo_banda === 'lista' ? 'Lista' : row.ie_tipo_banda === 'texto_valor' ? 'Dados' : row.ie_tipo_banda === 'cabecalho' ? 'Cabeçalho' : row.ie_tipo_banda === 'rodape' ? 'Rodapé' : '---';
+        const lbl = row.ie_tipo_banda === 'lista' ? 'Lista' : row.ie_tipo_banda === 'texto_valor' ? 'Dados' : row.ie_tipo_banda === 'cabecalho' ? 'Cabeçalho' : row.ie_tipo_banda === 'rodape' ? 'Rodapé' : '';
         return <span className="text-sm">{lbl}</span>;
       },
     },
@@ -332,7 +338,7 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        return <span className="text-sm">{row.nr_posicao || "---"}</span>;
+        return <span className="text-sm">{row.nr_posicao ?? ''}</span>;
       },
     },
     {
@@ -354,16 +360,42 @@ export default function BandasRelatorioTable({
             />
           );
         }
-        return <span className="text-sm">{row.nr_altura != null ? row.nr_altura : '---'}</span>;
+        return <span className="text-sm">{row.nr_altura ?? ''}</span>;
       },
+    },
+    {
+      key: "dt_criacao",
+      label: "Criação",
+      width: 160,
+      render: (row: Banda) => <span className="text-sm">{formatDate(String(row.dt_criacao ?? ''))}</span>,
+    },
+    {
+      key: "dt_alteracao",
+      label: "Alteração",
+      width: 160,
+      render: (row: Banda) => <span className="text-sm">{formatDate(String(row.dt_alteracao ?? ''))}</span>,
+    },
+    {
+      key: "ds_usuario_criacao",
+      label: "Usuário criação",
+      render: (row: Banda) => <span className="text-sm">{row.ds_usuario_criacao || ''}</span>,
+    },
+    {
+      key: "ds_usuario_alteracao",
+      label: "Usuário alteração",
+      render: (row: Banda) => <span className="text-sm">{row.ds_usuario_alteracao || ''}</span>,
     },
   ], [editingId, bandas]);
 
+  const pagination = usePagination(sortedBandas.length);
+  const paginatedBandas = pagination.slice(sortedBandas);
+
   return (
-    <div>
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={columns}
-        rows={sortedBandas}
+        rows={paginatedBandas}
         rowKey={(row) => row.id}
         sortColumn={sortColumn}
         sortAsc={sortAsc}
@@ -376,6 +408,15 @@ export default function BandasRelatorioTable({
         storageKeySuffix={userId}
         initialColumns={initialColumns}
         onColumnsChange={onColumnsChange}
+      />
+      </div>
+
+      <PaginationFooter
+        totalRecords={sortedBandas.length}
+        currentPage={pagination.currentPage}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setCurrentPage}
+        onPageSizeChange={pagination.setPageSize}
       />
 
       {contextMenu && (

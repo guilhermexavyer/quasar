@@ -43,6 +43,12 @@ interface RelatorioBuilderProps {
   contextMenuItems?: ContextMenuItem[];
   onChange?: (relatorio: Relatorio) => void;
   userId?: string;
+  /** Nome exibido do usuário para os logs de auditoria (ds_usuario_criacao / ds_usuario_alteracao). */
+  userDisplayName?: string;
+  /** Resolve o ds_usuario para o nome da pessoa física vinculada (exibição no rodapé). */
+  resolverNomeAutorExibicao?: (dsUsuario: string) => string;
+  /** Exibe uma mensagem/aviso/erro como toast (via page.tsx). */
+  onToast?: (message: string, status: 'success' | 'warning' | 'error') => void;
   /** Configuração de colunas salva no Firestore (per-user) */
   initialListaColumns?: { order: string[]; widths: Record<string, number> } | null;
   onListaColumnsChange?: (order: string[], widths: Record<string, number>) => void;
@@ -66,8 +72,12 @@ interface RelatorioBuilderProps {
   updatedBy?: string;
   onOpenAudit?: (relatorioId?: string | null) => void;
   onOpenBandaAudit?: (relatorioId?: string | null, bandaId?: string | null) => void;
-  /** Save direto no Firestore ao salvar a banda (gera log de auditoria) */
-  onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => Promise<void> | void;
+  /** Abrir histórico de auditoria de um elemento (relatorio_banda_elemento). */
+  onOpenCampoAudit?: (relatorioId?: string | null, campoId?: string | null) => void;
+  /** Abrir histórico de auditoria de um parâmetro (relatorio_parametro). */
+  onOpenFiltroAudit?: (relatorioId?: string | null, filtroId?: string | null) => void;
+  /** Save direto no Firestore ao salvar a banda (gera log de auditoria). Retorna as bandas salvas. */
+  onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => Promise<any[] | void> | any[] | void;
   /** Regras de campos por perfil (colecao relatorios): campo → status (N/O/D). */
   campoRegras?: Record<string, CampoStatus>;
   /** Regras de campos por perfil (colecao relatorio_banda): campo → status (N/O/D). */
@@ -98,8 +108,13 @@ interface RelatorioBuilderProps {
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
   return {
     id: c.id || gerarId(),
+    _firestoreId: c._firestoreId || c.id || undefined,
     nr_sequencia: c.nr_sequencia ?? 0,
     ds_elemento: c.ds_elemento ?? '',
+    dt_criacao: c.dt_criacao ?? '',
+    dt_alteracao: c.dt_alteracao ?? '',
+    ds_usuario_criacao: c.ds_usuario_criacao ?? '',
+    ds_usuario_alteracao: c.ds_usuario_alteracao ?? '',
     ie_colecao: c.ie_colecao || colecaoPrincipal,
     ie_campo: c.ie_campo || '',
     label: c.rotulo || c.label || '',
@@ -155,6 +170,9 @@ export default function RelatorioBuilder({
   contextMenuItems = [],
   onChange,
   userId,
+  userDisplayName = '',
+  resolverNomeAutorExibicao,
+  onToast,
   initialListaColumns,
   onListaColumnsChange,
   initialDadosColumns,
@@ -175,6 +193,8 @@ export default function RelatorioBuilder({
   updatedBy,
   onOpenAudit,
   onOpenBandaAudit,
+  onOpenCampoAudit,
+  onOpenFiltroAudit,
   onBandaSave,
   campoRegras = {},
   bandaCampoRegras = {},
@@ -328,6 +348,34 @@ export default function RelatorioBuilder({
   const bandaUpdatedAt = bandaSel?.dt_alteracao ?? '';
   const bandaCreatedBy = bandaSel?.ds_usuario_criacao ?? '';
   const bandaUpdatedBy = bandaSel?.ds_usuario_alteracao ?? '';
+
+  // Contexto de auditoria do rodapé: elemento > parâmetro > banda > relatório.
+  const auditCtx = campoDetailId ? 'elemento' : filtroDetailId ? 'parametro' : bandaDetailId ? 'banda' : 'relatorio';
+  const auditCtxCreatedBy = auditCtx === 'elemento' ? (campoSel?.ds_usuario_criacao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.ds_usuario_criacao || '') : auditCtx === 'banda' ? bandaCreatedBy : (createdBy || '');
+  const auditCtxUpdatedBy = auditCtx === 'elemento' ? (campoSel?.ds_usuario_alteracao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.ds_usuario_alteracao || '') : auditCtx === 'banda' ? bandaUpdatedBy : (updatedBy || '');
+  const auditCtxCreatedAt = auditCtx === 'elemento' ? (campoSel?.dt_criacao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.dt_criacao || '') : auditCtx === 'banda' ? bandaCreatedAt : (createdAt || '');
+  const auditCtxUpdatedAt = auditCtx === 'elemento' ? (campoSel?.dt_alteracao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.dt_alteracao || '') : auditCtx === 'banda' ? bandaUpdatedAt : (updatedAt || '');
+  function openAuditForCtx() {
+    if (!relatorio) return;
+    if (auditCtx === 'elemento') {
+      onOpenCampoAudit?.(relatorio.id ?? null, campoSel?._firestoreId || campoSel?.id || null);
+    } else if (auditCtx === 'parametro') {
+      onOpenFiltroAudit?.(relatorio.id ?? null, (filtroSel as any)?._firestoreId || filtroSel?.id || null);
+    } else if (auditCtx === 'banda') {
+      onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId);
+    } else {
+      onOpenAudit?.(relatorio.id ?? null);
+    }
+  }
+  /** Nome exibido no rodapé: nome da pessoa física vinculada (se houver), senão o ds_usuario. */
+  function exibirNomeAutor(nome: string): string {
+    if (!nome || nome === '-') return nome;
+    return resolverNomeAutorExibicao ? (resolverNomeAutorExibicao(nome) || nome) : nome;
+  }
+  // O rodapé de auditoria/ações só ocupa espaço quando há conteúdo (nas listagens de bandas/elementos ele fica vazio).
+  const temAuditInfo = !!relatorio && (!isBandasMode || !!campoDetailId || !!filtroDetailId || (!!bandaDetailId && bandaViewMode === 'ver'));
+  const temAcoesRodape = !isBandasMode || (!!bandaDetailId && bandaViewMode === 'ver') || !!campoDetailId || !!filtroDetailId;
+  const temRodapeConteudo = temAuditInfo || temAcoesRodape;
 
   // Refs para evitar stale closures no Ctrl+S do modal banda
   const camposRef = useRef(campos);
@@ -666,15 +714,15 @@ export default function RelatorioBuilder({
               const seq = getNextCampoSeq();
               const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
               const { criarElemento } = await import('@/services/relatorioServiceBandas');
-              const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+              const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
               const campoData = {
                 ...pendingCampo,
                 nr_sequencia: seq,
                 nr_seq_banda: nrSeqBanda ?? 0,
                 nr_seq_relatorio: relatorio?.nr_sequencia ?? 0,
               };
-              const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
-              const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq };
+              const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
+              const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
               syncCampos((prev) => [...prev, novoCampo]);
               setPendingCampo(null);
             } finally {
@@ -691,8 +739,9 @@ export default function RelatorioBuilder({
             const campoAtual = campos.find((c) => c.id === campoDetailId);
             if (campoAtual?._firestoreId) {
               const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
-              const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
-              await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+              const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
+              const auditAtualizado = await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+              syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
             }
           } finally {
             setBandaSaving(false);
@@ -707,15 +756,16 @@ export default function RelatorioBuilder({
           setBandaSaving(true);
           try {
             const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
-            const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+            const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
             if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
               const { id: _oldId, ...filtroData } = pendingFiltro;
-              const { id: newId, nr_sequencia: savedSeq } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-              setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq } as any]);
+              const { id: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+              setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
             } else {
               const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
               if ((filtroAtual as any)?._firestoreId) {
-                await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, dt_alteracao: auditAtualizadoF.dt_alteracao, ds_usuario_alteracao: auditAtualizadoF.ds_usuario_alteracao } : f));
               }
             }
           } finally {
@@ -745,7 +795,8 @@ export default function RelatorioBuilder({
           }
           setBandaSaving(true);
           try {
-            await onBandaSaveRef.current?.(finalBandas, currentBandaId);
+            const bandasSalvas = await onBandaSaveRef.current?.(finalBandas, currentBandaId);
+            if (bandasSalvas) setBandas(bandasSalvas);
           } catch { /* handled inside handleBandaSave */ }
           setBandaDetailId(null);
           setBandaViewMode('content');
@@ -789,10 +840,11 @@ export default function RelatorioBuilder({
         qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
         ie_borda_superior: c.ie_borda_superior ? 'S' : 'N', ie_borda_direita: c.ie_borda_direita ? 'S' : 'N', ie_borda_inferior: c.ie_borda_inferior ? 'S' : 'N', ie_borda_esquerda: c.ie_borda_esquerda ? 'S' : 'N',
         qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
+        dt_criacao: c.dt_criacao, dt_alteracao: c.dt_alteracao, ds_usuario_criacao: c.ds_usuario_criacao, ds_usuario_alteracao: c.ds_usuario_alteracao,
       })),
       filtros: filtros.map((f) => ({ ...f })),
       ordenacao: ordenacao.map((o) => ({ id: o.id, campo: o.campo, direcao: o.direcao })),
-      bandas: bandas.map((b) => ({ id: b.id, _firestoreId: b._firestoreId, nr_sequencia: b.nr_sequencia, nr_seq_relatorio: b.nr_seq_relatorio, ds_banda: b.ds_banda, ie_colecao_principal: b.ie_colecao_principal, nr_posicao: b.nr_posicao, ie_tipo_banda: b.ie_tipo_banda, nr_altura: b.nr_altura, ie_borda_superior: b.ie_borda_superior, ie_borda_inferior: b.ie_borda_inferior, ie_borda_esquerda: b.ie_borda_esquerda, ie_borda_direita: b.ie_borda_direita, campos: b.campos })),
+      bandas: bandas.map((b) => ({ ...b })),
       ie_formato: formato,
       configExcel: undefined,
       configPdf: formato === 'pdf' ? configPdf : undefined,
@@ -830,8 +882,11 @@ export default function RelatorioBuilder({
     const errs: string[] = [];
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
-    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && !c.chave)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
     setErros(errs);
+    if (errs.length > 0 && onToast) {
+      onToast(errs.join('\n'), 'error');
+    }
     return errs.length === 0;
   }
 
@@ -975,7 +1030,7 @@ export default function RelatorioBuilder({
                 onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'; }}
                 onClick={() => onNavigateToList?.()}
               >
-                <span className="font-medium" style={{ color: isDark ? '#fff' : '#000' }}>{relatorio.nr_sequencia}</span>
+                <span style={{ color: isDark ? '#ddd' : '#333' }}>Relatório: {relatorio.nr_sequencia}</span>
                 <span className="ml-1" style={{ color: isDark ? '#ddd' : '#333' }}>{dsRelatorio}</span>
               </span>
               {bandaDetailId && (() => {
@@ -1006,7 +1061,7 @@ export default function RelatorioBuilder({
                         setOrdenacao([]);
                       }}
                     >
-                      <span className="font-medium" style={{ color: isDark ? '#fff' : '#000' }}>{banda.nr_sequencia}</span>
+                      <span style={{ color: isDark ? '#ddd' : '#333' }}>Banda: {banda.nr_sequencia}</span>
                       <span className="ml-1" style={{ color: isDark ? '#ddd' : '#333' }}>{banda.ds_banda}</span>
                     </span>
                   </>
@@ -1071,15 +1126,6 @@ export default function RelatorioBuilder({
           </button>
         </div>
       </div>
-
-      {/* ── Erros ── */}
-      {erros.length > 0 && (
-        <div className="mt-2 p-3 bg-red-50 border border-red-300 rounded text-sm text-red-700">
-          <ul className="list-disc list-inside">
-            {erros.map((e, i) => <li key={i}>{e}</li>)}
-          </ul>
-        </div>
-      )}
 
       {/* ── Formulário ── */}
       <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex-1 flex flex-col min-h-0">
@@ -1179,7 +1225,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {!bandaDetailId && isBandasMode && bandasSubView === 'bandas' && (
           <>
-          <section className="mb-4">
+          <section className="h-full flex min-h-0 flex-col">
             <BandasRelatorioTable
               bandas={bandas}
               onChange={setBandas}
@@ -1197,17 +1243,17 @@ export default function RelatorioBuilder({
                 setBandaSaving(true);
                 try {
                   const { criarBanda, criarElemento } = await import('@/services/relatorioServiceBandas');
-                  const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                  const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                   const { id: _oldId, _firestoreId: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
-                  const { id: newBandaId, nr_sequencia: savedSeq } = await criarBanda({ ...rest, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                  const { id: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda({ ...rest, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
                   // Duplicar elementos filhos
                   const novosCampos: any[] = [];
                   for (const c of (_oldCampos ?? [])) {
                     const { id: _cId, _firestoreId: _cFs, ...cRest } = c;
-                    const { id: cNewId, nr_sequencia: cSeq } = await criarElemento({ ...cRest, nr_seq_banda: savedSeq, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                    novosCampos.push({ ...cRest, id: cNewId, _firestoreId: cNewId, nr_sequencia: cSeq });
+                    const { id: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt } = await criarElemento({ ...cRest, nr_seq_banda: savedSeq, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                    novosCampos.push({ ...cRest, id: cNewId, _firestoreId: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt });
                   }
-                  return { ...rest, id: newBandaId, _firestoreId: newBandaId, nr_sequencia: savedSeq, campos: novosCampos } as any;
+                  return { ...rest, id: newBandaId, _firestoreId: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, campos: novosCampos } as any;
                 } finally {
                   setBandaSaving(false);
                 }
@@ -1222,7 +1268,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {!bandaDetailId && !filtroDetailId && isBandasMode && bandasSubView === 'parametros' && (
           <>
-          <section className="mb-4">
+          <section className="h-full flex min-h-0 flex-col">
             <FiltrosRelatorioTable
               filtros={filtros}
               onChange={setFiltros}
@@ -2008,7 +2054,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {/* ── Seção: Lista/Dados ── */}
           {/* ═══════════════════════════════════════════════ */}
-          <section>
+          <section className="h-full flex min-h-0 flex-col">
               <CamposRelatorioTable
                 campos={campos}
                 onChange={syncCampos}
@@ -2034,11 +2080,11 @@ export default function RelatorioBuilder({
                   try {
                     const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
                     const { criarElemento } = await import('@/services/relatorioServiceBandas');
-                    const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                    const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                     const { id: _oldId, _firestoreId: _oldFs, ...rest } = original;
                     const campoData = { ...rest, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
-                    const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
-                    return { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq } as CamposRelatorioRow;
+                    const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
+                    return { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as CamposRelatorioRow;
                   } finally {
                     setBandaSaving(false);
                   }
@@ -2054,7 +2100,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {bandaViewMode === 'content' && !campoDetailId && bandaContentSubView === 'ordenacao' && bandaTipo === 'lista' && (
           <>
-          <section>
+          <section className="h-full flex min-h-0 flex-col">
             <OrdenacaoRelatorioTable
               ordenacao={ordenacao}
               onChange={setOrdenacao}
@@ -2075,15 +2121,16 @@ export default function RelatorioBuilder({
         </div>
 
         {/* ── Auditoria + Botões de ação ── */}
+        {temRodapeConteudo && (
         <div className="mt-auto pt-4">
-          <div className="flex items-center justify-between gap-3">            {/* Audit info - relatório ou banda (não exibe no modo bandas) */}
-            {relatorio && !isBandasMode && (
+          <div className="flex items-center justify-between gap-3">            {/* Audit info - relatório, banda, elemento ou parâmetro conforme o formulário aberto */}
+            {relatorio && (!isBandasMode || campoDetailId || filtroDetailId || (bandaDetailId && bandaViewMode === 'ver')) && (
               <div className="flex flex-col text-[12px] text-slate-500 min-w-0">
                 <div className="relative group flex items-center gap-2">
-                  <span>Criado por {bandaDetailId ? (bandaCreatedBy || '-') : (createdBy || '-')} em {(bandaDetailId ? bandaCreatedAt : createdAt) ? new Date(bandaDetailId ? (bandaCreatedAt || '') : (createdAt || '')).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
+                  <span>Criado por {exibirNomeAutor(auditCtxCreatedBy) || '-'} em {auditCtxCreatedAt ? new Date(auditCtxCreatedAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
                   <button
                     type="button"
-                    onClick={() => bandaDetailId ? onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId) : onOpenAudit?.(relatorio.id ?? null)}
+                    onClick={openAuditForCtx}
                     className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                     aria-label="Abrir histórico de auditoria"
                   >
@@ -2095,10 +2142,10 @@ export default function RelatorioBuilder({
                   </button>
                 </div>
                 <div className="relative group flex items-center gap-2 mt-1">
-                  <span>Alterado por {bandaDetailId ? (bandaUpdatedBy || '-') : (updatedBy || '-')} em {(bandaDetailId ? bandaUpdatedAt : updatedAt) ? new Date(bandaDetailId ? (bandaUpdatedAt || '') : (updatedAt || '')).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
+                  <span>Alterado por {exibirNomeAutor(auditCtxUpdatedBy) || '-'} em {auditCtxUpdatedAt ? new Date(auditCtxUpdatedAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
                   <button
                     type="button"
-                    onClick={() => bandaDetailId ? onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId) : onOpenAudit?.(relatorio.id ?? null)}
+                    onClick={openAuditForCtx}
                     className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                     aria-label="Abrir histórico de auditoria"
                   >
@@ -2150,10 +2197,10 @@ export default function RelatorioBuilder({
                         const seq = getNextCampoSeq();
                         const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
                         const { criarElemento } = await import('@/services/relatorioServiceBandas');
-                        const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                        const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                         const campoData = { ...pendingCampo, nr_sequencia: seq, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
-                        const { id: firestoreId, nr_sequencia: savedSeq } = await criarElemento(campoData, auditAutor);
-                        const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq };
+                        const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
+                        const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
                         syncCampos((prev) => [...prev, novoCampo]);
                         setPendingCampo(null);
                       } finally {
@@ -2168,8 +2215,9 @@ export default function RelatorioBuilder({
                         const campoAtual = campos.find((c) => c.id === campoDetailId);
                         if (campoAtual?._firestoreId) {
                           const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
-                          const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
-                          await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+                          const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
+                          const auditAtualizado = await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+                          syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
                         }
                       } finally {
                         setBandaSaving(false);
@@ -2183,15 +2231,16 @@ export default function RelatorioBuilder({
                     setBandaSaving(true);
                     try {
                       const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
-                      const auditAutor = { usuarioId: null, usuarioNome: userId ?? '' };
+                      const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                       if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
                         const { id: _oldId, ...filtroData } = pendingFiltro;
-                        const { id: newId, nr_sequencia: savedSeq } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                        setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq } as any]);
+                        const { id: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                        setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
                       } else {
                         const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
                         if ((filtroAtual as any)?._firestoreId) {
-                          await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                          const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                          setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, dt_alteracao: auditAtualizadoF.dt_alteracao, ds_usuario_alteracao: auditAtualizadoF.ds_usuario_alteracao } : f));
                         }
                       }
                     } finally {
@@ -2217,7 +2266,8 @@ export default function RelatorioBuilder({
                   }
                   setBandaSaving(true);
                   try {
-                    await onBandaSaveRef.current?.(finalBandas, currentBandaId);
+                    const bandasSalvas = await onBandaSaveRef.current?.(finalBandas, currentBandaId);
+                    if (bandasSalvas) setBandas(bandasSalvas);
                   } catch { /* handled inside handleBandaSave */ }
                   setBandaDetailId(null);
                   setBandaViewMode('content');
@@ -2235,6 +2285,7 @@ export default function RelatorioBuilder({
             )}
           </div>
         </div>
+        )}
       </form>
 
       {/* ── Modal: Alterações não salvas ── */}

@@ -73,7 +73,7 @@ export async function obterBandasPorRelatorioId(relatorioId: string): Promise<Re
 export async function criarBanda(
   banda: Record<string, any>,
   autor?: AuditAutor
-): Promise<{ id: string; nr_sequencia: number }> {
+): Promise<{ id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string }> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequenciaBanda();
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
@@ -104,7 +104,7 @@ export async function criarBanda(
     console.error("Erro ao registrar auditoria de banda (criação)", e);
   }
 
-  return { id: docRef.id, nr_sequencia };
+  return { id: docRef.id, nr_sequencia, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: nomeAutor, ds_usuario_alteracao: nomeAutor };
 }
 
 /** Atualiza uma banda existente. */
@@ -112,10 +112,10 @@ export async function atualizarBanda(
   id: string,
   banda: Record<string, any>,
   autor?: AuditAutor
-): Promise<void> {
+): Promise<{ dt_alteracao: string; ds_usuario_alteracao: string }> {
   const docRef = doc(db, "relatorio_banda", id);
   const snap = await getDoc(docRef);
-  if (!snap.exists()) return;
+  if (!snap.exists()) return { dt_alteracao: '', ds_usuario_alteracao: '' };
 
   const currentData = snap.data();
   const agora = new Date().toISOString();
@@ -151,6 +151,8 @@ export async function atualizarBanda(
   } catch (e) {
     console.error("Erro ao registrar auditoria de banda (atualização)", e);
   }
+
+  return { dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
 }
 
 /** Exclui uma banda e seus elementos. */
@@ -191,7 +193,7 @@ export async function obterElementosPorBandaSeq(nrSeqBanda: number): Promise<Rec
 export async function criarElemento(
   elemento: Record<string, any>,
   autor?: AuditAutor
-): Promise<{ id: string; nr_sequencia: number }> {
+): Promise<{ id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string }> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequenciaElemento();
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
@@ -223,7 +225,7 @@ export async function criarElemento(
     console.error("Erro ao registrar auditoria de elemento (criação)", e);
   }
 
-  return { id: docRef.id, nr_sequencia };
+  return { id: docRef.id, nr_sequencia, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: nomeAutor, ds_usuario_alteracao: nomeAutor };
 }
 
 /** Atualiza um elemento existente. */
@@ -231,10 +233,10 @@ export async function atualizarElemento(
   id: string,
   elemento: Record<string, any>,
   autor?: AuditAutor
-): Promise<void> {
+): Promise<{ dt_alteracao: string; ds_usuario_alteracao: string }> {
   const docRef = doc(db, "relatorio_banda_elemento", id);
   const snap = await getDoc(docRef);
-  if (!snap.exists()) return;
+  if (!snap.exists()) return { dt_alteracao: '', ds_usuario_alteracao: '' };
 
   const currentData = snap.data();
   const agora = new Date().toISOString();
@@ -268,6 +270,8 @@ export async function atualizarElemento(
   } catch (e) {
     console.error("Erro ao registrar auditoria de elemento (atualização)", e);
   }
+
+  return { dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
 }
 
 /** Exclui um elemento. */

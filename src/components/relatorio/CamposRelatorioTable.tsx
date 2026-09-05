@@ -7,6 +7,8 @@ import { gerarId, FORMATOS_CAMPO } from "@/lib/relatorioUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
+import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
@@ -48,6 +50,14 @@ export interface CamposRelatorioRow {
   ds_elemento?: string;
   /** ID do Firestore (quando o elemento já foi salvo). */
   _firestoreId?: string;
+  /** Data de criação do elemento. */
+  dt_criacao?: string;
+  /** Data da última alteração do elemento. */
+  dt_alteracao?: string;
+  /** Usuário que criou o elemento. */
+  ds_usuario_criacao?: string;
+  /** Usuário que alterou o elemento. */
+  ds_usuario_alteracao?: string;
   /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
   ie_colecao: string;
   ie_campo: string;
@@ -288,6 +298,9 @@ export default function CamposRelatorioTable({
     return sortAsc ? cmp : -cmp;
   });
 
+  const pagination = usePagination(sortedCampos.length);
+  const paginatedCampos = pagination.slice(sortedCampos);
+
   // Rastrear a coluna que está sendo editada (para manter o foco ao avançar)
   const pendingFocusCol = useRef<number | null>(null);
   const advanceTargetId = useRef<string | null>(null);
@@ -437,7 +450,7 @@ export default function CamposRelatorioTable({
         if (editingId === row.id) {
           return <input value={row.ds_elemento ?? ''} onChange={(e) => atualizar(row.id, { ds_elemento: e.target.value })} className={inputClass} />;
         }
-        return <span className="truncate block">{row.ds_elemento || '---'}</span>;
+        return <span className="truncate block">{row.ds_elemento || ''}</span>;
       },
     },
     {
@@ -461,7 +474,7 @@ export default function CamposRelatorioTable({
           );
         }
         const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração', imagem: 'Imagem' };
-        const lbl = tipoLabels[row.ie_tipo_elemento ?? ''] ?? '---';
+        const lbl = tipoLabels[row.ie_tipo_elemento ?? ''] ?? '';
         return <span className="whitespace-nowrap">{lbl}</span>;
       },
     },
@@ -482,7 +495,7 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        return <span className={`truncate block ${desabilitado ? 'text-slate-400' : ''}`}>{desabilitado ? '---' : (row.ie_colecao || '---')}</span>;
+        return <span className={`truncate block ${desabilitado ? 'text-slate-400' : ''}`}>{desabilitado ? '' : (row.ie_colecao || '')}</span>;
       },
     },
     {      key: "chave",
@@ -491,7 +504,7 @@ export default function CamposRelatorioTable({
       render: (row: CamposRelatorioRow) => {
         const desabilitadoCampo = variant === 'texto_valor' && row.ie_tipo_elemento !== 'valor';
         if (desabilitadoCampo) {
-          return <span className="text-slate-400">---</span>;
+          return <span className="text-slate-400"></span>;
         }
         if (editingId === row.id) {
           const camposDaColecao = camposPorColecao[row.ie_colecao] ?? [];
@@ -527,7 +540,7 @@ export default function CamposRelatorioTable({
           );
         }
         const display = row.statusSistema ? row.ie_campo + ' (sistema)' : row.ie_campo;
-        return <span className="truncate block">{display || '---'}</span>;
+        return <span className="truncate block">{display || ''}</span>;
       },
     },
     {
@@ -538,7 +551,7 @@ export default function CamposRelatorioTable({
         if (editingId === row.id) {
           return <input value={row.label} onChange={(e) => atualizar(row.id, { label: e.target.value })} className={inputClass} />;
         }
-        return <span className="truncate block">{row.label || '---'}</span>;
+        return <span className="truncate block">{row.label || ''}</span>;
       },
     },
     {
@@ -594,7 +607,7 @@ export default function CamposRelatorioTable({
           );
         }
         const opt = ESTILO_OPCOES.find((o) => o.value === row.ie_estilo_label);
-        return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
+        return <span className="whitespace-nowrap">{opt?.label || ''}</span>;
       },
     },
     {
@@ -614,7 +627,7 @@ export default function CamposRelatorioTable({
           );
         }
         const opt = ESTILO_OPCOES.find((o) => o.value === row.ie_estilo);
-        return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
+        return <span className="whitespace-nowrap">{opt?.label || ''}</span>;
       },
     },
     {
@@ -634,7 +647,7 @@ export default function CamposRelatorioTable({
           );
         }
         const opt = ESTILO_OPCOES.find((o) => o.value === row.ie_estilo_soma);
-        return <span className="whitespace-nowrap">{opt?.label || '---'}</span>;
+        return <span className="whitespace-nowrap">{opt?.label || ''}</span>;
       },
     },
     {
@@ -797,9 +810,9 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        if (desabilitado) return <span className="text-slate-400">---</span>;
+        if (desabilitado) return <span className="text-slate-400"></span>;
         const img = imagens.find((i) => i.id === row.nr_seq_imagem);
-        return <span className="whitespace-nowrap truncate">{img?.ds_imagem ?? '---'}</span>;
+        return <span className="whitespace-nowrap truncate">{img?.ds_imagem ?? ''}</span>;
       },
     },
     {
@@ -820,9 +833,31 @@ export default function CamposRelatorioTable({
             />
           );
         }
-        if (desabilitado) return <span className="text-slate-400">---</span>;
+        if (desabilitado) return <span className="text-slate-400"></span>;
         return <span>{row.qt_tamanho_imagem ?? 100}</span>;
       },
+    },
+    {
+      key: "dt_criacao",
+      label: "Criação",
+      width: 160,
+      render: (row: CamposRelatorioRow) => <span className="text-sm">{formatDate(String(row.dt_criacao ?? '')) || ''}</span>,
+    },
+    {
+      key: "dt_alteracao",
+      label: "Alteração",
+      width: 160,
+      render: (row: CamposRelatorioRow) => <span className="text-sm">{formatDate(String(row.dt_alteracao ?? '')) || ''}</span>,
+    },
+    {
+      key: "ds_usuario_criacao",
+      label: "Usuário criação",
+      render: (row: CamposRelatorioRow) => <span className="text-sm">{row.ds_usuario_criacao || ''}</span>,
+    },
+    {
+      key: "ds_usuario_alteracao",
+      label: "Usuário alteração",
+      render: (row: CamposRelatorioRow) => <span className="text-sm">{row.ds_usuario_alteracao || ''}</span>,
     },
   ];
 
@@ -835,14 +870,15 @@ export default function CamposRelatorioTable({
     : columns.filter((c) => !listaHidden.has(c.key) && !colecaoCampoHidden.has(c.key));
 
   return (
-    <div className="relative">
+    <div className="relative flex h-full min-h-0 flex-col">
       <style>{`
         .campo-edit-icon { opacity: 1; }
       `}</style>
 
+      <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={visibleColumns}
-        rows={sortedCampos}
+        rows={paginatedCampos}
         rowKey={(row) => row.id}
         sortColumn={sortColumn}
         sortAsc={sortAsc}
@@ -854,6 +890,15 @@ export default function CamposRelatorioTable({
         storageKeySuffix={userId}
         initialColumns={initialColumns}
         onColumnsChange={onColumnsChange}
+      />
+      </div>
+
+      <PaginationFooter
+        totalRecords={sortedCampos.length}
+        currentPage={pagination.currentPage}
+        pageSize={pagination.pageSize}
+        onPageChange={pagination.setCurrentPage}
+        onPageSizeChange={pagination.setPageSize}
       />
 
       {contextMenu && (

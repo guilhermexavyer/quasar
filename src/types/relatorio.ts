@@ -203,6 +203,16 @@ export interface RelatorioFiltro {
   ds_label?: string;
   /** Se true, o preenchimento no modal de Parâmetros é obrigatório. */
   ie_obrigatorio?: boolean;
+  /** ID do Firestore (quando o parâmetro já foi salvo). */
+  _firestoreId?: string;
+  /** Data de criação do parâmetro. */
+  dt_criacao?: string;
+  /** Data da última alteração do parâmetro. */
+  dt_alteracao?: string;
+  /** Usuário que criou o parâmetro. */
+  ds_usuario_criacao?: string;
+  /** Usuário que alterou o parâmetro. */
+  ds_usuario_alteracao?: string;
 }
 
 /**
@@ -217,6 +227,14 @@ export interface RelatorioOrdenacao {
   campo: string;
   /** Direção da ordenação. */
   direcao: 'asc' | 'desc';
+  /** Usuário que criou a ordenação. */
+  ds_usuario_criacao?: string;
+  /** Usuário que alterou a ordenação. */
+  ds_usuario_alteracao?: string;
+  /** Data de criação da ordenação. */
+  dt_criacao?: string;
+  /** Data da última alteração da ordenação. */
+  dt_alteracao?: string;
 }
 
 /**

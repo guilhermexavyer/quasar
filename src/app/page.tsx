@@ -122,7 +122,7 @@ import { obterParamCodigoPatrimonio } from "@/services/paramCodigoPatrimonioServ
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
-import type { PessoaFisica } from "@/types/pessoaFisica";
+import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import type { Aluno, AlunoResponsavel } from "@/types/aluno";
 import type { Colaborador } from "@/types/colaborador";
@@ -297,7 +297,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.6";
+const SYSTEM_VERSION = "0.66.7";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -858,6 +858,8 @@ export default function Home() {
   const [camposFuncaoJaSelecionada, setCamposFuncaoJaSelecionada] = useState(false);
   const [toastVisible, setToastVisible] = useState(false);
   const [toastMounted, setToastMounted] = useState(false);
+  // Status forçado do toast (quando a mensagem não permite inferência por texto).
+  const [toastForced, setToastForced] = useState<{ msg: string; status: ToastStatus } | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
   const [adminSortColumn, setAdminSortColumn] = useState<number | null>(null);
@@ -1220,7 +1222,8 @@ export default function Home() {
   const [relatorioAuditModalOpen, setRelatorioAuditModalOpen] = useState(false);
   const [relatorioAuditLoading, setRelatorioAuditLoading] = useState(false);
   const [relatorioAuditLogs, setRelatorioAuditLogs] = useState<AuditEntry[]>([]);
-  const [relatorioAuditBandaId, setRelatorioAuditBandaId] = useState<string | null>(null);
+  const [relatorioAuditTipo, setRelatorioAuditTipo] = useState<'relatorio' | 'relatorio_banda' | 'relatorio_banda_elemento' | 'relatorio_parametro'>('relatorio');
+  const [relatorioAuditItemId, setRelatorioAuditItemId] = useState<string | null>(null);
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
   const bandaJustSavedRef = useRef(false);
@@ -1952,9 +1955,26 @@ export default function Home() {
     if (!currentUser) return undefined;
     return {
       usuarioId: currentUser.id ?? null,
-      usuarioNome: currentUserPersonName || currentUser.ds_usuario_alternativo?.trim() || currentUser.ds_usuario?.trim() || "-",
+      usuarioNome: currentUser.ds_usuario?.trim() || "-",
     };
-  }, [currentUser, currentUserPersonName]);
+  }, [currentUser]);
+
+  // Resolve ds_usuario → nome da pessoa física vinculada (exibição nos rodapés de auditoria).
+  const nomeAutorExibicao = useMemo(() => {
+    const nomesPf = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
+    const map: Record<string, string> = {};
+    for (const u of usuarios) {
+      if (!u.ds_usuario) continue;
+      const nome = u.nr_seq_pessoa_fisica != null ? nomesPf[u.nr_seq_pessoa_fisica] : undefined;
+      if (nome) map[u.ds_usuario] = nome;
+    }
+    return map;
+  }, [usuarios, pessoasFisicas]);
+
+  function resolverNomeAutorExibicao(dsUsuario: string): string {
+    if (!dsUsuario || dsUsuario === '-') return dsUsuario;
+    return nomeAutorExibicao[dsUsuario] || dsUsuario;
+  }
 
   /* ── Opções de Cadastros Gerais para o dropdown de Vínculo contratual (Colaborador) ── */
   const colaboradorVinculosOptions = useMemo(
@@ -2830,7 +2850,7 @@ export default function Home() {
     setRelatorioSubmitting(true);
     setMessage('');
     try {
-      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
+      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
       if (!relatorioEditingId) {
         const savedId = await criarRelatorio(data, auditAutor);
         setMessage('Relatório criado com sucesso!');
@@ -2850,14 +2870,14 @@ export default function Home() {
 
   /** Salva bandas na coleção relatorio_banda (coleção separada) e mantém relatorio.bandas sincronizado para retrocompatibilidade. */
   const savingBandaRef = useRef(false);
-  async function handleBandaSave(bandasAtualizadas: any[], bandaDetailId?: string | null) {
+  async function handleBandaSave(bandasAtualizadas: any[], bandaDetailId?: string | null): Promise<any[] | undefined> {
     if (savingBandaRef.current) return;
     savingBandaRef.current = true;
     const safetyTimer = setTimeout(() => { savingBandaRef.current = false; }, 30000);
     try {
       if (!relatorioEditingId || !relatorioForm) return;
       if (!bandasAtualizadas || bandasAtualizadas.length === 0) return;
-      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
+      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
       const agora = new Date().toISOString();
       const nrSeqRelatorio = (relatorioForm as any).nr_sequencia;
       const { criarBanda, atualizarBanda } = await import('@/services/relatorioServiceBandas');
@@ -2919,6 +2939,7 @@ export default function Home() {
       bandaJustSavedRef.current = true;
       setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasSalvas } : prev);
       await loadRelatorios();
+      return bandasSalvas;
     } catch (err) {
       console.error('[BANDA SAVE] ERRO:', err);
     } finally {
@@ -3150,7 +3171,7 @@ export default function Home() {
   async function handleRelatorioDuplicate(relatorio: Relatorio) {
     try {
       const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorio;
-      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUserPersonName || currentUser?.ds_usuario || '' };
+      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
       await criarRelatorio({ ...rest, ds_relatorio: `${rest.ds_relatorio} (Cópia)` }, auditAutor);
       await loadRelatorios();
       setMessage('Relatório duplicado com sucesso!');
@@ -7380,7 +7401,12 @@ export default function Home() {
     return "warning";
   }
 
-  const messageStatus = getMessageStatus(message);
+  const messageStatus = toastForced && toastForced.msg === message ? toastForced.status : getMessageStatus(message);
+
+  function mostrarToast(msg: string, status: ToastStatus) {
+    setToastForced({ msg, status });
+    setMessage(msg);
+  }
 
   const toastBg = messageStatus === 'success' ? '#2cc958' : messageStatus === 'warning' ? '#f59e0b' : '#ef4444';
   const toastTextClass = messageStatus === 'warning' ? 'text-slate-950' : 'text-white';
@@ -7409,6 +7435,7 @@ export default function Home() {
     const unmountTimer = window.setTimeout(() => {
       setToastMounted(false);
       setMessage("");
+      setToastForced(null);
     }, 220);
 
     return () => window.clearTimeout(unmountTimer);
@@ -7713,21 +7740,21 @@ export default function Home() {
       });
   }
 
-  async function openRelatorioAuditModal(relatorioId?: string | null, bandaId?: string | null) {
-    if (!relatorioId) return;
+  async function openRelatorioAuditModal(
+    relatorioId?: string | null,
+    itemId?: string | null,
+    tipo: 'relatorio' | 'relatorio_banda' | 'relatorio_banda_elemento' | 'relatorio_parametro' = 'relatorio'
+  ) {
+    const docId = itemId ?? relatorioId;
+    if (!docId) return;
     setAuditDocumentType('relatorio' as any);
-    setRelatorioAuditBandaId(bandaId ?? null);
+    setRelatorioAuditTipo(tipo);
+    setRelatorioAuditItemId(docId);
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      // Se é auditoria de uma banda específica, lê da coleção da banda
-      if (bandaId) {
-        const logs = await fetchAuditByDocumentId('relatorio_banda', bandaId);
-        setAuditLogs(logs);
-      } else {
-        const logs = await fetchAuditByDocumentId('relatorio', relatorioId);
-        setAuditLogs(logs);
-      }
+      const logs = await fetchAuditByDocumentId(tipo, docId);
+      setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
     } finally {
@@ -8670,6 +8697,9 @@ export default function Home() {
                      onManageSelectionChange={handleRelatorioManageSelectionChange}
                      allowedSubmodulos={allowedRelatorioSubmodulos}
                      userId={currentUser?.id}
+                     userDisplayName={currentUser?.ds_usuario || ''}
+                     resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                     onToast={mostrarToast}
                      initialListaColumns={relatorioListaColunasConfig}
                      onListaColumnsChange={handleRelatorioListaColumnsChange}
                      initialDadosColumns={relatorioDadosColunasConfig}
@@ -8692,7 +8722,10 @@ export default function Home() {
                      updatedAt={relatorioAuditInfo.updatedAt}
                      createdBy={relatorioAuditInfo.createdBy}
                      updatedBy={relatorioAuditInfo.updatedBy}
-                     onOpenAudit={openRelatorioAuditModal}                      onOpenBandaAudit={openRelatorioAuditModal}
+                     onOpenAudit={(rid) => openRelatorioAuditModal(rid, null, 'relatorio')}
+                      onOpenBandaAudit={(rid, bid) => openRelatorioAuditModal(rid, bid, 'relatorio_banda')}
+                      onOpenCampoAudit={(rid, cid) => openRelatorioAuditModal(rid, cid, 'relatorio_banda_elemento')}
+                      onOpenFiltroAudit={(rid, fid) => openRelatorioAuditModal(rid, fid, 'relatorio_parametro')}
                       onBandaSave={handleBandaSave}
                       imagens={imagens}
                       viewMode={relatorioBandasMode ? 'bandas' : 'form'}
@@ -11876,7 +11909,9 @@ export default function Home() {
         const isParametros = auditDocumentType === 'pat_parametros';
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
-        const isBanda = isRelatorio && !!relatorioAuditBandaId;
+        const isBanda = isRelatorio && relatorioAuditTipo === 'relatorio_banda';
+        const isElemento = isRelatorio && relatorioAuditTipo === 'relatorio_banda_elemento';
+        const isParametroRel = isRelatorio && relatorioAuditTipo === 'relatorio_parametro';
         // Para bandas, os detalhes já contêm os dados da banda diretamente
         const bandaAfter = isBanda ? after : null;
         const bandaBefore = isBanda ? before : null;
@@ -12005,8 +12040,29 @@ export default function Home() {
               'dt_criacao', 'dt_alteracao',
             ]                      : isRelatorio && isBanda
           ? [
-              'ds_banda', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
+              'nr_sequencia', 'ds_banda', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
               'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
+              'espessuraLabel', 'topoLabel', 'espessuraCampo', 'topoRegistro', 'bgLabel', 'bgCampo',
+              'corLabelGlobal', 'corCampoGlobal', 'fonteLabel', 'tamanhoFonteLabel', 'fonteCampo', 'tamanhoFonteCampo',
+              'dt_criacao', 'dt_alteracao',
+            ]
+          : isRelatorio && isElemento
+          ? [
+              'nr_sequencia', 'ds_elemento', 'ie_tipo_elemento', 'conteudo', 'ie_colecao', 'ie_campo', 'label',
+              'backgroundLabel', 'corLabel', 'qt_largura', 'qt_esquerda', 'topoLabel', 'qt_topo',
+              'ie_alinhamento', 'ie_estilo_label', 'ie_estilo', 'ie_estilo_soma', 'formatacao',
+              'cd_cor', 'cd_background', 'transparentCampo', 'soma', 'statusSistema',
+              'qt_padding_superior', 'qt_padding_direita', 'qt_padding_inferior', 'qt_padding_esquerda',
+              'ie_borda_superior', 'ie_borda_direita', 'ie_borda_inferior', 'ie_borda_esquerda',
+              'ie_fonte', 'qt_fonte', 'nr_seq_imagem', 'qt_tamanho_imagem',
+              'nr_seq_banda', 'nr_seq_relatorio',
+              'dt_criacao', 'dt_alteracao',
+            ]
+          : isRelatorio && isParametroRel
+          ? [
+              'nr_sequencia', 'nr_seq_relatorio', 'ie_colecao', 'ie_campo', 'operador', 'ie_mascara',
+              'vl_padrao', 'valorFinal', 'ie_conector', 'ie_parametro', 'ds_label', 'ie_obrigatorio',
+              'dt_criacao', 'dt_alteracao',
             ]
           : isRelatorio
           ? [
@@ -12155,6 +12211,43 @@ export default function Home() {
                       soma: 'Soma',
                       cd_cor: 'Cor',
                       ie_campo: 'Campo',
+                      ds_elemento: 'Descrição',
+                      ie_tipo_elemento: 'Tipo',
+                      conteudo: 'Conteúdo',
+                      label: 'Label',
+                      backgroundLabel: 'Background label',
+                      corLabel: 'Cor label',
+                      qt_largura: 'Largura',
+                      qt_esquerda: 'Esquerda',
+                      qt_topo: 'Topo',
+                      ie_alinhamento: 'Alinhamento',
+                      ie_estilo_label: 'Estilo label',
+                      ie_estilo: 'Estilo',
+                      ie_estilo_soma: 'Estilo soma',
+                      formatacao: 'Formatação',
+                      cd_background: 'Background',
+                      transparentCampo: 'Background transparente',
+                      statusSistema: 'Status do sistema',
+                      qt_padding_superior: 'Padding superior',
+                      qt_padding_direita: 'Padding direito',
+                      qt_padding_inferior: 'Padding inferior',
+                      qt_padding_esquerda: 'Padding esquerdo',
+                      ie_fonte: 'Fonte',
+                      qt_fonte: 'Tamanho da fonte',
+                      nr_seq_imagem: 'Imagem',
+                      qt_tamanho_imagem: 'Tamanho da imagem',
+                      nr_seq_banda: 'Banda',
+                      nr_seq_relatorio: 'Relatório',
+                      operador: 'Operador',
+                      ie_mascara: 'Máscara',
+                      vl_padrao: 'Valor padrão',
+                      valorFinal: 'Valor final',
+                      ie_conector: 'Conector',
+                      ie_parametro: 'Parâmetro',
+                      ds_label: 'Label',
+                      ie_obrigatorio: 'Obrigatório',
+                      ds_usuario_criacao: 'Usuário criação',
+                      ds_usuario_alteracao: 'Usuário alteração',
                       cd_patrimonio: 'Patrimônio',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
@@ -12217,10 +12310,45 @@ export default function Home() {
                         return map[String(normalized)] ?? String(normalized);
                       }
                       if (field === 'ie_borda_superior' || field === 'ie_borda_inferior' || field === 'ie_borda_esquerda' || field === 'ie_borda_direita') {
-                        return String(normalized) === 'true' ? 'Sim' : String(normalized) === 'false' ? 'Não' : '---';
+                        const s = String(normalized);
+                        if (s === 'true') return 'Sim';
+                        if (s === 'false') return 'Não';
+                        if (s === 'S') return 'Sim';
+                        if (s === 'N') return 'Não';
+                        return '---';
                       }
-                      if (field === 'ie_colecao_principal') {
+                      if (field === 'ie_colecao_principal' || field === 'ie_colecao') {
                         return String(normalized) === '' ? '---' : String(normalized);
+                      }
+                      if (field === 'ie_parametro' || field === 'ie_obrigatorio' || field === 'transparentCampo' || field === 'soma' || field === 'statusSistema') {
+                        const s = String(normalized);
+                        if (s === 'true') return 'Sim';
+                        if (s === 'false') return 'Não';
+                        return s === 'S' ? 'Sim' : s === 'N' ? 'Não' : '---';
+                      }
+                      if (field === 'ie_tipo_elemento') {
+                        const map: Record<string, string> = { 'valor': 'Valor', 'conteudo': 'Conteúdo', 'data_geracao': 'Data de geração', 'horario_geracao': 'Horário de geração', 'data_horario_geracao': 'Data e horário de geração', 'usuario_geracao': 'Usuário da geração', 'imagem': 'Imagem' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'ie_alinhamento') {
+                        const map: Record<string, string> = { 'esquerda': 'Esquerda', 'centro': 'Centro', 'direita': 'Direita' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'ie_estilo_label' || field === 'ie_estilo' || field === 'ie_estilo_soma') {
+                        const map: Record<string, string> = { 'normal': 'Normal', 'negrito': 'Negrito', 'italico': 'Itálico', 'sublinhado': 'Sublinhado', 'negrito_italico': 'Negrito e itálico', 'negrito_sublinhado': 'Negrito e sublinhado', 'italico_sublinhado': 'Itálico e sublinhado', 'negrito_italico_sublinhado': 'Negrito, itálico e sublinhado' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'formatacao') {
+                        const map: Record<string, string> = { 'texto': 'Texto', 'numero': 'Número', 'moeda': 'Moeda', 'data': 'Data', 'data_hora': 'Data e hora', 'porcentagem': 'Porcentagem' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'operador') {
+                        const map: Record<string, string> = { 'igual': 'Igual a', 'diferente': 'Diferente de', 'maior': 'Maior que', 'menor': 'Menor que', 'maior_igual': 'Maior ou igual a', 'menor_igual': 'Menor ou igual a', 'contem': 'Contém', 'nao_contem': 'Não contém', 'inicia_com': 'Inicia com', 'termina_com': 'Termina com', 'entre': 'Entre', 'vazio': 'Vazio', 'nao_vazio': 'Não vazio' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'ie_mascara') {
+                        const map: Record<string, string> = { 'texto': 'Texto', 'inteiro': 'Inteiro', 'decimal': 'Decimal', 'data': 'Data', 'cpf': 'CPF', 'telefone': 'Telefone' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
                       }
                       // Responsáveis: array de { nr_seq_responsavel, nr_seq_grau_parentesco }.
                       if (field === 'responsaveis' && Array.isArray(normalized)) {
@@ -12392,8 +12520,8 @@ export default function Home() {
                         <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Antes</div>
                         <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Depois</div>
                         {fieldsOrder.map((field) => {
-                          const effectiveBefore = isBanda ? bandaBefore : isRelatorio ? relatorioFlatBefore : before;
-                          const effectiveAfter = isBanda ? bandaAfter : isRelatorio ? relatorioFlatAfter : after;
+                          const effectiveBefore = isBanda ? bandaBefore : (isElemento || isParametroRel) ? before : isRelatorio ? relatorioFlatBefore : before;
+                          const effectiveAfter = isBanda ? bandaAfter : (isElemento || isParametroRel) ? after : isRelatorio ? relatorioFlatAfter : after;
                           return (
                           <React.Fragment key={field}>
                             <div className="w-full min-w-0">

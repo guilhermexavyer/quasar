@@ -70,7 +70,7 @@ export async function obterParametrosPorRelatorio(nrSeqRelatorio: number): Promi
 export async function criarParametro(
   parametro: Record<string, any>,
   autor?: AuditAutor
-): Promise<{ id: string; nr_sequencia: number }> {
+): Promise<{ id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string }> {
   const agora = new Date().toISOString();
   const nr_sequencia = await obterProximoSequenciaParametro();
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
@@ -101,7 +101,7 @@ export async function criarParametro(
     console.error("Erro ao registrar auditoria de parâmetro (criação)", e);
   }
 
-  return { id: docRef.id, nr_sequencia };
+  return { id: docRef.id, nr_sequencia, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: nomeAutor, ds_usuario_alteracao: nomeAutor };
 }
 
 /** Atualiza um parâmetro existente. */
@@ -109,10 +109,10 @@ export async function atualizarParametro(
   id: string,
   parametro: Record<string, any>,
   autor?: AuditAutor
-): Promise<void> {
+): Promise<{ dt_alteracao: string; ds_usuario_alteracao: string }> {
   const docRef = doc(db, "relatorio_parametro", id);
   const snap = await getDoc(docRef);
-  if (!snap.exists()) return;
+  if (!snap.exists()) return { dt_alteracao: '', ds_usuario_alteracao: '' };
 
   const currentData = snap.data();
   const agora = new Date().toISOString();
@@ -146,6 +146,8 @@ export async function atualizarParametro(
   } catch (e) {
     console.error("Erro ao registrar auditoria de parâmetro (atualização)", e);
   }
+
+  return { dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
 }
 
 /** Exclui um parâmetro. */
