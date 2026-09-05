@@ -1,6 +1,14 @@
-# Quasar — Sistema de Gestão Acadêmica
+# Quasar
 
-Sistema de gestão acadêmica desenvolvido em Next.js com Firebase Firestore. Gerencia pessoas, estrutura acadêmica, patrimônio e administração do sistema em uma única aplicação.
+O Quasar é uma plataforma web de gestão empresarial/acadêmica. A ideia central do projeto é oferecer um sistema modular e orientado a dados: cada área do sistema é representada por coleções independentes no banco de dados, que se conectam entre si para compor a operação como um todo.
+
+O sistema é pensado para ser altamente configurável pelo próprio usuário:
+
+- **Configuração por perfil** — cada perfil de acesso define quais campos de cada formulário ficam habilitados, desabilitados ou obrigatórios, com permissões granulares por módulo e funcionalidade.
+- **Trilha de auditoria** — criação e alteração de registros são registradas com data, hora e usuário, com histórico consultável.
+- **Geração de relatórios** — o sistema inclui um construtor de relatórios que monta documentos a partir de coleções do banco, com estrutura definida por bandas, elementos e parâmetros, exportados em PDF.
+
+O Quasar roda em ambiente local, com todo o estado gerenciado de forma centralizada.
 
 ## Como instalar
 
@@ -12,85 +20,29 @@ Sistema de gestão acadêmica desenvolvido em Next.js com Firebase Firestore. Ge
 npm.cmd install
 ```
 
-4. Inicie o servidor de desenvolvimento:
+4. Configure as credenciais do Firebase criando um arquivo `.env.local` na raiz do projeto, seguindo o padrão esperado em `src/lib/firebase.ts`:
+
+```
+NEXT_PUBLIC_FIREBASE_API_KEY=...
+NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
+NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
+NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
+NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
+NEXT_PUBLIC_FIREBASE_APP_ID=...
+```
+
+5. Inicie o servidor de desenvolvimento:
 
 ```bash
 npm.cmd run dev
 ```
 
-5. Abra o navegador em:
+6. Abra o navegador em:
 
 ```bash
 http://localhost:3000
 ```
 
-6. Comece a usar o projeto e edite `src/app/page.tsx` para ajustar a aplicação.
-
 ## Observação
 
 Se você usar outro gerenciador de pacotes, substitua `npm install` por `yarn install` ou `pnpm install`, e `npm run dev` por `yarn dev` ou `pnpm dev`.
-
----
-
-## Módulos
-
-### 👤 Pessoas Físicas e Jurídicas
-Cadastro de pessoas com dados pessoais, documentos, endereço e contato. Pessoas jurídicas possuem razão social, CNPJ e dados institucionais.
-
-### 🎓 Estrutura Acadêmica
-Gestão de **Alunos** (ingresso, matrícula, status) e **Colaboradores** (admissão, vínculo contratual, fornecedor, prestador de serviço). Cada entidade permite alteração de status com data e motivo.
-
-### 🖥️ Patrimônio
-
-**Ativos** — Cadastro completo com dados técnicos (processador, RAM, IPv4, MAC, SO), classificação (categoria, localização, marca), controle de status (Operacional, Manutenção, Estoque, Descartado) e gestão de responsáveis.
-
-**Manutenções** — Registro de manutenções vinculadas a ativos, com prestador de serviço, datas de envio e término, valor total, motivo e correções. Status: Em andamento, Concluída, Cancelada.
-
-### ⚙️ Administração do Sistema
-Gestão de **Usuários**, **Perfis** e **Permissões**. As permissões são granulares por módulo (ver, incluir, alterar, excluir) e por funcionalidade específica (ex: alterar status, concluir manutenção). Cada perfil define quais campos estão habilitados, desabilitados ou obrigatórios em cada formulário.
-
-### 📋 Cadastro Geral
-Interface unificada para gerenciar listas de opções ( Sexo, Cor/Raça, Estado Civil, Logradouro, Categoria de Ativo, etc.) utilizadas em todo o sistema.
-
-## Funcionalidades Gerais
-
-- **Modo escuro** com alternância pelo cabeçalho
-- **Tabelas com colunas redimensionáveis** e reordenáveis por arrasto
-- **Filtros avançados** com campos de busca, dropdowns e lookup
-- **Menus de contexto** com submenus e ações específicas por módulo
-- **Auditoria** — data, hora e usuário de cada operação
-- **Configuração de colunas salva por usuário** no banco de dados
-- **Campos configuráveis por função** — habilitar, desabilitar ou tornar obrigatório
-
-## Stack Tecnológica
-
-| Camada | Tecnologia |
-|--------|-----------|
-| Framework | Next.js (App Router) |
-| Linguagem | TypeScript |
-| Estilo | Tailwind CSS |
-| Banco de dados | Firebase Firestore |
-| Autenticação | Firebase Auth |
-
-## Estrutura do Projeto
-
-```
-src/
-├── app/
-│   └── page.tsx              # Página principal (toda a lógica de estado)
-├── components/
-│   ├── ui/                   # Componentes reutilizáveis
-│   ├── pessoaFisica/         # Pessoas físicas
-│   ├── pessoaJuridica/       # Pessoas jurídicas
-│   ├── estruturaAcademica/   # Alunos, Colaboradores, Cargos, etc.
-│   ├── cadastrosGerais/      # Cadastro Geral unificado
-│   ├── patrimonio/           # Ativos e Manutenções
-│   └── administracaoSistema/ # Usuários, Perfis, Permissões
-├── lib/
-│   ├── firebase.ts           # Configuração do Firebase
-│   ├── firestoreUtils.ts     # Operações CRUD genéricas
-│   ├── permissoesUtils.ts    # Definição de permissões
-│   └── *Utils.ts             # Utilitários por módulo
-└── types/
-    └── *.ts                  # Definições de tipos por entidade
-```
