@@ -26,7 +26,7 @@ export interface Banda {
   dt_alteracao?: string;
 }
 
-const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
+const INPUT_CLASS = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 interface BandasRelatorioTableProps {
   bandas: Banda[];
@@ -262,7 +262,7 @@ export default function BandasRelatorioTable({
           return (            <input
               value={row.ds_banda}
               onChange={(e) => atualizar(row.id, { ds_banda: e.target.value })}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -281,7 +281,7 @@ export default function BandasRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_colecao_principal: v })}
               options={[{ value: '', label: '---' }, ...colecaoOptions]}
               showPlaceholder={false}
-              className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+              className={`${INPUT_CLASS} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
               disabled={isCabecalhoOuRodape}
               visibleOptions={7}
             />
@@ -310,7 +310,7 @@ export default function BandasRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_tipo_banda: v as any })}
               options={tipoOptions}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
               visibleOptions={7}
             />
           );
@@ -334,7 +334,7 @@ export default function BandasRelatorioTable({
                 const v = e.target.value.replace(/[^0-9]/g, "");
                 atualizar(row.id, { nr_posicao: v ? Number(v) : 0 });
               }}
-              className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+              className={`${INPUT_CLASS} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
             />
           );
         }
@@ -356,7 +356,7 @@ export default function BandasRelatorioTable({
                 const v = e.target.value.replace(/[^0-9]/g, "");
                 atualizar(row.id, { nr_altura: v ? Number(v) : undefined });
               }}
-              className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
+              className={`${INPUT_CLASS} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
             />
           );
         }

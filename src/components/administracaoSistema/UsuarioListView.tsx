@@ -28,7 +28,7 @@ interface ListViewProps {
   onColumnsChange?: (config: ColunasConfig) => void;
 }
 
-export default function AdministracaoSistemaListView({
+export default function UsuarioListView({
   loading,
   usuarios,
   pessoasFisicas,

@@ -171,8 +171,8 @@ import type { Manutencao } from "@/types/manutencao";
 import { obterManutencoes, criarManutencao, atualizarManutencao, excluirManutencao } from "@/services/manutencaoService";
 import { MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS } from "@/lib/manutencaoUtils";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
-import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
-import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
+import UsuarioListView from "@/components/administracaoSistema/UsuarioListView";
+import UsuarioFormView from "@/components/administracaoSistema/UsuarioFormView";
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
 import PerfilFormView, { type PerfilFormData } from "@/components/administracaoSistema/PerfilFormView";
 import CamposView from "@/components/administracaoSistema/CamposView";
@@ -266,7 +266,7 @@ import { obterPerfis, criarPerfil, atualizarPerfil, excluirPerfil } from "@/serv
 /*  Estado inicial do formulário                                      */
 /* ------------------------------------------------------------------ */
 
-const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao"> = {
+const EMPTY_FORM: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao"> = {
   ds_nome: "",
   nr_cpf: "",
   dt_nascimento: "",
@@ -332,8 +332,8 @@ type FilterFormData = Omit<
 
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
-const emptyFilterForm: FilterFormData = {
-  ...emptyForm,
+const EMPTY_FILTER_FORM: FilterFormData = {
+  ...EMPTY_FORM,
   nr_sequencia: "",
   dt_nascimento_inicio: "",
   dt_nascimento_fim: "",
@@ -343,7 +343,7 @@ const emptyFilterForm: FilterFormData = {
   nr_seq_profissao: "",
 };
 
-const emptyAdminForm: AdminFormData = {
+const EMPTY_ADMIN_FORM: AdminFormData = {
   ds_usuario: "",
   ds_usuario_alternativo: "",
   ds_senha: "",
@@ -353,7 +353,7 @@ const emptyAdminForm: AdminFormData = {
   ie_central_suporte: 'N',
 };
 
-const emptyCgForm: CadastroGeralFormData = {
+const EMPTY_CG_FORM: CadastroGeralFormData = {
   descricao: "",
   ie_status: 'A',
   nr_cbo: '',
@@ -399,7 +399,7 @@ const PATRIMONIO_SELECT_OPTIONS = [
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
-const emptyAlunoForm: AlunoFormData = {
+const EMPTY_ALUNO_FORM: AlunoFormData = {
   nr_seq_pessoa_fisica: undefined,
   nr_matricula: "",
   dt_ingresso: "",
@@ -415,7 +415,7 @@ const emptyAlunoForm: AlunoFormData = {
   ds_observacao_medica: "",
 };
 
-const emptyColaboradorForm: ColaboradorFormData = {
+const EMPTY_COLABORADOR_FORM: ColaboradorFormData = {
   nr_seq_pessoa_fisica: undefined,
   nr_seq_pessoa_juridica: undefined,
   nr_seq_vinculo_contratual: undefined,
@@ -428,7 +428,7 @@ const emptyColaboradorForm: ColaboradorFormData = {
   ie_status: 'A',
 };
 
-const emptyAtivoForm: AtivoFormData = {
+const EMPTY_ATIVO_FORM: AtivoFormData = {
   cd_patrimonio: "",
   ds_ativo: "",
   nr_seq_categoria: undefined,
@@ -491,7 +491,7 @@ function migrarResponsaveis(aluno: Aluno): AlunoResponsavel[] {
   return [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }];
 }
 
-const emptyPjForm: PjFormData = {
+const EMPTY_PJ_FORM: PjFormData = {
   ds_razao_social: "",
   ds_nome_fantasia: "",
   nr_cnpj: "",
@@ -525,7 +525,7 @@ type PjFilterFormData = {
   cd_ibge_cidade: string;
 };
 
-const emptyPjFilterForm: PjFilterFormData = {
+const EMPTY_PJ_FILTER_FORM: PjFilterFormData = {
   nr_sequencia: '',
   ds_razao_social: '',
   ds_nome_fantasia: '',
@@ -753,9 +753,9 @@ type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_al
 /* ------------------------------------------------------------------ */
 
 export default function Home() {
-  const [form, setForm] = useState<FormData>(emptyForm);
-  const [filterForm, setFilterForm] = useState<FilterFormData>(emptyFilterForm);
-  const [appliedFilterForm, setAppliedFilterForm] = useState<FilterFormData>(emptyFilterForm);
+  const [form, setForm] = useState<FormData>(EMPTY_FORM);
+  const [filterForm, setFilterForm] = useState<FilterFormData>(EMPTY_FILTER_FORM);
+  const [appliedFilterForm, setAppliedFilterForm] = useState<FilterFormData>(EMPTY_FILTER_FORM);
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   type AdminFilterFormData = {
     nr_sequencia: string;
@@ -841,7 +841,7 @@ export default function Home() {
   const [categoriasAtivos, setCategoriasAtivos] = useState<CategoriaAtivo[]>([]);
   const [sistemasOperacionais, setSistemasOperacionais] = useState<SistemaOperacional[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
-  const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [cgForm, setCgForm] = useState<CadastroGeralFormData>(EMPTY_CG_FORM);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
   const [cgSubmitting, setCgSubmitting] = useState(false);
   const [cgAuditInfo, setCgAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -850,7 +850,7 @@ export default function Home() {
   const [cgFilterForm, setCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCgFilterForm, setAppliedCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [cgManageSelection, setCgManageSelection] = useState<string>('');
-  const [adminForm, setAdminForm] = useState<AdminFormData>(emptyAdminForm);
+  const [adminForm, setAdminForm] = useState<AdminFormData>(EMPTY_ADMIN_FORM);
   const [adminEditingId, setAdminEditingId] = useState<string | null>(null);
   const [adminSubmitting, setAdminSubmitting] = useState(false);
   const [adminAuditInfo, setAdminAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -926,9 +926,9 @@ export default function Home() {
   /* ── Estado de Pessoas Jurídicas ── */
   const [pjManageSelection, setPjManageSelection] = useState<string>('');
   const [pessoasJuridicas, setPessoasJuridicas] = useState<PessoaJuridica[]>([]);
-  const [pjForm, setPjForm] = useState<PjFormData>(emptyPjForm);
-  const [pjFilterForm, setPjFilterForm] = useState<PjFilterFormData>(emptyPjFilterForm);
-  const [appliedPjFilterForm, setAppliedPjFilterForm] = useState<PjFilterFormData>(emptyPjFilterForm);
+  const [pjForm, setPjForm] = useState<PjFormData>(EMPTY_PJ_FORM);
+  const [pjFilterForm, setPjFilterForm] = useState<PjFilterFormData>(EMPTY_PJ_FILTER_FORM);
+  const [appliedPjFilterForm, setAppliedPjFilterForm] = useState<PjFilterFormData>(EMPTY_PJ_FILTER_FORM);
   const [pjFilterModalOpen, setPjFilterModalOpen] = useState(false);
   const [pjEditingId, setPjEditingId] = useState<string | null>(null);
   const [pjAuditInfo, setPjAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -948,7 +948,7 @@ export default function Home() {
   /* ── Estado de Estrutura Acadêmica (Alunos) ── */
   const [alunoManageSelection, setAlunoManageSelection] = useState<string>('');
   const [alunos, setAlunos] = useState<Aluno[]>([]);
-  const [alunoForm, setAlunoForm] = useState<AlunoFormData>(emptyAlunoForm);
+  const [alunoForm, setAlunoForm] = useState<AlunoFormData>(EMPTY_ALUNO_FORM);
   const [alunoEditingId, setAlunoEditingId] = useState<string | null>(null);
   const [alunoAuditInfo, setAlunoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditAlunoIdRef = useRef<string | null>(null);
@@ -975,7 +975,7 @@ export default function Home() {
 
   // Colaboradores (Estrutura Acadêmica > Colaboradores).
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
-  const [colaboradorForm, setColaboradorForm] = useState<ColaboradorFormData>(emptyColaboradorForm);
+  const [colaboradorForm, setColaboradorForm] = useState<ColaboradorFormData>(EMPTY_COLABORADOR_FORM);
   const [colaboradorEditingId, setColaboradorEditingId] = useState<string | null>(null);
   const [colaboradorAuditInfo, setColaboradorAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditColaboradorIdRef = useRef<string | null>(null);
@@ -1074,7 +1074,7 @@ export default function Home() {
   // Patrimônio > Ativos.
   const [ativoManageSelection, setAtivoManageSelection] = useState<string>('');
   const [ativos, setAtivos] = useState<Ativo[]>([]);
-  const [ativoForm, setAtivoForm] = useState<AtivoFormData>(emptyAtivoForm);
+  const [ativoForm, setAtivoForm] = useState<AtivoFormData>(EMPTY_ATIVO_FORM);
   const [ativoEditingId, setAtivoEditingId] = useState<string | null>(null);
   const [ativoAuditInfo, setAtivoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditAtivoIdRef = useRef<string | null>(null);
@@ -2549,7 +2549,7 @@ export default function Home() {
 
   /* ── Abrir formulário para novo registro ── */
   function openNewForm() {
-    setForm(emptyForm);
+    setForm(EMPTY_FORM);
     setEditingId(null);
     setAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
@@ -2560,7 +2560,7 @@ export default function Home() {
   }
 
   function openPjNewForm() {
-    setPjForm(emptyPjForm);
+    setPjForm(EMPTY_PJ_FORM);
     setPjEditingId(null);
     setPjAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
@@ -2571,7 +2571,7 @@ export default function Home() {
   }
 
   function openAdminNewForm() {
-    setAdminForm({ ...emptyAdminForm, nr_seq_pessoa_fisica: undefined });
+    setAdminForm({ ...EMPTY_ADMIN_FORM, nr_seq_pessoa_fisica: undefined });
     setAdminEditingId(null);
     setAdminOriginalSenhaHash(null);
     setAdminAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -2632,7 +2632,7 @@ export default function Home() {
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setAlunoForm({
-      ...emptyAlunoForm,
+      ...EMPTY_ALUNO_FORM,
       dt_ingresso: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
     });
     setAlunoEditingId(null);
@@ -2657,7 +2657,7 @@ export default function Home() {
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setColaboradorForm({
-      ...emptyColaboradorForm,
+      ...EMPTY_COLABORADOR_FORM,
       dt_admissao: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
     });
     setColaboradorEditingId(null);
@@ -2678,7 +2678,7 @@ export default function Home() {
   }
 
   function openAtivoNewForm() {
-    setAtivoForm(emptyAtivoForm);
+    setAtivoForm(EMPTY_ATIVO_FORM);
     setAtivoEditingId(null);
     setAtivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
@@ -2730,7 +2730,7 @@ export default function Home() {
     const nrSeqRelatorio = (relatorio as any).nr_sequencia;
     if (nrSeqRelatorio) {
       try {
-        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
+        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioParametroService');
         const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
         const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
         setRelatorioForm({ ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any);
@@ -2757,7 +2757,7 @@ export default function Home() {
     const nrSeqRelatorio = (relatorio as any).nr_sequencia;
     if (nrSeqRelatorio) {
       try {
-        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
+        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioBandaService');
         const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
         // Carregar elementos de cada banda da coleção relatorio_banda_elemento
         const bandasComElementos = await Promise.all(
@@ -2769,7 +2769,7 @@ export default function Home() {
         );
         // Carregar parâmetros da coleção relatorio_parametro
         let parametrosDb: any[] = [];
-        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
+        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioParametroService');
         try {
           parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
         } catch { /* ignore */ }
@@ -2832,7 +2832,7 @@ export default function Home() {
       if (!bandasAtualizadas || bandasAtualizadas.length === 0) return;
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
       const nrSeqRelatorio = (relatorioForm as any).nr_sequencia;
-      const { criarBanda, atualizarBanda } = await import('@/services/relatorioServiceBandas');
+      const { criarBanda, atualizarBanda } = await import('@/services/relatorioBandaService');
 
       // ── Salvar cada banda individualmente na coleção relatorio_banda ──
       const bandasSalvas: any[] = [];
@@ -2876,7 +2876,7 @@ export default function Home() {
       }
 
       // ── Excluir bandas removidas da lista ──
-      const { obterBandasPorRelatorio, excluirBanda } = await import('@/services/relatorioServiceBandas');
+      const { obterBandasPorRelatorio, excluirBanda } = await import('@/services/relatorioBandaService');
       const bandasExistentes = await obterBandasPorRelatorio(nrSeqRelatorio);
       const idsMantidos = new Set(bandasSalvas.map((b) => b._firestoreId).filter(Boolean));
       for (const be of bandasExistentes) {
@@ -2904,7 +2904,7 @@ export default function Home() {
   async function handleRelatorioDelete(id: string) {
     try {
       // Excluir bandas vinculadas ao relatório na coleção relatorio_banda
-      const { obterBandasPorRelatorioId, excluirBanda } = await import('@/services/relatorioServiceBandas');
+      const { obterBandasPorRelatorioId, excluirBanda } = await import('@/services/relatorioBandaService');
       const bandasExistentes = await obterBandasPorRelatorioId(id);
       for (const b of bandasExistentes) {
         await excluirBanda(b.id);
@@ -2929,7 +2929,7 @@ export default function Home() {
           relatorio = { id: docSnap.id, ...rest } as Relatorio;
         }
         // Buscar bandas frescas
-        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
+        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioBandaService');
         const nrSeqRelatorio = (relatorio as any).nr_sequencia;
         if (nrSeqRelatorio) {
           const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
@@ -2945,7 +2945,7 @@ export default function Home() {
         // Carregar parâmetros frescos da coleção relatorio_parametro
         if (nrSeqRelatorio) {
           try {
-            const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
+            const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioParametroService');
             const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
             const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
             relatorio = { ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any;
@@ -3191,7 +3191,7 @@ export default function Home() {
   }
 
   function openCgNewForm() {
-    setCgForm(emptyCgForm);
+    setCgForm(EMPTY_CG_FORM);
     setCgEditingId(null);
     setCgAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
@@ -3204,7 +3204,7 @@ export default function Home() {
     setAdminManageSelection(value);
     // Ao trocar entre Usuários/Perfis/Campos, zera o formulário em edição
     // para nunca salvar contra a coleção errada.
-    setAdminForm(emptyAdminForm);
+    setAdminForm(EMPTY_ADMIN_FORM);
     setAdminEditingId(null);
     setAdminOriginalSenhaHash(null);
     setAdminAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -3236,7 +3236,7 @@ export default function Home() {
     setCgManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
-    setCgForm(emptyCgForm);
+    setCgForm(EMPTY_CG_FORM);
     setCgEditingId(null);
     setCgAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   }
@@ -3245,10 +3245,10 @@ export default function Home() {
     setPjManageSelection(value);
     // Ao trocar entre Pessoas Físicas/Jurídicas, zera os formulários e
     // retorna à listagem para nunca salvar contra a coleção errada.
-    setForm(emptyForm);
+    setForm(EMPTY_FORM);
     setEditingId(null);
     setAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
-    setPjForm(emptyPjForm);
+    setPjForm(EMPTY_PJ_FORM);
     setPjEditingId(null);
     setPjAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setFilterModalOpen(false);
@@ -3261,11 +3261,11 @@ export default function Home() {
     setAlunoManageSelection(value);
     // Ao trocar entre Alunos/Colaboradores, zera os formulários em edição
     // para nunca salvar contra a coleção errada.
-    setAlunoForm(emptyAlunoForm);
+    setAlunoForm(EMPTY_ALUNO_FORM);
     setAlunoEditingId(null);
     setAlunoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setAlunoFilterModalOpen(false);
-    setColaboradorForm(emptyColaboradorForm);
+    setColaboradorForm(EMPTY_COLABORADOR_FORM);
     setColaboradorEditingId(null);
     setColaboradorAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
@@ -3276,7 +3276,7 @@ export default function Home() {
     setAtivoManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
-    setAtivoForm(emptyAtivoForm);
+    setAtivoForm(EMPTY_ATIVO_FORM);
     setAtivoEditingId(null);
     setAtivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
@@ -3503,8 +3503,8 @@ export default function Home() {
   }
 
   function clearPjFilter() {
-    setPjFilterForm(emptyPjFilterForm);
-    setAppliedPjFilterForm(emptyPjFilterForm);
+    setPjFilterForm(EMPTY_PJ_FILTER_FORM);
+    setAppliedPjFilterForm(EMPTY_PJ_FILTER_FORM);
   }
 
   function handlePjFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -3667,8 +3667,8 @@ export default function Home() {
   }
 
   function clearFilter() {
-    setFilterForm(emptyFilterForm);
-    setAppliedFilterForm(emptyFilterForm);
+    setFilterForm(EMPTY_FILTER_FORM);
+    setAppliedFilterForm(EMPTY_FILTER_FORM);
   }
 
   function handleFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -4217,7 +4217,7 @@ export default function Home() {
 
   /* ── Voltar para lista ── */
   function goToList() {
-    setForm(emptyForm);
+    setForm(EMPTY_FORM);
     setEditingId(null);
     setMessage("");
     setView("list");
@@ -4225,7 +4225,7 @@ export default function Home() {
   }
 
   function goToPjList() {
-    setPjForm(emptyPjForm);
+    setPjForm(EMPTY_PJ_FORM);
     setPjEditingId(null);
     setMessage("");
     setView("list");
@@ -4233,7 +4233,7 @@ export default function Home() {
   }
 
   function goToAlunoList() {
-    setAlunoForm(emptyAlunoForm);
+    setAlunoForm(EMPTY_ALUNO_FORM);
     setAlunoEditingId(null);
     setMessage("");
     setView("list");
@@ -4241,7 +4241,7 @@ export default function Home() {
   }
 
   function goToColaboradorList() {
-    setColaboradorForm(emptyColaboradorForm);
+    setColaboradorForm(EMPTY_COLABORADOR_FORM);
     setColaboradorEditingId(null);
     setMessage("");
     setView("list");
@@ -4249,7 +4249,7 @@ export default function Home() {
   }
 
   function goToAtivoList() {
-    setAtivoForm(emptyAtivoForm);
+    setAtivoForm(EMPTY_ATIVO_FORM);
     setAtivoEditingId(null);
     setMessage("");
     setView("list");
@@ -4257,7 +4257,7 @@ export default function Home() {
   }
 
   function goToAdminList() {
-    setAdminForm(emptyAdminForm);
+    setAdminForm(EMPTY_ADMIN_FORM);
     setAdminEditingId(null);
     setMessage("");
     setView("list");
@@ -4273,7 +4273,7 @@ export default function Home() {
   }
 
   function goToCgList() {
-    setCgForm(emptyCgForm);
+    setCgForm(EMPTY_CG_FORM);
     setCgEditingId(null);
     setMessage("");
     setView("list");
@@ -4947,7 +4947,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setForm(emptyForm);
+          setForm(EMPTY_FORM);
           setEditingId(null);
           await loadPessoasFisicas();
           setView("list");
@@ -4961,7 +4961,7 @@ export default function Home() {
         setMessage("Cadastrado com sucesso!");
       }
 
-      setForm(emptyForm);
+      setForm(EMPTY_FORM);
       setEditingId(null);
       await loadPessoasFisicas();
       setView("list");
@@ -5051,7 +5051,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setAlunoForm(emptyAlunoForm);
+          setAlunoForm(EMPTY_ALUNO_FORM);
           setAlunoEditingId(null);
           await loadAlunos();
           setView("list");
@@ -5065,7 +5065,7 @@ export default function Home() {
         setMessage("Cadastrado com sucesso!");
       }
 
-      setAlunoForm(emptyAlunoForm);
+      setAlunoForm(EMPTY_ALUNO_FORM);
       setAlunoEditingId(null);
       await loadAlunos();
       setView("list");
@@ -5109,7 +5109,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setColaboradorForm(emptyColaboradorForm);
+          setColaboradorForm(EMPTY_COLABORADOR_FORM);
           setColaboradorEditingId(null);
           await loadColaboradores();
           setView("list");
@@ -5123,7 +5123,7 @@ export default function Home() {
         setMessage("Cadastrado com sucesso!");
       }
 
-      setColaboradorForm(emptyColaboradorForm);
+      setColaboradorForm(EMPTY_COLABORADOR_FORM);
       setColaboradorEditingId(null);
       await loadColaboradores();
       setView("list");
@@ -5166,7 +5166,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setAtivoForm(emptyAtivoForm);
+          setAtivoForm(EMPTY_ATIVO_FORM);
           setAtivoEditingId(null);
           await loadAtivos();
           setView("list");
@@ -5180,7 +5180,7 @@ export default function Home() {
         setMessage("Cadastrado com sucesso!");
       }
 
-      setAtivoForm(emptyAtivoForm);
+      setAtivoForm(EMPTY_ATIVO_FORM);
       setAtivoEditingId(null);
       await loadAtivos();
       setView("list");
@@ -5234,7 +5234,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setPjForm(emptyPjForm);
+          setPjForm(EMPTY_PJ_FORM);
           setPjEditingId(null);
           await loadPessoasJuridicas();
           setView("list");
@@ -5248,7 +5248,7 @@ export default function Home() {
         setMessage("Cadastrado com sucesso!");
       }
 
-      setPjForm(emptyPjForm);
+      setPjForm(EMPTY_PJ_FORM);
       setPjEditingId(null);
       await loadPessoasJuridicas();
       setView("list");
@@ -5404,7 +5404,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setAdminForm(emptyAdminForm);
+          setAdminForm(EMPTY_ADMIN_FORM);
           setAdminEditingId(null);
           setAdminOriginalSenhaHash(null);
           await loadUsuarios();
@@ -5454,7 +5454,7 @@ export default function Home() {
       }
 
       await loadUsuarios();
-      setAdminForm(emptyAdminForm);
+      setAdminForm(EMPTY_ADMIN_FORM);
       setAdminEditingId(null);
       setAdminOriginalSenhaHash(null);
       setView("list");
@@ -5572,7 +5572,7 @@ export default function Home() {
 
         if (!hasChanges) {
           setMessage("Nenhuma alteração detectada.");
-          setCgForm(emptyCgForm);
+          setCgForm(EMPTY_CG_FORM);
           setCgEditingId(null);
           await loadCgItems();
           setView("list");
@@ -5638,7 +5638,7 @@ export default function Home() {
         setMessage("Cadastrado com sucesso!");
       }
 
-      setCgForm(emptyCgForm);
+      setCgForm(EMPTY_CG_FORM);
       setCgEditingId(null);
       await loadCgItems();
       setView("list");
@@ -8441,7 +8441,7 @@ export default function Home() {
                 onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
               />
             ) : adminManageSelection === 'usuarios' ? (
-                <AdministracaoSistemaListView
+                <UsuarioListView
                   loading={loading}
                   usuarios={filteredSortedUsuarios}
                   pessoasFisicas={pessoasFisicas}
@@ -8812,7 +8812,7 @@ export default function Home() {
                   onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
                 />
               ) : adminManageSelection === 'usuarios' ? (
-                <AdministracaoSistemaFormView
+                <UsuarioFormView
                 editingId={adminEditingId}
                 sequence={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.nr_sequencia ?? null) : null}
                 form={adminForm}
@@ -10462,7 +10462,7 @@ export default function Home() {
                     const extra = confirmDeleteExtra;
                     // Excluir do Firestore
                     if (extra?._firestoreId) {
-                      import('@/services/relatorioServiceBandas').then(({ excluirElemento }) => {
+                      import('@/services/relatorioBandaService').then(({ excluirElemento }) => {
                         excluirElemento(extra._firestoreId).then(() => setMessage('Registro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir registro.'));
                       });
                     }
@@ -10475,7 +10475,7 @@ export default function Home() {
                   } else if (confirmDeleteType === 'banda') {
                     const extra = confirmDeleteExtra;
                     if (extra?._firestoreId) {
-                      import('@/services/relatorioServiceBandas').then(({ excluirBanda }) => {
+                      import('@/services/relatorioBandaService').then(({ excluirBanda }) => {
                         excluirBanda(extra._firestoreId).then(() => setMessage('Banda excluída com sucesso!')).catch(() => setMessage('Erro ao excluir banda.'));
                       });
                     }
@@ -10488,7 +10488,7 @@ export default function Home() {
                   } else if (confirmDeleteType === 'filtro') {
                     const extra = confirmDeleteExtra;
                     if (extra?._firestoreId) {
-                      import('@/services/relatorioServiceParametros').then(({ excluirParametro }) => {
+                      import('@/services/relatorioParametroService').then(({ excluirParametro }) => {
                         excluirParametro(extra._firestoreId).then(() => setMessage('Parâmetro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir parâmetro.'));
                       });
                     }

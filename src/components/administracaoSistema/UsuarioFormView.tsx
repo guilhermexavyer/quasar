@@ -44,7 +44,7 @@ interface FormViewProps {
   campoErros?: string[];
 }
 
-export default function AdministracaoSistemaFormView({
+export default function UsuarioFormView({
   editingId,
   sequence,
   form,

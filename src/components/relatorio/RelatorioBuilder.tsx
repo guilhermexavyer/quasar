@@ -693,7 +693,7 @@ export default function RelatorioBuilder({
             try {
               const seq = getNextCampoSeq();
               const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-              const { criarElemento } = await import('@/services/relatorioServiceBandas');
+              const { criarElemento } = await import('@/services/relatorioBandaService');
               const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
               const campoData = {
                 ...pendingCampo,
@@ -718,7 +718,7 @@ export default function RelatorioBuilder({
           try {
             const campoAtual = campos.find((c) => c.id === campoDetailId);
             if (campoAtual?._firestoreId) {
-              const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
+              const { atualizarElemento } = await import('@/services/relatorioBandaService');
               const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
               const auditAtualizado = await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
               syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
@@ -735,7 +735,7 @@ export default function RelatorioBuilder({
         (async () => {
           setBandaSaving(true);
           try {
-            const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
+            const { criarParametro, atualizarParametro } = await import('@/services/relatorioParametroService');
             const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
             if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
               const { id: _oldId, ...filtroData } = pendingFiltro;
@@ -1206,7 +1206,7 @@ export default function RelatorioBuilder({
               onDuplicateBanda={async (original) => {
                 setBandaSaving(true);
                 try {
-                  const { criarBanda, criarElemento } = await import('@/services/relatorioServiceBandas');
+                  const { criarBanda, criarElemento } = await import('@/services/relatorioBandaService');
                   const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                   const { id: _oldId, _firestoreId: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
                   const { id: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda({ ...rest, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
@@ -2040,7 +2040,7 @@ export default function RelatorioBuilder({
                   setBandaSaving(true);
                   try {
                     const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-                    const { criarElemento } = await import('@/services/relatorioServiceBandas');
+                    const { criarElemento } = await import('@/services/relatorioBandaService');
                     const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                     const { id: _oldId, _firestoreId: _oldFs, ...rest } = original;
                     const campoData = { ...rest, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
@@ -2157,7 +2157,7 @@ export default function RelatorioBuilder({
                       try {
                         const seq = getNextCampoSeq();
                         const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-                        const { criarElemento } = await import('@/services/relatorioServiceBandas');
+                        const { criarElemento } = await import('@/services/relatorioBandaService');
                         const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                         const campoData = { ...pendingCampo, nr_sequencia: seq, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
                         const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
@@ -2175,7 +2175,7 @@ export default function RelatorioBuilder({
                       try {
                         const campoAtual = campos.find((c) => c.id === campoDetailId);
                         if (campoAtual?._firestoreId) {
-                          const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
+                          const { atualizarElemento } = await import('@/services/relatorioBandaService');
                           const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                           const auditAtualizado = await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
                           syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
@@ -2191,7 +2191,7 @@ export default function RelatorioBuilder({
                   (async () => {
                     setBandaSaving(true);
                     try {
-                      const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
+                      const { criarParametro, atualizarParametro } = await import('@/services/relatorioParametroService');
                       const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                       if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
                         const { id: _oldId, ...filtroData } = pendingFiltro;

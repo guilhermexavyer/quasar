@@ -9,7 +9,7 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 
-const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
+const INPUT_CLASS = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 interface OrdenacaoRelatorioTableProps {
   ordenacao: RelatorioOrdenacao[];
@@ -245,7 +245,7 @@ export default function OrdenacaoRelatorioTable({
               onChange={(v) => atualizar(row.id, { campo: v })}
               options={camposDisponiveis.map((cd) => ({ value: cd.key, label: cd.label }))}
               showPlaceholder
-              className={inputClass}
+              className={INPUT_CLASS}
               visibleOptions={7}
             />
           );
@@ -266,7 +266,7 @@ export default function OrdenacaoRelatorioTable({
               onChange={(v) => atualizar(row.id, { direcao: v as "asc" | "desc" })}
               options={[{ value: "asc", label: "Crescente" }, { value: "desc", label: "Decrescente" }]}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
               visibleOptions={7}
             />
           );

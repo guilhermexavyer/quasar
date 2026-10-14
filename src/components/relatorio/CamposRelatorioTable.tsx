@@ -146,7 +146,7 @@ const FONTES_OPCOES = [
   { value: 'Trebuchet MS', label: 'Trebuchet MS' },
 ];
 
-const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
+const INPUT_CLASS = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 export default function CamposRelatorioTable({
   campos,
@@ -433,7 +433,7 @@ export default function CamposRelatorioTable({
       width: 150,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <input value={row.ds_elemento ?? ''} onChange={(e) => atualizar(row.id, { ds_elemento: e.target.value })} className={inputClass} />;
+          return <input value={row.ds_elemento ?? ''} onChange={(e) => atualizar(row.id, { ds_elemento: e.target.value })} className={INPUT_CLASS} />;
         }
         return <span className="truncate block">{row.ds_elemento || ''}</span>;
       },
@@ -453,7 +453,7 @@ export default function CamposRelatorioTable({
                 ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]
                 : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]}
               showPlaceholder={true}
-              className={`${inputClass} ${isLista ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`${INPUT_CLASS} ${isLista ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLista}
             />
           );
@@ -475,7 +475,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_colecao: v })}
               options={colecoesDisponiveis}
               showPlaceholder={false}
-              className={`${inputClass} ${desabilitado ? 'opacity-50 cursor-not-allowed' : ''}`}
+              className={`${INPUT_CLASS} ${desabilitado ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={desabilitado}
             />
           );
@@ -520,7 +520,7 @@ export default function CamposRelatorioTable({
               }}
               options={opcoes}
               showPlaceholder
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -534,7 +534,7 @@ export default function CamposRelatorioTable({
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <input value={row.label} onChange={(e) => atualizar(row.id, { label: e.target.value })} className={inputClass} />;
+          return <input value={row.label} onChange={(e) => atualizar(row.id, { label: e.target.value })} className={INPUT_CLASS} />;
         }
         return <span className="truncate block">{row.label || ''}</span>;
       },
@@ -545,7 +545,7 @@ export default function CamposRelatorioTable({
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.qt_esquerda ?? 0} onChange={(v) => atualizar(row.id, { qt_esquerda: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_esquerda ?? 0} onChange={(v) => atualizar(row.id, { qt_esquerda: v })} min={0} className={INPUT_CLASS} />;
         }
         return <span>{row.qt_esquerda ?? 0}</span>;
       },
@@ -567,7 +567,7 @@ export default function CamposRelatorioTable({
                 { value: 'direita', label: 'Direita' },
               ]}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -587,7 +587,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_estilo_label: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -607,7 +607,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_estilo: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -627,7 +627,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_estilo_soma: v })}
               options={ESTILO_OPCOES}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -641,7 +641,7 @@ export default function CamposRelatorioTable({
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.qt_largura ?? 30} onChange={(v) => atualizar(row.id, { qt_largura: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_largura ?? 30} onChange={(v) => atualizar(row.id, { qt_largura: v })} min={0} className={INPUT_CLASS} />;
         }
         return <span>{row.qt_largura ?? 30}</span>;
       },
@@ -669,7 +669,7 @@ export default function CamposRelatorioTable({
       width: 130,
       render: (row: CamposRelatorioRow) => {
         if (editingId === row.id) {
-          return <NumberInput value={row.qt_topo ?? 0} onChange={(v) => atualizar(row.id, { qt_topo: v })} min={0} className={inputClass} />;
+          return <NumberInput value={row.qt_topo ?? 0} onChange={(v) => atualizar(row.id, { qt_topo: v })} min={0} className={INPUT_CLASS} />;
         }
         return <span>{row.qt_topo ?? 0}</span>;
       },
@@ -751,7 +751,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { ie_fonte: v })}
               options={FONTES_OPCOES}
               showPlaceholder={false}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -770,7 +770,7 @@ export default function CamposRelatorioTable({
               onChange={(v) => atualizar(row.id, { qt_fonte: v })}
               min={1}
               max={72}
-              className={inputClass}
+              className={INPUT_CLASS}
             />
           );
         }
@@ -791,7 +791,7 @@ export default function CamposRelatorioTable({
               options={imagens.map((img) => ({ value: img.id, label: img.ds_imagem }))}
               showPlaceholder={true}
               disabled={desabilitado}
-              className={`${inputClass} ${desabilitado ? 'opacity-50' : ''}`}
+              className={`${INPUT_CLASS} ${desabilitado ? 'opacity-50' : ''}`}
             />
           );
         }
@@ -814,7 +814,7 @@ export default function CamposRelatorioTable({
               min={1}
               max={2000}
               disabled={desabilitado}
-              className={`${inputClass} ${desabilitado ? 'opacity-50' : ''}`}
+              className={`${INPUT_CLASS} ${desabilitado ? 'opacity-50' : ''}`}
             />
           );
         }

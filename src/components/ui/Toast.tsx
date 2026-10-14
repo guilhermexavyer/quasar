@@ -9,14 +9,14 @@ type ToastProps = {
   onClose: () => void;
 };
 
-const toastStyles: Record<ToastStatus, { bg: string; border: string; text: string }> = {
+const TOAST_STYLES: Record<ToastStatus, { bg: string; border: string; text: string }> = {
   success: { bg: "#2cc958", border: "#23A146", text: "text-white" },
   warning: { bg: "#f59e0b", border: "#b46a00", text: "text-white" },
   error: { bg: "#ef4444", border: "#9b1230", text: "text-white" },
 };
 
 export default function Toast({ visible, message, status, onClose }: ToastProps) {
-  const styles = toastStyles[status];
+  const styles = TOAST_STYLES[status];
 
   return (
     <div
