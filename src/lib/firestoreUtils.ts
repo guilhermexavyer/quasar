@@ -5,6 +5,21 @@ export function removerUndefined<T extends Record<string, any>>(obj: T): Partial
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
+/** Campos de controle que não contam como alteração do registro. */
+const CAMPOS_CONTROLE = new Set(["id", "_firestoreId", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]);
+
+/**
+ * Indica se algum campo de `novos` difere do documento atual (ignora campos de
+ * controle). Evita gravar dt_alteracao/ds_usuario_alteracao — e o rodapé
+ * mostrar uma alteração — quando nada mudou de fato.
+ */
+export function temAlteracoes(atuais: Record<string, any>, novos: Record<string, any>): boolean {
+  return Object.entries(novos).some(([key, value]) => {
+    if (CAMPOS_CONTROLE.has(key) || value === undefined) return false;
+    return JSON.stringify(atuais[key] ?? null) !== JSON.stringify(value ?? null);
+  });
+}
+
 /**
  * Monta o objeto de update do Firestore a partir dos dados do formulário,
  * garantindo que campos que existiam no documento mas vieram como undefined

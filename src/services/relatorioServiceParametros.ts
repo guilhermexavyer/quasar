@@ -11,7 +11,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined } from "@/lib/firestoreUtils";
+import { removerUndefined, temAlteracoes } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 /* ═══════════════════════════════════════════════ */
@@ -115,6 +115,9 @@ export async function atualizarParametro(
   if (!snap.exists()) return { dt_alteracao: '', ds_usuario_alteracao: '' };
 
   const currentData = snap.data();
+  if (!temAlteracoes(currentData, parametro)) {
+    return { dt_alteracao: currentData.dt_alteracao ?? '', ds_usuario_alteracao: currentData.ds_usuario_alteracao ?? '' };
+  }
   const agora = new Date().toISOString();
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
 

@@ -9,6 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
+import { temAlteracoes } from "@/lib/firestoreUtils";
 import type { Imagem } from "@/types/imagem";
 
 const COLLECTION = "imagem";
@@ -96,8 +97,9 @@ export async function atualizarImagem(
   const snap = await getDoc(docRef);
   if (!snap.exists()) return;
 
-  const now = new Date().toISOString();
   const antes = snap.data() as Record<string, any>;
+  if (!temAlteracoes(antes, data)) return;
+  const now = new Date().toISOString();
   const atualizacoes = { ...data, dt_alteracao: now, ds_usuario_alteracao: usuario || "" };
   await updateDoc(docRef, atualizacoes);
 

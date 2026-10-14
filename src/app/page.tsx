@@ -297,7 +297,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.7";
+const SYSTEM_VERSION = "0.66.8";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1964,16 +1964,27 @@ export default function Home() {
     const nomesPf = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
     const map: Record<string, string> = {};
     for (const u of usuarios) {
-      if (!u.ds_usuario) continue;
-      const nome = u.nr_seq_pessoa_fisica != null ? nomesPf[u.nr_seq_pessoa_fisica] : undefined;
-      if (nome) map[u.ds_usuario] = nome;
+      const login = u.ds_usuario?.trim();
+      if (!login) continue;
+      const nome = u.nr_seq_pessoa_fisica != null ? nomesPf[u.nr_seq_pessoa_fisica]?.trim() : undefined;
+      if (nome) map[login] = nome;
     }
     return map;
   }, [usuarios, pessoasFisicas]);
 
   function resolverNomeAutorExibicao(dsUsuario: string): string {
     if (!dsUsuario || dsUsuario === '-') return dsUsuario;
-    return nomeAutorExibicao[dsUsuario] || dsUsuario;
+    return nomeAutorExibicao[dsUsuario.trim()] || dsUsuario;
+  }
+
+  /** Cópia do registro com ds_usuario_criacao/alteracao resolvidos para exibição (modais de visualização). */
+  function comAutorExibicao<T extends { ds_usuario_criacao?: string; ds_usuario_alteracao?: string }>(registro: T | null): T | null {
+    if (!registro) return registro;
+    return {
+      ...registro,
+      ds_usuario_criacao: resolverNomeAutorExibicao(registro.ds_usuario_criacao ?? ''),
+      ds_usuario_alteracao: resolverNomeAutorExibicao(registro.ds_usuario_alteracao ?? ''),
+    };
   }
 
   /* ── Opções de Cadastros Gerais para o dropdown de Vínculo contratual (Colaborador) ── */
@@ -2878,7 +2889,6 @@ export default function Home() {
       if (!relatorioEditingId || !relatorioForm) return;
       if (!bandasAtualizadas || bandasAtualizadas.length === 0) return;
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
-      const agora = new Date().toISOString();
       const nrSeqRelatorio = (relatorioForm as any).nr_sequencia;
       const { criarBanda, atualizarBanda } = await import('@/services/relatorioServiceBandas');
 
@@ -2913,12 +2923,13 @@ export default function Home() {
 
         if (b._firestoreId) {
           // Banda já existe no Firestore — atualizar
-          await atualizarBanda(b._firestoreId, bandaData, auditAutor);
-          bandasSalvas.push({ ...b, dt_alteracao: agora, ds_usuario_alteracao: auditAutor.usuarioNome });
+          // Usa o retorno do serviço: banda sem alterações mantém a data/autor anteriores.
+          const auditBanda = await atualizarBanda(b._firestoreId, bandaData, auditAutor);
+          bandasSalvas.push({ ...b, dt_alteracao: auditBanda.dt_alteracao || b.dt_alteracao, ds_usuario_alteracao: auditBanda.ds_usuario_alteracao || b.ds_usuario_alteracao });
         } else {
           // Banda nova — criar
-          const { id: newId } = await criarBanda(bandaData, auditAutor);
-          bandasSalvas.push({ ...b, _firestoreId: newId, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: auditAutor.usuarioNome, ds_usuario_alteracao: auditAutor.usuarioNome });
+          const { id: newId, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda(bandaData, auditAutor);
+          bandasSalvas.push({ ...b, _firestoreId: newId, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao });
         }
       }
 
@@ -3215,6 +3226,9 @@ export default function Home() {
     const s = contextMenu?.section;
     if (!s) return true;
     if (s === 'administracaoSistema') {
+      // Perfil 'Administrador' e usuário 'administrador' não podem ser excluídos por ninguém.
+      if (adminManageSelection === 'perfis' && isAdministradorPerfil(contextMenu?.item as Perfil)) return false;
+      if (adminManageSelection === 'usuarios' && isAdministradorUsuario(contextMenu?.item as Usuario)) return false;
       if (adminManageSelection === 'perfis') return permissoesAdmin.excluirPerfil;
       if (adminManageSelection === 'usuarios') return permissoesAdmin.excluirUsuario;
       return true;
@@ -4188,6 +4202,8 @@ export default function Home() {
   }
 
   function openPerfilEditForm(perfil: Perfil) {
+    // O perfil Administrador só pode ser visto/editado pelo usuário administrador.
+    if (!isAdministrador && isAdministradorPerfil(perfil)) return;
     setPerfilForm({
       ds_perfil: perfil.ds_perfil,
       ds_observacao: perfil.ds_observacao,
@@ -4824,12 +4840,17 @@ export default function Home() {
   const hasNextRecord = currentEditIndex >= 0 && currentEditIndex < filteredSortedPessoasFisicas.length - 1;
   const hasPrevAdminRecord = currentAdminEditIndex > 0;
   const hasNextAdminRecord = currentAdminEditIndex >= 0 && currentAdminEditIndex < filteredSortedUsuarios.length - 1;
+  // Navegação anterior/próximo: o perfil Administrador só pode ser aberto pelo usuário administrador.
+  const perfisNavegaveis = useMemo(
+    () => (isAdministrador ? filteredSortedPerfis : filteredSortedPerfis.filter((p) => !isAdministradorPerfil(p))),
+    [filteredSortedPerfis, isAdministrador]
+  );
   const currentPerfilEditIndex = useMemo(() => {
     if (!perfilEditingId) return -1;
-    return filteredSortedPerfis.findIndex((p) => p.id === perfilEditingId);
-  }, [filteredSortedPerfis, perfilEditingId]);
+    return perfisNavegaveis.findIndex((p) => p.id === perfilEditingId);
+  }, [perfisNavegaveis, perfilEditingId]);
   const hasPrevPerfilRecord = currentPerfilEditIndex > 0;
-  const hasNextPerfilRecord = currentPerfilEditIndex >= 0 && currentPerfilEditIndex < filteredSortedPerfis.length - 1;
+  const hasNextPerfilRecord = currentPerfilEditIndex >= 0 && currentPerfilEditIndex < perfisNavegaveis.length - 1;
   const hasPrevCgRecord = currentCgEditIndex > 0;
   const hasNextCgRecord = currentCgEditIndex >= 0 && currentCgEditIndex < filteredSortedCgItems.length - 1;
   const hasPrevPjRecord = currentPjEditIndex > 0;
@@ -4876,13 +4897,13 @@ export default function Home() {
 
   function goToPrevPerfilRecord() {
     if (!hasPrevPerfilRecord) return;
-    const previous = filteredSortedPerfis[currentPerfilEditIndex - 1];
+    const previous = perfisNavegaveis[currentPerfilEditIndex - 1];
     if (previous) openPerfilEditForm(previous);
   }
 
   function goToNextPerfilRecord() {
     if (!hasNextPerfilRecord) return;
-    const next = filteredSortedPerfis[currentPerfilEditIndex + 1];
+    const next = perfisNavegaveis[currentPerfilEditIndex + 1];
     if (next) openPerfilEditForm(next);
   }
 
@@ -7089,6 +7110,10 @@ export default function Home() {
 
   async function handleAdminDelete(id: string) {
     setMessage("");
+    if (isAdministradorUsuario(usuarios.find((u) => u.id === id))) {
+      setMessage("O usuário administrador não pode ser excluído.");
+      return;
+    }
     try {
       await excluirUsuario(id);
       setMessage("Excluído com sucesso!");
@@ -7101,6 +7126,10 @@ export default function Home() {
 
   async function handlePerfilDelete(id: string) {
     setMessage("");
+    if (isAdministradorPerfil(perfis.find((p) => p.id === id))) {
+      setMessage("O perfil Administrador não pode ser excluído.");
+      return;
+    }
     try {
       await excluirPerfil(id);
       setMessage("Excluído com sucesso!");
@@ -8607,8 +8636,8 @@ export default function Home() {
                   onSavingChange={setParametrosSaving}
                   createdAt={parametrosAuditInfo.createdAt}
                   updatedAt={parametrosAuditInfo.updatedAt}
-                  createdBy={parametrosAuditInfo.createdBy}
-                  updatedBy={parametrosAuditInfo.updatedBy}
+                  createdBy={resolverNomeAutorExibicao(parametrosAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(parametrosAuditInfo.updatedBy)}
                   onOpenAudit={openParametrosAuditModal}
                   auditHasDocument={parametrosHasDocument}
                   auditAutor={auditAutor}
@@ -8819,8 +8848,8 @@ export default function Home() {
                 goToList={goToPjList}
                 createdAt={pjAuditInfo.createdAt}
                 updatedAt={pjAuditInfo.updatedAt}
-                createdBy={pjAuditInfo.createdBy}
-                updatedBy={pjAuditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(pjAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(pjAuditInfo.updatedBy)}
                 onOpenAudit={openPjAuditModal}
                 onPrevRecord={goToPrevPjRecord}
                 onNextRecord={goToNextPjRecord}
@@ -8850,8 +8879,8 @@ export default function Home() {
                 goToList={goToList}
                 createdAt={auditInfo.createdAt}
                 updatedAt={auditInfo.updatedAt}
-                createdBy={auditInfo.createdBy}
-                updatedBy={auditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(auditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(auditInfo.updatedBy)}
                 onOpenAudit={openAuditModal}
                 onPrevRecord={goToPrevRecord}
                 onNextRecord={goToNextRecord}
@@ -8902,8 +8931,8 @@ export default function Home() {
                 goToList={goToAdminList}
                 createdAt={adminAuditInfo.createdAt}
                 updatedAt={adminAuditInfo.updatedAt}
-                createdBy={adminAuditInfo.createdBy}
-                updatedBy={adminAuditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(adminAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(adminAuditInfo.updatedBy)}
                 onPrevRecord={goToPrevAdminRecord}
                 onNextRecord={goToNextAdminRecord}
                 hasPrevRecord={hasPrevAdminRecord}
@@ -8930,8 +8959,8 @@ export default function Home() {
                 goToList={() => { setView('list'); }}
                 createdAt={imagemAuditInfo.createdAt}
                 updatedAt={imagemAuditInfo.updatedAt}
-                createdBy={imagemAuditInfo.createdBy}
-                updatedBy={imagemAuditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(imagemAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(imagemAuditInfo.updatedBy)}
                 onPrevRecord={goToPrevImagemRecord}
                 onNextRecord={goToNextImagemRecord}
                 hasPrevRecord={hasPrevImagemRecord}
@@ -8953,8 +8982,8 @@ export default function Home() {
                 goToList={goToPerfilList}
                 createdAt={perfilAuditInfo.createdAt}
                 updatedAt={perfilAuditInfo.updatedAt}
-                createdBy={perfilAuditInfo.createdBy}
-                updatedBy={perfilAuditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(perfilAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(perfilAuditInfo.updatedBy)}
                 onPrevRecord={goToPrevPerfilRecord}
                 onNextRecord={goToNextPerfilRecord}
                 hasPrevRecord={hasPrevPerfilRecord}
@@ -8980,8 +9009,8 @@ export default function Home() {
                   goToList={goToAlunoList}
                   createdAt={alunoAuditInfo.createdAt}
                   updatedAt={alunoAuditInfo.updatedAt}
-                  createdBy={alunoAuditInfo.createdBy}
-                  updatedBy={alunoAuditInfo.updatedBy}
+                  createdBy={resolverNomeAutorExibicao(alunoAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(alunoAuditInfo.updatedBy)}
                   onOpenAudit={openAlunoAuditModal}
                   onPrevRecord={goToPrevAlunoRecord}
                   onNextRecord={goToNextAlunoRecord}
@@ -9013,8 +9042,8 @@ export default function Home() {
                   goToList={goToColaboradorList}
                   createdAt={colaboradorAuditInfo.createdAt}
                   updatedAt={colaboradorAuditInfo.updatedAt}
-                  createdBy={colaboradorAuditInfo.createdBy}
-                  updatedBy={colaboradorAuditInfo.updatedBy}
+                  createdBy={resolverNomeAutorExibicao(colaboradorAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(colaboradorAuditInfo.updatedBy)}
                   onOpenAudit={openColaboradorAuditModal}
                   onPrevRecord={goToPrevColaboradorRecord}
                   onNextRecord={goToNextColaboradorRecord}
@@ -9047,8 +9076,8 @@ export default function Home() {
                 goToList={goToManutencaoList}
                 createdAt={manutencaoAuditInfo.createdAt}
                 updatedAt={manutencaoAuditInfo.updatedAt}
-                createdBy={manutencaoAuditInfo.createdBy}
-                updatedBy={manutencaoAuditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(manutencaoAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(manutencaoAuditInfo.updatedBy)}
                 onOpenAudit={openManutencaoAuditModal}
                 onPrevRecord={goToPrevManutencaoRecord}
                 onNextRecord={goToNextManutencaoRecord}
@@ -9080,8 +9109,8 @@ export default function Home() {
                 goToList={goToAtivoList}
                 createdAt={ativoAuditInfo.createdAt}
                 updatedAt={ativoAuditInfo.updatedAt}
-                createdBy={ativoAuditInfo.createdBy}
-                updatedBy={ativoAuditInfo.updatedBy}
+                createdBy={resolverNomeAutorExibicao(ativoAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(ativoAuditInfo.updatedBy)}
                 onOpenAudit={openAtivoAuditModal}
                 onPrevRecord={goToPrevAtivoRecord}
                 onNextRecord={goToNextAtivoRecord}
@@ -9115,8 +9144,8 @@ export default function Home() {
               goToList={goToCgList}
               createdAt={cgAuditInfo.createdAt}
               updatedAt={cgAuditInfo.updatedAt}
-              createdBy={cgAuditInfo.createdBy}
-              updatedBy={cgAuditInfo.updatedBy}
+              createdBy={resolverNomeAutorExibicao(cgAuditInfo.createdBy)}
+              updatedBy={resolverNomeAutorExibicao(cgAuditInfo.updatedBy)}
               onPrevRecord={goToPrevCgRecord}
               onNextRecord={goToNextCgRecord}
               hasPrevRecord={hasPrevCgRecord}
@@ -12547,7 +12576,7 @@ export default function Home() {
 
       {/* Modal de visualização de Pessoa Física (leitura) */}
       <PessoaFisicaViewModal
-        pessoa={pessoaFisicaView}
+        pessoa={comAutorExibicao(pessoaFisicaView)}
         cgLookups={pfCgLookups}
         onClose={() => setPessoaFisicaView(null)}
       />
@@ -12697,8 +12726,8 @@ export default function Home() {
                   </div>
                 </section>
                 <div className="text-[13px] text-slate-500">
-                  <div>Criado por {ativoView.ds_usuario_criacao || '-'} em {ativoView.dt_criacao ? formatDate(ativoView.dt_criacao) : '-'}</div>
-                  <div className="mt-1">Alterado por {ativoView.ds_usuario_alteracao || '-'} em {ativoView.dt_alteracao ? formatDate(ativoView.dt_alteracao) : '-'}</div>
+                  <div>Criado por {resolverNomeAutorExibicao(ativoView.ds_usuario_criacao ?? '') || '-'} em {ativoView.dt_criacao ? formatDate(ativoView.dt_criacao) : '-'}</div>
+                  <div className="mt-1">Alterado por {resolverNomeAutorExibicao(ativoView.ds_usuario_alteracao ?? '') || '-'} em {ativoView.dt_alteracao ? formatDate(ativoView.dt_alteracao) : '-'}</div>
                 </div>
               </div>
             </div>
@@ -12708,7 +12737,7 @@ export default function Home() {
 
       {/* Modal de visualização de Pessoa Jurídica (leitura) */}
       <PessoaJuridicaViewModal
-        pessoa={pessoaJuridicaView}
+        pessoa={comAutorExibicao(pessoaJuridicaView)}
         cgLookups={pjCgLookups}
         cidadeNome={pessoaJuridicaViewCidade}
         onClose={() => setPessoaJuridicaView(null)}
@@ -12716,7 +12745,7 @@ export default function Home() {
 
       {/* Modal de visualização de Manutenção (leitura) */}
       <ManutencaoViewModal
-        manutencao={manutencaoView}
+        manutencao={comAutorExibicao(manutencaoView)}
         ativoName={manutencaoView?.nr_seq_ativo ? (ativos.find((a) => a.nr_sequencia === manutencaoView.nr_seq_ativo)?.ds_ativo ?? '') : ''}
         prestadorName={(() => {
           if (!manutencaoView?.nr_seq_prestador_servico) return '';
@@ -12806,7 +12835,7 @@ export default function Home() {
 
       {/* Modal de visualização de Colaborador (leitura) */}
       <ColaboradorViewModal
-        colaborador={colaboradorView}
+        colaborador={comAutorExibicao(colaboradorView)}
         pessoaFisicaName={colaboradorView?.nr_seq_pessoa_fisica ? (pessoasFisicas.find((p) => p.nr_sequencia === colaboradorView.nr_seq_pessoa_fisica)?.ds_nome ?? '') : ''}
         pessoaJuridicaName={colaboradorView?.nr_seq_pessoa_juridica ? (pessoasJuridicas.find((p) => p.nr_sequencia === colaboradorView.nr_seq_pessoa_juridica)?.ds_razao_social ?? '') : ''}
         vinculoContratualName={colaboradorView?.nr_seq_vinculo_contratual ? (vinculosContratuais.find((v) => v.nr_sequencia === colaboradorView!.nr_seq_vinculo_contratual)?.ds_vinculo_contratual ?? '') : ''}

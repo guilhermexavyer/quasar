@@ -340,6 +340,21 @@ export default function ParametrosDaFuncaoView({
                   {auditHasDocument && (
                   <div className="text-[13px] text-slate-500">
                     <div className="relative group flex items-center gap-2">
+                      <span>Criado por {createdBy || '-'} em {createdAt ? formatDate(createdAt) : '-'}</span>
+                      <button
+                        type="button"
+                        aria-hidden="true"
+                        onClick={onOpenAudit}
+                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v4" />
+                          <circle cx="12" cy="16" r="0.5" />
+                        </svg>
+                      </button>
+                    </div>
+                    <div className="relative group flex items-center gap-2 mt-1">
                       <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatDate(updatedAt) : '-'}</span>
                       <button
                         type="button"
