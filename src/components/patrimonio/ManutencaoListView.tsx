@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Manutencao } from "@/types/manutencao";
@@ -10,12 +10,9 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
-  message: string;
   loading: boolean;
   manutencoes: Manutencao[];
   openNewForm: () => void;
-  openEditForm: (manutencao: Manutencao) => void;
-  handleDelete: (id: string) => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
@@ -34,12 +31,9 @@ interface ListViewProps {
 }
 
 export default function ManutencaoListView({
-  message,
   loading,
   manutencoes,
   openNewForm,
-  openEditForm,
-  handleDelete,
   setContextMenu,
   selectOptions,
   manageSelection,
@@ -520,7 +514,7 @@ export default function ManutencaoListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
+                      {columnOrder.map((logicalIdx) => {
                         const col = COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useEffect } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Relatorio } from "@/types/relatorio";
@@ -19,9 +19,7 @@ interface RelatorioListViewProps {
   loading: boolean;
   relatorios: Relatorio[];
   openNewForm: () => void;
-  openEditForm: (relatorio: Relatorio) => void;
   openBandas: (relatorio: Relatorio) => void;
-  handleDelete: (id: string) => void;
   setContextMenu: React.Dispatch<React.SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
   sortAsc: boolean | null;
@@ -63,9 +61,7 @@ export default function RelatorioListView({
   loading,
   relatorios,
   openNewForm,
-  openEditForm,
   openBandas,
-  handleDelete,
   setContextMenu,
   sortColumn,
   sortAsc,

@@ -13,7 +13,6 @@ import SearchIcon from "@/components/ui/SearchIcon";
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: AdminFormData;
@@ -46,7 +45,6 @@ interface FormViewProps {
 }
 
 export default function AdministracaoSistemaFormView({
-  message,
   editingId,
   sequence,
   form,

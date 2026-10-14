@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Perfil } from "@/types/perfil";
@@ -10,11 +10,9 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
-  message: string;
   loading: boolean;
   perfis: Perfil[];
   openNewForm: () => void;
-  openEditForm: (perfil: Perfil) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
@@ -29,11 +27,9 @@ interface ListViewProps {
 }
 
 export default function PerfilListView({
-  message,
   loading,
   perfis,
   openNewForm,
-  openEditForm,
   setContextMenu,
   sortColumn,
   sortAsc,

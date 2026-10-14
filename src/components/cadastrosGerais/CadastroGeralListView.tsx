@@ -25,7 +25,6 @@ interface ListViewProps<T extends { id?: string }> {
   /** Submódulos permitidos do dropdown PAI (tipos de cadastro) conforme permissões. */
   allowedSubmodulos?: string[];
   openNewForm: () => void;
-  openEditForm: (item: T) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
@@ -46,7 +45,6 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   onManageSelectionChange,
   allowedSubmodulos = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'],
   openNewForm,
-  openEditForm,
   openFilter,
   setContextMenu,
   sortColumn,
@@ -522,7 +520,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
+                      {columnOrder.map((logicalIdx) => {
                         const col = columns[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (

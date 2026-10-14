@@ -14,8 +14,6 @@ interface ImagemListViewProps {
   loading: boolean;
   imagens: Imagem[];
   openNewForm: () => void;
-  openEditForm: (imagem: Imagem) => void;
-  handleDelete: (id: string) => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
   sortAsc: boolean | null;
@@ -33,8 +31,6 @@ export default function ImagemListView({
   loading,
   imagens,
   openNewForm,
-  openEditForm,
-  handleDelete,
   setContextMenu,
   sortColumn,
   sortAsc,

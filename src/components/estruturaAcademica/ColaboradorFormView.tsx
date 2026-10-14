@@ -13,7 +13,6 @@ import SearchIcon from "@/components/ui/SearchIcon";
 export type ColaboradorFormData = Omit<Colaborador, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: ColaboradorFormData;
@@ -54,7 +53,6 @@ interface FormViewProps {
 }
 
 export default function ColaboradorFormView({
-  message,
   editingId,
   sequence,
   form,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
@@ -11,12 +11,10 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
-  message: string;
   loading: boolean;
   usuarios: Usuario[];
   pessoasFisicas: PessoaFisica[];
   openNewForm: () => void;
-  openEditForm: (usuario: Usuario) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   sortColumn: number | null;
@@ -31,12 +29,10 @@ interface ListViewProps {
 }
 
 export default function AdministracaoSistemaListView({
-  message,
   loading,
   usuarios,
   pessoasFisicas,
   openNewForm,
-  openEditForm,
   setContextMenu,
   sortColumn,
   sortAsc,
@@ -515,7 +511,7 @@ export default function AdministracaoSistemaListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
+                      {columnOrder.map((logicalIdx) => {
                         const col = ADMIN_COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (

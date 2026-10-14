@@ -21,7 +21,6 @@ const ARMAZENAMENTO_OPTIONS = [
 ];
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: AtivoFormData;
@@ -65,7 +64,6 @@ interface FormViewProps {
 }
 
 export default function AtivoFormView({
-  message,
   editingId,
   sequence,
   form,

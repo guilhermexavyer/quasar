@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -10,12 +10,9 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
-  message: string;
   loading: boolean;
   pessoasJuridicas: PessoaJuridica[];
   openNewForm: () => void;
-  openEditForm: (pessoa: PessoaJuridica) => void;
-  handleDelete: (id: string) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   selectOptions: { value: string; label: string }[];
@@ -32,13 +29,10 @@ interface ListViewProps {
 }
 
 export default function PessoaJuridicaListView({
-  message,
   loading,
   pessoasJuridicas,
   openNewForm,
-  openEditForm,
   openFilter,
-  handleDelete,
   setContextMenu,
   selectOptions,
   manageSelection,

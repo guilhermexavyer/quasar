@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { Colaborador } from "@/types/colaborador";
 import type { PessoaFisica } from "@/types/pessoaFisica";
@@ -400,7 +400,7 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
             <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr className="bg-[#bbb]">
-                  {columnOrder.map((logicalIdx, visualIdx) => {
+                  {columnOrder.map((logicalIdx) => {
                     const col = lookupColumns[logicalIdx];
                     const isDragSource = dragCol === logicalIdx;
                     return (

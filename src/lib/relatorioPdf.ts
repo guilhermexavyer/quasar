@@ -16,17 +16,6 @@ import { jsPDF } from "jspdf";
 
 
 /**
- * Mapeia tamanhos de página para dimensões CSS.
- */
-const PAGE_SIZES: Record<string, [number, number]> = {
-  a3: [297, 420],
-  a4: [210, 297],
-  a5: [148, 210],
-  letter: [216, 279],
-  legal: [216, 356],
-};
-
-/**
  * Converte hex para RGB.
  */
 function hexToRgb(hex: string): { r: number; g: number; b: number } | null {
@@ -639,8 +628,6 @@ export function gerarPdf(
   const marginTop = config.margens.superior;
   const marginBottom = config.margens.inferior;
   const contentW = pageW - marginLeft - marginRight;
-  const fontSize = config.tamanhoFonte;
-  const lineHeight = fontSize * 0.5;
 
   // ── Offset para o conteúdo ficar dentro da borda (empurra conteúdo abaixo da borda superior) ──
   const BORDA_CONTEUDO_OFFSET = config.estiloBorda ? 2 : 0;
@@ -653,7 +640,6 @@ export function gerarPdf(
     if (f.includes('times') || f.includes('garamond') || f.includes('palatino') || f.includes('book')) return 'times';
     return 'helvetica';
   }
-  const fontCampo = mapFontJsPdf(relatorio.fonteCampo);
 
   let y = marginTop + BORDA_CONTEUDO_OFFSET;
   let onNewPage: (() => void) | null = null;
@@ -717,7 +703,6 @@ export function gerarPdf(
     // Borda da página DEPOIS do cabeçalho (para englobá-lo)
     desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
 
-    let totalRegistros = 0;
 
     // Separa as bandas de conteúdo: 'lista' gera uma tabela; as demais
     // ('Dados' / texto_valor) formam o desenho de UM registro na página.
@@ -729,7 +714,6 @@ export function gerarPdf(
       // um registro, o bloco de bandas é repetido — uma página por registro —
       // repetindo em cada página as bandas Cabeçalho, o rodapé e a borda.
       const qtdPaginas = Math.max(1, ...bandasDados.map((b) => b.registros.length));
-      totalRegistros = qtdPaginas;
 
       for (let r = 0; r < qtdPaginas; r++) {
         if (r > 0) {
@@ -793,7 +777,6 @@ export function gerarPdf(
             contentW, usuarioGeracao, imagensMap,
           );
         }
-        totalRegistros += banda.registros.length;
       });
 
       // Renderizar rodapé de banda

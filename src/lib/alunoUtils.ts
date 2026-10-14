@@ -1,5 +1,5 @@
 import type { Aluno } from "@/types/aluno";
-import { formatDate, formatPhone } from "@/lib/pessoaFisicaUtils";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 
 export { formatDate, formatPhone, applyDateMask, applyPhoneMask, parseDateInput, parsePersonDateValue } from "@/lib/pessoaFisicaUtils";
 

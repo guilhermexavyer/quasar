@@ -1,7 +1,6 @@
 "use client";
 
 import { useRef, useState } from "react";
-import type { ContextMenuState } from "@/types/contextMenu";
 
 interface ContextMenuItem {
   label: string;
@@ -12,7 +11,6 @@ interface ContextMenuItem {
 interface ContextMenuProps {
   x: number;
   y: number;
-  state: ContextMenuState;
   onView: () => void;
   onChangePassword: () => void;
   onChangeStatus?: () => void;
@@ -77,7 +75,6 @@ function MenuButton({ item, onAction }: { item: ContextMenuItem; onAction: () =>
 export default function ContextMenu({
   x,
   y,
-  state,
   onView,
   onChangePassword,
   onChangeStatus,

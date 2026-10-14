@@ -15,7 +15,6 @@ import SearchIcon from "@/components/ui/SearchIcon";
 export type ManutencaoFormData = Omit<Manutencao, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">;
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: ManutencaoFormData;
@@ -33,7 +32,6 @@ interface FormViewProps {
   hasPrevRecord: boolean;
   hasNextRecord: boolean;
   /** Opções de Ativos para o campo locator (nr_sequencia + ds_ativo). */
-  ativos?: { nr_sequencia: number; ds_ativo: string }[];
   /** Nome resolvido do ativo selecionado. */
   ativoName?: string;
   /** Abre o lookup de Ativos. */
@@ -60,7 +58,6 @@ function formatCurrencyValue(value: number): string {
 }
 
 export default function ManutencaoFormView({
-  message,
   editingId,
   sequence,
   form,
@@ -77,7 +74,6 @@ export default function ManutencaoFormView({
   onNextRecord,
   hasPrevRecord,
   hasNextRecord,
-  ativos = [],
   ativoName = "",
   onOpenAtivoLookup,
   onViewAtivo,

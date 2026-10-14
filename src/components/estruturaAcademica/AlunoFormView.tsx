@@ -40,7 +40,6 @@ const TIPOS_SANGUINEOS = [
 ];
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: AlunoFormData;
@@ -81,7 +80,6 @@ interface FormViewProps {
 }
 
 export default function AlunoFormView({
-  message,
   editingId,
   sequence,
   form,

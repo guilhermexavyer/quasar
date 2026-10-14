@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { PessoaFisica } from "@/types/pessoaFisica";
@@ -10,12 +10,9 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
-  message: string;
   loading: boolean;
   pessoasFisicas: PessoaFisica[];
   openNewForm: () => void;
-  openEditForm: (pessoa: PessoaFisica) => void;
-  handleDelete: (id: string) => void;
   openFilter: () => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   selectOptions: { value: string; label: string }[];
@@ -32,13 +29,10 @@ interface ListViewProps {
 }
 
 export default function PessoaFisicaListView({
-  message,
   loading,
   pessoasFisicas,
   openNewForm,
-  openEditForm,
   openFilter,
-  handleDelete,
   setContextMenu,
   selectOptions,
   manageSelection,
@@ -518,9 +512,8 @@ export default function PessoaFisicaListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
+                      {columnOrder.map((logicalIdx) => {
                         const col = COLUMNS[logicalIdx];
-                        const isLast = visualIdx === columnOrder.length - 1;
                         const isDragSource = dragCol === logicalIdx;
                         return (
                           <th

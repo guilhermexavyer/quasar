@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Colaborador } from "@/types/colaborador";
@@ -10,13 +10,10 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
 interface ListViewProps {
-  message: string;
   loading: boolean;
   colaboradores: Colaborador[];
   openNewForm: () => void;
-  openEditForm: (colaborador: Colaborador) => void;
   openFilter: () => void;
-  handleDelete: (id: string) => void;
   setContextMenu: Dispatch<SetStateAction<ContextMenuState | null>>;
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
@@ -33,13 +30,10 @@ interface ListViewProps {
 }
 
 export default function ColaboradorListView({
-  message,
   loading,
   colaboradores,
   openNewForm,
-  openEditForm,
   openFilter,
-  handleDelete,
   setContextMenu,
   selectOptions,
   manageSelection,
@@ -519,7 +513,7 @@ export default function ColaboradorListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
-                      {columnOrder.map((logicalIdx, visualIdx) => {
+                      {columnOrder.map((logicalIdx) => {
                         const col = COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
                         return (

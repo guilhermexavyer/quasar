@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback, useRef } from "react";
-import type { KeyboardEvent as ReactKeyboardEvent, MouseEvent as ReactMouseEvent } from "react";
-import type { DataSourceCampo, DataSourceDef } from "@/types/relatorio";
-import { gerarId, FORMATOS_CAMPO } from "@/lib/relatorioUtils";
+import type { MouseEvent as ReactMouseEvent } from "react";
+import type { DataSourceCampo } from "@/types/relatorio";
+import { gerarId } from "@/lib/relatorioUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
@@ -13,7 +13,6 @@ import PaginationFooter, { usePagination } from "@/components/ui/PaginationFoote
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
   onChange: (campos: CamposRelatorioRow[]) => void;
-  camposDisponiveis: DataSourceCampo[];
   /** Coleção principal selecionada no formulário. */
   colecaoPrincipal: string;
   /** Callback quando o estado de edição muda. */
@@ -152,7 +151,6 @@ const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 p
 export default function CamposRelatorioTable({
   campos,
   onChange,
-  camposDisponiveis,
   colecaoPrincipal,
   onEditingChange,
   userId,
@@ -212,19 +210,6 @@ export default function CamposRelatorioTable({
     }
     return map;
   }, [colecoesDisponiveis]);
-
-  // ── Mapeia coleção → FK field key na coleção principal (para joins) ──
-  const fkFieldMap = useMemo(() => {
-    const dsPrincipal = getDataSource(colecaoPrincipal);
-    const map: Record<string, string> = {};
-    if (!dsPrincipal) return map;
-    for (const fk of dsPrincipal.campos) {
-      if (fk.isFK && fk.fkColecao) {
-        map[fk.fkColecao] = fk.key; // ex.: 'cg_marca' → 'nr_seq_marca'
-      }
-    }
-    return map;
-  }, [colecaoPrincipal]);
 
   function atualizar(id: string, updates: Partial<CamposRelatorioRow>) {
     onChange(campos.map((c) => {

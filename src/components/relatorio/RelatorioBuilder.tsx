@@ -7,7 +7,6 @@ import { DATA_SOURCES, getDataSource } from "@/lib/relatorioDataSources";
 import {
   defaultConfigPdf,
   gerarId,
-  OPERADORES_FILTRO,
   TAMANHOS_PAGINA,
 } from "@/lib/relatorioUtils";
 import type {
@@ -87,7 +86,6 @@ interface RelatorioBuilderProps {
   /** Regras de campos por perfil (colecao relatorio_parametro): campo → status (N/O/D). */
   parametroCampoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
-  campoErros?: string[];
   /** Lista de imagens cadastradas. */
   imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
   /** Modo de exibição: 'form' mostra Relatório+Saída, 'bandas' mostra apenas Bandas. */
@@ -145,16 +143,6 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
   };
 }
 
-const EMPTY_FILTRO: () => RelatorioFiltro = () => ({
-  id: gerarId(),
-  ie_campo: "",
-  operador: "igual",
-  vl_padrao: "",
-  valorFinal: "",
-  ie_mascara: "texto",
-  ie_parametro: false,
-});
-
 const RELATORIO_SELECT_OPTIONS = [
   { value: 'relatorio', label: 'Relatórios' },
 ];
@@ -200,7 +188,6 @@ export default function RelatorioBuilder({
   bandaCampoRegras = {},
   elementoCampoRegras = {},
   parametroCampoRegras = {},
-  campoErros = [],
   imagens = [],
   viewMode = 'form',
   darkMode = false,
@@ -264,7 +251,6 @@ export default function RelatorioBuilder({
   const savedOrdenacaoRef = useRef<string>('');
   const [isDirty, setIsDirty] = useState(false);
   const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-  const [pendingNav, setPendingNav] = useState<'prev' | 'next' | null>(null);
   const pendingNavRef = useRef<'prev' | 'next' | null>(null);
 
   /** Captura o estado "limpo" (salvo) para comparação futura. */
@@ -418,8 +404,6 @@ export default function RelatorioBuilder({
     const currentBandaId = bandaDetailIdRef.current;
     if (currentBandaId) {
       const c = camposRef.current;
-      const f = filtrosRef.current;
-      const o = ordenacaoRef.current;
       setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
     // Limpar estado de campo anterior para não abrir formulário de elemento
@@ -506,8 +490,6 @@ export default function RelatorioBuilder({
     const currentBandaId = bandaDetailIdRef.current;
     if (currentBandaId) {
       const c = camposRef.current;
-      const f = filtrosRef.current;
-      const o = ordenacaoRef.current;
       setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
     }
     setBandaDetailId(null);
@@ -530,7 +512,6 @@ export default function RelatorioBuilder({
   const [tamanhoFonteLabel, setTamanhoFonteLabel] = useState(relatorio?.tamanhoFonteLabel ?? 10);
   const [fonteCampo, setFonteCampo] = useState(relatorio?.fonteCampo ?? 'Arial');
   const [tamanhoFonteCampo, setTamanhoFonteCampo] = useState(relatorio?.tamanhoFonteCampo ?? 10);
-  const [erros, setErros] = useState<string[]>([]);
   const [editingCampo, setEditingCampo] = useState(false);
   const [editingBanda, setEditingBanda] = useState(false);
   const [editingFiltro, setEditingFiltro] = useState(false);
@@ -866,24 +847,11 @@ export default function RelatorioBuilder({
   // ── Handlers ──
 
 
-  function adicionarFiltro() { setFiltros((prev) => [...prev, EMPTY_FILTRO()]); }
-  function removerFiltro(id: string) { setFiltros((prev) => prev.filter((f) => f.id !== id)); }
-  function atualizarFiltro(id: string, updates: Partial<RelatorioFiltro>) {
-    setFiltros((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
-  }
-
-  function adicionarOrdenacao() { const seq = getNextOrdSeq(); setOrdenacao((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: "", direcao: "asc" }]); }
-  function removerOrdenacao(idx: number) { setOrdenacao((prev) => prev.filter((_, i) => i !== idx)); }
-  function atualizarOrdenacao(idx: number, updates: Partial<RelatorioOrdenacao>) {
-    setOrdenacao((prev) => prev.map((o, i) => (i === idx ? { ...o, ...updates } : o)));
-  }
-
   function validar(): boolean {
     const errs: string[] = [];
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
     if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
-    setErros(errs);
     if (errs.length > 0 && onToast) {
       onToast(errs.join('\n'), 'error');
     }
@@ -931,7 +899,6 @@ export default function RelatorioBuilder({
   function handleNavClick(direction: 'prev' | 'next') {
     if (isDirty) {
       pendingNavRef.current = direction;
-      setPendingNav(direction);
       setShowUnsavedModal(true);
     } else {
       direction === 'prev' ? onPrevRecord?.() : onNextRecord?.();
@@ -950,11 +917,9 @@ export default function RelatorioBuilder({
     setBandaSaving(false);
     setShowUnsavedModal(false);
     pendingNavRef.current = null;
-    setPendingNav(null);
     dir === 'prev' ? onPrevRecord?.() : onNextRecord?.();
   }
 
-  const labelClass = "block text-sm mb-1";
   const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
   return (
@@ -1735,8 +1700,6 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           {campoDetailId && campoSel && (() => {
             const tipoBanda = bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda;
-            const isTextoValor = tipoBanda === 'texto_valor';
-            const isCabeOuRodape = tipoBanda === 'cabecalho' || tipoBanda === 'rodape';
             const ocultarColecaoCampo = false;
             const textoValorHidden = tipoBanda !== 'lista';
             const ESTILO_OPTS = [{ value: '', label: '---' }, { value: 'negrito', label: 'Negrito' }, { value: 'italico', label: 'Itálico' }, { value: 'sublinhado', label: 'Sublinhado' }, { value: 'negrito_italico', label: 'Negrito + Itálico' }, { value: 'negrito_sublinhado', label: 'Negrito + Sublinhado' }, { value: 'italico_sublinhado', label: 'Itálico + Sublinhado' }, { value: 'negrito_italico_sublinhado', label: 'Negrito + Itálico + Sublinhado' }];
@@ -2058,7 +2021,6 @@ export default function RelatorioBuilder({
               <CamposRelatorioTable
                 campos={campos}
                 onChange={syncCampos}
-                camposDisponiveis={camposDisponiveis}
                 colecaoPrincipal={bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''}
                 onEditingChange={setEditingCampo}
                 userId={userId}
@@ -2291,13 +2253,13 @@ export default function RelatorioBuilder({
       {/* ── Modal: Alterações não salvas ── */}
       {showUnsavedModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="absolute inset-0" onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }} />
+          <div className="absolute inset-0" onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; }} />
           <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
               <h3 className="text-base font-semibold" style={{ color: '#000' }}>Alterações não salvas</h3>
               <button
                 type="button"
-                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }}
+                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; }}
                 className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
                 aria-label="Fechar"
               >
@@ -2310,7 +2272,7 @@ export default function RelatorioBuilder({
             <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
               <button
                 type="button"
-                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }}
+                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; }}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >

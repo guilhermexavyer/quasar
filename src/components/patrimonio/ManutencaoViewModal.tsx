@@ -13,42 +13,6 @@ interface ManutencaoViewModalProps {
   onClose: () => void;
 }
 
-interface CampoDef {
-  key: string;
-  label: string;
-  span: number;
-}
-
-const SECOES: { titulo: string; campos: CampoDef[] }[] = [
-  {
-    titulo: "Dados da manutenção",
-    campos: [
-      { key: "dt_envio", label: "Data de envio", span: 3 },
-      { key: "dt_termino", label: "Data de término", span: 3 },
-      { key: "ie_status_manutencao", label: "Status", span: 3 },
-      { key: "vl_total", label: "Valor total", span: 3 },
-    ],
-  },
-  {
-    titulo: "Observações",
-    campos: [
-      { key: "ds_motivo_manutencao", label: "Motivo da manutenção", span: 12 },
-      { key: "ds_correcoes", label: "Correções", span: 12 },
-      { key: "ds_observacao", label: "Observação", span: 12 },
-    ],
-  },
-];
-
-// Tailwind não gera classes dinâmicas — mapa estático de spans usados.
-const SPAN_CLASS: Record<number, string> = {
-  2: "sm:col-span-2",
-  3: "sm:col-span-3",
-  4: "sm:col-span-4",
-  6: "sm:col-span-6",
-  10: "sm:col-span-10",
-  12: "sm:col-span-12",
-};
-
 function formatCurrencyBRL(value: unknown): string {
   if (value === null || value === undefined || value === "") return "";
   if (typeof value === 'string') return value;

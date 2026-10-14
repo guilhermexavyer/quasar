@@ -21,7 +21,6 @@ export interface CgSelectOption {
 }
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: FormData;
@@ -60,7 +59,6 @@ interface FormViewProps {
 }
 
 export default function PessoaFisicaFormView({
-  message,
   editingId,
   sequence,
   form,

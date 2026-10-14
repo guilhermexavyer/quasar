@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import React, { useEffect, useLayoutEffect, useState, useCallback, useRef, useMemo } from "react";
+import React, { useEffect, useState, useCallback, useRef, useMemo } from "react";
 import {
   criarPessoaFisica,
   excluirPessoaFisica,
@@ -120,7 +120,7 @@ import {
 } from "@/services/ativoService";
 import { obterParamCodigoPatrimonio } from "@/services/paramCodigoPatrimonioService";
 import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { doc, updateDoc } from "firebase/firestore";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -134,7 +134,6 @@ import {
   parseDateInput,
   parsePersonDateValue,
   COLUMNS,
-  formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
 import { PJ_COLUMNS, applyCnpjMask } from "@/lib/pessoaJuridicaUtils";
 import { ALUNO_COLUMNS, formatCellValue as formatAlunoCellValue } from "@/lib/alunoUtils";
@@ -170,7 +169,7 @@ import AtivoLookupTable from "@/components/patrimonio/AtivoLookupTable";
 import ManutencaoViewModal from "@/components/patrimonio/ManutencaoViewModal";
 import type { Manutencao } from "@/types/manutencao";
 import { obterManutencoes, criarManutencao, atualizarManutencao, excluirManutencao } from "@/services/manutencaoService";
-import { MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
+import { MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS } from "@/lib/manutencaoUtils";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
@@ -225,7 +224,7 @@ import { obterEstados } from "@/services/estadoService";
 import CadastroGeralListView from "@/components/cadastrosGerais/CadastroGeralListView";
 import CadastroGeralFormView, { type CadastroGeralFormData } from "@/components/cadastrosGerais/CadastroGeralFormView";
 import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/components/cadastrosGerais/CadastroGeralFilterModal";
-import PessoaJuridicaFilterModal, { type PessoaJuridicaFilterForm } from "@/components/pessoaJuridica/PessoaJuridicaFilterModal";
+import PessoaJuridicaFilterModal from "@/components/pessoaJuridica/PessoaJuridicaFilterModal";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import type { Sexo } from "@/types/sexo";
@@ -397,9 +396,6 @@ const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'parametrosFuncao', label: 'Parâmetros da função' },
 ];
 
-const RELATORIO_SELECT_OPTIONS = [
-  { value: 'relatorio', label: 'Gerenciador de Relatórios' },
-];
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -750,43 +746,7 @@ const SECTION_ORDER_ALPHABETICAL: SectionType[] = [...DEFAULT_SECTION_ORDER].sor
 /*  Tipos das props dos subcomponentes                                */
 /* ------------------------------------------------------------------ */
 
-interface ListViewProps {
-  message: string;
-  loading: boolean;
-  pessoasFisicas: PessoaFisica[];
-  openNewForm: () => void;
-  openEditForm: (pessoa: PessoaFisica) => void;
-  handleDelete: (id: string) => void;
-  openFilter: () => void;
-  setContextMenu: React.Dispatch<React.SetStateAction<{
-    x: number;
-    y: number;
-    pessoa: PessoaFisica;
-  } | null>>;
-  sortColumn: number | null;
-  sortAsc: boolean | null;
-  onSortChange: (logicalIndex: number) => void;
-}
-
 type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
-
-interface FormViewProps {
-  message: string;
-  editingId: string | null;
-  sequence?: number | null;
-  form: FormData;
-  setForm: React.Dispatch<React.SetStateAction<FormData>>;
-  submitting: boolean;
-  handleSubmit: (event: React.FormEvent<HTMLFormElement>) => Promise<void>;
-  goToList: () => void;
-  createdAt: string;
-  updatedAt: string;
-  onOpenAudit?: (pessoaId?: string | null) => void;
-  onPrevRecord: () => void;
-  onNextRecord: () => void;
-  hasPrevRecord: boolean;
-  hasNextRecord: boolean;
-}
 
 /* ------------------------------------------------------------------ */
 /*  Componente principal                                              */
@@ -852,7 +812,6 @@ export default function Home() {
     });
   }, [activeSection, view]);
   const [adminManageSelection, setAdminManageSelection] = useState<string>('');
-  const [adminInteracted, setAdminInteracted] = useState(false);
   const [camposPerfilId, setCamposPerfilId] = useState<string | null>(null);
   const [camposFuncao, setCamposFuncao] = useState<string | null>(null);
   const [camposFuncaoJaSelecionada, setCamposFuncaoJaSelecionada] = useState(false);
@@ -891,7 +850,6 @@ export default function Home() {
   const [cgFilterForm, setCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCgFilterForm, setAppliedCgFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [cgManageSelection, setCgManageSelection] = useState<string>('');
-  const [cgInteracted, setCgInteracted] = useState(false);
   const [adminForm, setAdminForm] = useState<AdminFormData>(emptyAdminForm);
   const [adminEditingId, setAdminEditingId] = useState<string | null>(null);
   const [adminSubmitting, setAdminSubmitting] = useState(false);
@@ -967,7 +925,6 @@ export default function Home() {
   const naturalidadeCodeRef = useRef('');
   /* ── Estado de Pessoas Jurídicas ── */
   const [pjManageSelection, setPjManageSelection] = useState<string>('');
-  const [pjInteracted, setPjInteracted] = useState(false);
   const [pessoasJuridicas, setPessoasJuridicas] = useState<PessoaJuridica[]>([]);
   const [pjForm, setPjForm] = useState<PjFormData>(emptyPjForm);
   const [pjFilterForm, setPjFilterForm] = useState<PjFilterFormData>(emptyPjFilterForm);
@@ -990,7 +947,6 @@ export default function Home() {
   const pjCidadeLookupTargetRef = useRef<'form' | 'filter'>('form');
   /* ── Estado de Estrutura Acadêmica (Alunos) ── */
   const [alunoManageSelection, setAlunoManageSelection] = useState<string>('');
-  const [alunoInteracted, setAlunoInteracted] = useState(false);
   const [alunos, setAlunos] = useState<Aluno[]>([]);
   const [alunoForm, setAlunoForm] = useState<AlunoFormData>(emptyAlunoForm);
   const [alunoEditingId, setAlunoEditingId] = useState<string | null>(null);
@@ -1109,7 +1065,6 @@ export default function Home() {
     }
     return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
   }, [enviarManutForm.nr_seq_prestador_servico, pessoasFisicas, colaboradores, pessoasJuridicas]);
-  const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
   const [colaboradorPjLookupFilter, setColaboradorPjLookupFilter] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
@@ -1118,7 +1073,6 @@ export default function Home() {
 
   // Patrimônio > Ativos.
   const [ativoManageSelection, setAtivoManageSelection] = useState<string>('');
-  const [ativoInteracted, setAtivoInteracted] = useState(false);
   const [ativos, setAtivos] = useState<Ativo[]>([]);
   const [ativoForm, setAtivoForm] = useState<AtivoFormData>(emptyAtivoForm);
   const [ativoEditingId, setAtivoEditingId] = useState<string | null>(null);
@@ -1209,7 +1163,6 @@ export default function Home() {
   const [relatorioBandasMode, setRelatorioBandasMode] = useState(false);
   const [relatorioForm, setRelatorioForm] = useState<Relatorio | null>(null);
   const [relatorioSubmitting, setRelatorioSubmitting] = useState(false);
-  const [relatorioGerando, setRelatorioGerando] = useState(false);
   const [relatorioParamModal, setRelatorioParamModal] = useState<{ relatorio: Relatorio; parametros: RelatorioFiltro[] } | null>(null);
   const [relatorioParamValues, setRelatorioParamValues] = useState<Record<string, string>>({});
   // Parâmetros obrigatórios vazios após tentar gerar (borda vermelha no modal).
@@ -1217,13 +1170,7 @@ export default function Home() {
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
   const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
-  const [bandaAuditInfo, setBandaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
-  const relatorioAuditIdRef = useRef<string | null>(null);
-  const [relatorioAuditModalOpen, setRelatorioAuditModalOpen] = useState(false);
-  const [relatorioAuditLoading, setRelatorioAuditLoading] = useState(false);
-  const [relatorioAuditLogs, setRelatorioAuditLogs] = useState<AuditEntry[]>([]);
   const [relatorioAuditTipo, setRelatorioAuditTipo] = useState<'relatorio' | 'relatorio_banda' | 'relatorio_banda_elemento' | 'relatorio_parametro'>('relatorio');
-  const [relatorioAuditItemId, setRelatorioAuditItemId] = useState<string | null>(null);
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
   const bandaJustSavedRef = useRef(false);
@@ -2553,23 +2500,18 @@ export default function Home() {
         }
         if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens')) {
           setAdminManageSelection(session.adminManageSelection);
-          setAdminInteracted(true);
         }
         if (typeof session.cgManageSelection === "string" && session.cgManageSelection.trim() !== "") {
           setCgManageSelection(session.cgManageSelection);
-          setCgInteracted(true);
         }
         if (typeof session.pjManageSelection === "string" && (session.pjManageSelection === 'pessoasFisicas' || session.pjManageSelection === 'pessoasJuridicas')) {
           setPjManageSelection(session.pjManageSelection);
-          setPjInteracted(true);
         }
         if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores')) {
           setAlunoManageSelection(session.alunoManageSelection);
-          setAlunoInteracted(true);
         }
         if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
           setAtivoManageSelection(session.patrimonioManageSelection);
-          setAtivoInteracted(true);
         }
         if (typeof session.relatorioManageSelection === "string" && session.relatorioManageSelection.trim() !== "") {
           setRelatorioManageSelection(session.relatorioManageSelection);
@@ -2863,7 +2805,7 @@ export default function Home() {
     try {
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
       if (!relatorioEditingId) {
-        const savedId = await criarRelatorio(data, auditAutor);
+        await criarRelatorio(data, auditAutor);
         setMessage('Relatório criado com sucesso!');
         // Bandas são salvas exclusivamente via handleBandaSave (relatorio_banda collection)
       } else {
@@ -3030,7 +2972,6 @@ export default function Home() {
   }
 
   async function executarRelatorioGerar(relatorio: Relatorio) {
-    setRelatorioGerando(true);
     setMessage('');
     try {
       const todasBandas = relatorio.bandas ?? [];
@@ -3103,7 +3044,6 @@ export default function Home() {
         const resultado = await executarConsultaRelatorio(relatorio);
         if (resultado.total === 0) {
           setMessage('Nenhum registro encontrado com os filtros aplicados.');
-          setRelatorioGerando(false);
           return;
         }
         const dsPrincipal = getDataSource(relatorio.colecao);
@@ -3154,7 +3094,6 @@ export default function Home() {
     } catch (err: any) {
       setMessage(`Erro ao gerar relatório: ${err.message || 'Erro desconhecido'}`);
     } finally {
-      setRelatorioGerando(false);
     }
   }
 
@@ -3262,7 +3201,6 @@ export default function Home() {
   }
 
   function handleAdminManageSelectionChange(value: string) {
-    setAdminInteracted(true);
     setAdminManageSelection(value);
     // Ao trocar entre Usuários/Perfis/Campos, zera o formulário em edição
     // para nunca salvar contra a coleção errada.
@@ -3295,7 +3233,6 @@ export default function Home() {
   }
 
   function handleCgManageSelectionChange(value: string) {
-    setCgInteracted(true);
     setCgManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
@@ -3305,7 +3242,6 @@ export default function Home() {
   }
 
   function handlePjManageSelectionChange(value: string) {
-    setPjInteracted(true);
     setPjManageSelection(value);
     // Ao trocar entre Pessoas Físicas/Jurídicas, zera os formulários e
     // retorna à listagem para nunca salvar contra a coleção errada.
@@ -3322,7 +3258,6 @@ export default function Home() {
   }
 
   function handleAlunoManageSelectionChange(value: string) {
-    setAlunoInteracted(true);
     setAlunoManageSelection(value);
     // Ao trocar entre Alunos/Colaboradores, zera os formulários em edição
     // para nunca salvar contra a coleção errada.
@@ -3338,7 +3273,6 @@ export default function Home() {
   }
 
   function handlePatrimonioManageSelectionChange(value: string) {
-    setAtivoInteracted(true);
     setAtivoManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
@@ -3357,7 +3291,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByPessoaId(pessoaId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3372,7 +3306,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId('pessoa_juridica', pessoaId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3387,7 +3321,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByUsuarioId(usuarioId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3402,7 +3336,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId('perfil', perfilId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3417,7 +3351,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId('imagem', nr_seq_imagem);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3432,7 +3366,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId(cgCollection, cgId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3447,7 +3381,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId('aluno', alunoId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3462,7 +3396,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId('colaborador', colaboradorId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -3477,7 +3411,7 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId('pat_ativo', ativoId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -5515,7 +5449,7 @@ export default function Home() {
           setMessage("Usuário já existente.");
           return;
         }
-        const id = await criarUsuario(usuarioPayload as any, auditAutor);
+        await criarUsuario(usuarioPayload as any, auditAutor);
         setMessage("Cadastrado com sucesso!");
       }
 
@@ -7437,9 +7371,6 @@ export default function Home() {
     setMessage(msg);
   }
 
-  const toastBg = messageStatus === 'success' ? '#2cc958' : messageStatus === 'warning' ? '#f59e0b' : '#ef4444';
-  const toastTextClass = messageStatus === 'warning' ? 'text-slate-950' : 'text-white';
-  const toastBorderColor = messageStatus === 'success' ? '#23A146' : messageStatus === 'warning' ? '#b46a00' : '#9b1230';
 
   useEffect(() => {
     if (!message) {
@@ -7479,15 +7410,12 @@ export default function Home() {
       return;
     }
 
-    console.log("[Login] origin", window.location.origin);
-    console.log("[Login] apiKey", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
     setLoginError(null);
     setLoginWarning(null);
     setIsLoginLoading(true);
 
     try {
       const usuariosCadastrados = await obterUsuarios();
-      console.log("[Login] usuários carregados", usuariosCadastrados.length, usuariosCadastrados.map((u) => u.ds_usuario));
       const hashedPassword = await hashPassword(normalizedPassword);
       const legacyHash = createFallbackHash(normalizedPassword);
       const usuarioValido = usuariosCadastrados.find((usuario) => {
@@ -7568,11 +7496,6 @@ export default function Home() {
     setAlunoManageSelection('');
     setAtivoManageSelection('');
     setRelatorioManageSelection('');
-    setAdminInteracted(false);
-    setCgInteracted(false);
-    setPjInteracted(false);
-    setAlunoInteracted(false);
-    setAtivoInteracted(false);
     setRelatorioInteracted(false);
     setRelatorioParamValues({});
   }
@@ -7778,13 +7701,12 @@ export default function Home() {
     if (!docId) return;
     setAuditDocumentType('relatorio' as any);
     setRelatorioAuditTipo(tipo);
-    setRelatorioAuditItemId(docId);
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
       const logs = await fetchAuditByDocumentId(tipo, docId);
       setAuditLogs(logs);
-    } catch (e) {
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -7892,7 +7814,6 @@ export default function Home() {
         <ContextMenu
           x={contextMenu.x}
           y={contextMenu.y}
-          state={contextMenu}
           showView={podeVerNoContexto()}
           onView={() => {
             if (contextMenu.section === 'pessoaFisica') {
@@ -8468,13 +8389,10 @@ export default function Home() {
             activeSection === "pessoaFisica" ? (
               pjManageSelection === 'pessoasJuridicas' ? (
                 <PessoaJuridicaListView
-                  message={message}
                   loading={loading}
                   pessoasJuridicas={filteredSortedPessoasJuridicas}
                   openNewForm={handlePjNewForm}
-                  openEditForm={openPjEditForm}
                   openFilter={openPjFilterModal}
-                  handleDelete={handlePjDelete}
                   setContextMenu={setContextMenu}
                   selectOptions={PJ_SELECT_OPTIONS}
                   manageSelection={pjManageSelection}
@@ -8489,13 +8407,10 @@ export default function Home() {
                 />
               ) : (
                 <PessoaFisicaListView
-                  message={message}
                   loading={loading}
                   pessoasFisicas={filteredSortedPessoasFisicas}
                   openNewForm={handlePessoaNewForm}
-                  openEditForm={openEditForm}
                   openFilter={openFilterModal}
-                  handleDelete={handleDelete}
                   setContextMenu={setContextMenu}
                   selectOptions={PJ_SELECT_OPTIONS}
                   manageSelection={pjManageSelection}
@@ -8527,12 +8442,10 @@ export default function Home() {
               />
             ) : adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaListView
-                  message={message}
                   loading={loading}
                   usuarios={filteredSortedUsuarios}
                   pessoasFisicas={pessoasFisicas}
                   openNewForm={handleAdminNewForm}
-                  openEditForm={openAdminEditForm}
                   setContextMenu={setContextMenu}
                   sortColumn={adminSortColumn}
                   sortAsc={adminSortAsc}
@@ -8549,8 +8462,6 @@ export default function Home() {
                   loading={loading}
                   imagens={filteredSortedImagens}
                   openNewForm={handleImagemNewForm}
-                  openEditForm={openImagemEditForm}
-                  handleDelete={handleImagemDelete}
                   setContextMenu={setContextMenu}
                   sortColumn={imagemSortColumn}
                   sortAsc={imagemSortAsc}
@@ -8563,11 +8474,9 @@ export default function Home() {
                 />
               ) : (
                 <PerfilListView
-                  message={message}
                   loading={loading}
                   perfis={filteredSortedPerfis}
                   openNewForm={handlePerfilNewForm}
-                  openEditForm={openPerfilEditForm}
                   setContextMenu={setContextMenu}
                   sortColumn={perfilSortColumn}
                   sortAsc={perfilSortAsc}
@@ -8583,13 +8492,10 @@ export default function Home() {
             ) : activeSection === "estruturaAcademica" ? (
               alunoManageSelection === 'alunos' ? (
                 <AlunoListView
-                  message={message}
                   loading={loading}
                   alunos={filteredSortedAlunos}
                   openNewForm={handleAlunoNewForm}
-                  openEditForm={openAlunoEditForm}
                   openFilter={openAlunoFilterModal}
-                  handleDelete={handleAlunoDelete}
                   setContextMenu={setContextMenu}
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
@@ -8604,13 +8510,10 @@ export default function Home() {
                 />
               ) : (
                 <ColaboradorListView
-                  message={message}
                   loading={loading}
                   colaboradores={filteredSortedColaboradores}
                   openNewForm={handleColaboradorNewForm}
-                  openEditForm={openColaboradorEditForm}
                   openFilter={openColaboradorFilterModal}
-                  handleDelete={handleColaboradorDelete}
                   setContextMenu={setContextMenu}
                   selectOptions={EA_SELECT_OPTIONS}
                   manageSelection={alunoManageSelection}
@@ -8648,12 +8551,9 @@ export default function Home() {
                 />
               ) : ativoManageSelection === 'manutencoes' ? (
                 <ManutencaoListView
-                  message={message}
                   loading={loading}
                   manutencoes={filteredSortedManutencoes}
                   openNewForm={handleManutencaoNewForm}
-                  openEditForm={openManutencaoEditForm}
-                  handleDelete={handleManutencaoDelete}
                   setContextMenu={setContextMenu}
                   selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   manageSelection={ativoManageSelection}
@@ -8689,12 +8589,9 @@ export default function Home() {
                 />
               ) : (
               <AtivoListView
-                message={message}
                 loading={loading}
                 ativos={filteredSortedAtivos}
                 openNewForm={handleAtivoNewForm}
-                openEditForm={openAtivoEditForm}
-                handleDelete={handleAtivoDelete}
                 setContextMenu={setContextMenu}
                 selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                 manageSelection={ativoManageSelection}
@@ -8796,9 +8693,7 @@ export default function Home() {
                   loading={loading}
                   relatorios={filteredSortedRelatorios}
                   openNewForm={openRelatorioNewForm}
-                  openEditForm={openRelatorioEditForm}
                   openBandas={openRelatorioBandas}
-                  handleDelete={handleRelatorioDelete}
                   setContextMenu={setContextMenu}
                   sortColumn={relatorioSortColumn}
                   sortAsc={relatorioSortAsc}
@@ -8825,7 +8720,6 @@ export default function Home() {
                 onManageSelectionChange={handleCgManageSelectionChange}
                 allowedSubmodulos={allowedCgSubmodulos}
                 openNewForm={handleCgNewForm}
-                openEditForm={openCgEditForm}
                 openFilter={openCgFilterModal}
                 setContextMenu={setContextMenu}
                 sortColumn={cgSortColumn}
@@ -8838,7 +8732,6 @@ export default function Home() {
           ) : activeSection === "pessoaFisica" ? (
             pjManageSelection === 'pessoasJuridicas' ? (
               <PessoaJuridicaFormView
-                message={message}
                 editingId={pjEditingId}
                 sequence={pjEditingId ? (pessoasJuridicas.find((a) => a.id === pjEditingId)?.nr_sequencia ?? null) : null}
                 form={pjForm}
@@ -8869,7 +8762,6 @@ export default function Home() {
               />
             ) : (
               <PessoaFisicaFormView
-                message={message}
                 editingId={editingId}
                 sequence={editingId ? (pessoasFisicas.find((a) => a.id === editingId)?.nr_sequencia ?? null) : null}
                 form={form}
@@ -8921,7 +8813,6 @@ export default function Home() {
                 />
               ) : adminManageSelection === 'usuarios' ? (
                 <AdministracaoSistemaFormView
-                message={message}
                 editingId={adminEditingId}
                 sequence={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.nr_sequencia ?? null) : null}
                 form={adminForm}
@@ -8950,7 +8841,6 @@ export default function Home() {
               />
             ) : adminManageSelection === 'imagens' ? (
               <ImagemFormView
-                message={message}
                 editingId={imagemEditingId}
                 imagem={imagemForm}
                 setImagem={setImagemForm as any}
@@ -8972,7 +8862,6 @@ export default function Home() {
               />
             ) : (
               <PerfilFormView
-                message={message}
                 editingId={perfilEditingId}
                 sequence={perfilEditingId ? (perfis.find((a) => a.id === perfilEditingId)?.nr_sequencia ?? null) : null}
                 form={perfilForm}
@@ -8999,7 +8888,6 @@ export default function Home() {
             )            ) : activeSection === "estruturaAcademica" ? (
               alunoManageSelection === 'alunos' ? (
                 <AlunoFormView
-                  message={message}
                   editingId={alunoEditingId}
                   sequence={alunoEditingId ? (alunos.find((a) => a.id === alunoEditingId)?.nr_sequencia ?? null) : null}
                   form={alunoForm}
@@ -9032,7 +8920,6 @@ export default function Home() {
                 />
               ) : (
                 <ColaboradorFormView
-                  message={message}
                   editingId={colaboradorEditingId}
                   sequence={colaboradorEditingId ? (colaboradores.find((c) => c.id === colaboradorEditingId)?.nr_sequencia ?? null) : null}
                   form={colaboradorForm}
@@ -9066,7 +8953,6 @@ export default function Home() {
               )
             ) : activeSection === "patrimonio" && ativoManageSelection === 'manutencoes' ? (
               <ManutencaoFormView
-                message={message}
                 editingId={manutencaoEditingId}
                 sequence={manutencaoEditingId ? (manutencoes.find((m) => m.id === manutencaoEditingId)?.nr_sequencia ?? null) : null}
                 form={manutencaoForm}
@@ -9083,7 +8969,6 @@ export default function Home() {
                 onNextRecord={goToNextManutencaoRecord}
                 hasPrevRecord={hasPrevManutencaoRecord}
                 hasNextRecord={hasNextManutencaoRecord}
-                ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))}
                 ativoName={manutencaoAtivoName}
                 onOpenAtivoLookup={openManutencaoAtivoLookup}
                 onViewAtivo={(seq) => { const a = ativos.find((at) => at.nr_sequencia === seq); if (a) setAtivoView(a); }}
@@ -9099,7 +8984,6 @@ export default function Home() {
               />
             ) : activeSection === "patrimonio" ? (
               <AtivoFormView
-                message={message}
                 editingId={ativoEditingId}
                 sequence={ativoEditingId ? (ativos.find((a) => a.id === ativoEditingId)?.nr_sequencia ?? null) : null}
                 form={ativoForm}

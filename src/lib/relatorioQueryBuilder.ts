@@ -7,7 +7,6 @@ import { getDataSource } from "@/lib/relatorioDataSources";
 import type {
   Relatorio,
   RelatorioFiltro,
-  RelatorioOrdenacao,
   DataSourceCampo,
 } from "@/types/relatorio";
 
@@ -191,7 +190,7 @@ async function resolveColecoesFK(
   const dadosFK: Record<string, Record<number, Record<string, any>>> = {};
   const lookups: Record<string, Record<number, string>> = {};
 
-  for (const [fkColecao, { fkFieldKey, alias }] of fksNecessarias) {
+  for (const [fkColecao, { fkFieldKey }] of fksNecessarias) {
     const docs = await fetchColecao(fkColecao);
     const porSequencia: Record<number, Record<string, any>> = {};
     const lookupLabel: Record<number, string> = {};
@@ -201,7 +200,6 @@ async function resolveColecoesFK(
       if (seq !== undefined) {
         porSequencia[seq] = doc;
         // Para compatibilidade, mantém o lookup de label
-        const dsFK = getDataSource(fkColecao);
         const labelField = dsPrincipalCampos.find((c) => c.fkColecao === fkColecao)?.fkLabel;
         if (labelField) {
           lookupLabel[seq] = doc[labelField] ?? String(seq);
@@ -273,11 +271,8 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
   );
 
   // Resolve campos computados
-  console.log('[DEBUG COMPUTED] campos:', campos.map((c) => ({ chave: c.ie_campo, ie_colecao: c.ie_colecao, computed: (c as any).computed })), 'colecao:', colecao);
   const temComputado = campos.some((c) => c.ie_campo === 'ds_prestador_servico');
-  console.log('[DEBUG COMPUTED] temComputado:', temComputado, 'isManut:', colecao === 'pat_manutencao');
   if (temComputado && colecao === 'pat_manutencao') {
-    console.log('[DEBUG COMPUTED] Resolving ds_prestador_servico...');
     const colaboradoresDocs = await fetchColecao('colaborador');
     const pfDocs = await fetchColecao('pessoa_fisica');
     const pjDocs = await fetchColecao('pessoa_juridica');
@@ -302,8 +297,6 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
         reg.ds_prestador_servico = '';
       }
     }
-    console.log('[DEBUG COMPUTED] colMap keys:', Object.keys(colMap).slice(0, 5), 'total:', Object.keys(colMap).length);
-    console.log('[DEBUG COMPUTED] Sample record:', registrosResolvidos[0] ? { nr_seq_prestador: registrosResolvidos[0].nr_seq_prestador_servico, ds_prest: registrosResolvidos[0].ds_prestador_servico, prestador: registrosResolvidos[0].prestador_servico } : 'none');
   }
 
   return {

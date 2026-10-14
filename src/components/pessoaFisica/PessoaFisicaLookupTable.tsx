@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import { COLUMNS, formatCellValue } from "@/lib/pessoaFisicaUtils";
@@ -414,7 +414,7 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect }: Pe
             <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
               <thead>
                 <tr className="bg-[#bbb]">
-                  {columnOrder.map((logicalIdx, visualIdx) => {
+                  {columnOrder.map((logicalIdx) => {
                     const col = lookupColumns[logicalIdx];
                     const isDragSource = dragCol === logicalIdx;
                     return (

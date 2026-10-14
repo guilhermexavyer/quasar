@@ -14,16 +14,6 @@ interface ColaboradorViewModalProps {
   onClose: () => void;
 }
 
-const SPAN_CLASS: Record<number, string> = {
-  1: "sm:col-span-1",
-  2: "sm:col-span-2",
-  3: "sm:col-span-3",
-  4: "sm:col-span-4",
-  6: "sm:col-span-6",
-  9: "sm:col-span-9",
-  12: "sm:col-span-12",
-};
-
 function formatStatus(value: unknown): string {
   if (value === "A" || value === "a") return "Ativo";
   if (value === "I" || value === "i") return "Inativo";

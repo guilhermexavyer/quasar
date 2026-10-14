@@ -3,7 +3,6 @@
 import { useEffect, useRef, useState } from "react";
 import type { Imagem } from "@/types/imagem";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
-import type { ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 
@@ -14,7 +13,6 @@ const IMAGEM_FIELD_INFOS: Record<string, { type: string; field: string; collecti
 };
 
 interface ImagemFormViewProps {
-  message: string;
   editingId: string | null;
   imagem: Partial<Imagem>;
   setImagem: (fn: (prev: Partial<Imagem>) => Partial<Imagem>) => void;
@@ -36,7 +34,6 @@ interface ImagemFormViewProps {
 }
 
 export default function ImagemFormView({
-  message,
   editingId,
   imagem,
   setImagem,
@@ -58,7 +55,6 @@ export default function ImagemFormView({
 }: ImagemFormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const [preview, setPreview] = useState<string | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
   const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
 
@@ -75,8 +71,6 @@ export default function ImagemFormView({
       e.target.value = '';
       return;
     }
-    const url = URL.createObjectURL(file);
-    setPreview(url);
     setImagem((prev) => ({ ...prev, _file: file, ie_arquivo: `/images/${file.name}` } as any));
   }
 

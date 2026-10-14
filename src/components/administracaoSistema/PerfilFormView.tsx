@@ -11,7 +11,6 @@ import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 export type PerfilFormData = Omit<Perfil, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
 interface FormViewProps {
-  message: string;
   editingId: string | null;
   sequence?: number | null;
   form: PerfilFormData;
@@ -40,7 +39,6 @@ interface FormViewProps {
 }
 
 export default function PerfilFormView({
-  message,
   editingId,
   sequence,
   form,

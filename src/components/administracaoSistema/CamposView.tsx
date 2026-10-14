@@ -383,7 +383,6 @@ export default function CamposView({
           <ContextMenu
             x={campoMenu.x}
             y={campoMenu.y}
-            state={{ x: campoMenu.x, y: campoMenu.y, section: 'administracaoSistema', item: selectedPerfil }}
             showView={false}
             showDelete={false}
             onView={() => setCampoMenu(null)}
