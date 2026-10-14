@@ -364,16 +364,6 @@ export function getDataSource(colecao: string): DataSourceDef | undefined {
 }
 
 /**
- * Obtém a definição de um campo específico de uma fonte de dados.
- */
-export function getDataSourceCampo(colecao: string, chave: string): DataSourceCampo | undefined {
-  const ds = getDataSource(colecao);
-  return ds?.campos.find((c) => c.key === chave);
-}
-
-import type { DataSourceCampo } from "@/types/relatorio";
-
-/**
  * Mapeamento de campos ie_status por coleção.
  * Chave: coleção. Valor: mapa de abreviação → label.
  */

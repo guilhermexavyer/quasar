@@ -359,11 +359,6 @@ export function serializePermissoesConfig(config: PermissoesConfig): string {
   return JSON.stringify(config);
 }
 
-/** Permissões concedidas de uma função na configuração. */
-export function getPermissoes(config: PermissoesConfig | undefined, funcao: string): string[] {
-  return config?.[funcao] ?? [];
-}
-
 /**
  * Verifica se uma permissão está concedida na configuração. Sem configuração
  * salva para a função (chave ausente) = tudo liberado (comportamento padrão);

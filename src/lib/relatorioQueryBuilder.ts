@@ -308,19 +308,6 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
 }
 
 /**
- * Obtém a coluna de exibição para um campo, resolvendo aliases de joins.
- */
-export function resolverCampoColuna(campo: string, registros: Record<string, any>[]): string {
-  if (campo.includes('.')) {
-    return campo;
-  }
-  if (campo.endsWith('__label')) {
-    return campo;
-  }
-  return campo;
-}
-
-/**
  * Resolve a chave de um campo do relatório para notação de ponto.
  * Se o campo vem de uma coleção FK, converte 'ds_marca' → 'marca.ds_marca'.
  */

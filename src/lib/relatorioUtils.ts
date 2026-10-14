@@ -1,25 +1,4 @@
-import type { Relatorio, RelatorioConfigPdf } from "@/types/relatorio";
-
-/** Label para o status de um relatório (formato legível). */
-export function formatRelatorioCellValue(key: keyof Relatorio, value: unknown): string {
-  if (value === null || value === undefined) return "";
-  const str = String(value);
-  if (!str) return "";
-
-  switch (key) {
-    case "ie_formato":
-      return str === "pdf" ? "PDF" : str;
-    case "dt_criacao":
-    case "dt_alteracao":
-      try {
-        return new Date(str).toLocaleString("pt-BR");
-      } catch {
-        return str;
-      }
-    default:
-      return str;
-  }
-}
+import type { RelatorioConfigPdf } from "@/types/relatorio";
 
 /** Configuração padrão para PDF. */
 export function defaultConfigPdf(): RelatorioConfigPdf {
@@ -72,29 +51,6 @@ export const OPERADORES_FILTRO = [
   { value: "entre", label: "Entre" },
   { value: "vazio", label: "Está vazio" },
   { value: "nao_vazio", label: "Não está vazio" },
-] as const;
-
-/** Formatos de dados disponíveis para campos. */
-export const FORMATOS_CAMPO = [
-  { value: "texto", label: "Texto" },
-  { value: "numero", label: "Número" },
-  { value: "moeda", label: "Moeda (R$)" },
-  { value: "data", label: "Data" },
-  { value: "data_hora", label: "Data/Hora" },
-  { value: "porcentagem", label: "Porcentagem" },
-] as const;
-
-/** Alinhamentos disponíveis. */
-export const ALINHAMENTOS = [
-  { value: "esquerda", label: "Esquerda" },
-  { value: "centro", label: "Centro" },
-  { value: "direita", label: "Direita" },
-] as const;
-
-export const ALINHAMENTOS_VERTICAIS = [
-  { value: "cima", label: "Cima" },
-  { value: "centro", label: "Centro" },
-  { value: "baixo", label: "Baixo" },
 ] as const;
 
 /** Tamanhos de página PDF. */

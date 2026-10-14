@@ -15,8 +15,6 @@ export const CAMPO_STATUS_LABELS: Record<CampoStatus, string> = {
   D: "Desabilitado",
 };
 
-export const CAMPO_STATUS_ORDER: CampoStatus[] = ["N", "O", "D"];
-
 export function parseCamposConfig(raw?: string | null): CamposConfig {
   if (!raw) return {};
   try {
@@ -40,10 +38,6 @@ export function serializeCamposConfig(config: CamposConfig): string {
 
 export function campoKey(colecao: string, campo: string): string {
   return `${colecao}.${campo}`;
-}
-
-export function getCampoStatus(config: CamposConfig | undefined, colecao: string, campo: string): CampoStatus {
-  return config?.[campoKey(colecao, campo)] ?? "N";
 }
 
 export function getCampoStatusByKey(config: CamposConfig | undefined, chave: string): CampoStatus {

@@ -151,13 +151,6 @@ export async function renomearArquivoImagem(oldPath: string, newFileName: string
   return result.path;
 }
 
-export async function obterImagemPorId(id: string): Promise<Imagem | null> {
-  const docRef = doc(db, COLLECTION, id);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as Imagem;
-}
-
 /**
  * Upload de imagem para o diretório public/images/.
  * Retorna o caminho relativo salvo no Firestore (ex.: /images/arquivo.png).

@@ -157,11 +157,3 @@ export async function atualizarParametro(
 export async function excluirParametro(id: string): Promise<void> {
   await deleteDoc(doc(db, "relatorio_parametro", id));
 }
-
-/** Exclui todos os parâmetros de um relatório. */
-export async function excluirParametrosPorRelatorio(nrSeqRelatorio: number): Promise<void> {
-  const parametros = await obterParametrosPorRelatorio(nrSeqRelatorio);
-  for (const p of parametros) {
-    await deleteDoc(doc(db, "relatorio_parametro", p.id));
-  }
-}

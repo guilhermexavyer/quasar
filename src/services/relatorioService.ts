@@ -142,27 +142,3 @@ export async function excluirRelatorio(id: string): Promise<void> {
   const docRef = doc(db, "relatorio", id);
   await deleteDoc(docRef);
 }
-
-/** Salva auditoria de uma banda específica na coleção relatorio_bandas/{bandId}/auditoria */
-export async function salvarBandaAuditoria(
-  bandId: string,
-  bandaDados: Record<string, any>,
-  bandaAnterior: Record<string, any> | null,
-  autor?: AuditAutor
-): Promise<void> {
-  try {
-    const auditCol = collection(db, "relatorio_bandas", bandId, "auditoria");
-    const agora = new Date().toISOString();
-    const acao = bandaAnterior ? "update" : "create";
-    await addDoc(auditCol, {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: autor?.usuarioNome ?? "-",
-      acao,
-      timestamp: agora,
-      detalhes: bandaDados,
-      ...(bandaAnterior ? { antes: bandaAnterior } : {}),
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de banda", e);
-  }
-}

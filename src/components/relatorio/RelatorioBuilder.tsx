@@ -225,7 +225,6 @@ export default function RelatorioBuilder({
     }
   }, [stateActionsRef]);
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
 
   useEffect(() => {

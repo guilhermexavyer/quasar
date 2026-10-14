@@ -43,28 +43,6 @@ export const PJ_FIELD_INFOS = {
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'pessoa_juridica' },
 } as const;
 
-export const PJ_FIELD_LABELS: Record<string, string> = {
-  nr_sequencia: 'Sequência',
-  ds_razao_social: 'Razão social',
-  ds_nome_fantasia: 'Nome fantasia',
-  nr_cnpj: 'CNPJ',
-  nr_inscricao_estadual: 'Inscrição estadual',
-  nr_inscricao_municipal: 'Inscrição municipal',
-  dt_abertura: 'Data de abertura',
-  nr_telefone: 'Telefone',
-  ds_email: 'E-mail',
-  nr_cep: 'CEP',
-  ds_endereco: 'Rua',
-  nr_endereco: 'Número',
-  ds_bairro: 'Bairro',
-  ds_complemento: 'Complemento',
-  nr_seq_logradouro: 'Logradouro',
-  sg_estado: 'UF',
-  cd_ibge_cidade: 'Cidade',
-  dt_criacao: 'Criação',
-  dt_alteracao: 'Alteração',
-};
-
 export function formatCnpj(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 14);
   if (digits.length <= 2) return digits;

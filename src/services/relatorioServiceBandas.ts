@@ -284,36 +284,3 @@ export async function atualizarElemento(
 export async function excluirElemento(id: string): Promise<void> {
   await deleteDoc(doc(db, "relatorio_banda_elemento", id));
 }
-
-/** Salva todos os elementos de uma banda (sync: cria, atualiza, exclui). */
-export async function syncElementos(
-  bandaId: string,
-  nrSeqBanda: number,
-  elementosExistentes: Record<string, any>[],
-  elementosNovos: Record<string, any>[],
-  autor?: AuditAutor
-): Promise<void> {
-  const existentesMap = new Map(elementosExistentes.map((e) => [e.id, e]));
-  const novosMap = new Map(elementosNovos.map((e) => [e.id, e]));
-
-  // Excluir elementos removidos
-  for (const [id] of existentesMap) {
-    if (!novosMap.has(id)) {
-      await excluirElemento(id);
-    }
-  }
-
-  // Criar ou atualizar elementos
-  for (const el of elementosNovos) {
-    const dados = { ...el, nr_seq_banda: nrSeqBanda, nr_seq_relatorio: undefined };
-    delete dados.nr_seq_relatorio; // será preenchido pela banda
-
-    if (el.id && existentesMap.has(el.id)) {
-      // Atualizar existente
-      await atualizarElemento(el.id, dados, autor);
-    } else {
-      // Criar novo
-      await criarElemento(dados, autor);
-    }
-  }
-}
