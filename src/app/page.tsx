@@ -120,6 +120,7 @@ import {
 } from "@/services/ativoService";
 import { obterParamCodigoPatrimonio } from "@/services/paramCodigoPatrimonioService";
 import { db } from "@/lib/firebase";
+import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
 import { doc, updateDoc } from "firebase/firestore";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
@@ -182,7 +183,7 @@ import type { Imagem } from "@/types/imagem";
 import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem, excluirArquivoImagem, renomearArquivoImagem } from "@/services/imagemService";
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
-import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
+import type { Relatorio, RelatorioFiltro, RelatorioOrdenacao } from "@/types/relatorio";
 import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio } from "@/services/relatorioService";
 
 import { gerarPdf } from "@/lib/relatorioPdf";
@@ -193,6 +194,8 @@ import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 import {
   parseCamposConfig,
   serializeCamposConfig,
+  parseCamposAuditoria,
+  serializeCamposAuditoria,
   campoRegrasDaColecao,
   camposObrigatoriosVazios,
   type CampoStatus,
@@ -296,7 +299,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.8";
+const SYSTEM_VERSION = "0.66.9";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -602,10 +605,14 @@ function isAdministradorPerfil(perfil?: { ds_perfil?: string | null } | null): b
   return (perfil?.ds_perfil ?? '').trim().toLowerCase() === 'administrador';
 }
 
-const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon: React.ReactNode }> = {
+/* Menu lateral aberto: largura mínima e espaço ocupado por tudo que não é o nome da função
+   (padding do nav 8 + padding do botão 12 + ícone 28 + 2 espaçamentos de 10 + alça 16 + borda 1 + folga 8). */
+const LARGURA_MENU_MINIMA = 220;
+const LARGURA_MENU_SEM_TEXTO = 93;
+
+const SECTION_DEFS: Record<SectionType, { label: string; icon: React.ReactNode }> = {
   pessoaFisica: {
     label: "Cadastro de Pessoas",
-    labelMaxW: "max-w-[200px]",
     icon: (
       <svg
         width="14"
@@ -626,7 +633,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   administracaoSistema: {
     label: "Administração do Sistema",
-    labelMaxW: "max-w-[220px]",
     icon: (
       <svg
         width="14"
@@ -654,7 +660,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   cadastrosGerais: {
     label: "Cadastros Gerais",
-    labelMaxW: "max-w-[180px]",
     icon: (
       <svg
         width="14"
@@ -675,7 +680,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   estruturaAcademica: {
     label: "Estrutura Acadêmica",
-    labelMaxW: "max-w-[190px]",
     icon: (
       <svg
         width="14"
@@ -695,7 +699,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   patrimonio: {
     label: "Patrimônio",
-    labelMaxW: "max-w-[150px]",
     icon: (
       <svg
         width="14"
@@ -715,7 +718,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   relatorio: {
     label: "Gerenciador de Relatórios",
-    labelMaxW: "max-w-[220px]",
     icon: (
       <svg
         width="14"
@@ -1017,6 +1019,8 @@ export default function Home() {
   const [concluirManutModalOpen, setConcluirManutModalOpen] = useState(false);
   const [concluirManutTarget, setConcluirManutTarget] = useState<{ ativo: Ativo | null; manutencao: Manutencao } | null>(null);
   const [concluirManutForm, setConcluirManutForm] = useState({ dt_termino: '', vl_total: '', ds_correcoes: '', ie_status_ativo: 'O' });
+  // Campos obrigatórios vazios nos modais Enviar/Concluir manutenção (regras de Administração > Campos).
+  const [manutModalErros, setManutModalErros] = useState<string[]>([]);
   const [concluirManutSaving, setConcluirManutSaving] = useState(false);
   const [cancelarManutOpen, setCancelarManutOpen] = useState(false);
   const [cancelarManutTarget, setCancelarManutTarget] = useState<Manutencao | null>(null);
@@ -1187,10 +1191,16 @@ export default function Home() {
   const [imagemSortAsc, setImagemSortAsc] = useState<boolean | null>(null);
   async function loadImagens() { try { const data = await obterImagens(); setImagens(data); } catch { /* */ } }
   function handleImagemSortChange(logicalIndex: number) { if (imagemSortColumn === logicalIndex) { if (imagemSortAsc === true) setImagemSortAsc(false); else if (imagemSortAsc === false) { setImagemSortColumn(null); setImagemSortAsc(null); } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } }
-  const filteredSortedImagens = useMemo(() => { const list = [...imagens]; if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'ds_usuario_criacao', 'dt_alteracao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
-  function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
-  function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
-  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
+  const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0)); if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
+  function openImagemNewForm() { setImagemCampoErros([]); setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
+  function openImagemEditForm(imagem: Imagem) { setImagemCampoErros([]); setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
+  const [imagemCampoErros, setImagemCampoErros] = useState<string[]>([]);
+  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault();
+    // Campos obrigatórios do perfil ativo (Administração > Campos).
+    const imagemFaltantes = imagemCamposObrigatoriosVazios();
+    setImagemCampoErros(imagemFaltantes);
+    if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; }
+    setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
   async function handleImagemDelete(id: string) { setMessage(''); try { const img = imagens.find((i) => i.id === id); if (img?.ie_arquivo) { await excluirArquivoImagem(img.ie_arquivo); } await excluirImagem(id); setMessage('Excluído com sucesso!'); await loadImagens(); } catch { setMessage('Erro ao excluir.'); } if (view === 'form') setView('list'); }
   const imagemAuditInfo = useMemo(() => { const img = imagens.find((i) => i.id === imagemEditingId); return { createdAt: img?.dt_criacao || '', updatedAt: img?.dt_alteracao || '', createdBy: img?.ds_usuario_criacao || '', updatedBy: img?.ds_usuario_alteracao || '' }; }, [imagens, imagemEditingId]);
   const imagemIndex = useMemo(() => { if (!imagemEditingId) return -1; return filteredSortedImagens.findIndex((i) => i.id === imagemEditingId); }, [filteredSortedImagens, imagemEditingId]);
@@ -1277,9 +1287,10 @@ export default function Home() {
   }
 
   const filteredSortedRelatorios = useMemo(() => {
-    const list = [...relatorios];
+    const list = [...relatorios].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     if (relatorioSortColumn != null && relatorioSortAsc != null) {
-      const keys = ['nr_sequencia', 'ds_relatorio', 'colecao', 'formato', 'dt_alteracao'];
+      // Mesma ordem das colunas de RelatorioListView
+      const keys = ['nr_sequencia', 'ds_relatorio', 'formato', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao'];
       const key = keys[relatorioSortColumn];
       if (key) {
         list.sort((a, b) => {
@@ -1440,6 +1451,10 @@ export default function Home() {
       usuarioPerfisVinculados[0];
     return ativo ? parseCamposConfig(ativo.config_campos) : {};
   }, [usuarioPerfisVinculados, activePerfilSequencia]);
+  const manutencaoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao');
+  function imagemCamposObrigatoriosVazios(): string[] {
+    return camposObrigatoriosVazios({ ds_imagem: imagemForm.ds_imagem ?? '', ie_arquivo: imagemForm.ie_arquivo ?? '' }, campoRegrasDaColecao(campoRegrasAtivas, 'imagem'));
+  }
 
   // Permissões do perfil ATIVO do usuário logado (Administração > Delegar funções).
   // Aplica a migração automática APENAS em configurações antigas (versão anterior
@@ -1707,6 +1722,17 @@ export default function Home() {
     // Mantém a ordem padrão do sistema, filtrando apenas o que foi liberado.
     return DEFAULT_SECTION_ORDER.filter((s) => funcoes.includes(s));
   }, [isAdminSemConfig, currentUser?.config_perfis, usuarioPerfisVinculados, activePerfilSequencia]);
+
+  // Largura do menu lateral aberto: mínimo fixo e, no máximo, o necessário para o
+  // nome de função mais longo (medido com a fonte real do texto do menu, text-sm).
+  const larguraMenuAberto = useMemo(() => {
+    if (typeof document === "undefined") return LARGURA_MENU_MINIMA;
+    const contexto = document.createElement("canvas").getContext("2d");
+    if (!contexto) return LARGURA_MENU_MINIMA;
+    contexto.font = `400 14px ${getComputedStyle(document.body).fontFamily}`;
+    const maiorNome = Math.max(0, ...allowedSections.map((s) => contexto.measureText(SECTION_DEFS[s].label).width));
+    return Math.max(LARGURA_MENU_MINIMA, Math.ceil(maiorNome) + LARGURA_MENU_SEM_TEXTO);
+  }, [allowedSections]);
 
   const pfColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_pessoa_fisica),
@@ -2742,7 +2768,9 @@ export default function Home() {
 
   async function openRelatorioBandas(relatorio: Relatorio) {
     setRelatorioEditingId(relatorio.id ?? null);
-    setRelatorioForm(relatorio);
+    // Não exibe a cópia de bandas guardada no documento do relatório: ela pode estar
+    // desatualizada (sem os itens criados depois). As bandas atuais chegam logo abaixo.
+    setRelatorioForm(relatorio.nr_sequencia ? { ...relatorio, bandas: [] } : relatorio);
     setRelatorioView('builder');
     setRelatorioBandasMode(true);
     bandaJustSavedRef.current = false;
@@ -2861,6 +2889,7 @@ export default function Home() {
           fonteCampo: b.fonteCampo,
           tamanhoFonteCampo: b.tamanhoFonteCampo,
           campos: b.campos ?? [],
+          ordenacao: (b.ordenacao ?? []).map((o: RelatorioOrdenacao) => ({ id: o.id, nr_sequencia: o.nr_sequencia, campo: o.campo, direcao: o.direcao })),
         };
 
         if (b._firestoreId) {
@@ -2887,7 +2916,7 @@ export default function Home() {
 
       // ── Manter relatorio.bandas sincronizado (retrocompatibilidade) ──
       const docRef = doc(db, 'relatorio', relatorioEditingId);
-      await updateDoc(docRef, { bandas: bandasSalvas });
+      await updateDoc(docRef, { bandas: removerUndefinedProfundo(bandasSalvas) });
 
       bandaJustSavedRef.current = true;
       setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasSalvas } : prev);
@@ -2908,6 +2937,14 @@ export default function Home() {
       const bandasExistentes = await obterBandasPorRelatorioId(id);
       for (const b of bandasExistentes) {
         await excluirBanda(b.id);
+      }
+      // Excluir parâmetros vinculados (coleção relatorio_parametro)
+      const nrSeqRelatorio = relatorios.find((r) => r.id === id)?.nr_sequencia;
+      if (nrSeqRelatorio != null) {
+        const { obterParametrosPorRelatorio, excluirParametro } = await import('@/services/relatorioParametroService');
+        for (const p of await obterParametrosPorRelatorio(nrSeqRelatorio)) {
+          await excluirParametro(p.id);
+        }
       }
       await excluirRelatorio(id);
       await loadRelatorios();
@@ -2984,7 +3021,7 @@ export default function Home() {
         let totalRegistros = 0;
 
         for (const banda of bandasComColecao) {
-          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: relatorio.filtros ?? [], ordenacao: relatorio.ordenacao ?? [] };
+          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: relatorio.filtros ?? [], ordenacao: banda.ordenacao?.length ? banda.ordenacao : (relatorio.ordenacao ?? []) };
           const resultado = await executarConsultaRelatorio(relatorioBanda);
           const dsBanda = getDataSource(banda.ie_colecao_principal!);
           const camposResolvidos = (banda.campos ?? []).map((c) => ({
@@ -3122,7 +3159,27 @@ export default function Home() {
     try {
       const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorio;
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
-      await criarRelatorio({ ...rest, ds_relatorio: `${rest.ds_relatorio} (Cópia)` }, auditAutor);
+      const novoId = await criarRelatorio({ ...rest, ds_relatorio: `${rest.ds_relatorio} (Cópia)` }, auditAutor);
+      const { getDoc } = await import('firebase/firestore');
+      const novoSeq = (await getDoc(doc(db, 'relatorio', novoId))).data()?.nr_sequencia as number | undefined;
+      if (novoSeq != null && nr_sequencia != null) {
+        // Campos de controle são gerados de novo na criação de cada item.
+        const semControle = (item: Record<string, unknown>) => {
+          const { id: _id, _firestoreId: _fs, nr_sequencia: _seq, dt_criacao: _dc, dt_alteracao: _da, ds_usuario_criacao: _uc, ds_usuario_alteracao: _ua, ...dados } = item;
+          return dados;
+        };
+        const { obterBandasPorRelatorio, obterElementosPorBandaSeq, criarBanda, criarElemento } = await import('@/services/relatorioBandaService');
+        for (const banda of await obterBandasPorRelatorio(nr_sequencia)) {
+          const novaBanda = await criarBanda({ ...semControle(banda), nr_seq_relatorio: novoSeq }, auditAutor);
+          for (const elemento of await obterElementosPorBandaSeq(banda.nr_sequencia)) {
+            await criarElemento({ ...semControle(elemento), nr_seq_banda: novaBanda.nr_sequencia, nr_seq_relatorio: novoSeq }, auditAutor);
+          }
+        }
+        const { obterParametrosPorRelatorio, criarParametro } = await import('@/services/relatorioParametroService');
+        for (const parametro of await obterParametrosPorRelatorio(nr_sequencia)) {
+          await criarParametro({ ...semControle(parametro), nr_seq_relatorio: novoSeq }, auditAutor);
+        }
+      }
       await loadRelatorios();
       setMessage('Relatório duplicado com sucesso!');
     } catch {
@@ -3218,17 +3275,43 @@ export default function Home() {
   }
 
   // Salva o status de um campo na configuração do perfil (Administração > Campos).
+  // Alterações seguidas são gravadas em fila, cada uma sobre a última configuração
+  // enviada — sem isso, uma gravação montada sobre o perfil ainda não recarregado
+  // apagaria a alteração anterior.
+  const camposConfigPendenteRef = useRef<Record<string, { config: string; auditoria: string }>>({});
+  const camposGravacaoRef = useRef<Promise<void>>(Promise.resolve());
+  const camposGravacoesPendentesRef = useRef(0);
   async function handleCamposStatusChange(perfil: Perfil, chave: string, status: CampoStatus) {
-    if (!perfil.id) return;
+    const perfilId = perfil.id;
+    if (!perfilId) return;
     setMessage("");
-    const config = parseCamposConfig(perfil.config_campos);
+    const pendente = camposConfigPendenteRef.current[perfilId];
+    const config = parseCamposConfig(pendente?.config ?? perfil.config_campos);
     config[chave] = status;
-    try {
-      await atualizarPerfil(perfil.id, { config_campos: serializeCamposConfig(config) }, auditAutor);
-      setMessage(`Campo atualizado com sucesso: ${status === 'O' ? 'Obrigatório' : status === 'D' ? 'Desabilitado' : 'Normal'}`);
+    // Data e usuário da alteração ficam por campo e por perfil.
+    const auditoria = parseCamposAuditoria(pendente?.auditoria ?? perfil.config_campos_auditoria);
+    auditoria[chave] = { dt_alteracao: new Date().toISOString(), ds_usuario_alteracao: auditAutor?.usuarioNome ?? '-' };
+    const serializado = serializeCamposConfig(config);
+    const auditoriaSerializada = serializeCamposAuditoria(auditoria);
+    camposConfigPendenteRef.current[perfilId] = { config: serializado, auditoria: auditoriaSerializada };
+    // Atualiza a tela na hora; a gravação segue em segundo plano.
+    setPerfis((prev) => prev.map((p) => (p.id === perfilId ? { ...p, config_campos: serializado, config_campos_auditoria: auditoriaSerializada } : p)));
+    camposGravacoesPendentesRef.current += 1;
+    camposGravacaoRef.current = camposGravacaoRef.current.then(async () => {
+      try {
+        await atualizarPerfil(perfilId, { config_campos: serializado, config_campos_auditoria: auditoriaSerializada }, auditAutor);
+        setMessage(`Campo atualizado com sucesso: ${status === 'O' ? 'Obrigatório' : status === 'D' ? 'Desabilitado' : 'Normal'}`);
+      } catch {
+        setMessage("Erro ao salvar configuração do campo.");
+      } finally {
+        camposGravacoesPendentesRef.current -= 1;
+      }
+    });
+    await camposGravacaoRef.current;
+    // Recarrega do banco só quando não há mais gravações na fila.
+    if (camposGravacoesPendentesRef.current === 0) {
+      camposConfigPendenteRef.current = {};
       await loadPerfis();
-    } catch {
-      setMessage("Erro ao salvar configuração do campo.");
     }
   }
 
@@ -4353,13 +4436,7 @@ export default function Home() {
   const filteredSortedPessoasFisicas = useMemo(() => {
     const sorted = [...filteredPessoasFisicas];
     if (sortColumn === null || sortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = COLUMNS[sortColumn].key;
@@ -4405,13 +4482,7 @@ export default function Home() {
   const filteredSortedAlunos = useMemo(() => {
     const sorted = [...filteredAlunos];
     if (alunoSortColumn === null || alunoSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = ALUNO_COLUMNS[alunoSortColumn].key;
@@ -4460,13 +4531,7 @@ export default function Home() {
   const filteredSortedColaboradores = useMemo(() => {
     const sorted = [...filteredColaboradores];
     if (colaboradorSortColumn === null || colaboradorSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = COLABORADOR_COLUMNS[colaboradorSortColumn].key;
@@ -4529,13 +4594,7 @@ export default function Home() {
       return true;
     });
     if (ativoSortColumn === null || ativoSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = ATIVO_COLUMNS[ativoSortColumn].key;
@@ -4606,13 +4665,7 @@ export default function Home() {
   const filteredSortedPessoasJuridicas = useMemo(() => {
     const sorted = [...filteredPessoasJuridicas];
     if (pjSortColumn === null || pjSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = PJ_COLUMNS[pjSortColumn].key;
@@ -4633,13 +4686,7 @@ export default function Home() {
   const filteredSortedUsuarios = useMemo(() => {
     const sorted = [...filteredUsuarios];
     if (adminSortColumn === null || adminSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = ADMIN_COLUMNS[adminSortColumn].key;
@@ -4676,13 +4723,7 @@ export default function Home() {
   const filteredSortedPerfis = useMemo(() => {
     const sorted = [...filteredPerfis];
     if (perfilSortColumn === null || perfilSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      return sorted.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     }
 
     const key = PERFIL_COLUMNS[perfilSortColumn].key;
@@ -4717,15 +4758,7 @@ export default function Home() {
   const filteredSortedCgItems = useMemo(() => {
     const sorted = [...filteredCgItems];
     if (cgSortColumn === null || cgSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const ra = a as unknown as Record<string, unknown>;
-        const rb = b as unknown as Record<string, unknown>;
-        const dateA = String(ra.dt_criacao || "");
-        const dateB = String(rb.dt_criacao || "");
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return Number(ra.nr_sequencia) - Number(rb.nr_sequencia);
-      });
+      return sorted.sort((a, b) => Number((a as unknown as Record<string, unknown>).nr_sequencia ?? 0) - Number((b as unknown as Record<string, unknown>).nr_sequencia ?? 0));
     }
 
     const key = cgColumns[cgSortColumn].key as string;
@@ -5542,6 +5575,7 @@ export default function Home() {
         ie_status: cgForm.ie_status,
         nr_cbo: cgForm.nr_cbo ?? '',
         ...(cgSiglaChave ? { [cgSiglaChave]: cgForm.sg_sigla ?? '' } : {}),
+        ...(cgKind === 'categoriaAtivo' ? { ds_observacao: cgForm.ds_observacao ?? '' } : {}),
       },
       cgRegras
     );
@@ -5934,14 +5968,14 @@ export default function Home() {
 
   // Opções do dropdown "Grau de parentesco" (Responsáveis) — apenas os ativos,
   // em ordem alfabética (pt-BR).
-  const alunoGrauParentescoOptions = useMemo(
-    () =>
-      grausParentesco
-        .filter((g) => (g.ie_status ?? 'A') === 'A')
-        .map((g) => ({ value: String(g.nr_sequencia), label: g.ds_grau_parentesco }))
-        .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR')),
-    [grausParentesco]
-  );
+  // Itens inativos ficam ocultos, exceto os já usados no registro aberto (senão o campo apareceria vazio).
+  const alunoGrauParentescoOptions = useMemo(() => {
+    const emUso = new Set((alunoForm.responsaveis ?? []).map((r) => r.nr_seq_grau_parentesco));
+    return grausParentesco
+      .filter((g) => (g.ie_status ?? 'A') === 'A' || emUso.has(g.nr_sequencia))
+      .map((g) => ({ value: String(g.nr_sequencia), label: g.ds_grau_parentesco }))
+      .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  }, [grausParentesco, alunoForm.responsaveis]);
 
   const filteredAlunoLookupPessoasFisicas = useMemo(() => {
     return pessoasFisicas.filter((pessoa) => {
@@ -6474,6 +6508,7 @@ export default function Home() {
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_prestador_servico: undefined, ds_motivo_manutencao: '' });
+    setManutModalErros([]);
     setEnviarManutPrestLookupForm({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
     setEnviarManutPrestLookupFilter({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
     setEnviarManutPrestLookupApplied(false);
@@ -6489,6 +6524,7 @@ export default function Home() {
   /* ── Concluir manutenção (modal) ── */
 
   function openConcluirManutModalFromAtivo(ativo: Ativo) {
+    setManutModalErros([]);
     const manut = manutencoes.find((m) => m.nr_seq_ativo === ativo.nr_sequencia && m.ie_status_manutencao === 'E');
     if (!manut) return;
     const hoje = new Date();
@@ -6505,6 +6541,7 @@ export default function Home() {
   }
 
   function openConcluirManutModalFromManut(manut: Manutencao) {
+    setManutModalErros([]);
     const ativo = ativos.find((a) => a.nr_sequencia === manut.nr_seq_ativo);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -6551,6 +6588,15 @@ export default function Home() {
     event.preventDefault();
     if (!concluirManutTarget) return;
     setMessage('');
+    const faltantesConcluir = camposObrigatoriosVazios(concluirManutForm, {
+      dt_termino: manutencaoRegras.dt_termino ?? 'N',
+      ds_correcoes: manutencaoRegras.ds_correcoes ?? 'N',
+    });
+    setManutModalErros(faltantesConcluir);
+    if (faltantesConcluir.length > 0) {
+      setMessage('Preencha os campos obrigatórios.');
+      return;
+    }
     setConcluirManutSaving(true);
     try {
       const updates: Record<string, unknown> = { dt_termino: concluirManutForm.dt_termino, ie_status_manutencao: 'CO' };
@@ -6614,6 +6660,14 @@ export default function Home() {
     event.preventDefault();
     if (!enviarManutTarget?.id) return;
     setMessage('');
+    const faltantesEnviar = camposObrigatoriosVazios(enviarManutForm, {
+      ds_motivo_manutencao: manutencaoRegras.ds_motivo_manutencao ?? 'N',
+    });
+    setManutModalErros(faltantesEnviar);
+    if (faltantesEnviar.length > 0) {
+      setMessage('Preencha os campos obrigatórios.');
+      return;
+    }
     setEnviarManutSaving(true);
     try {
       const { nr_sequencia: nrSeqManut } = await criarManutencao({
@@ -6772,7 +6826,7 @@ export default function Home() {
   }), [manutencoes, appliedManutencaoFilterForm]);
 
   const filteredSortedManutencoes = useMemo(() => {
-    const list = [...filteredManutencoes];
+    const list = [...filteredManutencoes].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     if (manutencaoSortColumn !== null && manutencaoSortAsc !== null) {
       list.sort((a, b) => {
         const colKey = MANUTENCAO_COLUMNS[manutencaoSortColumn]?.key;
@@ -6829,7 +6883,10 @@ export default function Home() {
     event.preventDefault();
     setMessage('');
     setManutencaoCampoErros([]);
-    const obrigatorios: string[] = [];
+    // No formulário só a Observação é editável; término, motivo e correções são preenchidos nos modais.
+    const obrigatorios = camposObrigatoriosVazios(manutencaoForm as unknown as Record<string, unknown>, {
+      ds_observacao: manutencaoRegras.ds_observacao ?? 'N',
+    });
     if (obrigatorios.length > 0) {
       setManutencaoCampoErros(obrigatorios);
       setMessage('Preencha os campos obrigatórios.');
@@ -8065,8 +8122,9 @@ export default function Home() {
       {/* Sidebar */}
       <aside
         className={`fixed left-0 top-0 bottom-0 z-40 flex flex-col border-r border-[#004a7a] bg-[#003056] shadow-xl shadow-black/20 transition-all duration-300 ease-out ${
-          isSidebarOpen ? "w-[220px]" : "w-12"
+          isSidebarOpen ? "" : "w-12"
         }`}
+        style={isSidebarOpen ? { width: larguraMenuAberto } : undefined}
       >
         <div
           className="relative flex items-center border-b border-[#004a7a] cursor-pointer select-none outline-none"
@@ -8155,7 +8213,7 @@ export default function Home() {
                 <span
                   className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
                     isSidebarOpen
-                      ? `${def.labelMaxW} opacity-100`
+                      ? "max-w-[480px] opacity-100"
                       : "max-w-0 opacity-0"
                   }`}
                 >
@@ -8856,6 +8914,8 @@ export default function Home() {
                 hasPrevRecord={hasPrevImagemRecord}
                 hasNextRecord={hasNextImagemRecord}
                 onOpenAudit={openImagemAuditModal}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'imagem')}
+                campoErros={imagemCampoErros}
                 manageSelection={adminManageSelection}
                 onManageSelectionChange={handleAdminManageSelectionChange}
                 allowedSubmodulos={allowedAdminSubmodulos}
@@ -11110,9 +11170,10 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo</label>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}><span className="inline-flex items-center gap-1">{manutencaoRegras.ds_motivo_manutencao === 'O' && <RequiredAsterisk />}<span>Motivo</span></span></label>
                 <textarea
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  disabled={manutencaoRegras.ds_motivo_manutencao === 'D'}
+                  className={`w-full rounded-[3px] border ${manutModalErros.includes('ds_motivo_manutencao') ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none disabled:bg-slate-100 disabled:text-slate-500`}
                   rows={3}
                   value={enviarManutForm.ds_motivo_manutencao ?? ''}
                   onChange={(e) => setEnviarManutForm({ ...enviarManutForm, ds_motivo_manutencao: e.target.value })}
@@ -12240,7 +12301,7 @@ export default function Home() {
                         return s === 'S' ? 'Sim' : s === 'N' ? 'Não' : '---';
                       }
                       if (field === 'ie_tipo_elemento') {
-                        const map: Record<string, string> = { 'valor': 'Valor', 'conteudo': 'Conteúdo', 'data_geracao': 'Data de geração', 'horario_geracao': 'Horário de geração', 'data_horario_geracao': 'Data e horário de geração', 'usuario_geracao': 'Usuário da geração', 'imagem': 'Imagem' };
+                        const map: Record<string, string> = { 'valor': 'Valor', 'conteudo': 'Conteúdo', 'data_geracao': 'Data de geração', 'horario_geracao': 'Horário de geração', 'data_horario_geracao': 'Data e horário de geração', 'usuario_geracao': 'Usuário da geração', 'numero_pagina': 'Número da página', 'imagem': 'Imagem' };
                         return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
                       }
                       if (field === 'ie_alinhamento') {
@@ -12661,8 +12722,8 @@ export default function Home() {
             </div>
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de término</label>
-                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]" value={concluirManutForm.dt_termino} onChange={(e) => setConcluirManutForm({ ...concluirManutForm, dt_termino: applyDateMask(e.target.value) })} />
+                <label className="block text-sm mb-1" style={{ color: '#666' }}><span className="inline-flex items-center gap-1">{manutencaoRegras.dt_termino === 'O' && <RequiredAsterisk />}<span>Data de término</span></span></label>
+                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" disabled={manutencaoRegras.dt_termino === 'D'} className={`w-full rounded-[3px] border ${manutModalErros.includes('dt_termino') ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] disabled:bg-slate-100 disabled:text-slate-500`} value={concluirManutForm.dt_termino} onChange={(e) => setConcluirManutForm({ ...concluirManutForm, dt_termino: applyDateMask(e.target.value) })} />
               </div>
               <div>
                 <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
@@ -12678,9 +12739,10 @@ export default function Home() {
                 <input type="text" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={concluirManutForm.vl_total} onChange={(e) => { const digits = e.target.value.replace(/\D/g, ''); if (!digits) { setConcluirManutForm({ ...concluirManutForm, vl_total: '' }); return; } const num = Number(digits) / 100; setConcluirManutForm({ ...concluirManutForm, vl_total: num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }); }} />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Correções</label>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}><span className="inline-flex items-center gap-1">{manutencaoRegras.ds_correcoes === 'O' && <RequiredAsterisk />}<span>Correções</span></span></label>
                 <textarea
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  disabled={manutencaoRegras.ds_correcoes === 'D'}
+                  className={`w-full rounded-[3px] border ${manutModalErros.includes('ds_correcoes') ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none disabled:bg-slate-100 disabled:text-slate-500`}
                   rows={3}
                   value={concluirManutForm.ds_correcoes}
                   onChange={(e) => setConcluirManutForm({ ...concluirManutForm, ds_correcoes: e.target.value })}

@@ -197,6 +197,10 @@ function renderizarTabelaBanda(
   mapFontJsPdf: (fonte?: string) => string,
   bordas?: { superior?: boolean; inferior?: boolean; esquerda?: boolean; direita?: boolean },
   bandaConfig?: { espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number },
+  /** Y máximo do conteúdo na página (desconta a banda Rodapé). */
+  limiteInferior?: number,
+  /** Abre uma nova página com cabeçalho/borda/rodapé e devolve o Y inicial do conteúdo. */
+  novaPagina?: () => number,
 ): number {
   if (campos.length === 0) return yStart;
 
@@ -216,7 +220,11 @@ function renderizarTabelaBanda(
 
   const bordaOffset = config.estiloBorda ? 2 : 0;
   function checkPage(needed: number) {
-    if (y + needed > pageH - marginBottom) {
+    if (y + needed > (limiteInferior ?? pageH - marginBottom)) {
+      if (novaPagina) {
+        y = novaPagina();
+        return true;
+      }
       doc.addPage();
       y = marginTop + bordaOffset;
       // Redesenhar borda na nova página
@@ -434,6 +442,11 @@ function renderizarTextoValorBanda(
       texto = fmtHora(agora);
     } else if (ie_tipo_elemento === 'data_horario_geracao') {
       texto = `${fmtData(agora)} ${fmtHora(agora)}`;
+    } else if (ie_tipo_elemento === 'numero_pagina') {
+      const pagina = doc.getCurrentPageInfo().pageNumber;
+      // "Primeira página em branco": não exibe o número na página 1
+      if ((campo as RelatorioCampo).ie_pagina_branco && pagina === 1) return;
+      texto = String(pagina);
     } else if (ie_tipo_elemento === 'usuario_geracao') {
       texto = usuarioGeracao ?? (relatorio as any).ds_usuario_criacao ?? '';
     } else if (ie_tipo_elemento === 'imagem') {
@@ -643,12 +656,19 @@ export function gerarPdf(
 
   let y = marginTop + BORDA_CONTEUDO_OFFSET;
   let onNewPage: (() => void) | null = null;
+  // Y máximo do conteúdo; no modo bandas desconta a altura da banda Rodapé.
+  let limiteConteudo = pageH - marginBottom;
+
+  function novaPagina(): number {
+    doc.addPage();
+    y = marginTop + BORDA_CONTEUDO_OFFSET;
+    onNewPage?.();
+    return y;
+  }
 
   function checkPage(needed: number) {
-    if (y + needed > pageH - marginBottom) {
-      doc.addPage();
-      y = marginTop;
-      onNewPage?.();
+    if (y + needed > limiteConteudo) {
+      novaPagina();
       return true;
     }
     return false;
@@ -661,6 +681,11 @@ export function gerarPdf(
     const bandaCabecalho = bandasOrdenadas.filter((b) => b.tipo === 'cabecalho');
     const bandaRodape = bandasOrdenadas.filter((b) => b.tipo === 'rodape');
     const bandasConteudo = bandasOrdenadas.filter((b) => b.tipo !== 'cabecalho' && b.tipo !== 'rodape');
+    // Reserva o espaço do rodapé: o conteúdo quebra de página antes de alcançá-lo.
+    if (bandaRodape.length > 0) {
+      const alturaRodapeMm = Math.max(...bandaRodape.map((br) => (br.altura ? pxToMm(br.altura) : 10)));
+      limiteConteudo = pageH - marginBottom - BORDA_CONTEUDO_OFFSET - alturaRodapeMm;
+    }
 
     // Renderizar cabeçalho de banda no topo de cada página (abaixo da borda)
     function renderCabecalhoBanda() {
@@ -690,11 +715,10 @@ export function gerarPdf(
       });
     }
 
-    // Re-renderizar cabeçalho/rodapé a cada nova página
+    // Re-renderizar cabeçalho a cada nova página (o rodapé é desenhado em todas as páginas no final)
     onNewPage = () => {
       renderCabecalhoBanda();
       desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
-      renderRodapeBanda();
     };
 
     // Renderizar cabeçalho na primeira página
@@ -750,15 +774,15 @@ export function gerarPdf(
         renderRodapeBanda();
       }
     } else {
-      bandasConteudo.forEach((banda, idx) => {
-        // Aplicar offset de altura da banda anterior
-        if (idx > 0 && bandasConteudo[idx - 1].altura) {
-          y += pxToMm(bandasConteudo[idx - 1].altura!);
-        } else if (idx > 0) {
-          y += 4; // Pequeno espaço padrão entre bandas
-        }
+      // Altura (px) = espaço que a banda ocupa até a próxima. Sem altura, 4 mm de espaço.
+      // Na banda Lista a tabela já avança o Y; a Altura funciona como altura mínima.
+      let avancoPendente = 0;
+      bandasConteudo.forEach((banda) => {
+        y += avancoPendente;
+        const alturaMm = banda.altura ? pxToMm(banda.altura) : 0;
 
-        checkPage(8);
+        checkPage(banda.tipo === 'lista' ? 8 : Math.max(alturaMm, 8));
+        const yInicioBanda = y;
 
         if (banda.tipo === 'lista') {
           y = renderizarTabelaBanda(
@@ -767,7 +791,10 @@ export function gerarPdf(
             contentW, mapFontJsPdf,
             { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
             { espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo },
+            limiteConteudo, novaPagina,
           );
+          if (y < yInicioBanda + alturaMm) y = yInicioBanda + alturaMm;
+          avancoPendente = alturaMm ? 0 : 4;
         } else {
           renderizarTextoValorBanda(
             doc, relatorio, config, banda.campos, banda.registros,
@@ -776,11 +803,16 @@ export function gerarPdf(
             { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
             contentW, usuarioGeracao, imagensMap,
           );
+          avancoPendente = alturaMm || 4;
         }
       });
 
-      // Renderizar rodapé de banda
-      renderRodapeBanda();
+      // Rodapé em todas as páginas (antes a 1ª página de um relatório com várias ficava sem rodapé)
+      const totalPaginas = doc.getNumberOfPages();
+      for (let pagina = 1; pagina <= totalPaginas; pagina++) {
+        doc.setPage(pagina);
+        renderRodapeBanda();
+      }
     }
 
     // ── Total de registros (opcional) ──

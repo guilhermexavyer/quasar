@@ -6,41 +6,16 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
+import { montarUpdateComRemocoes, removerUndefined, proximaSequencia } from "@/lib/firestoreUtils";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import type { AuditAutor } from "@/services/auditService";
 
 const pessoaJuridicaColecao = collection(db, "pessoa_juridica");
-const contadorDoc = doc(db, "_counters", "pessoa_juridica_sequence");
 
 async function obterProximoSequencia(): Promise<number> {
-  try {
-    const resultado = await runTransaction(db, async (transacao) => {
-      const docSnap = await transacao.get(contadorDoc);
-      let proximo = 1;
-      if (docSnap.exists()) {
-        proximo = (docSnap.data().current ?? 0) + 1;
-      }
-      transacao.set(contadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-    return resultado;
-  } catch {
-    try {
-      await runTransaction(db, async (transacao) => {
-        const docSnap = await transacao.get(contadorDoc);
-        if (!docSnap.exists()) {
-          transacao.set(contadorDoc, { current: 1 });
-        }
-      });
-      return 1;
-    } catch {
-      return Date.now();
-    }
-  }
+  return proximaSequencia("pessoa_juridica");
 }
 
 export async function obterPessoasJuridicas(): Promise<PessoaJuridica[]> {

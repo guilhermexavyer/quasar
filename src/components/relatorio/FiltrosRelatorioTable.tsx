@@ -126,11 +126,11 @@ export default function FiltrosRelatorioTable({
   }
 
   const sortedFiltros = useMemo(() => {
-    if (!sortColumn) return filtros;
+    if (!sortColumn) return [...filtros].sort((a, b) => (a.nr_sequencia ?? Number.MAX_SAFE_INTEGER) - (b.nr_sequencia ?? Number.MAX_SAFE_INTEGER));
     return [...filtros].sort((a, b) => {
       const va = (a as any)[sortColumn] ?? "";
       const vb = (b as any)[sortColumn] ?? "";
-      const cmp = String(va).localeCompare(String(vb), "pt-BR");
+      const cmp = String(va).localeCompare(String(vb), "pt-BR", { numeric: true });
       return sortAsc ? cmp : -cmp;
     });
   }, [filtros, sortColumn, sortAsc]);

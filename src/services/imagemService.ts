@@ -6,10 +6,9 @@ import {
   deleteDoc,
   doc,
   getDoc,
-  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { temAlteracoes } from "@/lib/firestoreUtils";
+import { temAlteracoes, proximaSequencia } from "@/lib/firestoreUtils";
 import type { Imagem } from "@/types/imagem";
 
 const COLLECTION = "imagem";
@@ -21,33 +20,9 @@ export async function obterImagens(): Promise<Imagem[]> {
   return list;
 }
 
-const contadorDoc = doc(db, "_counters", "imagem_sequence");
 
 async function obterProximaImagemSequencia(): Promise<number> {
-  try {
-    const resultado = await runTransaction(db, async (transacao) => {
-      const docSnap = await transacao.get(contadorDoc);
-      let proximo = 1;
-      if (docSnap.exists()) {
-        proximo = (docSnap.data().current ?? 0) + 1;
-      }
-      transacao.set(contadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-    return resultado;
-  } catch {
-    try {
-      await runTransaction(db, async (transacao) => {
-        const docSnap = await transacao.get(contadorDoc);
-        if (!docSnap.exists()) {
-          transacao.set(contadorDoc, { current: 1 });
-        }
-      });
-      return 1;
-    } catch {
-      return Date.now();
-    }
-  }
+  return proximaSequencia("imagem");
 }
 
 export async function criarImagem(

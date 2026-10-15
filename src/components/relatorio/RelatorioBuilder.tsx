@@ -282,12 +282,15 @@ export default function RelatorioBuilder({
   const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
+  // Dados recebidos do banco (carga assíncrona do pai) não são "alterações não salvas".
+  const sincronizouDoBancoRef = useRef(false);
   // Sincroniza bandas quando o pai atualiza relatorio.bandas (ex.: após fetch async)
   const bandasDataRef = useRef(relatorio?.bandas ?? []);
   useEffect(() => {
     const next = relatorio?.bandas ?? [];
     if (JSON.stringify(next) !== JSON.stringify(bandasDataRef.current)) {
       bandasDataRef.current = next;
+      sincronizouDoBancoRef.current = true;
       setBandas(next.length ? next.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
     }
   }, [relatorio?.bandas]);
@@ -359,7 +362,9 @@ export default function RelatorioBuilder({
   }
   // O rodapé de auditoria/ações só ocupa espaço quando há conteúdo (nas listagens de bandas/elementos ele fica vazio).
   const temAuditInfo = !!relatorio && (!isBandasMode || !!campoDetailId || !!filtroDetailId || (!!bandaDetailId && bandaViewMode === 'ver'));
-  const temAcoesRodape = !isBandasMode || (!!bandaDetailId && bandaViewMode === 'ver') || !!campoDetailId || !!filtroDetailId;
+  // Na aba Ordenação da banda também há Voltar/Salvar: é o único caminho para gravar a ordenação.
+  const editandoOrdenacaoBanda = !!bandaDetailId && bandaViewMode === 'content' && bandaContentSubView === 'ordenacao' && !campoDetailId;
+  const temAcoesRodape = !isBandasMode || (!!bandaDetailId && bandaViewMode === 'ver') || editandoOrdenacaoBanda || !!campoDetailId || !!filtroDetailId;
   const temRodapeConteudo = temAuditInfo || temAcoesRodape;
 
   // Refs para evitar stale closures no Ctrl+S do modal banda
@@ -399,11 +404,16 @@ export default function RelatorioBuilder({
   }, []);
 
   /** Abre o modal da banda: salva dados globais na banda anterior e carrega dados da banda alvo */
+  /** Ordenação de uma banda (cada banda Lista tem a sua). */
+  function ordenacaoDaBanda(banda: { ordenacao?: RelatorioOrdenacao[] }): RelatorioOrdenacao[] {
+    return (banda.ordenacao ?? []).map((o) => ({ ...o, id: o.id || gerarId() }));
+  }
+
   function openBandaDetail(bandaId: string) {
     const currentBandaId = bandaDetailIdRef.current;
     if (currentBandaId) {
       const c = camposRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], ordenacao: [...ordenacaoRef.current] } : b));
     }
     // Limpar estado de campo anterior para não abrir formulário de elemento
     setPendingCampo(null);
@@ -411,6 +421,7 @@ export default function RelatorioBuilder({
     const target = bandas.find((b) => b.id === bandaId);
     if (target) {
       setCampos(target.campos?.length ? [...target.campos] : []);
+      setOrdenacao(ordenacaoDaBanda(target));
     }
     setBandaDetailId(bandaId);
     setBandaViewMode('content');
@@ -436,7 +447,7 @@ export default function RelatorioBuilder({
     const currentBandaId = bandaDetailIdRef.current;
     if (currentBandaId && !pendingBanda) {
       const c = camposRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], ordenacao: [...ordenacaoRef.current] } : b));
     }
     setBandaDetailId(bandaId);
     setBandaViewMode('ver');
@@ -444,6 +455,7 @@ export default function RelatorioBuilder({
     // Carregar configurações visuais da banda selecionada
     const bSel = (pendingBanda && pendingBanda.id === bandaId) ? pendingBanda : bandas.find((b) => b.id === bandaId);
     if (bSel) {
+      setOrdenacao(ordenacaoDaBanda(bSel));
       setEspessuraLabel(bSel.espessuraLabel ?? 16);
       setTopoLabelVal(bSel.topoLabel ?? 0);
       setEspessuraCampo(bSel.espessuraCampo ?? 24);
@@ -489,12 +501,11 @@ export default function RelatorioBuilder({
     const currentBandaId = bandaDetailIdRef.current;
     if (currentBandaId) {
       const c = camposRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
+      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], ordenacao: [...ordenacaoRef.current] } : b));
     }
     setBandaDetailId(null);
     setCampoDetailId(null);
     setCampos([]);
-    setFiltros([]);
     setOrdenacao([]);
   }
   const [formato] = useState<'pdf'>('pdf');
@@ -560,6 +571,7 @@ export default function RelatorioBuilder({
     fonteCampo: { type: 'string', field: 'fonteCampo', collection: 'relatorio_banda' },
     tamanhoFonteCampo: { type: 'int64', field: 'tamanhoFonteCampo', collection: 'relatorio_banda' },
     ds_elemento: { type: 'string', field: 'ds_elemento', collection: 'relatorio_banda_elemento' },
+    ie_pagina_branco: { type: 'boolean', field: 'ie_pagina_branco', collection: 'relatorio_banda_elemento' },
   };
 
   /** fieldInfos para os campos do parâmetro (relatorio_parametro) */
@@ -663,10 +675,11 @@ export default function RelatorioBuilder({
   // Usa justNavigatedRef para garantir que o snapshot seja capturado AFTER
   // o estado ter sido atualizado pelo reset effect (no render seguinte).
   useEffect(() => {
-    if (justNavigatedRef.current) {
-      // Navegação recém-ocorrida: o estado agora reflete o novo relatório.
-      // Atualizar snapshot e marcar como limpo.
+    if (justNavigatedRef.current || sincronizouDoBancoRef.current) {
+      // Navegação recém-ocorrida (ou dados recém-carregados do banco): o estado agora
+      // reflete o relatório salvo. Atualizar snapshot e marcar como limpo.
       justNavigatedRef.current = false;
+      sincronizouDoBancoRef.current = false;
       refreshSnapshot();
       setIsDirty(false);
       return;
@@ -756,8 +769,8 @@ export default function RelatorioBuilder({
         setFiltroDetailId(null);
         return;
       }
-      if (bandaDetailId && bandaViewMode === 'ver') {
-        // Formulário de banda → salvar banda
+      if (bandaDetailId && (bandaViewMode === 'ver' || editandoOrdenacaoBanda)) {
+        // Formulário de banda (ou aba Ordenação) → salvar banda
         (async () => {
           let finalBandas: any[] = bandas;
           if (pendingBanda && pendingBanda.id === bandaDetailId) {
@@ -770,7 +783,7 @@ export default function RelatorioBuilder({
           const currentBandaId = bandaDetailIdRef.current;
           if (currentBandaId) {
             const c = camposRef.current;
-            finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
+            finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], ordenacao: [...ordenacaoRef.current] } : b);
             setBandas(finalBandas);
           }
           setBandaSaving(true);
@@ -819,7 +832,7 @@ export default function RelatorioBuilder({
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
         qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
         ie_borda_superior: c.ie_borda_superior ? 'S' : 'N', ie_borda_direita: c.ie_borda_direita ? 'S' : 'N', ie_borda_inferior: c.ie_borda_inferior ? 'S' : 'N', ie_borda_esquerda: c.ie_borda_esquerda ? 'S' : 'N',
-        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
+        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, ie_pagina_branco: c.ie_pagina_branco, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
         dt_criacao: c.dt_criacao, dt_alteracao: c.dt_alteracao, ds_usuario_criacao: c.ds_usuario_criacao, ds_usuario_alteracao: c.ds_usuario_alteracao,
       })),
       filtros: filtros.map((f) => ({ ...f })),
@@ -849,8 +862,10 @@ export default function RelatorioBuilder({
   function validar(): boolean {
     const errs: string[] = [];
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
+    // Campos marcados como Obrigatório em Administração > Campos (os demais sempre têm valor).
+    if (statusDe(campoRegras, 'ds_nome_arquivo') === 'O' && !(configPdf.titulo ?? '').trim()) errs.push("Nome do arquivo é obrigatório.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
-    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && c.ie_tipo_elemento !== 'numero_pagina' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
     if (errs.length > 0 && onToast) {
       onToast(errs.join('\n'), 'error');
     }
@@ -882,7 +897,7 @@ export default function RelatorioBuilder({
         id: c.id, nr_sequencia: c.nr_sequencia, ds_elemento: c.ds_elemento, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
         qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
-        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
+        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, ie_pagina_branco: c.ie_pagina_branco, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
       }))),
       filtros: filtros,
       ordenacao: ordenacao,
@@ -1013,7 +1028,7 @@ export default function RelatorioBuilder({
                         const currentBandaId = bandaDetailIdRef.current;
                         if (currentBandaId) {
                           const c = camposRef.current;
-                          setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
+                          setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], ordenacao: [...ordenacaoRef.current] } : b));
                         }
                         setPendingCampo(null);
                         setCampoDetailId(null);
@@ -1021,7 +1036,6 @@ export default function RelatorioBuilder({
                         setBandaViewMode('content');
                         setBandasSubView('bandas');
                         setCampos([]);
-                        setFiltros([]);
                         setOrdenacao([]);
                       }}
                     >
@@ -1058,7 +1072,10 @@ export default function RelatorioBuilder({
           <button
             type="button"
             onClick={
-              bandaDetailId ? () => {
+              bandaDetailId && bandaViewMode === 'content' && bandaContentSubView === 'ordenacao' && bandaTipo === 'lista' ? () => {
+                setOrdenacao((prev) => [...prev, { id: gerarId(), nr_sequencia: getNextOrdSeq(), campo: '', direcao: 'asc' }]);
+              }
+              : bandaDetailId ? () => {
                 // Adicionar campo na banda → abre tela Ver do elemento (pendente)
                 const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
                 const newId = gerarId();
@@ -1727,15 +1744,24 @@ export default function RelatorioBuilder({
                     {renderFieldLabel('ie_tipo_elemento', 'Tipo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <Select
                       value={campoSel.ie_tipo_elemento ?? ''}
-                      onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_tipo_elemento: (v || undefined) as any }))}
+                      onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_tipo_elemento: (v || undefined) as CamposRelatorioRow['ie_tipo_elemento'], ie_pagina_branco: v === 'numero_pagina' ? c.ie_pagina_branco : false }))}
                       options={
                         tipoBanda === 'lista'
                           ? [{ value: 'valor', label: 'Valor' }]
-                          : [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'imagem', label: 'Imagem' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'valor', label: 'Valor' }]
+                          : [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'imagem', label: 'Imagem' }, { value: 'numero_pagina', label: 'Número da página' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'valor', label: 'Valor' }]
                       }
                       showPlaceholder={true}
                       className={inputClass}
                     />
+                  </div>
+                  <div className="group flex-none w-auto min-w-[150px]">
+                    {renderFieldLabel('ie_pagina_branco', 'Primeira página em branco', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    <div className="flex items-center h-[34px]">
+                      <input type="checkbox" checked={campoSel.ie_pagina_branco ?? false}
+                        disabled={campoSel.ie_tipo_elemento !== 'numero_pagina'}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_pagina_branco: e.target.checked }))}
+                        className="cg-checkbox disabled:cursor-default disabled:opacity-50" />
+                    </div>
                   </div>
                   {!ocultarColecaoCampo && (() => {
                     const campoColecaoPrincipal = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
@@ -2119,7 +2145,7 @@ export default function RelatorioBuilder({
                 </div>
               </div>
             )}
-            {(!isBandasMode || (bandaDetailId && bandaViewMode === 'ver') || campoDetailId || filtroDetailId) && (
+            {temAcoesRodape && (
             <div className="flex items-center gap-3 ml-auto">
               <button
                 type="button"
@@ -2222,7 +2248,7 @@ export default function RelatorioBuilder({
                   const currentBandaId = bandaDetailIdRef.current;
                   if (currentBandaId) {
                     const c = camposRef.current;
-                    finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
+                    finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c], ordenacao: [...ordenacaoRef.current] } : b);
                     setBandas(finalBandas);
                   }
                   setBandaSaving(true);

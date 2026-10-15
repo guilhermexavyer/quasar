@@ -96,11 +96,11 @@ export default function BandasRelatorioTable({
   }
 
   const sortedBandas = useMemo(() => {
-    if (!sortColumn) return bandas;
+    if (!sortColumn) return [...bandas].sort((a, b) => (a.nr_sequencia ?? Number.MAX_SAFE_INTEGER) - (b.nr_sequencia ?? Number.MAX_SAFE_INTEGER));
     return [...bandas].sort((a, b) => {
       const va = (a as any)[sortColumn] ?? "";
       const vb = (b as any)[sortColumn] ?? "";
-      const cmp = String(va).localeCompare(String(vb), "pt-BR");
+      const cmp = String(va).localeCompare(String(vb), "pt-BR", { numeric: true });
       return sortAsc ? cmp : -cmp;
     });
   }, [bandas, sortColumn, sortAsc]);

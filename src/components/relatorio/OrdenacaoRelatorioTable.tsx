@@ -76,7 +76,7 @@ export default function OrdenacaoRelatorioTable({
     return [...ordenacao].sort((a, b) => {
       const va = (a as any)[sortColumn] ?? "";
       const vb = (b as any)[sortColumn] ?? "";
-      const cmp = String(va).localeCompare(String(vb), "pt-BR");
+      const cmp = String(va).localeCompare(String(vb), "pt-BR", { numeric: true });
       return sortAsc ? cmp : -cmp;
     });
   }, [ordenacao, sortColumn, sortAsc]);
@@ -155,7 +155,6 @@ export default function OrdenacaoRelatorioTable({
   }
 
   function excluir(id: string) {
-    if (ordenacao.length <= 1) return;
     onChange(ordenacao.filter((o) => o.id !== id));
     setContextMenu(null);
   }

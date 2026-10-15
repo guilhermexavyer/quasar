@@ -19,6 +19,8 @@ export const PJ_COLUMNS: PjColDef[] = [
   { key: 'sg_estado', label: 'UF' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
+  { key: 'ds_usuario_criacao', label: 'Usuário criação' },
+  { key: 'ds_usuario_alteracao', label: 'Usuário alteração' },
 ];
 
 export const PJ_FIELD_INFOS = {

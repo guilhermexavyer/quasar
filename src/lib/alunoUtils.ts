@@ -20,6 +20,8 @@ export const ALUNO_COLUMNS: ColDef[] = [
   { key: 'dt_status', label: 'Data do status' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
+  { key: 'ds_usuario_criacao', label: 'Usuário criação' },
+  { key: 'ds_usuario_alteracao', label: 'Usuário alteração' },
 ];
 
 export const FIELD_INFOS = {

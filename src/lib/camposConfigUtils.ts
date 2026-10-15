@@ -36,6 +36,31 @@ export function serializeCamposConfig(config: CamposConfig): string {
   return JSON.stringify(config);
 }
 
+/** Última alteração de status de cada campo no perfil: `colecao.campo` → data/usuário. */
+export type CamposAuditoria = Record<string, { dt_alteracao: string; ds_usuario_alteracao: string }>;
+
+export function parseCamposAuditoria(raw?: string | null): CamposAuditoria {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+    const out: CamposAuditoria = {};
+    for (const [chave, valor] of Object.entries(parsed as Record<string, unknown>)) {
+      const v = valor as { dt_alteracao?: unknown; ds_usuario_alteracao?: unknown } | null;
+      if (v && typeof v.dt_alteracao === "string") {
+        out[chave] = { dt_alteracao: v.dt_alteracao, ds_usuario_alteracao: String(v.ds_usuario_alteracao ?? "") };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function serializeCamposAuditoria(auditoria: CamposAuditoria): string {
+  return JSON.stringify(auditoria);
+}
+
 export function campoKey(colecao: string, campo: string): string {
   return `${colecao}.${campo}`;
 }
@@ -162,6 +187,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_localizacao.ds_localizacao", label: "Descrição", tipo: "Localização", colecao: "cg_localizacao" },
     { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
     { key: "cg_vinculo_contratual.ds_vinculo_contratual", label: "Descrição", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
+    { key: "cg_sistema_operacional.ds_sistema_operacional", label: "Descrição", tipo: "Sistema operacional", colecao: "cg_sistema_operacional" },
   ],
   patrimonio: [
     { key: "pat_ativo.ds_ativo", label: "Descrição", tipo: "Ativos", colecao: "pat_ativo" },
@@ -250,6 +276,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda_elemento.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ds_elemento", label: "Descrição", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_tipo_elemento", label: "Tipo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.ie_pagina_branco", label: "Primeira página em branco", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_colecao", label: "Coleção", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_campo", label: "Campo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.label", label: "Label", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
@@ -295,5 +322,14 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "aluno.ds_restricao_alimentar", label: "Restrição alimentar", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.ds_necessidade_especial", label: "Necessidade especial", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.ds_observacao_medica", label: "Observações médicas", tipo: "Alunos", colecao: "aluno" },
+
+    // Matrícula, Status, Data do status e Motivo do status não são configuráveis
+    // (campos fixos: desabilitados no formulário).
+    { key: "colaborador.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_vinculo_contratual", label: "Vínculo contratual", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.dt_admissao", label: "Data de admissão", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_fornecedor", label: "Fornecedor", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_prestador_servico", label: "Prestador de serviço", tipo: "Colaboradores", colecao: "colaborador" },
   ],
 };

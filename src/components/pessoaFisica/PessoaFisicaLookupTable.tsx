@@ -15,10 +15,13 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect }: Pe
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const lookupColumns = useMemo(
-    () => COLUMNS.filter((col) => col.key !== 'dt_criacao' && col.key !== 'dt_alteracao'),
+    () => [
+      ...COLUMNS.slice(0, 6),
+      ...COLUMNS.filter((col) => ['dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao'].includes(col.key)),
+    ],
     []
   );
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5]);
+  const [columnOrder, setColumnOrder] = useState<number[]>(() => lookupColumns.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
@@ -290,7 +293,7 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect }: Pe
   }
 
   const sortedPessoasFisicas = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return pessoasFisicas;
+    if (sortColumn === null || sortAsc === null) return [...pessoasFisicas].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     const key = lookupColumns[sortColumn].key;
     return [...pessoasFisicas].sort((a, b) => {
       const valA = a[key];

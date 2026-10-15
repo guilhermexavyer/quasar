@@ -6,31 +6,20 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  runTransaction,
   query,
   where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined, temAlteracoes } from "@/lib/firestoreUtils";
+import { removerUndefinedProfundo, temAlteracoes, proximaSequencia } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 /* ═══════════════════════════════════════════════ */
 /* ── Contador de sequência ──                    */
 /* ═══════════════════════════════════════════════ */
 
-const parametroContadorDoc = doc(db, "_counters", "relatorio_parametro_sequence");
 
 async function obterProximoSequenciaParametro(): Promise<number> {
-  try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(parametroContadorDoc);
-      const proximo = (snap.exists() ? (snap.data().current ?? 0) : 0) + 1;
-      tx.set(parametroContadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-  } catch {
-    return Date.now();
-  }
+  return proximaSequencia("relatorio_parametro");
 }
 
 /* ═══════════════════════════════════════════════ */
@@ -76,7 +65,7 @@ export async function criarParametro(
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
 
   const { id: _pid, ...parametroSemId } = parametro as Record<string, any>;
-  const dados = removerUndefined({
+  const dados = removerUndefinedProfundo({
     ...parametroSemId,
     nr_sequencia,
     dt_criacao: agora,
@@ -122,7 +111,7 @@ export async function atualizarParametro(
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
 
   const { id: _eid, ...parametroSemId } = parametro as Record<string, any>;
-  const dadosParaSalvar: Record<string, any> = removerUndefined({
+  const dadosParaSalvar: Record<string, any> = removerUndefinedProfundo({
     ...parametroSemId,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,

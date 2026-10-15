@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 import type { Colaborador } from "@/types/colaborador";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -25,6 +26,10 @@ const LOOKUP_COLUMNS: LookupColumn[] = [
   { key: "nr_cpf", label: "CPF" },
   { key: "ds_razao_social", label: "Razão social" },
   { key: "nr_cnpj", label: "CNPJ" },
+  { key: "dt_criacao", label: "Criação" },
+  { key: "dt_alteracao", label: "Alteração" },
+  { key: "ds_usuario_criacao", label: "Usuário criação" },
+  { key: "ds_usuario_alteracao", label: "Usuário alteração" },
 ];
 
 function formatCpf(value: unknown): string {
@@ -46,7 +51,7 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const lookupColumns = useMemo(() => LOOKUP_COLUMNS, []);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4]);
+  const [columnOrder, setColumnOrder] = useState<number[]>(() => LOOKUP_COLUMNS.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
@@ -284,12 +289,16 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
         nr_cpf: pf?.nr_cpf ?? "",
         ds_razao_social: pj?.ds_razao_social ?? "",
         nr_cnpj: pj?.nr_cnpj ?? "",
+        dt_criacao: col.dt_criacao ?? "",
+        dt_alteracao: col.dt_alteracao ?? "",
+        ds_usuario_criacao: col.ds_usuario_criacao ?? "",
+        ds_usuario_alteracao: col.ds_usuario_alteracao ?? "",
       };
     });
   }, [prestadores, pessoasFisicas, pessoasJuridicas]);
 
   const sortedData = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return enrichedData;
+    if (sortColumn === null || sortAsc === null) return [...enrichedData].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     const key = lookupColumns[sortColumn].key;
     return [...enrichedData].sort((a, b) => {
       const valA = (a as Record<string, unknown>)[key];
@@ -436,7 +445,7 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
                     {columnOrder.map((logicalIdx) => {
                       const col = lookupColumns[logicalIdx];
                       const value = (row as Record<string, unknown>)[col.key];
-                      const displayValue = col.key === "nr_cpf" ? formatCpf(value) : col.key === "nr_cnpj" ? formatCnpj(value) : (value !== null && value !== undefined ? String(value) : "");
+                      const displayValue = col.key === "nr_cpf" ? formatCpf(value) : col.key === "nr_cnpj" ? formatCnpj(value) : col.key === "dt_criacao" || col.key === "dt_alteracao" ? formatDate(String(value ?? "")) : (value !== null && value !== undefined ? String(value) : "");
                       return (
                         <td key={logicalIdx} className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ""}`} style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)" }}>
                           <span className="cell-content">{displayValue}</span>

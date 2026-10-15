@@ -5,9 +5,11 @@ import type { Imagem } from "@/types/imagem";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import Select from "@/components/ui/Select";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import type { CampoStatus } from "@/lib/camposConfigUtils";
 
 const IMAGEM_FIELD_INFOS: Record<string, { type: string; field: string; collection: string }> = {
-  nr_sequencia: { type: 'number', field: 'nr_sequencia', collection: 'imagem' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'imagem' },
   ds_imagem: { type: 'string', field: 'ds_imagem', collection: 'imagem' },
   ie_arquivo: { type: 'string', field: 'ie_arquivo', collection: 'imagem' },
 };
@@ -31,6 +33,10 @@ interface ImagemFormViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   allowedSubmodulos?: string[];
+  /** Regras de campos do perfil ativo (Administração > Campos): campo → N/O/D. */
+  campoRegras?: Record<string, CampoStatus>;
+  /** Campos obrigatórios vazios no último salvamento (borda vermelha). */
+  campoErros?: string[];
 }
 
 export default function ImagemFormView({
@@ -52,7 +58,12 @@ export default function ImagemFormView({
   manageSelection,
   onManageSelectionChange,
   allowedSubmodulos = ['campos', 'perfis', 'usuarios', 'imagens'],
+  campoRegras = {},
+  campoErros = [],
 }: ImagemFormViewProps) {
+  function statusDe(campo: string): CampoStatus {
+    return campoRegras[campo] ?? 'N';
+  }
   const formRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
@@ -84,6 +95,7 @@ export default function ImagemFormView({
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
         <div className="group inline-flex items-center gap-2 w-full">
           <span className="inline-flex items-center gap-1">
+            {statusDe(fieldKey) === 'O' && <RequiredAsterisk />}
             <span>{label}</span>
           </span>
           <button
@@ -208,7 +220,8 @@ export default function ImagemFormView({
               type="text"
               value={imagem.ds_imagem ?? ''}
               onChange={(e) => setImagem((prev) => ({ ...prev, ds_imagem: e.target.value }))}
-              className={inputClass}
+              disabled={statusDe('ds_imagem') === 'D'}
+              className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 ${campoErros.includes('ds_imagem') ? '!border-red-500' : ''}`}
             />
           </div>
 
@@ -218,8 +231,8 @@ export default function ImagemFormView({
             <input type="file" ref={fileInputRef} accept=".jpeg,.jpg,.png" className="hidden" onChange={handleFileChange} />
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => fileInputRef.current?.click()}
-                disabled={!!editingId}
-                className={editingId
+                disabled={!!editingId || statusDe('ie_arquivo') === 'D'}
+                className={editingId || statusDe('ie_arquivo') === 'D'
                   ? 'inline-flex items-center justify-center rounded-[3px] bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'
                   : 'inline-flex items-center justify-center rounded-[3px] bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300'}
                 style={{ borderTop: '1px solid transparent', borderLeft: '1px solid transparent', borderRight: '1px solid transparent', borderBottom: '1px solid #000' }}
@@ -230,7 +243,7 @@ export default function ImagemFormView({
                 type="text"
                 value={imagem.ie_arquivo ?? ''}
                 disabled
-                className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 flex-1 min-w-0`}
+                className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 flex-1 min-w-0 ${campoErros.includes('ie_arquivo') ? '!border-red-500' : ''}`}
               />
             </div>
           </div>

@@ -70,7 +70,7 @@ export default function ImagemListView({
   const [previewImg, setPreviewImg] = useState<Imagem | null>(null);
 
   const IMAGEM_COLUMNS: ResizableTableColumn<Imagem>[] = useMemo(() => [
-    { key: "preview", label: "", width: 30, fixed: true, render: (row) => (
+    { key: "preview", label: "", width: 30, fixed: true, headerClassName: "!px-[8px]", cellClassName: "!px-[8px]", render: (row) => (
       row.ie_arquivo ? (
         <button type="button" onClick={(e) => { e.stopPropagation(); setPreviewImg(row); }} className="cursor-pointer p-0 bg-transparent border-none flex items-center justify-center" title="Pré-visualizar imagem">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
@@ -83,8 +83,8 @@ export default function ImagemListView({
       <span className="truncate">{row.ie_arquivo ? row.ie_arquivo.split('/').pop() : ''}</span>
     )},
     { key: "dt_criacao", label: "Criação", width: 160, render: (row) => row.dt_criacao ? formatDate(row.dt_criacao) : '' },
-    { key: "ds_usuario_criacao", label: "Usuário criação", width: 130 },
     { key: "dt_alteracao", label: "Alteração", width: 160, render: (row) => row.dt_alteracao ? formatDate(row.dt_alteracao) : '' },
+    { key: "ds_usuario_criacao", label: "Usuário criação", width: 130 },
     { key: "ds_usuario_alteracao", label: "Usuário alteração", width: 130 },
   ], []);
 

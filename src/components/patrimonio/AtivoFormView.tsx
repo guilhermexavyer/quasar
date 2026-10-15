@@ -111,11 +111,12 @@ export default function AtivoFormView({
   }
 
   // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
-  // (status 'I' em Cadastros Gerais) são ocultados, e a lista é ordenada
+  // (status 'I' em Cadastros Gerais) são ocultados, exceto o já gravado no registro
+  // (`atual`) — senão o campo apareceria vazio ao abrir o registro. e a lista é ordenada
   // alfabeticamente pela descrição.
-  function cgOptions(options: { nr_sequencia: number; descricao: string; ie_status?: string }[]): { nr_sequencia: number; descricao: string }[] {
+  function cgOptions(options: { nr_sequencia: number; descricao: string; ie_status?: string }[], atual?: number): { nr_sequencia: number; descricao: string }[] {
     return options
-      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => op.ie_status === 'A' || !op.ie_status || (atual !== undefined && op.nr_sequencia === atual))
       .filter((op) => op && typeof op.descricao === 'string' && op.descricao.trim() !== '')
       .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
@@ -410,7 +411,7 @@ export default function AtivoFormView({
                   error={campoErros.includes('nr_seq_categoria')}
                   value={form.nr_seq_categoria ? String(form.nr_seq_categoria) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_categoria: v ? Number(v) : undefined })}
-                  options={cgOptions(categoriasAtivos).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(categoriasAtivos, form.nr_seq_categoria).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 
@@ -421,7 +422,7 @@ export default function AtivoFormView({
                   error={campoErros.includes('nr_seq_localizacao')}
                   value={form.nr_seq_localizacao ? String(form.nr_seq_localizacao) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_localizacao: v ? Number(v) : undefined })}
-                  options={cgOptions(localizacoes).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(localizacoes, form.nr_seq_localizacao).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 
@@ -432,7 +433,7 @@ export default function AtivoFormView({
                   error={campoErros.includes('nr_seq_marca')}
                   value={form.nr_seq_marca ? String(form.nr_seq_marca) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_marca: v ? Number(v) : undefined })}
-                  options={cgOptions(marcas).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(marcas, form.nr_seq_marca).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 

@@ -6,41 +6,16 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
+import { montarUpdateComRemocoes, removerUndefined, proximaSequencia } from "@/lib/firestoreUtils";
 import type { Perfil } from "@/types/perfil";
 import type { AuditAutor } from "@/services/auditService";
 
 const perfilColecao = collection(db, "perfil");
-const contadorPerfilDoc = doc(db, "_counters", "perfil_sequence");
 
 async function obterProximoPerfilSequencia(): Promise<number> {
-  try {
-    const resultado = await runTransaction(db, async (transacao) => {
-      const docSnap = await transacao.get(contadorPerfilDoc);
-      let proximo = 1;
-      if (docSnap.exists()) {
-        proximo = (docSnap.data().current ?? 0) + 1;
-      }
-      transacao.set(contadorPerfilDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-    return resultado;
-  } catch {
-    try {
-      await runTransaction(db, async (transacao) => {
-        const docSnap = await transacao.get(contadorPerfilDoc);
-        if (!docSnap.exists()) {
-          transacao.set(contadorPerfilDoc, { current: 1 });
-        }
-      });
-      return 1;
-    } catch {
-      return Date.now();
-    }
-  }
+  return proximaSequencia("perfil");
 }
 
 export async function obterPerfis(): Promise<Perfil[]> {

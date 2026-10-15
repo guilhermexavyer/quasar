@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { formatDate } from "@/lib/ativoUtils";
 import {
   obterParamCodigoPatrimonio,
@@ -56,6 +57,9 @@ function segmentoVazio(): Segmento {
   return { tipo: "", texto: "" };
 }
 
+/** Informações do campo exibidas no infobutton da regra. */
+const REGRA_FIELD_INFO = { type: "string", field: "ds_regra", collection: "pat_param_codigo_patrimonio" };
+
 interface ParametrosDaFuncaoViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -93,6 +97,8 @@ export default function ParametrosDaFuncaoView({
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
   const [segmentosDraft, setSegmentosDraft] = useState<Segmento[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [infoRegraAberto, setInfoRegraAberto] = useState(false);
+  const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
   const handleSalvarRef = useRef<() => void>(() => {});
 
   const selectedParametro = PARAMETROS_PATRIMONIO.find((p) => p.id === selectedParametroId) ?? null;
@@ -152,6 +158,15 @@ export default function ParametrosDaFuncaoView({
     const next = [...segmentosEmEdicao];
     next.splice(index, 1);
     if (next.length === 0) next.push(segmentoVazio());
+    setSegmentosDraft(next);
+  }
+
+  /** Move o segmento para cima (-1) ou para baixo (+1): a ordem define a prioridade na geração do código. */
+  function moverSegmento(index: number, delta: -1 | 1) {
+    const destino = index + delta;
+    if (destino < 0 || destino >= segmentosEmEdicao.length) return;
+    const next = [...segmentosEmEdicao];
+    [next[index], next[destino]] = [next[destino], next[index]];
     setSegmentosDraft(next);
   }
 
@@ -276,7 +291,33 @@ export default function ParametrosDaFuncaoView({
             ) : selectedParametro.id === "geracao_codigo_patrimonio" ? (
               <div className="flex flex-col h-full min-h-0">
                 <div className="overflow-auto flex-1 min-h-0">
-                  <div className="space-y-2 w-full">
+                  <div className="group space-y-2 w-full">
+                    <div className="relative inline-block text-sm -mb-1" style={{ color: '#666' }}>
+                      <div className="group inline-flex items-center gap-2 w-full">
+                        <span className="inline-flex items-center gap-1">
+                          <span>Composição do código</span>
+                        </span>
+                        <button
+                          type="button"
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            setInfoAnchor(event.currentTarget);
+                            setInfoRegraAberto((aberto) => !aberto);
+                          }}
+                          aria-label="Informações do campo Composição do código"
+                          className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoRegraAberto ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+                        >
+                          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                            <circle cx="12" cy="12" r="10" />
+                            <path d="M12 8v4" />
+                            <circle cx="12" cy="16" r="0.5" />
+                          </svg>
+                        </button>
+                        {infoRegraAberto && (
+                          <FieldInfoPopup anchor={infoAnchor} meta={REGRA_FIELD_INFO} onClose={() => setInfoRegraAberto(false)} />
+                        )}
+                      </div>
+                    </div>
                     {segmentosEmEdicao.map((seg, index) => {
                       const isTexto = seg.tipo === "texto";
                       const isSequenciaDigitos = seg.tipo === "sequencia_digitos";
@@ -329,6 +370,30 @@ export default function ParametrosDaFuncaoView({
                               <path d="M5 12h14" />
                             </svg>
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => moverSegmento(index, -1)}
+                            disabled={index === 0}
+                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
+                            aria-label={`Mover segmento ${index + 1} para cima`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 19V5" />
+                              <path d="M5 12l7-7 7 7" />
+                            </svg>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => moverSegmento(index, 1)}
+                            disabled={index === segmentosEmEdicao.length - 1}
+                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
+                            aria-label={`Mover segmento ${index + 1} para baixo`}
+                          >
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                              <path d="M12 5v14" />
+                              <path d="M19 12l-7 7-7-7" />
+                            </svg>
+                          </button>
                         </div>
                       );
                     })}
@@ -337,10 +402,10 @@ export default function ParametrosDaFuncaoView({
 
                 {/* Botões Cancelar / Salvar — canto inferior direito */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
-                  {auditHasDocument && (
                   <div className="text-[13px] text-slate-500">
                     <div className="relative group flex items-center gap-2">
                       <span>Criado por {createdBy || '-'} em {createdAt ? formatDate(createdAt) : '-'}</span>
+                      {auditHasDocument && (
                       <button
                         type="button"
                         aria-hidden="true"
@@ -353,9 +418,11 @@ export default function ParametrosDaFuncaoView({
                           <circle cx="12" cy="16" r="0.5" />
                         </svg>
                       </button>
+                      )}
                     </div>
                     <div className="relative group flex items-center gap-2 mt-1">
                       <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatDate(updatedAt) : '-'}</span>
+                      {auditHasDocument && (
                       <button
                         type="button"
                         aria-hidden="true"
@@ -368,9 +435,9 @@ export default function ParametrosDaFuncaoView({
                           <circle cx="12" cy="16" r="0.5" />
                         </svg>
                       </button>
+                      )}
                     </div>
                   </div>
-                  )}
                   <div className="flex items-center justify-end gap-2 ml-auto">
                     <button
                       type="button"

@@ -38,10 +38,36 @@ function parseDateToNumber(valor: string): number | null {
   }
   const isoMatch = valor.match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (isoMatch) {
-    const d = new Date(valor);
+    const [, year, month, day] = isoMatch;
+    const d = /^\d{4}-\d{2}-\d{2}$/.test(valor) ? new Date(Number(year), Number(month) - 1, Number(day)) : new Date(valor);
     if (!isNaN(d.getTime())) return d.getTime();
   }
   return null;
+}
+
+/** Valor do filtro é uma data sem hora (DD/MM/AAAA ou AAAA-MM-DD)? */
+function ehDataSemHora(valor: string): boolean {
+  return /^\d{2}\/\d{2}\/\d{4}$/.test(valor.trim()) || /^\d{4}-\d{2}-\d{2}$/.test(valor.trim());
+}
+
+/** Início do dia (hora local) de um timestamp. */
+function inicioDoDia(ts: number): number {
+  const d = new Date(ts);
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+}
+
+/**
+ * Compara o valor do registro com o valor do filtro. Quando o filtro é uma data sem
+ * hora e o registro tem data e hora (ex.: dt_criacao), compara apenas o dia — senão
+ * "igual a 01/01/2026" nunca casaria com "2026-01-01T10:30:00".
+ */
+function compararComFiltro(raw: unknown, valorFiltro: string): number {
+  if (raw != null && ehDataSemHora(valorFiltro)) {
+    const dataRegistro = parseDateToNumber(String(raw));
+    const dataFiltro = parseDateToNumber(valorFiltro.trim());
+    if (dataRegistro !== null && dataFiltro !== null) return inicioDoDia(dataRegistro) - dataFiltro;
+  }
+  return compararValores(raw, valorFiltro);
 }
 
 /**
@@ -65,71 +91,103 @@ function compararValores(a: any, b: any): number {
   return sa.localeCompare(sb, 'pt-BR');
 }
 
+/** Filtro com o caminho do valor já resolvido para a coleção consultada. */
+interface FiltroAplicavel {
+  filtro: RelatorioFiltro;
+  /** Alias do objeto relacionado (FK) no registro, ou null quando o campo é da própria coleção. */
+  alias: string | null;
+  campo: string;
+}
+
 /**
- * Aplica filtros do lado do cliente (todos os operadores).
+ * Seleciona os filtros que valem para a coleção consultada: filtros da própria coleção
+ * (ou sem coleção, formato antigo) e filtros de coleções relacionadas por FK. Filtros de
+ * outras coleções são ignorados — no modo bandas, o filtro de uma banda não pode zerar
+ * as demais. A ordem (nr_sequencia) importa por causa do conector E/OU.
+ */
+function filtrosAplicaveis(filtros: RelatorioFiltro[], colecao: string, dsCampos: DataSourceCampo[]): FiltroAplicavel[] {
+  const ordenados = [...filtros].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
+  const out: FiltroAplicavel[] = [];
+  for (const filtro of ordenados) {
+    // Compatibilidade com dados antigos (campo) e novos (ie_campo)
+    const chave = filtro.ie_campo ?? (filtro as any).campo;
+    if (!chave) continue;
+    const campo = chave.includes('.') ? chave.split('.').pop()! : chave;
+    if (!filtro.ie_colecao || filtro.ie_colecao === colecao) {
+      out.push({ filtro, alias: null, campo });
+      continue;
+    }
+    const fk = dsCampos.find((c) => c.isFK && c.fkColecao === filtro.ie_colecao);
+    if (fk) out.push({ filtro, alias: fk.key.replace(/^nr_seq_/, ''), campo });
+  }
+  return out;
+}
+
+/** Avalia um filtro contra o registro. Retorna null quando o filtro não tem valor (é ignorado). */
+function avaliarFiltro(reg: Record<string, unknown>, { filtro, alias, campo }: FiltroAplicavel): boolean | null {
+  const { operador, valorFinal } = filtro;
+  const valor = filtro.vl_padrao ?? (filtro as any).valor;
+  if (operador !== 'vazio' && operador !== 'nao_vazio' && (!valor || valor.trim() === '') && (!valorFinal || valorFinal.trim() === '')) return null;
+  const raw = alias ? (reg[alias] as Record<string, unknown> | null | undefined)?.[campo] : reg[campo];
+  const valorCampo = String(raw ?? '').toLowerCase();
+  const valorFiltro = (valor ?? '').toLowerCase();
+  const dataSemHora = valor != null && ehDataSemHora(valor);
+
+  switch (operador) {
+    case 'igual':
+      return dataSemHora ? compararComFiltro(raw, valor) === 0 : String(raw ?? '') === String(valor ?? '');
+    case 'diferente':
+      return dataSemHora ? compararComFiltro(raw, valor) !== 0 : String(raw ?? '') !== String(valor ?? '');
+    case 'maior':
+      return compararComFiltro(raw, valor) > 0;
+    case 'menor':
+      return compararComFiltro(raw, valor) < 0;
+    case 'maior_igual':
+      return compararComFiltro(raw, valor) >= 0;
+    case 'menor_igual':
+      return compararComFiltro(raw, valor) <= 0;
+    case 'contem':
+      return valorCampo.includes(valorFiltro);
+    case 'nao_contem':
+      return !valorCampo.includes(valorFiltro);
+    case 'inicia_com':
+      return valorCampo.startsWith(valorFiltro);
+    case 'termina_com':
+      return valorCampo.endsWith(valorFiltro);
+    case 'entre':
+      if (compararComFiltro(raw, valor) < 0) return false;
+      return !(valorFinal !== undefined && valorFinal !== '' && compararComFiltro(raw, valorFinal) > 0);
+    case 'vazio':
+      return raw === undefined || raw === null || String(raw) === '';
+    case 'nao_vazio':
+      return !(raw === undefined || raw === null || String(raw) === '');
+    default:
+      return true;
+  }
+}
+
+/**
+ * Aplica os filtros do lado do cliente. O conector (ie_conector) liga cada filtro ao
+ * anterior, com a precedência usual: "E" antes de "OU" (A E B OU C = (A E B) OU C).
  */
 function applyClientSideFilters(
   registros: Record<string, any>[],
-  filtros: RelatorioFiltro[]
+  filtros: FiltroAplicavel[]
 ): Record<string, any>[] {
+  if (filtros.length === 0) return registros;
   return registros.filter((reg) => {
-    for (const filtro of filtros) {
-      const { operador, valorFinal } = filtro;
-      // Compatibilidade com dados antigos (campo/valor) e novos (ie_campo/vl_padrao)
-      const campo = filtro.ie_campo ?? (filtro as any).campo;
-      const valor = filtro.vl_padrao ?? (filtro as any).valor;
-      // Ignora filtros sem campo ou sem valor (exceto vazio/nao_vazio)
-      if (!campo) continue;
-      if (operador !== 'vazio' && operador !== 'nao_vazio' && (!valor || valor.trim() === '') && (!valorFinal || valorFinal.trim() === '')) continue;
-      const campoLimpo = campo.includes('.') ? campo.split('.').pop()! : campo;
-      const raw = reg[campoLimpo];
-      const valorCampo = String(raw ?? '').toLowerCase();
-      const valorFiltro = (valor ?? '').toLowerCase();
-
-      switch (operador) {
-        case 'igual':
-          if (String(raw ?? '') !== String(valor ?? '')) return false;
-          break;
-        case 'diferente':
-          if (String(raw ?? '') === String(valor ?? '')) return false;
-          break;
-        case 'maior':
-          if (compararValores(raw, valor) <= 0) return false;
-          break;
-        case 'menor':
-          if (compararValores(raw, valor) >= 0) return false;
-          break;
-        case 'maior_igual':
-          if (compararValores(raw, valor) < 0) return false;
-          break;
-        case 'menor_igual':
-          if (compararValores(raw, valor) > 0) return false;
-          break;
-        case 'contem':
-          if (!valorCampo.includes(valorFiltro)) return false;
-          break;
-        case 'nao_contem':
-          if (valorCampo.includes(valorFiltro)) return false;
-          break;
-        case 'inicia_com':
-          if (!valorCampo.startsWith(valorFiltro)) return false;
-          break;
-        case 'termina_com':
-          if (!valorCampo.endsWith(valorFiltro)) return false;
-          break;
-        case 'entre':
-          if (compararValores(raw, valor) < 0) return false;
-          if (valorFinal !== undefined && valorFinal !== '' && compararValores(raw, valorFinal) > 0) return false;
-          break;
-        case 'vazio':
-          if (raw !== undefined && raw !== null && String(raw) !== '') return false;
-          break;
-        case 'nao_vazio':
-          if (raw === undefined || raw === null || String(raw) === '') return false;
-          break;
+    let algumGrupoVerdadeiro = false;
+    let grupoAtual: boolean | null = null; // null = grupo ainda sem filtro avaliado
+    for (const f of filtros) {
+      const resultado = avaliarFiltro(reg, f);
+      if (resultado === null) continue;
+      if (f.filtro.ie_conector === 'OU' && grupoAtual !== null) {
+        algumGrupoVerdadeiro ||= grupoAtual;
+        grupoAtual = null;
       }
+      grupoAtual = (grupoAtual ?? true) && resultado;
     }
-    return true;
+    return algumGrupoVerdadeiro || (grupoAtual ?? true);
   });
 }
 
@@ -157,7 +215,7 @@ function identificarFksNecessarias(
   // Quais coleções FK são usadas nos campos do relatório?
   const colecoesUsadas = new Set<string>();
   for (const campo of campos) {
-    if (campo.ie_colecao && campo.ie_colecao !== colecaoPrincipal) {
+    if (campo?.ie_colecao && campo.ie_colecao !== colecaoPrincipal) {
       colecoesUsadas.add(campo.ie_colecao);
     }
   }
@@ -245,30 +303,34 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
   }
 
   // Busca todos os documentos da coleção principal (sem where/orderBy server-side)
-  let registros: Record<string, any>[] = await fetchColecao(colecao);
+  const todos = await fetchColecao(colecao);
+  const aplicaveis = filtrosAplicaveis(filtros ?? [], colecao, ds.campos);
 
-  // Aplica filtros do lado do cliente
-  registros = applyClientSideFilters(registros, filtros);
+  // Resolve coleções FK (substitui nr_seq_* por objetos aninhados) — antes de filtrar,
+  // para que filtros sobre coleções relacionadas enxerguem o registro relacionado.
+  const colecoesDosFiltros = aplicaveis
+    .filter((f) => f.alias)
+    .map((f) => ({ ie_colecao: f.filtro.ie_colecao, ie_campo: f.campo }));
+  const { resolvidos, lookups } = await resolveColecoesFK(todos, colecao, [...campos, ...colecoesDosFiltros], ds.campos);
 
-  // Aplica ordenação do lado do cliente
-  if (ordenacao.length > 0) {
-    registros.sort((a, b) => {
+  // Aplica filtros e ordenação do lado do cliente (mantendo bruto e resolvido alinhados)
+  const pares = resolvidos.map((resolvido, i) => ({ bruto: todos[i], resolvido }));
+  const mantidos = new Set(applyClientSideFilters(resolvidos, aplicaveis));
+  const filtrados = pares.filter((p) => mantidos.has(p.resolvido));
+  if (ordenacao.length === 0) {
+    filtrados.sort((a, b) => compararValores(a.bruto.nr_sequencia, b.bruto.nr_sequencia));
+  } else {
+    filtrados.sort((a, b) => {
       for (const o of ordenacao) {
         const campoLimpo = o.campo.includes('.') ? o.campo.split('.').pop()! : o.campo;
-        const diff = compararValores(a[campoLimpo], b[campoLimpo]);
+        const diff = compararValores(a.bruto[campoLimpo], b.bruto[campoLimpo]);
         if (diff !== 0) return o.direcao === 'desc' ? -diff : diff;
       }
       return 0;
     });
   }
-
-  // Resolve coleções FK (substitui nr_seq_* por objetos aninhados)
-  const { resolvidos: registrosResolvidos, lookups } = await resolveColecoesFK(
-    registros,
-    colecao,
-    campos,
-    ds.campos
-  );
+  const registros = filtrados.map((p) => p.bruto);
+  const registrosResolvidos = filtrados.map((p) => p.resolvido);
 
   // Resolve campos computados
   const temComputado = campos.some((c) => c.ie_campo === 'ds_prestador_servico');

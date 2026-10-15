@@ -1,4 +1,6 @@
-export { formatDate } from "@/lib/pessoaFisicaUtils";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
+
+export { formatDate };
 
 /** Opções de status da manutenção. */
 export const MANUTENCAO_STATUS_OPTIONS = [
@@ -25,6 +27,8 @@ export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
   { key: "vl_total", label: "Valor total" },
   { key: "dt_criacao", label: "Criação" },
   { key: "dt_alteracao", label: "Alteração" },
+  { key: "ds_usuario_criacao", label: "Usuário criação" },
+  { key: "ds_usuario_alteracao", label: "Usuário alteração" },
 ];
 
 /** Metadados dos campos para infobutton / configuração em Admin > Campos. */
@@ -62,7 +66,10 @@ export const FIELD_LABELS: Record<string, string> = {
 /** Formata valor para exibição na tabela. */
 export function formatCellValue(key: string, value: unknown): string {
   if (value === null || value === undefined) return "";
-  if (key === "dt_envio" || key === "dt_termino" || key === "dt_criacao" || key === "dt_alteracao") {
+  if (key === "dt_criacao" || key === "dt_alteracao") {
+    return formatDate(String(value));
+  }
+  if (key === "dt_envio" || key === "dt_termino") {
     const str = String(value);
     if (!str) return "";
     try {

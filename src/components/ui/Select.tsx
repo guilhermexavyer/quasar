@@ -170,6 +170,23 @@ export default function Select({
     };
   }, [open, items, value, visibleOptions, forceOpenUp]);
 
+  // Um ancestral com transform/filter/backdrop-filter (ex.: rodapé de paginação com
+  // backdrop-blur) vira o bloco de contenção do `position: fixed`, deslocando a lista.
+  // Mede onde a lista realmente ficou e compensa a diferença.
+  useLayoutEffect(() => {
+    const list = listRef.current;
+    if (!open || absolute || !dropdownPos || !list) return;
+    list.style.top = dropdownPos.top + 'px';
+    list.style.left = dropdownPos.left + 'px';
+    const rect = list.getBoundingClientRect();
+    const dy = rect.top - dropdownPos.top;
+    const dx = rect.left - dropdownPos.left;
+    if (Math.abs(dy) > 0.5 || Math.abs(dx) > 0.5) {
+      list.style.top = dropdownPos.top - dy + 'px';
+      list.style.left = dropdownPos.left - dx + 'px';
+    }
+  }, [open, absolute, dropdownPos]);
+
   // Ao fechar, limpa o buffer da busca por digitação.
   useEffect(() => {
     if (!open) {

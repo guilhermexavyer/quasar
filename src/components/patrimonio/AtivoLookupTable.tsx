@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 import type { Ativo } from "@/types/ativo";
 
 interface AtivoLookupTableProps {
@@ -25,6 +26,10 @@ const LOOKUP_COLUMNS: LookupColumn[] = [
   { key: "ds_categoria", label: "Categoria" },
   { key: "ds_marca", label: "Marca" },
   { key: "ie_status_label", label: "Status" },
+  { key: "dt_criacao", label: "Criação" },
+  { key: "dt_alteracao", label: "Alteração" },
+  { key: "ds_usuario_criacao", label: "Usuário criação" },
+  { key: "ds_usuario_alteracao", label: "Usuário alteração" },
 ];
 
 const STATUS_MAP: Record<string, string> = {
@@ -39,7 +44,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const lookupColumns = useMemo(() => LOOKUP_COLUMNS, []);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const [columnOrder, setColumnOrder] = useState<number[]>(() => LOOKUP_COLUMNS.map((_, i) => i));
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
@@ -275,7 +280,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
   }, [ativos, categoriasAtivos, marcas]);
 
   const sortedData = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return enrichedData;
+    if (sortColumn === null || sortAsc === null) return [...enrichedData].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     const key = lookupColumns[sortColumn].key;
     return [...enrichedData].sort((a, b) => {
       const valA = (a as unknown as Record<string, unknown>)[key];
@@ -422,7 +427,9 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
                     {columnOrder.map((logicalIdx) => {
                       const col = lookupColumns[logicalIdx];
                       const value = (ativo as unknown as Record<string, unknown>)[col.key];
-                      const displayValue = value !== null && value !== undefined ? String(value) : "";
+                      const displayValue = col.key === "dt_criacao" || col.key === "dt_alteracao"
+                        ? formatDate(String(value ?? ""))
+                        : value !== null && value !== undefined ? String(value) : "";
                       return (
                         <td key={logicalIdx} className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ""}`} style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)" }}>
                           <span className="cell-content">{displayValue}</span>

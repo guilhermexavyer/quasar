@@ -98,11 +98,12 @@ export default function ColaboradorFormView({
   }
 
   // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
-  // (status 'I' em Cadastros Gerais) são ocultados, e a lista é ordenada
+  // (status 'I' em Cadastros Gerais) são ocultados, exceto o já gravado no registro
+  // (`atual`) — senão o campo apareceria vazio ao abrir o registro. e a lista é ordenada
   // alfabeticamente pela descrição.
-  function cgOptions(options: { nr_sequencia: number; descricao: string; ie_status?: string }[]): { nr_sequencia: number; descricao: string }[] {
+  function cgOptions(options: { nr_sequencia: number; descricao: string; ie_status?: string }[], atual?: number): { nr_sequencia: number; descricao: string }[] {
     return options
-      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => op.ie_status === 'A' || !op.ie_status || (atual !== undefined && op.nr_sequencia === atual))
       .filter((op) => op && typeof op.descricao === 'string' && op.descricao.trim() !== '')
       .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
@@ -347,7 +348,7 @@ export default function ColaboradorFormView({
                     error={campoErros.includes('nr_seq_vinculo_contratual')}
                     value={form.nr_seq_vinculo_contratual ? String(form.nr_seq_vinculo_contratual) : ''}
                     onChange={(v) => setForm({ ...form, nr_seq_vinculo_contratual: v ? Number(v) : undefined })}
-                    options={cgOptions(vinculosContratuais).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                    options={cgOptions(vinculosContratuais, form.nr_seq_vinculo_contratual).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                   />
                 </div>
 

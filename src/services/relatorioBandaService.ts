@@ -6,45 +6,24 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  runTransaction,
   query,
   where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined, temAlteracoes } from "@/lib/firestoreUtils";
+import { removerUndefinedProfundo, temAlteracoes, proximaSequencia } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 /* ═══════════════════════════════════════════════ */
 /* ── Contadores de sequência ──                  */
 /* ═══════════════════════════════════════════════ */
 
-const bandaContadorDoc = doc(db, "_counters", "relatorio_banda_sequence");
-const elementoContadorDoc = doc(db, "_counters", "relatorio_banda_elemento_sequence");
 
 async function obterProximoSequenciaBanda(): Promise<number> {
-  try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(bandaContadorDoc);
-      const proximo = (snap.exists() ? (snap.data().current ?? 0) : 0) + 1;
-      tx.set(bandaContadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-  } catch {
-    return Date.now();
-  }
+  return proximaSequencia("relatorio_banda");
 }
 
 async function obterProximoSequenciaElemento(): Promise<number> {
-  try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(elementoContadorDoc);
-      const proximo = (snap.exists() ? (snap.data().current ?? 0) : 0) + 1;
-      tx.set(elementoContadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-  } catch {
-    return Date.now();
-  }
+  return proximaSequencia("relatorio_banda_elemento");
 }
 
 /* ═══════════════════════════════════════════════ */
@@ -79,7 +58,7 @@ export async function criarBanda(
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
 
   const { id: _bid, ...bandaSemId } = banda as Record<string, any>;
-  const dados = removerUndefined({
+  const dados = removerUndefinedProfundo({
     ...bandaSemId,
     nr_sequencia,
     dt_criacao: agora,
@@ -125,7 +104,7 @@ export async function atualizarBanda(
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
 
   // Mapear campos do form para o banco
-  const dadosParaSalvar: Record<string, any> = removerUndefined({
+  const dadosParaSalvar: Record<string, any> = removerUndefinedProfundo({
     ...banda,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,
@@ -203,7 +182,7 @@ export async function criarElemento(
 
   // Excluir 'id' do payload para não salvar UUID do cliente no Firestore
   const { id: _clientid, ...elementoSemId } = elemento as Record<string, any>;
-  const dados = removerUndefined({
+  const dados = removerUndefinedProfundo({
     ...elementoSemId,
     nr_sequencia,
     dt_criacao: agora,
@@ -249,7 +228,7 @@ export async function atualizarElemento(
   const nomeAutor = autor?.usuarioNome?.trim() || "-";
 
   const { id: _eid, ...elementoSemId2 } = elemento as Record<string, any>;
-  const dadosParaSalvar: Record<string, any> = removerUndefined({
+  const dadosParaSalvar: Record<string, any> = removerUndefinedProfundo({
     ...elementoSemId2,
     dt_alteracao: agora,
     ds_usuario_alteracao: nomeAutor,

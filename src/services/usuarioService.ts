@@ -6,41 +6,16 @@ import {
   doc,
   updateDoc,
   deleteDoc,
-  runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
+import { montarUpdateComRemocoes, removerUndefined, proximaSequencia } from "@/lib/firestoreUtils";
 import type { Usuario } from "@/types/usuario";
 import type { AuditAutor } from "@/services/auditService";
 
 const usuarioColecao = collection(db, "usuario");
-const contadorUsuarioDoc = doc(db, "_counters", "usuario_sequence");
 
 async function obterProximoUsuarioSequencia(): Promise<number> {
-  try {
-    const resultado = await runTransaction(db, async (transacao) => {
-      const docSnap = await transacao.get(contadorUsuarioDoc);
-      let proximo = 1;
-      if (docSnap.exists()) {
-        proximo = (docSnap.data().current ?? 0) + 1;
-      }
-      transacao.set(contadorUsuarioDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-    return resultado;
-  } catch {
-    try {
-      await runTransaction(db, async (transacao) => {
-        const docSnap = await transacao.get(contadorUsuarioDoc);
-        if (!docSnap.exists()) {
-          transacao.set(contadorUsuarioDoc, { current: 1 });
-        }
-      });
-      return 1;
-    } catch {
-      return Date.now();
-    }
-  }
+  return proximaSequencia("usuario");
 }
 
 export async function obterUsuarios(): Promise<Usuario[]> {

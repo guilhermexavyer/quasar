@@ -14,10 +14,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const lookupColumns = useMemo(
-    () => PJ_COLUMNS.filter((col) => col.key !== 'dt_criacao' && col.key !== 'dt_alteracao'),
-    []
-  );
+  const lookupColumns = useMemo(() => PJ_COLUMNS, []);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
     Array.from({ length: lookupColumns.length }, (_, i) => i)
   );
@@ -292,7 +289,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
   }
 
   const sortedPessoasJuridicas = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return pessoasJuridicas;
+    if (sortColumn === null || sortAsc === null) return [...pessoasJuridicas].sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
     const key = lookupColumns[sortColumn].key;
     return [...pessoasJuridicas].sort((a, b) => {
       const valA = a[key];

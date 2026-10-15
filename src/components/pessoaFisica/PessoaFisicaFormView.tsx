@@ -116,11 +116,12 @@ export default function PessoaFisicaFormView({
   }
 
   // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
-  // (status 'I' em Cadastros Gerais) são ocultados. Itens sem descrição
+  // (status 'I' em Cadastros Gerais) são ocultados, exceto o já gravado no registro
+  // (`atual`) — senão o campo apareceria vazio ao abrir o registro. Itens sem descrição
   // (dados órfãos/incompletos) são ignorados para não quebrar a ordenação.
-  function cgOptions(options: CgSelectOption[]): CgSelectOption[] {
+  function cgOptions(options: CgSelectOption[], atual?: number): CgSelectOption[] {
     return options
-      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => op.ie_status === 'A' || !op.ie_status || (atual !== undefined && op.nr_sequencia === atual))
       .filter((op) => op && typeof op.descricao === 'string' && op.descricao.trim() !== '')
       .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
@@ -370,7 +371,7 @@ export default function PessoaFisicaFormView({
                   error={campoErros.includes('nr_seq_sexo')}
                   value={form.nr_seq_sexo ? String(form.nr_seq_sexo) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_sexo: v ? Number(v) : undefined })}
-                  options={cgOptions(sexos).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(sexos, form.nr_seq_sexo).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 
@@ -381,7 +382,7 @@ export default function PessoaFisicaFormView({
                   error={campoErros.includes('nr_seq_estado_civil')}
                   value={form.nr_seq_estado_civil ? String(form.nr_seq_estado_civil) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_estado_civil: v ? Number(v) : undefined })}
-                  options={cgOptions(estadoCivis).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(estadoCivis, form.nr_seq_estado_civil).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 
@@ -392,7 +393,7 @@ export default function PessoaFisicaFormView({
                   error={campoErros.includes('nr_seq_cor_raca')}
                   value={form.nr_seq_cor_raca ? String(form.nr_seq_cor_raca) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_cor_raca: v ? Number(v) : undefined })}
-                  options={cgOptions(coresRacas).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(coresRacas, form.nr_seq_cor_raca).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 
@@ -403,7 +404,7 @@ export default function PessoaFisicaFormView({
                   error={campoErros.includes('nr_seq_profissao')}
                   value={form.nr_seq_profissao ? String(form.nr_seq_profissao) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_profissao: v ? Number(v) : undefined })}
-                  options={cgOptions(profissoes).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  options={cgOptions(profissoes, form.nr_seq_profissao).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
 
@@ -491,7 +492,7 @@ export default function PessoaFisicaFormView({
                   error={campoErros.includes('nr_seq_orgao_emissor')}
                   value={form.nr_seq_orgao_emissor ? String(form.nr_seq_orgao_emissor) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_orgao_emissor: v ? Number(v) : undefined })}
-                  options={cgOptions(orgaosEmissores).map((op) => ({ value: String(op.nr_sequencia), label: op.sigla?.trim() || op.descricao }))}
+                  options={cgOptions(orgaosEmissores, form.nr_seq_orgao_emissor).map((op) => ({ value: String(op.nr_sequencia), label: op.sigla?.trim() || op.descricao }))}
                 />
               </div>
 
@@ -570,7 +571,7 @@ export default function PessoaFisicaFormView({
                   error={campoErros.includes('nr_seq_logradouro')}
                   value={form.nr_seq_logradouro ? String(form.nr_seq_logradouro) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_logradouro: v ? Number(v) : undefined })}
-                  options={cgOptions(logradouros).map((op) => ({
+                  options={cgOptions(logradouros, form.nr_seq_logradouro).map((op) => ({
                     value: String(op.nr_sequencia),
                     label: op.descricao,
                   }))}

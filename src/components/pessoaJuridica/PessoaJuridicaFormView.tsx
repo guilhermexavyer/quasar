@@ -98,11 +98,12 @@ export default function PessoaJuridicaFormView({
   const prevCepRef = useRef(form.nr_cep ?? '');
 
   // Apenas itens Ativos ficam disponíveis no dropdown; itens Inativos
-  // (status 'I' em Cadastros Gerais) são ocultados. Itens sem descrição
+  // (status 'I' em Cadastros Gerais) são ocultados, exceto o já gravado no registro
+  // (`atual`) — senão o campo apareceria vazio ao abrir o registro. Itens sem descrição
   // (dados órfãos/incompletos) são ignorados para não quebrar a ordenação.
-  function cgOptions(options: CgSelectOption[]): CgSelectOption[] {
+  function cgOptions(options: CgSelectOption[], atual?: number): CgSelectOption[] {
     return options
-      .filter((op) => op.ie_status === 'A' || !op.ie_status)
+      .filter((op) => op.ie_status === 'A' || !op.ie_status || (atual !== undefined && op.nr_sequencia === atual))
       .filter((op) => op && typeof op.descricao === 'string' && op.descricao.trim() !== '')
       .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
@@ -451,7 +452,7 @@ export default function PessoaJuridicaFormView({
                   error={campoErros.includes('nr_seq_logradouro')}
                   value={form.nr_seq_logradouro ? String(form.nr_seq_logradouro) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_logradouro: v ? Number(v) : undefined })}
-                  options={cgOptions(logradouros).map((op) => ({
+                  options={cgOptions(logradouros, form.nr_seq_logradouro).map((op) => ({
                     value: String(op.nr_sequencia),
                     label: op.descricao,
                   }))}

@@ -7,9 +7,11 @@ import {
   CAMPOS_POR_FUNCAO,
   getCampoStatusByKey,
   parseCamposConfig,
+  parseCamposAuditoria,
   type CampoStatus,
 } from "@/lib/camposConfigUtils";
 import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import ResizableTable from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
@@ -33,6 +35,8 @@ function funcoesLiberadasDe(perfil: Perfil | null): string[] {
   const ids = parseFuncoesConfig(perfil.config_funcoes);
   return FUNCAO_ORDER_ALPHA.filter((f) => ids.includes(f as FuncaoId));
 }
+
+type PerfilSortKey = "nr_sequencia" | "ds_perfil";
 
 interface CamposViewProps {
   perfis: Perfil[];
@@ -80,7 +84,7 @@ export default function CamposView({
 
   // Ordenação em 3 estados (mesma lógica das tabelas de registro):
   // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).
-  const [perfilSortKey, setPerfilSortKey] = useState<"nr_sequencia" | "ds_perfil" | null>(null);
+  const [perfilSortKey, setPerfilSortKey] = useState<PerfilSortKey | null>(null);
   const [perfilSortAsc, setPerfilSortAsc] = useState<boolean | null>(null);
   const [funcaoSortKey, setFuncaoSortKey] = useState<string | null>(null);
   const [funcaoSortAsc, setFuncaoSortAsc] = useState<boolean | null>(null);
@@ -125,13 +129,18 @@ export default function CamposView({
     () => (selectedPerfil ? parseCamposConfig(selectedPerfil.config_campos) : {}),
     [selectedPerfil]
   );
+  // Última alteração de status de cada campo neste perfil (Alteração / Usuário alteração).
+  const auditoriaCampos = useMemo(
+    () => (selectedPerfil ? parseCamposAuditoria(selectedPerfil.config_campos_auditoria) : {}),
+    [selectedPerfil]
+  );
 
   const campos = useMemo(() => {
     if (!funcaoAtiva) return [];
     return [...(CAMPOS_POR_FUNCAO[funcaoAtiva] ?? [])];
   }, [funcaoAtiva]);
 
-  function togglePerfilSort(key: "nr_sequencia" | "ds_perfil") {
+  function togglePerfilSort(key: PerfilSortKey) {
     if (perfilSortKey === key) {
       if (perfilSortAsc) {
         setPerfilSortAsc(false);
@@ -206,6 +215,8 @@ export default function CamposView({
     const valorDe = (c: (typeof campos)[number], key: string): string => {
       if (key === "tipo") return c.tipo;
       if (key === "status") return getCampoStatusByKey(config, c.key);
+      if (key === "dt_alteracao") return auditoriaCampos[c.key]?.dt_alteracao ?? "";
+      if (key === "ds_usuario_alteracao") return auditoriaCampos[c.key]?.ds_usuario_alteracao ?? "";
       return c.label;
     };
     if (campoSortKey === null || campoSortAsc === null) {
@@ -222,7 +233,7 @@ export default function CamposView({
       return campoSortAsc ? cmp : -cmp;
     });
     return list;
-  }, [campos, campoSortKey, campoSortAsc, config]);
+  }, [campos, campoSortKey, campoSortAsc, config, auditoriaCampos]);
 
   const menuCampo = campoMenu ? sortedCampos.find((c) => c.key === campoMenu.chave) : null;
 
@@ -242,7 +253,7 @@ export default function CamposView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        <div className="flex-1 min-h-0 grid gap-3" style={{ gridTemplateColumns: "minmax(0, 7fr) minmax(0, 7fr) minmax(0, 16fr)" }}>
           {/* ── Painel 1: Perfis ── */}
           <div
             className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
@@ -265,7 +276,7 @@ export default function CamposView({
                 rowKey={(p) => p.id ?? String(p.nr_sequencia)}
                 sortColumn={perfilSortKey}
                 sortAsc={perfilSortAsc ?? true}
-                onSortChange={(key) => togglePerfilSort(key as "nr_sequencia" | "ds_perfil")}
+                onSortChange={(key) => togglePerfilSort(key as PerfilSortKey)}
                 rowClassName={(p) => (p.id === selectedPerfilId ? "row-selected" : "")}
                 onRowClick={(p) => {
                   setSelectedPerfilId(p.id ?? null);
@@ -354,6 +365,8 @@ export default function CamposView({
                       label: "Status",
                       render: (c) => CAMPO_STATUS_LABELS[getCampoStatusByKey(config, c.key)],
                     },
+                    { key: "dt_alteracao", label: "Alteração", render: (c) => formatDate(auditoriaCampos[c.key]?.dt_alteracao ?? "") },
+                    { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (c) => auditoriaCampos[c.key]?.ds_usuario_alteracao ?? "" },
                   ]}
                   rows={sortedCampos}
                   rowKey={(c) => c.key}
