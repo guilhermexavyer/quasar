@@ -8,6 +8,7 @@
     "seed": "node --env-file=.env.local scripts/seed.mjs",
     "seed:producao": "node --env-file=.env.producao scripts/seed.mjs",
     "db:limpar": "node --env-file=.env.local scripts/limpar-banco.mjs",
+    "db:copiar-producao": "node scripts/copiar-producao-homologacao.mjs",
     "migrate:usuario-config": "node --env-file=.env.local scripts/migrate-usuario-config.mjs",
     "build": "next build",
     "start": "next start",
