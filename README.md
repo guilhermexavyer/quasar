@@ -52,3 +52,30 @@ npm.cmd run db:copiar-producao -- --confirmar --sem-imagens  # copia só o Fires
 - Antes de apagar, grava um backup dos dados em `backups/` (fora do Git). As imagens não entram no backup.
 - As imagens ficam no Vercel Blob em `producao/images/` e `homologacao/images/`. O script apaga a segunda, copia a primeira para ela e atualiza `ie_arquivo` nos registros.
 - Plano gratuito do Firebase: 50 mil leituras e 20 mil gravações por dia. Evite repetir a cópia várias vezes no mesmo dia.
+
+## Começar do zero (apagar a base e recriar o básico)
+
+**Apaga todos os dados do Firestore** da base escolhida e recria o mínimo para usar o sistema: o perfil `Administrador`, o usuário `administrador` (senha definida em `scripts/seed.mjs`) e os Cadastros Gerais de `scripts/dados/cadastros-gerais.json`. Rode na ordem.
+
+Homologação (`.env.local`):
+
+```bash
+npm.cmd run db:limpar                     # simula: mostra o que seria apagado
+npm.cmd run db:limpar -- --confirmar      # faz backup em backups/ e APAGA tudo
+npm.cmd run seed                          # cria o perfil e o usuário administrador
+npm.cmd run seed:cg                       # recria os Cadastros Gerais
+```
+
+Produção (`.env.producao`):
+
+```bash
+npm.cmd run db:limpar:producao                  # simula: mostra o que seria apagado
+npm.cmd run db:limpar:producao -- --confirmar   # faz backup em backups/ e APAGA tudo
+npm.cmd run seed:producao                       # cria o perfil e o usuário administrador
+npm.cmd run seed:cg:producao                    # recria os Cadastros Gerais
+```
+
+- Os seeders aceitam `-- --dry-run` para simular. São idempotentes: não duplicam o administrador e pulam a coleção de Cadastros Gerais que já tiver registros.
+- Os Cadastros Gerais mantêm o `nr_sequencia` original, e o contador de cada um continua a partir do maior.
+- As imagens do Vercel Blob não são apagadas pelo `db:limpar`.
+- Para atualizar `scripts/dados/cadastros-gerais.json` com os Cadastros Gerais atuais da produção: `npm.cmd run seed:cg:exportar`.

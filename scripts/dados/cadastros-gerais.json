@@ -1,0 +1,3094 @@
+{
+  "cg_sexo": [
+    {
+      "ds_sexo": "Feminino",
+      "ie_status": "A",
+      "nr_sequencia": 1
+    },
+    {
+      "ds_sexo": "Masculino",
+      "nr_sequencia": 2,
+      "ie_status": "A"
+    },
+    {
+      "ds_sexo": "Outro",
+      "nr_sequencia": 3,
+      "ie_status": "A"
+    }
+  ],
+  "cg_estado_civil": [
+    {
+      "ie_status": "A",
+      "nr_sequencia": 1,
+      "ds_estado_civil": "Casado"
+    },
+    {
+      "ds_estado_civil": "Divorciado",
+      "ie_status": "A",
+      "nr_sequencia": 2
+    },
+    {
+      "ds_estado_civil": "Separado judicialmente",
+      "nr_sequencia": 3,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 4,
+      "ds_estado_civil": "Solteiro",
+      "ie_status": "A"
+    },
+    {
+      "ds_estado_civil": "União estável",
+      "ie_status": "A",
+      "nr_sequencia": 5
+    },
+    {
+      "ie_status": "A",
+      "ds_estado_civil": "Viúvo",
+      "nr_sequencia": 6
+    },
+    {
+      "ds_estado_civil": "Outro",
+      "nr_sequencia": 7,
+      "ie_status": "A"
+    }
+  ],
+  "cg_cor_raca": [
+    {
+      "ds_cor_raca": "Amarela",
+      "ie_status": "A",
+      "nr_sequencia": 1
+    },
+    {
+      "ds_cor_raca": "Branca",
+      "ie_status": "A",
+      "nr_sequencia": 2
+    },
+    {
+      "ds_cor_raca": "Indígena",
+      "nr_sequencia": 3,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 4,
+      "ds_cor_raca": "Parda"
+    },
+    {
+      "nr_sequencia": 5,
+      "ds_cor_raca": "Preta",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 6,
+      "ie_status": "A",
+      "ds_cor_raca": "Não declarada"
+    }
+  ],
+  "cg_profissao": [
+    {
+      "nr_sequencia": 1,
+      "nr_cbo": "516305",
+      "ds_profissao": "Açougueiro",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 2,
+      "ds_profissao": "Acupunturista",
+      "nr_cbo": "223910"
+    },
+    {
+      "nr_cbo": "252105",
+      "nr_sequencia": 3,
+      "ie_status": "A",
+      "ds_profissao": "Administrador"
+    },
+    {
+      "nr_sequencia": 4,
+      "ds_profissao": "Administrador de Banco de Dados",
+      "ie_status": "A",
+      "nr_cbo": "212305"
+    },
+    {
+      "nr_sequencia": 5,
+      "ds_profissao": "Administrador de Redes",
+      "nr_cbo": "212310",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Advogado",
+      "nr_cbo": "241005",
+      "nr_sequencia": 6,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 7,
+      "ds_profissao": "Agente Comunitário de Saúde",
+      "nr_cbo": "515105",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 8,
+      "ds_profissao": "Agente de Trânsito",
+      "nr_cbo": "517220"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 9,
+      "ds_profissao": "Agricultor",
+      "nr_cbo": "621005"
+    },
+    {
+      "nr_cbo": "611005",
+      "ie_status": "A",
+      "nr_sequencia": 10,
+      "ds_profissao": "Agropecuarista"
+    },
+    {
+      "nr_sequencia": 11,
+      "nr_cbo": "414105",
+      "ie_status": "A",
+      "ds_profissao": "Almoxarife"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 12,
+      "ds_profissao": "Analista de Compras",
+      "nr_cbo": "354205"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 13,
+      "nr_cbo": "252525",
+      "ds_profissao": "Analista de Crédito"
+    },
+    {
+      "nr_sequencia": 14,
+      "ds_profissao": "Analista de Infraestrutura",
+      "nr_cbo": "317210",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "342125",
+      "ds_profissao": "Analista de Logística",
+      "nr_sequencia": 15,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 16,
+      "ds_profissao": "Analista de Marketing",
+      "nr_cbo": "253115",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Analista de Qualidade",
+      "nr_cbo": "351105",
+      "nr_sequencia": 17
+    },
+    {
+      "ds_profissao": "Analista de Recursos Humanos",
+      "nr_sequencia": 18,
+      "nr_cbo": "252405",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Analista de Sistemas",
+      "nr_cbo": "212405",
+      "nr_sequencia": 19
+    },
+    {
+      "nr_sequencia": 20,
+      "ds_profissao": "Analista Financeiro",
+      "ie_status": "A",
+      "nr_cbo": "252545"
+    },
+    {
+      "ds_profissao": "Antropólogo",
+      "nr_sequencia": 21,
+      "nr_cbo": "251315",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "261310",
+      "ie_status": "A",
+      "ds_profissao": "Apresentador",
+      "nr_sequencia": 22
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Arqueólogo",
+      "nr_sequencia": 23,
+      "nr_cbo": "251305"
+    },
+    {
+      "ds_profissao": "Arquiteto",
+      "nr_sequencia": 24,
+      "ie_status": "A",
+      "nr_cbo": "214105"
+    },
+    {
+      "ds_profissao": "Arquivista",
+      "nr_sequencia": 25,
+      "nr_cbo": "261210",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "376105",
+      "ie_status": "A",
+      "nr_sequencia": 26,
+      "ds_profissao": "Artesão"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 27,
+      "ds_profissao": "Artista Plástico",
+      "nr_cbo": "262205"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 28,
+      "nr_cbo": "411005",
+      "ds_profissao": "Assistente Administrativo"
+    },
+    {
+      "nr_cbo": "516705",
+      "ds_profissao": "Astrólogo",
+      "ie_status": "A",
+      "nr_sequencia": 29
+    },
+    {
+      "nr_cbo": "211105",
+      "ie_status": "A",
+      "ds_profissao": "Astrônomo",
+      "nr_sequencia": 30
+    },
+    {
+      "ds_profissao": "Atendente",
+      "nr_sequencia": 31,
+      "ie_status": "A",
+      "nr_cbo": "422125"
+    },
+    {
+      "nr_cbo": "262805",
+      "ie_status": "A",
+      "ds_profissao": "Ator",
+      "nr_sequencia": 32
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Atriz",
+      "nr_sequencia": 33,
+      "nr_cbo": "262805"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Atuário",
+      "nr_sequencia": 34,
+      "nr_cbo": "253105"
+    },
+    {
+      "nr_cbo": "252210",
+      "ie_status": "A",
+      "nr_sequencia": 35,
+      "ds_profissao": "Auditor"
+    },
+    {
+      "nr_sequencia": 36,
+      "ie_status": "A",
+      "nr_cbo": "411010",
+      "ds_profissao": "Auxiliar Administrativo"
+    },
+    {
+      "ds_profissao": "Auxiliar de Cozinha",
+      "nr_sequencia": 37,
+      "ie_status": "A",
+      "nr_cbo": "513210"
+    },
+    {
+      "nr_sequencia": 38,
+      "ds_profissao": "Auxiliar de Enfermagem",
+      "ie_status": "A",
+      "nr_cbo": "322225"
+    },
+    {
+      "nr_sequencia": 39,
+      "ie_status": "A",
+      "nr_cbo": "715505",
+      "ds_profissao": "Azulejista"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "516110",
+      "nr_sequencia": 40,
+      "ds_profissao": "Barbeiro"
+    },
+    {
+      "nr_cbo": "513425",
+      "ie_status": "A",
+      "nr_sequencia": 41,
+      "ds_profissao": "Barista"
+    },
+    {
+      "ds_profissao": "Barman",
+      "nr_sequencia": 42,
+      "nr_cbo": "513405",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 43,
+      "ds_profissao": "Bibliotecário",
+      "nr_cbo": "261205"
+    },
+    {
+      "nr_cbo": "221105",
+      "nr_sequencia": 44,
+      "ds_profissao": "Biólogo",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "221205",
+      "ds_profissao": "Biomédica",
+      "nr_sequencia": 45
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Biomédico",
+      "nr_cbo": "221205",
+      "nr_sequencia": 46
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 47,
+      "ds_profissao": "Bombeiro Civil",
+      "nr_cbo": "517110"
+    },
+    {
+      "nr_sequencia": 48,
+      "nr_cbo": "715210",
+      "ds_profissao": "Bombeiro Hidráulico",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Cabeleireiro",
+      "nr_sequencia": 49,
+      "nr_cbo": "516105"
+    },
+    {
+      "nr_cbo": "421105",
+      "ie_status": "A",
+      "ds_profissao": "Caixa",
+      "nr_sequencia": 50
+    },
+    {
+      "ds_profissao": "Caixa Bancário",
+      "ie_status": "A",
+      "nr_cbo": "421125",
+      "nr_sequencia": 51
+    },
+    {
+      "ds_profissao": "Camareira",
+      "ie_status": "A",
+      "nr_sequencia": 52,
+      "nr_cbo": "513315"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "262610",
+      "ds_profissao": "Cantor",
+      "nr_sequencia": 53
+    },
+    {
+      "ds_profissao": "Carpinteiro",
+      "nr_sequencia": 54,
+      "nr_cbo": "771110",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Carregador",
+      "nr_sequencia": 55,
+      "ie_status": "A",
+      "nr_cbo": "783225"
+    },
+    {
+      "nr_cbo": "262415",
+      "ie_status": "A",
+      "nr_sequencia": 56,
+      "ds_profissao": "Cartunista"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 57,
+      "ds_profissao": "Cenógrafo",
+      "nr_cbo": "262805"
+    },
+    {
+      "nr_cbo": "752105",
+      "nr_sequencia": 58,
+      "ds_profissao": "Ceramista",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "354825",
+      "ds_profissao": "Cerimonialista",
+      "nr_sequencia": 59
+    },
+    {
+      "ds_profissao": "Chapeiro",
+      "nr_sequencia": 60,
+      "nr_cbo": "513435",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "513215",
+      "ds_profissao": "Churrasqueiro",
+      "nr_sequencia": 61
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Cinegrafista",
+      "nr_sequencia": 62,
+      "nr_cbo": "271110"
+    },
+    {
+      "ds_profissao": "Comerciante",
+      "ie_status": "A",
+      "nr_sequencia": 63,
+      "nr_cbo": "141410"
+    },
+    {
+      "nr_cbo": "312210",
+      "ds_profissao": "Comissário de Bordo",
+      "ie_status": "A",
+      "nr_sequencia": 64
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "261510",
+      "nr_sequencia": 65,
+      "ds_profissao": "Compositor"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Comprador",
+      "nr_sequencia": 66,
+      "nr_cbo": "354210"
+    },
+    {
+      "nr_sequencia": 67,
+      "ds_profissao": "Confeiteiro",
+      "ie_status": "A",
+      "nr_cbo": "848310"
+    },
+    {
+      "nr_sequencia": 68,
+      "ds_profissao": "Conferente",
+      "ie_status": "A",
+      "nr_cbo": "414205"
+    },
+    {
+      "nr_sequencia": 69,
+      "ds_profissao": "Consultor de Vendas",
+      "ie_status": "A",
+      "nr_cbo": "354145"
+    },
+    {
+      "ds_profissao": "Consultor Jurídico",
+      "nr_sequencia": 70,
+      "ie_status": "A",
+      "nr_cbo": "241040"
+    },
+    {
+      "ds_profissao": "Contador",
+      "nr_sequencia": 71,
+      "ie_status": "A",
+      "nr_cbo": "252205"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "252220",
+      "ds_profissao": "Controlador Interno",
+      "nr_sequencia": 72
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Coordenador Pedagógico",
+      "nr_cbo": "239405",
+      "nr_sequencia": 73
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 74,
+      "ds_profissao": "Copeiro",
+      "nr_cbo": "513405"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 75,
+      "ds_profissao": "Coreógrafo",
+      "nr_cbo": "262110"
+    },
+    {
+      "nr_cbo": "354105",
+      "ds_profissao": "Corretor de Imóveis",
+      "nr_sequencia": 76,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 77,
+      "ds_profissao": "Corretor de Seguros",
+      "nr_cbo": "351720"
+    },
+    {
+      "ds_profissao": "Cozinheiro",
+      "ie_status": "A",
+      "nr_sequencia": 78,
+      "nr_cbo": "513205"
+    },
+    {
+      "nr_cbo": "516210",
+      "ie_status": "A",
+      "nr_sequencia": 79,
+      "ds_profissao": "Cuidador de Idosos"
+    },
+    {
+      "nr_cbo": "262105",
+      "nr_sequencia": 80,
+      "ds_profissao": "Dançarino",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Defensor Público",
+      "nr_cbo": "241230",
+      "ie_status": "A",
+      "nr_sequencia": 81
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "242205",
+      "ds_profissao": "Delegado",
+      "nr_sequencia": 82
+    },
+    {
+      "nr_cbo": "223205",
+      "ie_status": "A",
+      "ds_profissao": "Dentista",
+      "nr_sequencia": 83
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "516805",
+      "ds_profissao": "Depiladora",
+      "nr_sequencia": 84
+    },
+    {
+      "ds_profissao": "Desenhista Técnico",
+      "nr_sequencia": 85,
+      "nr_cbo": "318010",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Desenvolvedor de Software",
+      "nr_sequencia": 86,
+      "nr_cbo": "212405"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "317110",
+      "nr_sequencia": 87,
+      "ds_profissao": "Desenvolvedor Mobile"
+    },
+    {
+      "nr_cbo": "317105",
+      "ds_profissao": "Desenvolvedor Web",
+      "ie_status": "A",
+      "nr_sequencia": 88
+    },
+    {
+      "nr_cbo": "262405",
+      "ie_status": "A",
+      "nr_sequencia": 89,
+      "ds_profissao": "Designer Gráfico"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 90,
+      "ds_profissao": "Despachante",
+      "nr_cbo": "342205"
+    },
+    {
+      "nr_sequencia": 91,
+      "ds_profissao": "Detetive",
+      "ie_status": "A",
+      "nr_cbo": "351805"
+    },
+    {
+      "nr_cbo": "516220",
+      "ie_status": "A",
+      "nr_sequencia": 92,
+      "ds_profissao": "Diarista"
+    },
+    {
+      "nr_cbo": "262405",
+      "ds_profissao": "Diretor de Arte",
+      "ie_status": "A",
+      "nr_sequencia": 93
+    },
+    {
+      "nr_sequencia": 94,
+      "ds_profissao": "Diretor de Escola",
+      "nr_cbo": "131205",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "376405",
+      "nr_sequencia": 95,
+      "ds_profissao": "Disc Jockey"
+    },
+    {
+      "ds_profissao": "Economista",
+      "nr_cbo": "251105",
+      "nr_sequencia": 96,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 97,
+      "ds_profissao": "Editor de Vídeo",
+      "nr_cbo": "261620"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Educador Físico",
+      "nr_cbo": "224140",
+      "nr_sequencia": 98
+    },
+    {
+      "nr_sequencia": 99,
+      "nr_cbo": "715205",
+      "ds_profissao": "Eletricista",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "731105",
+      "ds_profissao": "Eletricista Industrial",
+      "nr_sequencia": 100
+    },
+    {
+      "nr_sequencia": 101,
+      "ds_profissao": "Eletricista Predial",
+      "nr_cbo": "715615",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 102,
+      "ie_status": "A",
+      "ds_profissao": "Encanador",
+      "nr_cbo": "724105"
+    },
+    {
+      "nr_cbo": "223505",
+      "ie_status": "A",
+      "nr_sequencia": 103,
+      "ds_profissao": "Enfermeiro"
+    },
+    {
+      "nr_cbo": "222205",
+      "ie_status": "A",
+      "nr_sequencia": 104,
+      "ds_profissao": "Engenheiro Agrônomo"
+    },
+    {
+      "nr_sequencia": 105,
+      "ds_profissao": "Engenheiro Ambiental",
+      "nr_cbo": "222115",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "214205",
+      "ie_status": "A",
+      "nr_sequencia": 106,
+      "ds_profissao": "Engenheiro Civil"
+    },
+    {
+      "nr_cbo": "214605",
+      "ds_profissao": "Engenheiro de Alimentos",
+      "nr_sequencia": 107,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 108,
+      "ds_profissao": "Engenheiro de Minas",
+      "ie_status": "A",
+      "nr_cbo": "213105"
+    },
+    {
+      "nr_cbo": "214305",
+      "ds_profissao": "Engenheiro de Produção",
+      "nr_sequencia": 109,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 110,
+      "ds_profissao": "Engenheiro de Software",
+      "nr_cbo": "212405",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 111,
+      "ds_profissao": "Engenheiro Elétrico",
+      "ie_status": "A",
+      "nr_cbo": "215105"
+    },
+    {
+      "nr_cbo": "215205",
+      "ie_status": "A",
+      "nr_sequencia": 112,
+      "ds_profissao": "Engenheiro Eletrônico"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "214405",
+      "ds_profissao": "Engenheiro Mecânico",
+      "nr_sequencia": 113
+    },
+    {
+      "nr_sequencia": 114,
+      "ds_profissao": "Engenheiro Químico",
+      "ie_status": "A",
+      "nr_cbo": "214605"
+    },
+    {
+      "ds_profissao": "Entregador",
+      "nr_sequencia": 115,
+      "ie_status": "A",
+      "nr_cbo": "519105"
+    },
+    {
+      "nr_sequencia": 116,
+      "ds_profissao": "Escritor",
+      "nr_cbo": "262105",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "262420",
+      "ds_profissao": "Escultor",
+      "nr_sequencia": 117
+    },
+    {
+      "nr_sequencia": 118,
+      "ds_profissao": "Estampador",
+      "nr_cbo": "763310",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "253205",
+      "nr_sequencia": 119,
+      "ds_profissao": "Estatístico",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "322130",
+      "nr_sequencia": 120,
+      "ds_profissao": "Esteticista",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "414115",
+      "ds_profissao": "Estoquista",
+      "nr_sequencia": 121
+    },
+    {
+      "nr_sequencia": 122,
+      "ie_status": "A",
+      "ds_profissao": "Expedidor",
+      "nr_cbo": "414215"
+    },
+    {
+      "ds_profissao": "Farmacêutico",
+      "nr_sequencia": 123,
+      "ie_status": "A",
+      "nr_cbo": "223405"
+    },
+    {
+      "nr_cbo": "223415",
+      "ie_status": "A",
+      "nr_sequencia": 124,
+      "ds_profissao": "Farmacêutico Industrial"
+    },
+    {
+      "nr_cbo": "514305",
+      "nr_sequencia": 125,
+      "ds_profissao": "Faxineiro",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Ferramenteiro",
+      "nr_cbo": "724205",
+      "nr_sequencia": 126,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 127,
+      "ds_profissao": "Figurinista",
+      "ie_status": "A",
+      "nr_cbo": "262810"
+    },
+    {
+      "nr_cbo": "251405",
+      "ds_profissao": "Filósofo",
+      "nr_sequencia": 128,
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "213105",
+      "ie_status": "A",
+      "ds_profissao": "Físico",
+      "nr_sequencia": 129
+    },
+    {
+      "ds_profissao": "Fisioterapeuta",
+      "nr_sequencia": 130,
+      "nr_cbo": "223605",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Floricultor",
+      "nr_sequencia": 131,
+      "ie_status": "A",
+      "nr_cbo": "613205"
+    },
+    {
+      "ds_profissao": "Fonoaudiólogo",
+      "nr_cbo": "223805",
+      "nr_sequencia": 132,
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "271105",
+      "ie_status": "A",
+      "ds_profissao": "Fotógrafo",
+      "nr_sequencia": 133
+    },
+    {
+      "nr_cbo": "721220",
+      "nr_sequencia": 134,
+      "ie_status": "A",
+      "ds_profissao": "Fresador"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 135,
+      "ds_profissao": "Funileiro",
+      "nr_cbo": "724315"
+    },
+    {
+      "nr_cbo": "513415",
+      "nr_sequencia": 136,
+      "ds_profissao": "Garçom",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 137,
+      "ds_profissao": "Geneticista",
+      "nr_cbo": "221105"
+    },
+    {
+      "nr_cbo": "251310",
+      "nr_sequencia": 138,
+      "ds_profissao": "Geógrafo",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Geólogo",
+      "nr_cbo": "216105",
+      "nr_sequencia": 139
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "142315",
+      "nr_sequencia": 140,
+      "ds_profissao": "Gerente Comercial"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "142110",
+      "nr_sequencia": 141,
+      "ds_profissao": "Gerente de Banco"
+    },
+    {
+      "ds_profissao": "Gerente de Loja",
+      "nr_cbo": "142120",
+      "nr_sequencia": 142,
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Gerente de Vendas",
+      "nr_cbo": "142320",
+      "nr_sequencia": 143,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 144,
+      "ds_profissao": "Gesseiro",
+      "ie_status": "A",
+      "nr_cbo": "716510"
+    },
+    {
+      "nr_sequencia": 145,
+      "ds_profissao": "Gestor de Pessoas",
+      "ie_status": "A",
+      "nr_cbo": "252405"
+    },
+    {
+      "nr_sequencia": 146,
+      "ds_profissao": "Gestor de Projetos",
+      "nr_cbo": "142520",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "513305",
+      "ie_status": "A",
+      "ds_profissao": "Governanta",
+      "nr_sequencia": 147
+    },
+    {
+      "nr_cbo": "517215",
+      "ie_status": "A",
+      "ds_profissao": "Guarda Municipal",
+      "nr_sequencia": 148
+    },
+    {
+      "nr_sequencia": 149,
+      "ds_profissao": "Guias de Turismo",
+      "nr_cbo": "511105",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 150,
+      "ds_profissao": "Historiador",
+      "nr_cbo": "251125"
+    },
+    {
+      "nr_sequencia": 151,
+      "ie_status": "A",
+      "ds_profissao": "Hoteleiro",
+      "nr_cbo": "122505"
+    },
+    {
+      "nr_sequencia": 152,
+      "ds_profissao": "Iluminador",
+      "ie_status": "A",
+      "nr_cbo": "374125"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Ilustrador",
+      "nr_cbo": "262410",
+      "nr_sequencia": 153
+    },
+    {
+      "ds_profissao": "Instrutor de Cursos",
+      "nr_cbo": "333115",
+      "nr_sequencia": 154,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 155,
+      "nr_cbo": "261410",
+      "ie_status": "A",
+      "ds_profissao": "Intérprete"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "517225",
+      "ds_profissao": "Investigador",
+      "nr_sequencia": 156
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "622005",
+      "ds_profissao": "Jardinheiro",
+      "nr_sequencia": 157
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 158,
+      "ds_profissao": "Jornalista",
+      "nr_cbo": "261305"
+    },
+    {
+      "nr_cbo": "241205",
+      "nr_sequencia": 159,
+      "ds_profissao": "Juiz",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "516310",
+      "nr_sequencia": 160,
+      "ds_profissao": "Lavadeiro",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 161,
+      "ds_profissao": "Leiloeiro",
+      "ie_status": "A",
+      "nr_cbo": "142205"
+    },
+    {
+      "nr_cbo": "391125",
+      "ie_status": "A",
+      "nr_sequencia": 162,
+      "ds_profissao": "Locutor"
+    },
+    {
+      "nr_cbo": "513410",
+      "nr_sequencia": 163,
+      "ie_status": "A",
+      "ds_profissao": "Maître"
+    },
+    {
+      "nr_sequencia": 164,
+      "ds_profissao": "Manicure",
+      "nr_cbo": "514315",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "377130",
+      "ds_profissao": "Maquiador",
+      "ie_status": "A",
+      "nr_sequencia": 165
+    },
+    {
+      "nr_sequencia": 166,
+      "ds_profissao": "Marceneiro",
+      "ie_status": "A",
+      "nr_cbo": "771105"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 167,
+      "ds_profissao": "Massoterapeuta",
+      "nr_cbo": "322115"
+    },
+    {
+      "ds_profissao": "Matemático",
+      "nr_sequencia": 168,
+      "nr_cbo": "213205",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "913115",
+      "ds_profissao": "Mecânico",
+      "nr_sequencia": 169
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 170,
+      "ds_profissao": "Mecânico de Automóveis",
+      "nr_cbo": "914110"
+    },
+    {
+      "ds_profissao": "Médico",
+      "nr_sequencia": 171,
+      "ie_status": "A",
+      "nr_cbo": "223105"
+    },
+    {
+      "nr_sequencia": 172,
+      "ds_profissao": "Mestre de Obras",
+      "ie_status": "A",
+      "nr_cbo": "710105"
+    },
+    {
+      "ds_profissao": "Metalúrgico",
+      "nr_sequencia": 173,
+      "nr_cbo": "721215",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 174,
+      "ds_profissao": "Meteorologista",
+      "nr_cbo": "211115"
+    },
+    {
+      "nr_cbo": "513215",
+      "nr_sequencia": 175,
+      "ds_profissao": "Mordomo",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 176,
+      "nr_cbo": "519110",
+      "ds_profissao": "Motoboy"
+    },
+    {
+      "nr_sequencia": 177,
+      "nr_cbo": "782305",
+      "ds_profissao": "Motorista",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Motorista de Caminhão",
+      "nr_sequencia": 178,
+      "nr_cbo": "782510"
+    },
+    {
+      "ds_profissao": "Motorista de Ônibus",
+      "ie_status": "A",
+      "nr_sequencia": 179,
+      "nr_cbo": "782315"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 180,
+      "nr_cbo": "261215",
+      "ds_profissao": "Museólogo"
+    },
+    {
+      "nr_cbo": "262605",
+      "ie_status": "A",
+      "ds_profissao": "Músico",
+      "nr_sequencia": 181
+    },
+    {
+      "ds_profissao": "Notário",
+      "nr_sequencia": 182,
+      "nr_cbo": "142135",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Nutricionista",
+      "nr_sequencia": 183,
+      "nr_cbo": "223710",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 184,
+      "ds_profissao": "Obstetra",
+      "nr_cbo": "223115",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 185,
+      "ie_status": "A",
+      "ds_profissao": "Oceanógrafo",
+      "nr_cbo": "223224"
+    },
+    {
+      "ds_profissao": "Oficial de Justiça",
+      "nr_sequencia": 186,
+      "ie_status": "A",
+      "nr_cbo": "242225"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "421105",
+      "nr_sequencia": 187,
+      "ds_profissao": "Operador de Caixa"
+    },
+    {
+      "nr_cbo": "862120",
+      "ie_status": "A",
+      "ds_profissao": "Operador de Caldeira",
+      "nr_sequencia": 188
+    },
+    {
+      "nr_cbo": "632125",
+      "ie_status": "A",
+      "nr_sequencia": 189,
+      "ds_profissao": "Operador de Colheitadeira"
+    },
+    {
+      "nr_cbo": "782210",
+      "ds_profissao": "Operador de Empilhadeira",
+      "nr_sequencia": 190,
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "841420",
+      "ds_profissao": "Operador de Máquinas",
+      "nr_sequencia": 191,
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Operador de Produção",
+      "nr_sequencia": 192,
+      "ie_status": "A",
+      "nr_cbo": "784205"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "715140",
+      "ds_profissao": "Operador de Retroescavadeira",
+      "nr_sequencia": 193
+    },
+    {
+      "nr_cbo": "354820",
+      "nr_sequencia": 194,
+      "ds_profissao": "Organizador de Eventos",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 195,
+      "ds_profissao": "Orientador Educacional",
+      "ie_status": "A",
+      "nr_cbo": "239410"
+    },
+    {
+      "nr_cbo": "848305",
+      "ds_profissao": "Padeiro",
+      "nr_sequencia": 196,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 197,
+      "ie_status": "A",
+      "ds_profissao": "Paleontólogo",
+      "nr_cbo": "211210"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "516325",
+      "nr_sequencia": 198,
+      "ds_profissao": "Passadeira"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "239405",
+      "ds_profissao": "Pedagogo",
+      "nr_sequencia": 199
+    },
+    {
+      "nr_sequencia": 200,
+      "ds_profissao": "Pedicure",
+      "nr_cbo": "514315",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Pedreiro",
+      "nr_sequencia": 201,
+      "nr_cbo": "715105"
+    },
+    {
+      "nr_sequencia": 202,
+      "ie_status": "A",
+      "ds_profissao": "Percussionista",
+      "nr_cbo": "276320"
+    },
+    {
+      "nr_cbo": "212430",
+      "nr_sequencia": 203,
+      "ds_profissao": "Perito Criminal",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "224140",
+      "nr_sequencia": 204,
+      "ds_profissao": "Personal Trainer"
+    },
+    {
+      "ds_profissao": "Pescador",
+      "nr_sequencia": 205,
+      "nr_cbo": "632105",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 206,
+      "ds_profissao": "Pesquisador",
+      "nr_cbo": "203005",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "312205",
+      "nr_sequencia": 207,
+      "ie_status": "A",
+      "ds_profissao": "Piloto de Aeronaves"
+    },
+    {
+      "nr_sequencia": 208,
+      "ds_profissao": "Pintor",
+      "nr_cbo": "723105",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "716610",
+      "ds_profissao": "Pintor Predial",
+      "ie_status": "A",
+      "nr_sequencia": 209
+    },
+    {
+      "ds_profissao": "Poeta",
+      "nr_cbo": "261425",
+      "nr_sequencia": 210,
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "517205",
+      "nr_sequencia": 211,
+      "ie_status": "A",
+      "ds_profissao": "Porteiro"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "241115",
+      "ds_profissao": "Procurador",
+      "nr_sequencia": 212
+    },
+    {
+      "nr_sequencia": 213,
+      "ds_profissao": "Produtor de Eventos",
+      "nr_cbo": "354820",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "376315",
+      "nr_sequencia": 214,
+      "ds_profissao": "Produtor Musical"
+    },
+    {
+      "ds_profissao": "Professor",
+      "ie_status": "A",
+      "nr_sequencia": 215,
+      "nr_cbo": "231205"
+    },
+    {
+      "nr_sequencia": 216,
+      "ds_profissao": "Professor de Educação Física",
+      "ie_status": "A",
+      "nr_cbo": "224105"
+    },
+    {
+      "ds_profissao": "Professor de Idiomas",
+      "nr_sequencia": 217,
+      "nr_cbo": "232125",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "233225",
+      "nr_sequencia": 218,
+      "ds_profissao": "Professor de Música",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "231305",
+      "ie_status": "A",
+      "nr_sequencia": 219,
+      "ds_profissao": "Professor Universitário"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Programador",
+      "nr_sequencia": 220,
+      "nr_cbo": "212420"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 221,
+      "ds_profissao": "Promotor de Justiça",
+      "nr_cbo": "241305"
+    },
+    {
+      "nr_sequencia": 222,
+      "ie_status": "A",
+      "ds_profissao": "Promotor de Vendas",
+      "nr_cbo": "521130"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 223,
+      "ds_profissao": "Psicólogo",
+      "nr_cbo": "251505"
+    },
+    {
+      "nr_sequencia": 224,
+      "ds_profissao": "Publicitário",
+      "nr_cbo": "252305",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 225,
+      "nr_cbo": "213405",
+      "ds_profissao": "Químico",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "213215",
+      "ds_profissao": "Químico Industrial",
+      "nr_sequencia": 226,
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Quiropraxista",
+      "nr_sequencia": 227,
+      "nr_cbo": "223915",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 228,
+      "ds_profissao": "Radiologista",
+      "ie_status": "A",
+      "nr_cbo": "324110"
+    },
+    {
+      "nr_cbo": "422105",
+      "ds_profissao": "Recepcionista",
+      "nr_sequencia": 229,
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "422110",
+      "ie_status": "A",
+      "ds_profissao": "Recepcionista de Hotel",
+      "nr_sequencia": 230
+    },
+    {
+      "nr_sequencia": 231,
+      "nr_cbo": "261130",
+      "ds_profissao": "Redator",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Registrador",
+      "nr_sequencia": 232,
+      "nr_cbo": "142135"
+    },
+    {
+      "nr_cbo": "261125",
+      "ie_status": "A",
+      "nr_sequencia": 233,
+      "ds_profissao": "Repórter"
+    },
+    {
+      "ds_profissao": "Representante Comercial",
+      "nr_sequencia": 234,
+      "ie_status": "A",
+      "nr_cbo": "354205"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Revisor de Textos",
+      "nr_cbo": "261425",
+      "nr_sequencia": 235
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Secretário Executivo",
+      "nr_sequencia": 236,
+      "nr_cbo": "252320"
+    },
+    {
+      "nr_cbo": "517330",
+      "ds_profissao": "Segurança Particular",
+      "nr_sequencia": 237,
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "724440",
+      "nr_sequencia": 238,
+      "ds_profissao": "Serralheiro",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "717005",
+      "nr_sequencia": 239,
+      "ds_profissao": "Servente de Obras",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Sociólogo",
+      "nr_cbo": "251120",
+      "nr_sequencia": 240
+    },
+    {
+      "nr_sequencia": 241,
+      "ds_profissao": "Soldador",
+      "nr_cbo": "723305",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 242,
+      "nr_cbo": "513440",
+      "ds_profissao": "Sommelier",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 243,
+      "ds_profissao": "Sonoplasta",
+      "nr_cbo": "374140",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "239415",
+      "nr_sequencia": 244,
+      "ds_profissao": "Supervisor de Ensino"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Suporte Técnico",
+      "nr_cbo": "317105",
+      "nr_sequencia": 245
+    },
+    {
+      "nr_cbo": "142130",
+      "ie_status": "A",
+      "nr_sequencia": 246,
+      "ds_profissao": "Tabelião"
+    },
+    {
+      "nr_cbo": "516810",
+      "ie_status": "A",
+      "ds_profissao": "Tatuador",
+      "nr_sequencia": 247
+    },
+    {
+      "nr_cbo": "782310",
+      "ie_status": "A",
+      "ds_profissao": "Taxista",
+      "nr_sequencia": 248
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 249,
+      "ds_profissao": "Técnico de Enfermagem",
+      "nr_cbo": "322230"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "317110",
+      "ds_profissao": "Técnico de Informática",
+      "nr_sequencia": 250
+    },
+    {
+      "nr_cbo": "911105",
+      "ie_status": "A",
+      "ds_profissao": "Técnico de Manutenção",
+      "nr_sequencia": 251
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 252,
+      "nr_cbo": "911305",
+      "ds_profissao": "Técnico de Refrigeração"
+    },
+    {
+      "ds_profissao": "Técnico em Logística",
+      "nr_sequencia": 253,
+      "nr_cbo": "351115",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "351605",
+      "ds_profissao": "Técnico em Segurança do Trabalho",
+      "nr_sequencia": 254
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Teleoperador",
+      "nr_cbo": "422305",
+      "nr_sequencia": 255
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "715525",
+      "nr_sequencia": 256,
+      "ds_profissao": "Telhadista"
+    },
+    {
+      "nr_cbo": "223905",
+      "nr_sequencia": 257,
+      "ds_profissao": "Terapeuta Ocupacional",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 258,
+      "ds_profissao": "Tesoureiro",
+      "ie_status": "A",
+      "nr_cbo": "413115"
+    },
+    {
+      "ds_profissao": "Testador de Software",
+      "nr_sequencia": 259,
+      "nr_cbo": "317110",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Topógrafo",
+      "nr_cbo": "312405",
+      "nr_sequencia": 260
+    },
+    {
+      "nr_sequencia": 261,
+      "ds_profissao": "Torneiro Mecânico",
+      "nr_cbo": "721105",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "261405",
+      "nr_sequencia": 262,
+      "ds_profissao": "Tradutor",
+      "ie_status": "A"
+    },
+    {
+      "nr_cbo": "632125",
+      "ie_status": "A",
+      "ds_profissao": "Tratorista",
+      "nr_sequencia": 263
+    },
+    {
+      "nr_cbo": "122520",
+      "nr_sequencia": 264,
+      "ie_status": "A",
+      "ds_profissao": "Turismólogo"
+    },
+    {
+      "nr_cbo": "214105",
+      "ds_profissao": "Urbanista",
+      "nr_sequencia": 265,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 266,
+      "nr_cbo": "262410",
+      "ds_profissao": "UX Designer",
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Vendedor",
+      "nr_cbo": "521105",
+      "nr_sequencia": 267,
+      "ie_status": "A"
+    },
+    {
+      "ds_profissao": "Vendedor Externo",
+      "nr_sequencia": 268,
+      "ie_status": "A",
+      "nr_cbo": "521110"
+    },
+    {
+      "ds_profissao": "Vendedor Interno",
+      "nr_sequencia": 269,
+      "ie_status": "A",
+      "nr_cbo": "521105"
+    },
+    {
+      "nr_sequencia": 270,
+      "ds_profissao": "Veterinário",
+      "ie_status": "A",
+      "nr_cbo": "223305"
+    },
+    {
+      "ie_status": "A",
+      "ds_profissao": "Vidraceiro",
+      "nr_cbo": "715535",
+      "nr_sequencia": 271
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "517305",
+      "nr_sequencia": 272,
+      "ds_profissao": "Vigilante"
+    },
+    {
+      "ie_status": "A",
+      "nr_cbo": "317120",
+      "nr_sequencia": 273,
+      "ds_profissao": "Web Designer"
+    },
+    {
+      "nr_sequencia": 274,
+      "ds_profissao": "Zelador",
+      "ie_status": "A",
+      "nr_cbo": "514105"
+    }
+  ],
+  "cg_orgao_emissor": [
+    {
+      "nr_sequencia": 1,
+      "ie_status": "A",
+      "ds_orgao_emissor": "Cartório",
+      "sg_orgao_emissor": "CART"
+    },
+    {
+      "nr_sequencia": 2,
+      "ds_orgao_emissor": "Cartório de Registro Civil",
+      "sg_orgao_emissor": "RCPN",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 3,
+      "ie_status": "A",
+      "ds_orgao_emissor": "Conselho Regional de Administração",
+      "sg_orgao_emissor": "CRA"
+    },
+    {
+      "nr_sequencia": 4,
+      "ds_orgao_emissor": "Conselho Regional de Biblioteconomia",
+      "sg_orgao_emissor": "CRB",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "sg_orgao_emissor": "CRBio",
+      "ds_orgao_emissor": "Conselho Regional de Biologia",
+      "nr_sequencia": 5
+    },
+    {
+      "sg_orgao_emissor": "CRC",
+      "nr_sequencia": 6,
+      "ie_status": "A",
+      "ds_orgao_emissor": "Conselho Regional de Contabilidade"
+    },
+    {
+      "sg_orgao_emissor": "CRECI",
+      "nr_sequencia": 7,
+      "ds_orgao_emissor": "Conselho Regional de Corretores de Imóveis",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_orgao_emissor": "Conselho Regional de Economia",
+      "sg_orgao_emissor": "CRE",
+      "nr_sequencia": 8
+    },
+    {
+      "sg_orgao_emissor": "CREF",
+      "nr_sequencia": 9,
+      "ds_orgao_emissor": "Conselho Regional de Educação Física",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "sg_orgao_emissor": "COREN",
+      "ds_orgao_emissor": "Conselho Regional de Enfermagem",
+      "nr_sequencia": 10
+    },
+    {
+      "sg_orgao_emissor": "CREA",
+      "nr_sequencia": 11,
+      "ds_orgao_emissor": "Conselho Regional de Engenharia e Agronomia",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 12,
+      "sg_orgao_emissor": "CRF",
+      "ie_status": "A",
+      "ds_orgao_emissor": "Conselho Regional de Farmácia"
+    },
+    {
+      "ie_status": "A",
+      "sg_orgao_emissor": "CREFITO",
+      "ds_orgao_emissor": "Conselho Regional de Fisioterapia e Terapia Ocupacional",
+      "nr_sequencia": 13
+    },
+    {
+      "ds_orgao_emissor": "Conselho Regional de Medicina",
+      "ie_status": "A",
+      "sg_orgao_emissor": "CRM",
+      "nr_sequencia": 14
+    },
+    {
+      "nr_sequencia": 15,
+      "ds_orgao_emissor": "Conselho Regional de Medicina Veterinária",
+      "sg_orgao_emissor": "CRMV",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "sg_orgao_emissor": "CRN",
+      "ds_orgao_emissor": "Conselho Regional de Nutrição",
+      "nr_sequencia": 16
+    },
+    {
+      "sg_orgao_emissor": "CRO",
+      "nr_sequencia": 17,
+      "ds_orgao_emissor": "Conselho Regional de Odontologia",
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "CRP",
+      "ie_status": "A",
+      "nr_sequencia": 18,
+      "ds_orgao_emissor": "Conselho Regional de Psicologia"
+    },
+    {
+      "ds_orgao_emissor": "Conselho Regional de Química",
+      "ie_status": "A",
+      "nr_sequencia": 19,
+      "sg_orgao_emissor": "CRQ"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 20,
+      "sg_orgao_emissor": "CRESS",
+      "ds_orgao_emissor": "Conselho Regional de Serviço Social"
+    },
+    {
+      "ie_status": "A",
+      "ds_orgao_emissor": "Corregedoria Geral da Justiça",
+      "nr_sequencia": 21,
+      "sg_orgao_emissor": "CGJ"
+    },
+    {
+      "nr_sequencia": 22,
+      "sg_orgao_emissor": "DPF",
+      "ds_orgao_emissor": "Departamento de Polícia Federal",
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "DETRAN",
+      "ie_status": "A",
+      "nr_sequencia": 23,
+      "ds_orgao_emissor": "Departamento Estadual de Trânsito"
+    },
+    {
+      "nr_sequencia": 24,
+      "ds_orgao_emissor": "Divisão de Identificação Civil",
+      "sg_orgao_emissor": "DIC",
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "EB",
+      "nr_sequencia": 25,
+      "ds_orgao_emissor": "Exército Brasileiro",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 26,
+      "sg_orgao_emissor": "FAB",
+      "ds_orgao_emissor": "Força Aérea Brasileira"
+    },
+    {
+      "ie_status": "A",
+      "ds_orgao_emissor": "Instituto de Identificação do Estado",
+      "sg_orgao_emissor": "II",
+      "nr_sequencia": 27
+    },
+    {
+      "ie_status": "A",
+      "sg_orgao_emissor": "IPF",
+      "nr_sequencia": 28,
+      "ds_orgao_emissor": "Instituto de Polícia Federal"
+    },
+    {
+      "sg_orgao_emissor": "IFP",
+      "nr_sequencia": 29,
+      "ds_orgao_emissor": "Instituto Félix Pacheco",
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "MB",
+      "ds_orgao_emissor": "Marinha do Brasil",
+      "ie_status": "A",
+      "nr_sequencia": 30
+    },
+    {
+      "nr_sequencia": 31,
+      "sg_orgao_emissor": "MJ",
+      "ie_status": "A",
+      "ds_orgao_emissor": "Ministério da Justiça"
+    },
+    {
+      "ds_orgao_emissor": "Ministério das Relações Exteriores",
+      "nr_sequencia": 32,
+      "ie_status": "A",
+      "sg_orgao_emissor": "MRE"
+    },
+    {
+      "sg_orgao_emissor": "MTE",
+      "ds_orgao_emissor": "Ministério do Trabalho e Emprego",
+      "nr_sequencia": 33,
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "OAB",
+      "ds_orgao_emissor": "Ordem dos Advogados do Brasil",
+      "ie_status": "A",
+      "nr_sequencia": 34
+    },
+    {
+      "ds_orgao_emissor": "Polícia Civil",
+      "nr_sequencia": 35,
+      "sg_orgao_emissor": "PC",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 36,
+      "ds_orgao_emissor": "Polícia Federal",
+      "sg_orgao_emissor": "PF",
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "PM",
+      "ie_status": "A",
+      "nr_sequencia": 37,
+      "ds_orgao_emissor": "Polícia Militar"
+    },
+    {
+      "ds_orgao_emissor": "Polícia Rodoviária Federal",
+      "nr_sequencia": 38,
+      "ie_status": "A",
+      "sg_orgao_emissor": "PRF"
+    },
+    {
+      "ds_orgao_emissor": "Secretaria da Receita Federal",
+      "nr_sequencia": 39,
+      "sg_orgao_emissor": "SRF",
+      "ie_status": "A"
+    },
+    {
+      "sg_orgao_emissor": "SDS",
+      "nr_sequencia": 40,
+      "ie_status": "A",
+      "ds_orgao_emissor": "Secretaria de Defesa Social"
+    },
+    {
+      "nr_sequencia": 41,
+      "ds_orgao_emissor": "Secretaria de Estado de Segurança e Defesa Civil",
+      "sg_orgao_emissor": "SESDEC",
+      "ie_status": "A"
+    },
+    {
+      "ds_orgao_emissor": "Secretaria de Estado de Segurança Pública",
+      "nr_sequencia": 42,
+      "ie_status": "A",
+      "sg_orgao_emissor": "SESP"
+    },
+    {
+      "ie_status": "A",
+      "sg_orgao_emissor": "SEGUP",
+      "ds_orgao_emissor": "Secretaria de Estado de Segurança Pública e Defesa Social",
+      "nr_sequencia": 43
+    },
+    {
+      "ie_status": "A",
+      "ds_orgao_emissor": "Secretaria de Justiça, Cidadania e Direitos Humanos",
+      "nr_sequencia": 44,
+      "sg_orgao_emissor": "SJCDH"
+    },
+    {
+      "ds_orgao_emissor": "Secretaria de Segurança Interna",
+      "sg_orgao_emissor": "SSI",
+      "nr_sequencia": 45,
+      "ie_status": "A"
+    },
+    {
+      "ds_orgao_emissor": "Secretaria de Segurança Pública",
+      "nr_sequencia": 46,
+      "sg_orgao_emissor": "SSP",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_orgao_emissor": "Secretaria de Segurança Pública e Defesa Social",
+      "sg_orgao_emissor": "SSPDS",
+      "nr_sequencia": 47
+    },
+    {
+      "sg_orgao_emissor": "VRP",
+      "ie_status": "A",
+      "ds_orgao_emissor": "Vara de Registros Públicos",
+      "nr_sequencia": 48
+    }
+  ],
+  "cg_logradouro": [
+    {
+      "nr_sequencia": 1,
+      "ie_status": "A",
+      "ds_logradouro": "Alameda",
+      "sg_logradouro": "AL"
+    },
+    {
+      "sg_logradouro": "AV",
+      "ds_logradouro": "Avenida",
+      "nr_sequencia": 2,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 3,
+      "sg_logradouro": "BC",
+      "ds_logradouro": "Beco"
+    },
+    {
+      "ie_status": "A",
+      "ds_logradouro": "Boulevard",
+      "sg_logradouro": "BLV",
+      "nr_sequencia": 4
+    },
+    {
+      "nr_sequencia": 5,
+      "ds_logradouro": "Caminho",
+      "sg_logradouro": "CAM",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 6,
+      "ds_logradouro": "Chácara",
+      "sg_logradouro": "CH"
+    },
+    {
+      "ie_status": "A",
+      "sg_logradouro": "COL",
+      "ds_logradouro": "Colônia",
+      "nr_sequencia": 7
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 8,
+      "sg_logradouro": "COND",
+      "ds_logradouro": "Condomínio"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 9,
+      "ds_logradouro": "Conjunto",
+      "sg_logradouro": "CJ"
+    },
+    {
+      "ie_status": "A",
+      "ds_logradouro": "Distrito",
+      "sg_logradouro": "DT",
+      "nr_sequencia": 10
+    },
+    {
+      "ds_logradouro": "Esplanada",
+      "sg_logradouro": "ESPL",
+      "nr_sequencia": 11,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_logradouro": "Estação",
+      "sg_logradouro": "ET",
+      "nr_sequencia": 12
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 13,
+      "ds_logradouro": "Estrada",
+      "sg_logradouro": "EST"
+    },
+    {
+      "sg_logradouro": "FAZ",
+      "ds_logradouro": "Fazenda",
+      "nr_sequencia": 14,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 15,
+      "sg_logradouro": "FLR",
+      "ds_logradouro": "Floresta"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 16,
+      "ds_logradouro": "Galeria",
+      "sg_logradouro": "GAL"
+    },
+    {
+      "ds_logradouro": "Jardim",
+      "sg_logradouro": "JD",
+      "nr_sequencia": 17,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "sg_logradouro": "LD",
+      "ds_logradouro": "Ladeira",
+      "nr_sequencia": 18
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 19,
+      "ds_logradouro": "Largo",
+      "sg_logradouro": "LGO"
+    },
+    {
+      "nr_sequencia": 20,
+      "ie_status": "A",
+      "sg_logradouro": "LOT",
+      "ds_logradouro": "Loteamento"
+    },
+    {
+      "ie_status": "A",
+      "sg_logradouro": "MOR",
+      "ds_logradouro": "Morro",
+      "nr_sequencia": 21
+    },
+    {
+      "nr_sequencia": 22,
+      "ds_logradouro": "Núcleo",
+      "sg_logradouro": "NCL",
+      "ie_status": "A"
+    },
+    {
+      "sg_logradouro": "PQ",
+      "ds_logradouro": "Parque",
+      "ie_status": "A",
+      "nr_sequencia": 23
+    },
+    {
+      "ie_status": "A",
+      "ds_logradouro": "Passagem",
+      "sg_logradouro": "PSG",
+      "nr_sequencia": 24
+    },
+    {
+      "nr_sequencia": 25,
+      "sg_logradouro": "PS",
+      "ds_logradouro": "Passarela",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 26,
+      "ds_logradouro": "Pátio",
+      "sg_logradouro": "PTO",
+      "ie_status": "A"
+    },
+    {
+      "ds_logradouro": "Praça",
+      "sg_logradouro": "PC",
+      "nr_sequencia": 27,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 28,
+      "ds_logradouro": "Praia",
+      "sg_logradouro": "PR",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_logradouro": "Prolongamento",
+      "sg_logradouro": "PROL",
+      "nr_sequencia": 29
+    },
+    {
+      "sg_logradouro": "QD",
+      "ds_logradouro": "Quadra",
+      "ie_status": "A",
+      "nr_sequencia": 30
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 31,
+      "ds_logradouro": "Quinta",
+      "sg_logradouro": "QT"
+    },
+    {
+      "nr_sequencia": 32,
+      "sg_logradouro": "RCN",
+      "ds_logradouro": "Recanto",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 33,
+      "ie_status": "A",
+      "sg_logradouro": "ROD",
+      "ds_logradouro": "Rodovia"
+    },
+    {
+      "sg_logradouro": "R",
+      "ds_logradouro": "Rua",
+      "nr_sequencia": 34,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 35,
+      "ie_status": "A",
+      "sg_logradouro": "SVD",
+      "ds_logradouro": "Servidão"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 36,
+      "sg_logradouro": "ST",
+      "ds_logradouro": "Sítio"
+    },
+    {
+      "nr_sequencia": 37,
+      "ie_status": "A",
+      "ds_logradouro": "Travessa",
+      "sg_logradouro": "TV"
+    },
+    {
+      "nr_sequencia": 38,
+      "sg_logradouro": "TR",
+      "ds_logradouro": "Trecho",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 39,
+      "ie_status": "A",
+      "sg_logradouro": "TRV",
+      "ds_logradouro": "Trevo"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 40,
+      "sg_logradouro": "VLE",
+      "ds_logradouro": "Vale"
+    },
+    {
+      "ds_logradouro": "Vereda",
+      "sg_logradouro": "VR",
+      "ie_status": "A",
+      "nr_sequencia": 41
+    },
+    {
+      "nr_sequencia": 42,
+      "ds_logradouro": "Via",
+      "sg_logradouro": "VIA",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_logradouro": "Viela",
+      "sg_logradouro": "VLA",
+      "nr_sequencia": 43
+    },
+    {
+      "nr_sequencia": 44,
+      "ds_logradouro": "Vila",
+      "sg_logradouro": "VL",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 45,
+      "ds_logradouro": "Zigue-zague",
+      "sg_logradouro": "ZZ",
+      "ie_status": "A"
+    }
+  ],
+  "cg_grau_parentesco": [
+    {
+      "ds_grau_parentesco": "Avó",
+      "nr_sequencia": 1,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 2,
+      "ie_status": "A",
+      "ds_grau_parentesco": "Avô"
+    },
+    {
+      "nr_sequencia": 3,
+      "ie_status": "A",
+      "ds_grau_parentesco": "Companheira"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 4,
+      "ds_grau_parentesco": "Companheiro"
+    },
+    {
+      "ds_grau_parentesco": "Curador",
+      "ie_status": "A",
+      "nr_sequencia": 5
+    },
+    {
+      "nr_sequencia": 6,
+      "ds_grau_parentesco": "Curadora",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 7,
+      "ds_grau_parentesco": "Enteada",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 8,
+      "ie_status": "A",
+      "ds_grau_parentesco": "Enteado"
+    },
+    {
+      "ds_grau_parentesco": "Guardiã",
+      "ie_status": "A",
+      "nr_sequencia": 9
+    },
+    {
+      "nr_sequencia": 10,
+      "ds_grau_parentesco": "Guardião",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 11,
+      "ie_status": "A",
+      "ds_grau_parentesco": "Irmã"
+    },
+    {
+      "ds_grau_parentesco": "Irmão",
+      "nr_sequencia": 12,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_grau_parentesco": "Madrasta",
+      "nr_sequencia": 13
+    },
+    {
+      "ie_status": "A",
+      "ds_grau_parentesco": "Mãe",
+      "nr_sequencia": 14
+    },
+    {
+      "ds_grau_parentesco": "Mãe adotiva",
+      "nr_sequencia": 15,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 16,
+      "ds_grau_parentesco": "Padrasto"
+    },
+    {
+      "ie_status": "A",
+      "ds_grau_parentesco": "Pai",
+      "nr_sequencia": 17
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 18,
+      "ds_grau_parentesco": "Pai adotivo"
+    },
+    {
+      "ie_status": "A",
+      "ds_grau_parentesco": "Prima",
+      "nr_sequencia": 19
+    },
+    {
+      "ds_grau_parentesco": "Primo",
+      "ie_status": "A",
+      "nr_sequencia": 20
+    },
+    {
+      "ds_grau_parentesco": "Responsável legal",
+      "ie_status": "A",
+      "nr_sequencia": 21
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 22,
+      "ds_grau_parentesco": "Tia"
+    },
+    {
+      "nr_sequencia": 23,
+      "ie_status": "A",
+      "ds_grau_parentesco": "Tio"
+    },
+    {
+      "ie_status": "A",
+      "ds_grau_parentesco": "Tutor",
+      "nr_sequencia": 24
+    },
+    {
+      "ds_grau_parentesco": "Tutora",
+      "nr_sequencia": 25,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_grau_parentesco": "Outro",
+      "nr_sequencia": 26
+    }
+  ],
+  "cg_cargo": [
+    {
+      "ie_status": "A",
+      "nr_sequencia": 1,
+      "ds_cargo": "Administrador(a)"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 2,
+      "ds_cargo": "Agente de Organização Escolar"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 3,
+      "ds_cargo": "Analista Administrativo"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 4,
+      "ds_cargo": "Analista de Recursos Humanos"
+    },
+    {
+      "ds_cargo": "Analista de TI",
+      "nr_sequencia": 5,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Analista Financeiro",
+      "nr_sequencia": 6
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 7,
+      "ds_cargo": "Aprendiz"
+    },
+    {
+      "ds_cargo": "Assessor(a)",
+      "ie_status": "A",
+      "nr_sequencia": 8
+    },
+    {
+      "nr_sequencia": 9,
+      "ds_cargo": "Assistente Administrativo",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Assistente de Recursos Humanos",
+      "nr_sequencia": 10
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Assistente de TI",
+      "nr_sequencia": 11
+    },
+    {
+      "nr_sequencia": 12,
+      "ds_cargo": "Assistente Financeiro",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Auxiliar Administrativo",
+      "nr_sequencia": 13
+    },
+    {
+      "ds_cargo": "Auxiliar de Biblioteca",
+      "ie_status": "A",
+      "nr_sequencia": 14
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Auxiliar de Classe",
+      "nr_sequencia": 15
+    },
+    {
+      "nr_sequencia": 16,
+      "ds_cargo": "Auxiliar de Manutenção",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Auxiliar de Recursos Humanos",
+      "nr_sequencia": 17
+    },
+    {
+      "ds_cargo": "Auxiliar de Serviços Gerais",
+      "nr_sequencia": 18,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 19,
+      "ds_cargo": "Auxiliar de TI"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 20,
+      "ds_cargo": "Auxiliar Financeiro"
+    },
+    {
+      "ds_cargo": "Bibliotecário(a)",
+      "nr_sequencia": 21,
+      "ie_status": "A"
+    },
+    {
+      "ds_cargo": "Consultor(a)",
+      "nr_sequencia": 22,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 23,
+      "ie_status": "A",
+      "ds_cargo": "Coordenador(a)"
+    },
+    {
+      "ds_cargo": "Coordenador(a) Pedagógico(a)",
+      "nr_sequencia": 24,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 25,
+      "ds_cargo": "Cozinheiro(a)",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 26,
+      "ds_cargo": "Cuidador(a)"
+    },
+    {
+      "ds_cargo": "Diretor(a)",
+      "ie_status": "A",
+      "nr_sequencia": 27
+    },
+    {
+      "nr_sequencia": 28,
+      "ds_cargo": "Estagiário(a)",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Inspetor(a) de Alunos",
+      "nr_sequencia": 29
+    },
+    {
+      "ds_cargo": "Intérprete de Libras",
+      "nr_sequencia": 30,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 31,
+      "ds_cargo": "Merendeiro(a)"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 32,
+      "ds_cargo": "Monitor(a)"
+    },
+    {
+      "ds_cargo": "Motorista",
+      "nr_sequencia": 33,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 34,
+      "ds_cargo": "Nutricionista",
+      "ie_status": "A"
+    },
+    {
+      "ds_cargo": "Orientador(a) Educacional",
+      "ie_status": "A",
+      "nr_sequencia": 35
+    },
+    {
+      "nr_sequencia": 36,
+      "ds_cargo": "Porteiro(a)",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 37,
+      "ie_status": "A",
+      "ds_cargo": "Professor(a)"
+    },
+    {
+      "nr_sequencia": 38,
+      "ie_status": "A",
+      "ds_cargo": "Professor(a) Auxiliar"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 39,
+      "ds_cargo": "Psicólogo(a)"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Psicopedagogo(a)",
+      "nr_sequencia": 40
+    },
+    {
+      "ds_cargo": "Recepcionista",
+      "ie_status": "A",
+      "nr_sequencia": 41
+    },
+    {
+      "ds_cargo": "Secretário(a)",
+      "ie_status": "A",
+      "nr_sequencia": 42
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 43,
+      "ds_cargo": "Supervisor(a) Escolar"
+    },
+    {
+      "ie_status": "A",
+      "ds_cargo": "Técnico(a) de Enfermagem",
+      "nr_sequencia": 44
+    },
+    {
+      "nr_sequencia": 45,
+      "ds_cargo": "Técnico(a) de Manutenção",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 46,
+      "ds_cargo": "Vice-diretor(a)"
+    },
+    {
+      "nr_sequencia": 47,
+      "ds_cargo": "Vigia",
+      "ie_status": "A"
+    },
+    {
+      "ds_cargo": "Zelador(a)",
+      "ie_status": "A",
+      "nr_sequencia": 48
+    }
+  ],
+  "cg_vinculo_contratual": [
+    {
+      "nr_sequencia": 1,
+      "ds_vinculo_contratual": "Autônomo",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_vinculo_contratual": "CLT",
+      "nr_sequencia": 2
+    },
+    {
+      "ds_vinculo_contratual": "Contrato Temporário",
+      "ie_status": "A",
+      "nr_sequencia": 3
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 4,
+      "ds_vinculo_contratual": "Estágio"
+    },
+    {
+      "ds_vinculo_contratual": "Estatutário",
+      "ie_status": "A",
+      "nr_sequencia": 5
+    },
+    {
+      "nr_sequencia": 6,
+      "ds_vinculo_contratual": "Intermitente",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 7,
+      "ie_status": "A",
+      "ds_vinculo_contratual": "Jovem Aprendiz"
+    },
+    {
+      "ie_status": "A",
+      "ds_vinculo_contratual": "Prestador de Serviço",
+      "nr_sequencia": 8
+    },
+    {
+      "nr_sequencia": 9,
+      "ie_status": "A",
+      "ds_vinculo_contratual": "Voluntário"
+    }
+  ],
+  "cg_localizacao": [
+    {
+      "ds_localizacao": "Sala TI",
+      "nr_sequencia": 1,
+      "ie_status": "A"
+    },
+    {
+      "ds_localizacao": "Secretaria",
+      "nr_sequencia": 2,
+      "ie_status": "A"
+    },
+    {
+      "ds_localizacao": "Sala Diretoria",
+      "nr_sequencia": 3,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 4,
+      "ds_localizacao": "Financeiro",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 5,
+      "ds_localizacao": "Xerox"
+    },
+    {
+      "ds_localizacao": "Marketing",
+      "nr_sequencia": 6,
+      "ie_status": "A"
+    },
+    {
+      "ds_localizacao": "Sala Informatica",
+      "nr_sequencia": 7,
+      "ie_status": "A"
+    },
+    {
+      "ds_localizacao": "Sala 01",
+      "nr_sequencia": 8,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 9,
+      "ds_localizacao": "Sala 02",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 10,
+      "ds_localizacao": "Sala 03"
+    },
+    {
+      "nr_sequencia": 11,
+      "ds_localizacao": "Sala 04",
+      "ie_status": "A"
+    },
+    {
+      "ds_localizacao": "Sala 05",
+      "ie_status": "A",
+      "nr_sequencia": 12
+    },
+    {
+      "nr_sequencia": 13,
+      "ie_status": "A",
+      "ds_localizacao": "Sala 06"
+    },
+    {
+      "nr_sequencia": 14,
+      "ie_status": "A",
+      "ds_localizacao": "Sala 07"
+    },
+    {
+      "ds_localizacao": "Laboratório",
+      "ie_status": "A",
+      "nr_sequencia": 15
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 16,
+      "ds_localizacao": "Sala dos Professores"
+    }
+  ],
+  "cg_marca": [
+    {
+      "nr_sequencia": 1,
+      "ie_status": "A",
+      "ds_marca": "Acer"
+    },
+    {
+      "ds_marca": "AOC",
+      "nr_sequencia": 2,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_marca": "Apple",
+      "nr_sequencia": 3
+    },
+    {
+      "nr_sequencia": 4,
+      "ie_status": "A",
+      "ds_marca": "Arno"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 5,
+      "ds_marca": "Asus"
+    },
+    {
+      "nr_sequencia": 6,
+      "ie_status": "A",
+      "ds_marca": "BenQ"
+    },
+    {
+      "nr_sequencia": 7,
+      "ds_marca": "Brastemp",
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 8,
+      "ie_status": "A",
+      "ds_marca": "Britânia"
+    },
+    {
+      "nr_sequencia": 9,
+      "ie_status": "A",
+      "ds_marca": "Brother"
+    },
+    {
+      "ie_status": "A",
+      "ds_marca": "Canon",
+      "nr_sequencia": 10
+    },
+    {
+      "nr_sequencia": 11,
+      "ie_status": "A",
+      "ds_marca": "Cisco"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 12,
+      "ds_marca": "Consul"
+    },
+    {
+      "nr_sequencia": 13,
+      "ie_status": "A",
+      "ds_marca": "Dell"
+    },
+    {
+      "ds_marca": "Electrolux",
+      "ie_status": "A",
+      "nr_sequencia": 14
+    },
+    {
+      "ds_marca": "Elgin",
+      "ie_status": "A",
+      "nr_sequencia": 15
+    },
+    {
+      "nr_sequencia": 16,
+      "ds_marca": "Epson",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 17,
+      "ds_marca": "Hikvision"
+    },
+    {
+      "nr_sequencia": 18,
+      "ds_marca": "HP",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 19,
+      "ds_marca": "Intelbras"
+    },
+    {
+      "nr_sequencia": 20,
+      "ds_marca": "JBL",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 21,
+      "ds_marca": "Lenovo"
+    },
+    {
+      "ie_status": "A",
+      "ds_marca": "LG",
+      "nr_sequencia": 22
+    },
+    {
+      "ie_status": "A",
+      "ds_marca": "Logitech",
+      "nr_sequencia": 23
+    },
+    {
+      "ds_marca": "Microsoft",
+      "nr_sequencia": 24,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 25,
+      "ds_marca": "Mondial"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 26,
+      "ds_marca": "Motorola"
+    },
+    {
+      "nr_sequencia": 27,
+      "ie_status": "A",
+      "ds_marca": "Multilaser"
+    },
+    {
+      "nr_sequencia": 28,
+      "ds_marca": "Optoma",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "ds_marca": "Panasonic",
+      "nr_sequencia": 29
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 30,
+      "ds_marca": "Philips"
+    },
+    {
+      "ds_marca": "Positivo",
+      "nr_sequencia": 31,
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 32,
+      "ds_marca": "Samsung"
+    },
+    {
+      "nr_sequencia": 33,
+      "ds_marca": "Sony",
+      "ie_status": "A"
+    },
+    {
+      "ds_marca": "TP-Link",
+      "nr_sequencia": 34,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 35,
+      "ie_status": "A",
+      "ds_marca": "Ubiquiti"
+    },
+    {
+      "ie_status": "A",
+      "ds_marca": "ViewSonic",
+      "nr_sequencia": 36
+    },
+    {
+      "ds_marca": "Xerox",
+      "ie_status": "A",
+      "nr_sequencia": 37
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 38,
+      "ds_marca": "LL Audio"
+    }
+  ],
+  "cg_categoria_ativo": [
+    {
+      "ie_status": "A",
+      "ds_observacao": "Mouse, teclado, etc",
+      "ds_categoria": "Periférico",
+      "nr_sequencia": 1
+    },
+    {
+      "ds_observacao": "Laptops",
+      "ds_categoria": "Notebook",
+      "nr_sequencia": 2,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 3,
+      "ds_observacao": "Desktops e towers",
+      "ds_categoria": "Computador",
+      "ie_status": "A"
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 4,
+      "ds_observacao": "Equipamentos de som",
+      "ds_categoria": "Som"
+    }
+  ],
+  "cg_sistema_operacional": [
+    {
+      "nr_sequencia": 1,
+      "ds_sistema_operacional": "AlmaLinux",
+      "ie_status": "A"
+    },
+    {
+      "ds_sistema_operacional": "Android",
+      "ie_status": "A",
+      "nr_sequencia": 2
+    },
+    {
+      "ie_status": "A",
+      "nr_sequencia": 3,
+      "ds_sistema_operacional": "ChromeOS"
+    },
+    {
+      "ds_sistema_operacional": "Debian",
+      "ie_status": "A",
+      "nr_sequencia": 4
+    },
+    {
+      "ds_sistema_operacional": "Fedora",
+      "nr_sequencia": 5,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 6,
+      "ds_sistema_operacional": "iOS",
+      "ie_status": "A"
+    },
+    {
+      "ds_sistema_operacional": "iPadOS",
+      "nr_sequencia": 7,
+      "ie_status": "A"
+    },
+    {
+      "ds_sistema_operacional": "Linux Educacional",
+      "nr_sequencia": 8,
+      "ie_status": "A"
+    },
+    {
+      "nr_sequencia": 9,
+      "ie_status": "A",
+      "ds_sistema_operacional": "macOS"
+    },
+    {
+      "ds_sistema_operacional": "Mint",
+      "ie_status": "A",
+      "nr_sequencia": 10
+    },
+    {
+      "nr_sequencia": 11,
+      "ie_status": "A",
+      "ds_sistema_operacional": "Ubuntu"
+    },
+    {
+      "ie_status": "A",
+      "ds_sistema_operacional": "Windows 10",
+      "nr_sequencia": 12
+    },
+    {
+      "ie_status": "A",
+      "ds_sistema_operacional": "Windows 11",
+      "nr_sequencia": 13
+    },
+    {
+      "ds_sistema_operacional": "Windows 7",
+      "ie_status": "A",
+      "nr_sequencia": 14
+    },
+    {
+      "nr_sequencia": 15,
+      "ds_sistema_operacional": "Windows Server",
+      "ie_status": "A"
+    }
+  ]
+}
