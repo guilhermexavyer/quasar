@@ -14,6 +14,13 @@
  * homologação ficavam junto com os da produção (ex.: dois usuários com o mesmo
  * nr_sequencia).
  *
+ * Imagens (Vercel Blob): as imagens cadastradas ficam no Blob, em pastas separadas
+ * por base (producao/images/ e homologacao/images/). O script apaga as imagens da
+ * pasta da homologação, copia as da produção para ela e reescreve o campo
+ * ie_arquivo da coleção "imagem" para apontar para as cópias. A pasta da produção
+ * só é lida. Precisa de BLOB_READ_WRITE_TOKEN no .env.local (veja o README);
+ * use --sem-imagens para copiar só o Firestore.
+ *
  * Segurança: só grava se o destino for o projeto de homologação (quasar-c3c81)
  * e nunca grava na origem. Sem --confirmar, apenas mostra o que faria.
  *
@@ -24,9 +31,11 @@
  * Uso:
  *   node scripts/copiar-producao-homologacao.mjs --dry-run     → só mostra o que seria copiado
  *   node scripts/copiar-producao-homologacao.mjs --confirmar   → copia de verdade
+ *   (opcional) --sem-imagens                                   → não mexe no Vercel Blob
  */
 import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
+import { list, del, copy } from "@vercel/blob";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore,
@@ -63,12 +72,22 @@ const COLECOES_LIMPEZA = [...COLECOES, "pat_ativos", "relatorio_bandas"];
 const PAGINA = 500;
 const LOTE = 500;
 
+/** Pastas das imagens no Vercel Blob (mesmos nomes usados por src/lib/blobImagens.ts). */
+const PASTA_IMAGENS_ORIGEM = "producao/images/";
+const PASTA_IMAGENS_DESTINO = "homologacao/images/";
+
+const SEM_IMAGENS = process.argv.includes("--sem-imagens");
 const DRY_RUN = process.argv.includes("--dry-run");
 const CONFIRMAR = process.argv.includes("--confirmar");
 
 if (DRY_RUN && CONFIRMAR) {
   console.error("❌ Use --dry-run OU --confirmar, não os dois juntos.");
   process.exit(1);
+}
+
+/** Lê um .env e devolve as variáveis (vazio se o arquivo não existir). */
+function existeEnv(arquivo) {
+  return existsSync(arquivo) ? parseEnv(readFileSync(arquivo, "utf-8")) : {};
 }
 
 /** Lê um .env sem imprimir valores. São dois projetos com as mesmas variáveis, então não dá para usar --env-file. */
@@ -95,6 +114,17 @@ function lerConfig(arquivo) {
 
 const configOrigem = lerConfig(".env.producao");
 const configDestino = lerConfig(".env.local");
+
+/** Token do Vercel Blob (loja quasar-blob), lido do .env.local. Não é impresso. */
+const tokenBlob = existeEnv(".env.local").BLOB_READ_WRITE_TOKEN;
+if (!SEM_IMAGENS && !tokenBlob) {
+  console.error(
+    "❌ BLOB_READ_WRITE_TOKEN não encontrado no .env.local, necessário para copiar as imagens.\n" +
+      "   Copie o valor em Vercel → projeto quasar → Storage → quasar-blob → aba .env.local\n" +
+      "   (ou rode `vercel env pull .env.local`), ou use --sem-imagens para copiar só o Firestore."
+  );
+  process.exit(1);
+}
 
 // Travas de segurança: destino tem de ser a homologação; origem, a produção.
 if (configDestino.projectId !== PROJETO_DESTINO) {
@@ -136,6 +166,43 @@ function paraDestino(valor) {
   return valor;
 }
 
+/** Lista todos os arquivos do Blob em uma pasta (paginado). */
+async function listarBlobs(prefixo) {
+  const blobs = [];
+  let cursor;
+  do {
+    const r = await list({ prefix: prefixo, limit: 1000, cursor, token: tokenBlob });
+    blobs.push(...r.blobs);
+    cursor = r.hasMore ? r.cursor : undefined;
+  } while (cursor);
+  return blobs;
+}
+
+/**
+ * Apaga as imagens da pasta da homologação e copia as da produção para ela.
+ * Retorna um mapa URL da produção → URL da cópia na homologação.
+ * Só apaga em PASTA_IMAGENS_DESTINO e só lê de PASTA_IMAGENS_ORIGEM.
+ */
+async function copiarImagens(origem, destinoAtual) {
+  if (destinoAtual.length > 0) {
+    await del(destinoAtual.map((b) => b.url), { token: tokenBlob });
+  }
+  const mapa = new Map();
+  for (const b of origem) {
+    const novoPathname = PASTA_IMAGENS_DESTINO + b.pathname.slice(PASTA_IMAGENS_ORIGEM.length);
+    const r = await copy(b.url, novoPathname, { access: "public", allowOverwrite: true, token: tokenBlob });
+    mapa.set(b.url, r.url);
+  }
+  return mapa;
+}
+
+/** Aponta ie_arquivo para a cópia da imagem na homologação (caminhos antigos /images/... ficam como estão). */
+function ajustarImagem(dados, mapaImagens) {
+  const url = dados.ie_arquivo;
+  if (typeof url !== "string" || !mapaImagens.has(url)) return dados;
+  return { ...dados, ie_arquivo: mapaImagens.get(url) };
+}
+
 /** Apaga documentos do destino em lotes. Só recebe documentos lidos de dbDestino. */
 async function apagar(docs) {
   for (let i = 0; i < docs.length; i += LOTE) {
@@ -146,10 +213,10 @@ async function apagar(docs) {
 }
 
 /** Grava documentos no destino em lotes, com os mesmos caminhos (IDs) da origem. */
-async function gravar(docs) {
+async function gravar(docs, ajustar = (dados) => dados) {
   for (let i = 0; i < docs.length; i += LOTE) {
     const batch = writeBatch(dbDestino);
-    for (const d of docs.slice(i, i + LOTE)) batch.set(doc(dbDestino, d.ref.path), paraDestino(d.data()));
+    for (const d of docs.slice(i, i + LOTE)) batch.set(doc(dbDestino, d.ref.path), ajustar(paraDestino(d.data())));
     await batch.commit();
   }
 }
@@ -194,6 +261,17 @@ async function main() {
   totalAtual += auditoriasAtuais.length;
   console.log(`\n🗑️  A homologação (${configDestino.projectId}) tem hoje ${totalAtual} documento(s), que serão apagados antes da cópia.`);
 
+  // Imagens no Vercel Blob
+  let imagensOrigem = [];
+  let imagensDestino = [];
+  if (!SEM_IMAGENS) {
+    imagensOrigem = await listarBlobs(PASTA_IMAGENS_ORIGEM);
+    imagensDestino = await listarBlobs(PASTA_IMAGENS_DESTINO);
+    console.log(`\n🖼️  Imagens no Blob: ${imagensOrigem.length} em ${PASTA_IMAGENS_ORIGEM} (serão copiadas) e ${imagensDestino.length} em ${PASTA_IMAGENS_DESTINO} (serão apagadas, sem backup).`);
+  } else {
+    console.log("\n🖼️  --sem-imagens: o Vercel Blob não será alterado (os registros de imagem continuarão apontando para os arquivos da produção).");
+  }
+
   if (!CONFIRMAR) {
     console.log(`\n👀 Nada foi apagado nem gravado. Para copiar, rode novamente com --confirmar.`);
     process.exit(0);
@@ -222,13 +300,20 @@ async function main() {
   }
   console.log(`🗑️  Homologação limpa: ${totalAtual} documento(s) apagados.`);
 
+  // 5b) Imagens: apaga as da pasta da homologação e copia as da produção
+  let mapaImagens = new Map();
+  if (!SEM_IMAGENS) {
+    mapaImagens = await copiarImagens(imagensOrigem, imagensDestino);
+    console.log(`🖼️  Imagens: ${imagensDestino.length} apagadas e ${mapaImagens.size} copiadas para ${PASTA_IMAGENS_DESTINO}`);
+  }
+
   // 6) Escrita no destino (homologação)
   console.log("");
   for (const nome of COLECOES) {
     const docs = porColecao[nome];
     const audits = auditoria[nome] ?? [];
     if (docs.length === 0 && audits.length === 0) continue;
-    await gravar(docs);
+    await gravar(docs, nome === "imagem" ? (dados) => ajustarImagem(dados, mapaImagens) : undefined);
     await gravar(audits);
     console.log(`✅ ${nome}: ${docs.length}${audits.length > 0 ? ` (+ ${audits.length} de auditoria)` : ""}`);
   }
