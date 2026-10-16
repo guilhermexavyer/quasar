@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, access } from "fs/promises";
-import path from "path";
+import { put } from "@vercel/blob";
+import { EXTENSOES_IMAGEM, IMAGENS_PREFIXO, existeImagemNoBlob } from "@/lib/blobImagens";
 
 export async function POST(request: NextRequest) {
   try {
@@ -12,9 +12,8 @@ export async function POST(request: NextRequest) {
     }
 
     // Validar tipo de arquivo
-    const allowedExtensions = [".jpeg", ".jpg", ".png"];
     const fileName = file.name.toLowerCase();
-    const hasValidExtension = allowedExtensions.some((ext) => fileName.endsWith(ext));
+    const hasValidExtension = EXTENSOES_IMAGEM.some((ext) => fileName.endsWith(ext));
     if (!hasValidExtension) {
       return NextResponse.json(
         { error: "Tipo de arquivo não permitido. Aceitos: .jpeg, .jpg, .png" },
@@ -22,26 +21,21 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const uploadDir = path.join(process.cwd(), "public", "images");
-    const filePath = path.join(uploadDir, file.name);
-
     // Verificar se o arquivo já existe
-    try {
-      await access(filePath);
-      return NextResponse.json(
-        { error: "A imagem já existe." },
-        { status: 409 }
-      );
-    } catch {
-      // Arquivo não existe, pode prosseguir
+    if (await existeImagemNoBlob(file.name)) {
+      return NextResponse.json({ error: "A imagem já existe." }, { status: 409 });
     }
 
     const bytes = await file.arrayBuffer();
-    const buffer = Buffer.from(bytes);
 
-    await writeFile(filePath, buffer);
+    const blob = await put(IMAGENS_PREFIXO + file.name, Buffer.from(bytes), {
+      access: "public",
+      addRandomSuffix: false,
+      contentType: file.type || undefined,
+    });
 
-    return NextResponse.json({ path: `/images/${file.name}` });
+    // Guarda a URL pública do Blob, que é o que a tela e os relatórios usam
+    return NextResponse.json({ path: blob.url });
   } catch (error) {
     console.error("Erro no upload:", error);
     return NextResponse.json({ error: "Erro ao fazer upload" }, { status: 500 });
