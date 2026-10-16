@@ -68,7 +68,7 @@ Se `producao` tiver commits que `homologacao` não tem (por exemplo, uma correç
 Use quando quiser testar na homologação com os mesmos dados da produção (por exemplo, para reproduzir um problema relatado por um usuário). O script copia todas as coleções do sistema, incluindo `_counters`, os cadastros gerais (`cg_*`) e o histórico de auditoria de cada registro, mantendo os mesmos IDs.
 
 > **Atenção:**
-> - A homologação é **sobrescrita**: registros com o mesmo ID são substituídos pelos da produção. Registros que existem só na homologação não são apagados; para uma cópia exata, limpe a homologação antes com `npm run db:limpar -- --confirmar` (ele grava um backup em `backups/`).
+> - **Todos os dados da homologação são apagados** e substituídos pelos da produção. Ao final, a homologação fica idêntica à produção: nada do que existia só na homologação é mantido. Antes de apagar, o script grava um backup da homologação em `backups/` (pasta fora do Git).
 > - São copiados dados pessoais reais (inclusive de alunos) e os hashes de senha dos usuários: as senhas da produção passam a valer na homologação.
 > - A produção nunca é alterada. O script só grava se o destino for o projeto de homologação (`quasar-c3c81`).
 
@@ -85,7 +85,7 @@ Os dois arquivos ficam na raiz do projeto e não vão para o Git.
 npm.cmd run db:copiar-producao -- --dry-run
 ```
 
-Mostra a quantidade de documentos por coleção e o total, sem gravar nada.
+Mostra a quantidade de documentos por coleção que será copiada da produção e quantos documentos existem hoje na homologação (e serão apagados), sem apagar nem gravar nada.
 
 ### Passo 2 — Copiar
 
@@ -93,16 +93,20 @@ Mostra a quantidade de documentos por coleção e o total, sem gravar nada.
 npm.cmd run db:copiar-producao -- --confirmar
 ```
 
-Sem `--confirmar`, o script nunca grava. Passar `--dry-run` e `--confirmar` juntos é recusado.
+O script faz, nesta ordem: backup da homologação em `backups/`, limpeza de toda a homologação, conferência de que ela ficou vazia e cópia dos dados da produção. Se a limpeza não deixar a homologação vazia, a cópia não é feita.
+
+Sem `--confirmar`, o script nunca apaga nem grava. Passar `--dry-run` e `--confirmar` juntos é recusado.
+
+Se der erro depois da limpeza, rode o passo 2 novamente; os dados anteriores da homologação continuam no backup.
 
 ### Passo 3 — Conferir
 
 No console do Firebase, abra o projeto `quasar-c3c81` em **Firestore Database** e confira:
 
-- `usuario`: os usuários da produção, com o mesmo ID;
+- `usuario`: só os usuários da produção, com os mesmos IDs e sem `nr_sequencia` repetido;
 - `aluno`: a mesma quantidade de registros mostrada na simulação;
 - `_counters`: os contadores com os mesmos valores da produção (os próximos cadastros na homologação continuam a numeração da produção).
 
 ### Observação
 
-No plano gratuito do Firebase (Spark), o limite diário é de 50 mil leituras e 20 mil gravações. Cada execução lê todos os documentos da produção (a simulação também conta) e a cópia grava a mesma quantidade na homologação. Com bancos grandes, evite repetir a cópia várias vezes no mesmo dia.
+No plano gratuito do Firebase (Spark), o limite diário é de 50 mil leituras e 20 mil gravações. Cada execução lê todos os documentos da produção e da homologação (a simulação também conta). A cópia ainda apaga os documentos da homologação e grava os da produção, e as exclusões também entram na cota de gravações. Com bancos grandes, evite repetir a cópia várias vezes no mesmo dia.

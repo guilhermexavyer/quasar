@@ -7,9 +7,12 @@
  * mantendo os mesmos IDs e os campos exatamente como estão (inclusive hashes
  * de senha). As subcoleções "auditoria" de cada documento são copiadas junto.
  *
- * Documentos com o mesmo ID na homologação são sobrescritos; documentos que só
- * existem na homologação não são apagados (para uma cópia exata, limpe antes
- * com `npm run db:limpar -- --confirmar`).
+ * A homologação vira um espelho da produção: antes de copiar, TODOS os dados
+ * da homologação são apagados (coleções do sistema, coleções legadas e todas as
+ * subcoleções "auditoria"), depois de gravar um backup em JSON na pasta
+ * backups/ (ignorada pelo git). Sem isso, registros que só existiam na
+ * homologação ficavam junto com os da produção (ex.: dois usuários com o mesmo
+ * nr_sequencia).
  *
  * Segurança: só grava se o destino for o projeto de homologação (quasar-c3c81)
  * e nunca grava na origem. Sem --confirmar, apenas mostra o que faria.
@@ -22,7 +25,7 @@
  *   node scripts/copiar-producao-homologacao.mjs --dry-run     → só mostra o que seria copiado
  *   node scripts/copiar-producao-homologacao.mjs --confirmar   → copia de verdade
  */
-import { readFileSync, existsSync } from "node:fs";
+import { readFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { parseEnv } from "node:util";
 import { initializeApp } from "firebase/app";
 import {
@@ -52,6 +55,9 @@ const COLECOES = [
   "cg_logradouro", "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual",
   "cg_localizacao", "cg_marca", "cg_categoria_ativo", "cg_sistema_operacional",
 ];
+
+/** Coleções apagadas na homologação antes da cópia: as do sistema e as legadas. */
+const COLECOES_LIMPEZA = [...COLECOES, "pat_ativos", "relatorio_bandas"];
 
 /** Tamanho da página de leitura e do lote de escrita (limite do Firestore: 500). */
 const PAGINA = 500;
@@ -130,6 +136,15 @@ function paraDestino(valor) {
   return valor;
 }
 
+/** Apaga documentos do destino em lotes. Só recebe documentos lidos de dbDestino. */
+async function apagar(docs) {
+  for (let i = 0; i < docs.length; i += LOTE) {
+    const batch = writeBatch(dbDestino);
+    for (const d of docs.slice(i, i + LOTE)) batch.delete(doc(dbDestino, d.ref.path));
+    await batch.commit();
+  }
+}
+
 /** Grava documentos no destino em lotes, com os mesmos caminhos (IDs) da origem. */
 async function gravar(docs) {
   for (let i = 0; i < docs.length; i += LOTE) {
@@ -166,14 +181,48 @@ async function main() {
     total += n + a;
     if (n > 0 || a > 0) console.log(`   ${nome}: ${n}${a > 0 ? ` (+ ${a} de auditoria)` : ""}`);
   }
-  console.log(`\n   Total: ${total} documento(s)`);
+  console.log(`\n   Total a copiar: ${total} documento(s)`);
+
+  // 3) Leitura do destino: tudo o que existe hoje na homologação será apagado
+  const atuaisPorColecao = {};
+  let totalAtual = 0;
+  for (const nome of COLECOES_LIMPEZA) {
+    atuaisPorColecao[nome] = await lerPaginado(collection(dbDestino, nome));
+    totalAtual += atuaisPorColecao[nome].length;
+  }
+  const auditoriasAtuais = await lerPaginado(collectionGroup(dbDestino, "auditoria"));
+  totalAtual += auditoriasAtuais.length;
+  console.log(`\n🗑️  A homologação (${configDestino.projectId}) tem hoje ${totalAtual} documento(s), que serão apagados antes da cópia.`);
 
   if (!CONFIRMAR) {
-    console.log(`\n👀 Nada foi gravado. Para copiar, rode novamente com --confirmar.`);
+    console.log(`\n👀 Nada foi apagado nem gravado. Para copiar, rode novamente com --confirmar.`);
     process.exit(0);
   }
 
-  // 3) Escrita no destino (homologação)
+  // 4) Backup da homologação
+  const dataBackup = new Date().toISOString();
+  const backup = { projeto: configDestino.projectId, data: dataBackup, colecoes: {}, auditoria: {} };
+  for (const nome of COLECOES_LIMPEZA) {
+    backup.colecoes[nome] = Object.fromEntries(atuaisPorColecao[nome].map((d) => [d.id, d.data()]));
+  }
+  for (const d of auditoriasAtuais) backup.auditoria[d.ref.path] = d.data();
+  mkdirSync("backups", { recursive: true });
+  const arquivoBackup = `backups/backup-homologacao-${dataBackup.replace(/[:.]/g, "-")}.json`;
+  writeFileSync(arquivoBackup, JSON.stringify(backup, null, 2), "utf-8");
+  console.log(`\n💾 Backup da homologação gravado em ${arquivoBackup}`);
+
+  // 5) Limpeza da homologação (auditorias primeiro, depois os documentos)
+  await apagar(auditoriasAtuais);
+  for (const nome of COLECOES_LIMPEZA) await apagar(atuaisPorColecao[nome]);
+  let restantes = (await lerPaginado(collectionGroup(dbDestino, "auditoria"))).length;
+  for (const nome of COLECOES_LIMPEZA) restantes += (await lerPaginado(collection(dbDestino, nome))).length;
+  if (restantes > 0) {
+    console.error(`❌ A limpeza deixou ${restantes} documento(s) na homologação. A cópia não foi feita (backup em ${arquivoBackup}).`);
+    process.exit(1);
+  }
+  console.log(`🗑️  Homologação limpa: ${totalAtual} documento(s) apagados.`);
+
+  // 6) Escrita no destino (homologação)
   console.log("");
   for (const nome of COLECOES) {
     const docs = porColecao[nome];
@@ -189,6 +238,7 @@ async function main() {
 
 main().catch((err) => {
   console.error("❌ Erro na cópia:", err?.message ?? err);
+  console.error("   Se o erro ocorreu depois da limpeza, restaure a partir do backup em backups/ ou rode a cópia novamente.");
   console.error(
     "   Verifique se as regras de segurança do Firestore permitem leitura na produção " +
       "e escrita na homologação, e se as credenciais estão corretas."
