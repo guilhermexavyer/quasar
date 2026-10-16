@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { del } from "@vercel/blob";
-import { ehUrlBlob } from "@/lib/blobImagens";
+import { ehUrlBlob, blobDoAmbienteAtual } from "@/lib/blobImagens";
 
 export async function POST(request: NextRequest) {
   try {
@@ -13,6 +13,12 @@ export async function POST(request: NextRequest) {
 
     // Imagens novas estão no Vercel Blob
     if (ehUrlBlob(filePath)) {
+      // Só apaga arquivos da pasta deste ambiente; os de outra base (ex.: registros
+      // copiados da produção) são preservados.
+      if (!blobDoAmbienteAtual(filePath)) {
+        console.warn("Exclusão ignorada: imagem pertence a outra base:", filePath);
+        return NextResponse.json({ ok: true });
+      }
       await del(filePath);
       return NextResponse.json({ ok: true });
     }

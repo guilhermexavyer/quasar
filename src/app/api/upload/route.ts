@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { put } from "@vercel/blob";
-import { EXTENSOES_IMAGEM, IMAGENS_PREFIXO, existeImagemNoBlob } from "@/lib/blobImagens";
+import { EXTENSOES_IMAGEM, pastaImagens, existeImagemNoBlob } from "@/lib/blobImagens";
 
 export async function POST(request: NextRequest) {
   try {
@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
 
     const bytes = await file.arrayBuffer();
 
-    const blob = await put(IMAGENS_PREFIXO + file.name, Buffer.from(bytes), {
+    const blob = await put(pastaImagens() + file.name, Buffer.from(bytes), {
       access: "public",
       addRandomSuffix: false,
       contentType: file.type || undefined,
