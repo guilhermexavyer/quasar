@@ -218,7 +218,11 @@ export default function ResizableTable<T>({
       const contentW = measureColumnContentWidth(table, domIdx);
       const colDef = columns.find((c) => c.key === key);
       const defW = colDef?.width ?? 0;
-      widths[key] = savedW && savedW > 0 ? savedW : (defW > 0 ? Math.max(defW, minW) : Math.max(minW, contentW));
+      // Coluna fixa (ex.: ícone de pré-visualização): o usuário não altera a
+      // largura, então ela sempre acompanha o conteúdo e ignora a salva.
+      widths[key] = colDef?.fixed
+        ? Math.max(minW, contentW, defW)
+        : savedW && savedW > 0 ? savedW : (defW > 0 ? Math.max(defW, minW) : Math.max(minW, contentW));
     });
     widthsRef.current = widths;
     applyWidths(table, widths);

@@ -6,10 +6,12 @@ import {
   CAMPO_STATUS_LABELS,
   CAMPOS_POR_FUNCAO,
   getCampoStatusByKey,
+  parseCamposAlteracao,
   parseCamposConfig,
   type CampoStatus,
 } from "@/lib/camposConfigUtils";
 import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import ResizableTable from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
@@ -126,6 +128,11 @@ export default function CamposView({
     [selectedPerfil]
   );
 
+  const alteracoes = useMemo(
+    () => (selectedPerfil ? parseCamposAlteracao(selectedPerfil.config_campos_alteracao) : {}),
+    [selectedPerfil]
+  );
+
   const campos = useMemo(() => {
     if (!funcaoAtiva) return [];
     return [...(CAMPOS_POR_FUNCAO[funcaoAtiva] ?? [])];
@@ -206,6 +213,8 @@ export default function CamposView({
     const valorDe = (c: (typeof campos)[number], key: string): string => {
       if (key === "tipo") return c.tipo;
       if (key === "status") return getCampoStatusByKey(config, c.key);
+      if (key === "dt_alteracao") return alteracoes[c.key]?.dt_alteracao ?? "";
+      if (key === "ds_usuario_alteracao") return alteracoes[c.key]?.ds_usuario_alteracao ?? "";
       return c.label;
     };
     if (campoSortKey === null || campoSortAsc === null) {
@@ -222,7 +231,7 @@ export default function CamposView({
       return campoSortAsc ? cmp : -cmp;
     });
     return list;
-  }, [campos, campoSortKey, campoSortAsc, config]);
+  }, [campos, campoSortKey, campoSortAsc, config, alteracoes]);
 
   const menuCampo = campoMenu ? sortedCampos.find((c) => c.key === campoMenu.chave) : null;
 
@@ -242,7 +251,8 @@ export default function CamposView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        {/* Perfil e Função com 70% de 1/3 cada (7/30); Campos fica com o restante (16/30). */}
+        <div className="flex-1 min-h-0 grid gap-3" style={{ gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 7fr) minmax(0, 16fr)' }}>
           {/* ── Painel 1: Perfis ── */}
           <div
             className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
@@ -353,6 +363,16 @@ export default function CamposView({
                       key: "status",
                       label: "Status",
                       render: (c) => CAMPO_STATUS_LABELS[getCampoStatusByKey(config, c.key)],
+                    },
+                    {
+                      key: "dt_alteracao",
+                      label: "Alteração",
+                      render: (c) => (alteracoes[c.key]?.dt_alteracao ? formatDate(alteracoes[c.key].dt_alteracao) : ""),
+                    },
+                    {
+                      key: "ds_usuario_alteracao",
+                      label: "Usuário alteração",
+                      render: (c) => alteracoes[c.key]?.ds_usuario_alteracao ?? "",
                     },
                   ]}
                   rows={sortedCampos}

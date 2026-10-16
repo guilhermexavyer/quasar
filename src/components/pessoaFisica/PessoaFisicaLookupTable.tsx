@@ -290,7 +290,8 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect }: Pe
   }
 
   const sortedPessoasFisicas = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return pessoasFisicas;
+    // Ordem padrão: coluna # (nr_sequencia).
+    if (sortColumn === null || sortAsc === null) return [...pessoasFisicas].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     const key = lookupColumns[sortColumn].key;
     return [...pessoasFisicas].sort((a, b) => {
       const valA = a[key];

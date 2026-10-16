@@ -6,7 +6,7 @@ import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
-import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, ajustarColunasConfig, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
@@ -49,11 +49,12 @@ export default function AdministracaoSistemaListView({
   onColumnsChange,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const savedColumns = ajustarColunasConfig(initialColumns, ADMIN_COLUMNS.length);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, ADMIN_COLUMNS.length)
-      ? [...initialColumns.order]
+    savedColumns && isValidOrder(savedColumns.order, ADMIN_COLUMNS.length)
+      ? [...savedColumns.order]
       : ADMIN_COLUMNS.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -65,8 +66,8 @@ export default function AdministracaoSistemaListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === ADMIN_COLUMNS.length
-      ? [...initialColumns.widths]
+    savedColumns?.widths && savedColumns.widths.length === ADMIN_COLUMNS.length
+      ? [...savedColumns.widths]
       : []
   );
 

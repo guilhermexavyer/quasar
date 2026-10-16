@@ -105,6 +105,11 @@ interface RelatorioBuilderProps {
   stateActionsRef?: React.MutableRefObject<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>;
 }
 
+/** Normaliza bordas do elemento para 'S'/'N' (aceita booleano de dados antigos). */
+function simNao(v: unknown): 'S' | 'N' {
+  return v === 'S' || v === true ? 'S' : 'N';
+}
+
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
   return {
     id: c.id || gerarId(),
@@ -142,6 +147,13 @@ function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): 
     formatacao: c.formatacao || 'texto',
     statusSistema: c.statusSistema ?? false,
     soma: c.soma ?? false,
+    ie_tipo_elemento: c.ie_tipo_elemento,
+    ie_primeira_pagina: c.ie_primeira_pagina ?? false,
+    conteudo: c.conteudo,
+    ie_fonte: c.ie_fonte,
+    qt_fonte: c.qt_fonte,
+    nr_seq_imagem: c.nr_seq_imagem,
+    qt_tamanho_imagem: c.qt_tamanho_imagem,
   };
 }
 
@@ -428,6 +440,7 @@ export default function RelatorioBuilder({
     const target = bandas.find((b) => b.id === bandaId);
     if (target) {
       setCampos(target.campos?.length ? [...target.campos] : []);
+      setOrdenacao((target.ordenacao ?? []).map((o: RelatorioOrdenacao) => ({ ...o, id: o.id || gerarId() })));
     }
     setBandaDetailId(bandaId);
     setBandaViewMode('content');
@@ -501,6 +514,91 @@ export default function RelatorioBuilder({
     }
   }
 
+  // ── Ordenação da banda (tipo Lista) ──
+  // A ordenação pertence à banda: fica em bandas[i].ordenacao e é gravada no
+  // Firestore junto com a banda assim que a linha deixa de estar em edição.
+  const bandasRef = useRef(bandas);
+  useEffect(() => { bandasRef.current = bandas; }, [bandas]);
+  const ordenacaoPendenteRef = useRef(false);
+  const [ordenacaoEditRequest, setOrdenacaoEditRequest] = useState<string | null>(null);
+
+  function alterarOrdenacaoBanda(next: RelatorioOrdenacao[]) {
+    const agora = new Date().toISOString();
+    const autor = userDisplayName || '-';
+    const anterior = ordenacaoRef.current;
+    const comAuditoria = next.map((o) => {
+      const antes = anterior.find((a) => a.id === o.id);
+      if (!antes) return { ...o, dt_criacao: agora, ds_usuario_criacao: autor, dt_alteracao: agora, ds_usuario_alteracao: autor };
+      if (antes.campo !== o.campo || antes.direcao !== o.direcao) return { ...o, dt_alteracao: agora, ds_usuario_alteracao: autor };
+      return o;
+    });
+    setOrdenacao(comAuditoria);
+    const bandaId = bandaDetailIdRef.current;
+    if (bandaId) {
+      const atualizadas = bandasRef.current.map((b) => (b.id === bandaId ? { ...b, ordenacao: comAuditoria } : b));
+      bandasRef.current = atualizadas;
+      setBandas(atualizadas);
+      ordenacaoPendenteRef.current = true;
+    }
+  }
+
+  function adicionarOrdenacaoBanda() {
+    const id = gerarId();
+    alterarOrdenacaoBanda([...ordenacaoRef.current, { id, nr_sequencia: getNextOrdSeq(), campo: '', direcao: 'asc' }]);
+    setOrdenacaoEditRequest(id);
+  }
+
+  /** Grava no Firestore um elemento editado direto na tabela (lápis). */
+  async function gravarElementoEditado(row: CamposRelatorioRow) {
+    if (!row._firestoreId) return;
+    const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
+    const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
+    const nrSeqBanda = bandasRef.current.find((b) => b.id === bandaDetailIdRef.current)?.nr_sequencia ?? 0;
+    const audit = await atualizarElemento(row._firestoreId, { ...row, nr_seq_banda: nrSeqBanda }, auditAutor);
+    syncCampos((prev) => prev.map((c) => (c.id === row.id ? { ...c, dt_alteracao: audit.dt_alteracao, ds_usuario_alteracao: audit.ds_usuario_alteracao } : c)));
+  }
+
+  /** Grava no Firestore um parâmetro editado direto na tabela (lápis). */
+  async function gravarParametroEditado(row: RelatorioFiltro) {
+    const firestoreId = (row as RelatorioFiltro & { _firestoreId?: string })._firestoreId;
+    if (!firestoreId) return;
+    const { atualizarParametro } = await import('@/services/relatorioServiceParametros');
+    const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
+    const audit = await atualizarParametro(firestoreId, { ...row, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+    setFiltros((prev) => prev.map((f) => (f.id === row.id ? { ...f, dt_alteracao: audit.dt_alteracao, ds_usuario_alteracao: audit.ds_usuario_alteracao } : f)));
+  }
+
+  /** Duplica um parâmetro gravando a cópia no Firestore. */
+  async function duplicarParametro(original: RelatorioFiltro): Promise<RelatorioFiltro | null> {
+    setBandaSaving(true);
+    try {
+      const { criarParametro } = await import('@/services/relatorioServiceParametros');
+      const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
+      // A cópia ganha identificação e auditoria próprias.
+      const dados: Record<string, unknown> = { ...original };
+      for (const chave of ['id', '_firestoreId', 'nr_sequencia', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']) delete dados[chave];
+      const salvo = await criarParametro({ ...dados, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+      return { ...dados, id: salvo.id, _firestoreId: salvo.id, nr_sequencia: salvo.nr_sequencia, dt_criacao: salvo.dt_criacao, dt_alteracao: salvo.dt_alteracao, ds_usuario_criacao: salvo.ds_usuario_criacao, ds_usuario_alteracao: salvo.ds_usuario_alteracao } as unknown as RelatorioFiltro;
+    } catch {
+      return null;
+    } finally {
+      setBandaSaving(false);
+    }
+  }
+
+  /** Grava as bandas após editar uma banda direto na tabela (lápis). */
+  async function gravarBandaEditada(row: BandaState) {
+    if (!row._firestoreId) return;
+    setBandaSaving(true);
+    try {
+      const atualizadas = bandasRef.current.map((b) => (b.id === row.id ? row : b));
+      const salvas = await onBandaSaveRef.current?.(atualizadas, undefined);
+      if (salvas) setBandas(salvas);
+    } finally {
+      setBandaSaving(false);
+    }
+  }
+
   /** Fecha o modal da banda: salva dados na banda e limpa. Usa refs para evitar stale closures. */
   function closeBandaDetail() {
     const currentBandaId = bandaDetailIdRef.current;
@@ -513,7 +611,6 @@ export default function RelatorioBuilder({
     setBandaDetailId(null);
     setCampoDetailId(null);
     setCampos([]);
-    setFiltros([]);
     setOrdenacao([]);
   }
   const [formato] = useState<'pdf'>('pdf');
@@ -537,6 +634,25 @@ export default function RelatorioBuilder({
   const [editingOrdenacao, setEditingOrdenacao] = useState(false);
   const isEditingAnyTable = editingCampo || editingBanda || editingFiltro || editingOrdenacao;
 
+  // Grava a ordenação da banda quando nenhuma linha está em edição.
+  useEffect(() => {
+    if (!ordenacaoPendenteRef.current || editingOrdenacao) return;
+    const timer = setTimeout(async () => {
+      ordenacaoPendenteRef.current = false;
+      setBandaSaving(true);
+      try {
+        const salvas = await onBandaSaveRef.current?.(bandasRef.current, bandaDetailIdRef.current);
+        if (salvas) setBandas(salvas);
+        else ordenacaoPendenteRef.current = true; // não gravou (outro salvamento em andamento)
+      } catch {
+        ordenacaoPendenteRef.current = true;
+      } finally {
+        setBandaSaving(false);
+      }
+    }, 400);
+    return () => clearTimeout(timer);
+  }, [ordenacao, editingOrdenacao]);
+
   // ── Infobutton / FieldInfoPopup ──
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
   const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
@@ -558,7 +674,8 @@ export default function RelatorioBuilder({
 
   /** fieldInfos para os campos da banda */
   const bandaFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
-    ds_banda: { type: 'string', field: 'ds_banda', collection: 'relatorio_banda' },
+    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio_banda' },
+    ds_banda:{ type: 'string', field: 'ds_banda', collection: 'relatorio_banda' },
     ie_tipo_banda: { type: 'string', field: 'ie_tipo_banda', collection: 'relatorio_banda' },
     ie_colecao_principal: { type: 'string', field: 'ie_colecao_principal', collection: 'relatorio_banda' },
     nr_posicao: { type: 'int64', field: 'nr_posicao', collection: 'relatorio_banda' },
@@ -579,7 +696,40 @@ export default function RelatorioBuilder({
     tamanhoFonteLabel: { type: 'int64', field: 'tamanhoFonteLabel', collection: 'relatorio_banda' },
     fonteCampo: { type: 'string', field: 'fonteCampo', collection: 'relatorio_banda' },
     tamanhoFonteCampo: { type: 'int64', field: 'tamanhoFonteCampo', collection: 'relatorio_banda' },
+  };
+
+  /** fieldInfos para os elementos da banda (relatorio_banda_elemento) */
+  const elementoFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
+    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio_banda_elemento' },
     ds_elemento: { type: 'string', field: 'ds_elemento', collection: 'relatorio_banda_elemento' },
+    ie_tipo_elemento: { type: 'string', field: 'ie_tipo_elemento', collection: 'relatorio_banda_elemento' },
+    ie_primeira_pagina: { type: 'boolean', field: 'ie_primeira_pagina', collection: 'relatorio_banda_elemento' },
+    ie_colecao: { type: 'string', field: 'ie_colecao', collection: 'relatorio_banda_elemento' },
+    ie_campo: { type: 'string', field: 'ie_campo', collection: 'relatorio_banda_elemento' },
+    label: { type: 'string', field: 'label', collection: 'relatorio_banda_elemento' },
+    ie_fonte: { type: 'string', field: 'ie_fonte', collection: 'relatorio_banda_elemento' },
+    qt_fonte: { type: 'int64', field: 'qt_fonte', collection: 'relatorio_banda_elemento' },
+    ie_estilo: { type: 'string', field: 'ie_estilo', collection: 'relatorio_banda_elemento' },
+    ie_estilo_label: { type: 'string', field: 'ie_estilo_label', collection: 'relatorio_banda_elemento' },
+    ie_estilo_soma: { type: 'string', field: 'ie_estilo_soma', collection: 'relatorio_banda_elemento' },
+    cd_cor: { type: 'string', field: 'cd_cor', collection: 'relatorio_banda_elemento' },
+    cd_background: { type: 'string', field: 'cd_background', collection: 'relatorio_banda_elemento' },
+    qt_padding_superior: { type: 'int64', field: 'qt_padding_superior', collection: 'relatorio_banda_elemento' },
+    qt_padding_direita: { type: 'int64', field: 'qt_padding_direita', collection: 'relatorio_banda_elemento' },
+    qt_padding_inferior: { type: 'int64', field: 'qt_padding_inferior', collection: 'relatorio_banda_elemento' },
+    qt_padding_esquerda: { type: 'int64', field: 'qt_padding_esquerda', collection: 'relatorio_banda_elemento' },
+    ie_borda_superior: { type: 'string', field: 'ie_borda_superior', collection: 'relatorio_banda_elemento' },
+    ie_borda_direita: { type: 'string', field: 'ie_borda_direita', collection: 'relatorio_banda_elemento' },
+    ie_borda_inferior: { type: 'string', field: 'ie_borda_inferior', collection: 'relatorio_banda_elemento' },
+    ie_borda_esquerda: { type: 'string', field: 'ie_borda_esquerda', collection: 'relatorio_banda_elemento' },
+    nr_seq_imagem: { type: 'string', field: 'nr_seq_imagem', collection: 'relatorio_banda_elemento' },
+    qt_tamanho_imagem: { type: 'int64', field: 'qt_tamanho_imagem', collection: 'relatorio_banda_elemento' },
+    conteudo: { type: 'string', field: 'conteudo', collection: 'relatorio_banda_elemento' },
+    qt_esquerda: { type: 'int64', field: 'qt_esquerda', collection: 'relatorio_banda_elemento' },
+    qt_topo: { type: 'int64', field: 'qt_topo', collection: 'relatorio_banda_elemento' },
+    qt_largura: { type: 'int64', field: 'qt_largura', collection: 'relatorio_banda_elemento' },
+    ie_alinhamento: { type: 'string', field: 'ie_alinhamento', collection: 'relatorio_banda_elemento' },
+    soma: { type: 'boolean', field: 'soma', collection: 'relatorio_banda_elemento' },
   };
 
   /** fieldInfos para os campos do parâmetro (relatorio_parametro) */
@@ -590,6 +740,7 @@ export default function RelatorioBuilder({
     operador: { type: 'string', field: 'operador', collection: 'relatorio_parametro' },
     ie_mascara: { type: 'string', field: 'ie_mascara', collection: 'relatorio_parametro' },
     vl_padrao: { type: 'string', field: 'vl_padrao', collection: 'relatorio_parametro' },
+    valorFinal: { type: 'string', field: 'valorFinal', collection: 'relatorio_parametro' },
     ie_conector: { type: 'string', field: 'ie_conector', collection: 'relatorio_parametro' },
     ie_parametro: { type: 'boolean', field: 'ie_parametro', collection: 'relatorio_parametro' },
     ds_label: { type: 'string', field: 'ds_label', collection: 'relatorio_parametro' },
@@ -604,6 +755,10 @@ export default function RelatorioBuilder({
   function renderFieldLabel(fieldKey: string, label: string, infos: Record<string, { type: string; field: string; collection: string }>, collectionName: string, regras?: Record<string, CampoStatus>) {
     const meta = infos[fieldKey] ?? { type: 'string', field: fieldKey, collection: collectionName };
     const obrigatorio = regras ? statusDe(regras, fieldKey) === 'O' : false;
+    // A mesma chave (ex.: nr_sequencia) existe no relatório, banda, elemento e
+    // parâmetro, que podem estar na tela ao mesmo tempo (modal sobre o
+    // formulário): o pop-up é identificado por coleção + campo.
+    const popupKey = `${collectionName}.${fieldKey}`;
     return (
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
         <div className="inline-flex items-center gap-2 w-full">
@@ -616,10 +771,10 @@ export default function RelatorioBuilder({
             onClick={(event) => {
               event.stopPropagation();
               setInfoAnchor(event.currentTarget);
-              setInfoPopupField((current) => (current === fieldKey ? null : fieldKey));
+              setInfoPopupField((current) => (current === popupKey ? null : popupKey));
             }}
             aria-label={`Informações do campo ${label}`}
-            className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === fieldKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
+            className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === popupKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
           >
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10" />
@@ -627,7 +782,7 @@ export default function RelatorioBuilder({
               <circle cx="12" cy="16" r="0.5" />
             </svg>
           </button>
-          {infoPopupField === fieldKey && (
+          {infoPopupField === popupKey && (
             <FieldInfoPopup
               anchor={infoAnchor}
               meta={{ type: meta.type, field: meta.field, collection: meta.collection }}
@@ -838,7 +993,7 @@ export default function RelatorioBuilder({
         id: c.id, nr_sequencia: c.nr_sequencia, ds_elemento: c.ds_elemento, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
         backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
         qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
-        ie_borda_superior: c.ie_borda_superior ? 'S' : 'N', ie_borda_direita: c.ie_borda_direita ? 'S' : 'N', ie_borda_inferior: c.ie_borda_inferior ? 'S' : 'N', ie_borda_esquerda: c.ie_borda_esquerda ? 'S' : 'N',
+        ie_borda_superior: simNao(c.ie_borda_superior), ie_borda_direita: simNao(c.ie_borda_direita), ie_borda_inferior: simNao(c.ie_borda_inferior), ie_borda_esquerda: simNao(c.ie_borda_esquerda),
         qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
         dt_criacao: c.dt_criacao, dt_alteracao: c.dt_alteracao, ds_usuario_criacao: c.ds_usuario_criacao, ds_usuario_alteracao: c.ds_usuario_alteracao,
       })),
@@ -882,7 +1037,7 @@ export default function RelatorioBuilder({
     const errs: string[] = [];
     if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
     const todosCampos = bandas.flatMap((b) => b.campos ?? []);
-    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
+    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && c.ie_tipo_elemento !== 'numero_pagina' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
     setErros(errs);
     if (errs.length > 0 && onToast) {
       onToast(errs.join('\n'), 'error');
@@ -1057,7 +1212,6 @@ export default function RelatorioBuilder({
                         setBandaViewMode('content');
                         setBandasSubView('bandas');
                         setCampos([]);
-                        setFiltros([]);
                         setOrdenacao([]);
                       }}
                     >
@@ -1094,7 +1248,8 @@ export default function RelatorioBuilder({
           <button
             type="button"
             onClick={
-              bandaDetailId ? () => {
+              bandaDetailId && bandaViewMode === 'content' && bandaContentSubView === 'ordenacao' && bandaTipo === 'lista' ? adicionarOrdenacaoBanda
+              : bandaDetailId ? () => {
                 // Adicionar campo na banda → abre tela Ver do elemento (pendente)
                 const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
                 const newId = gerarId();
@@ -1239,13 +1394,16 @@ export default function RelatorioBuilder({
               getNextBandaSeq={getNextBandaSeq}
               selectedRecordId={lastBandaDetailIdRef.current}
               onDeleteBanda={onDeleteBanda}
+              onRowCommit={(row) => { void gravarBandaEditada(row as BandaState); }}
               onDuplicateBanda={async (original) => {
                 setBandaSaving(true);
                 try {
                   const { criarBanda, criarElemento } = await import('@/services/relatorioServiceBandas');
                   const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                   const { id: _oldId, _firestoreId: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
-                  const { id: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda({ ...rest, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                  // A cópia vai para o fim (posição própria), sem empatar com a original no PDF.
+                  rest.nr_posicao = Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1;
+                  const { id: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda({ ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
                   // Duplicar elementos filhos
                   const novosCampos: any[] = [];
                   for (const c of (_oldCampos ?? [])) {
@@ -1253,7 +1411,7 @@ export default function RelatorioBuilder({
                     const { id: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt } = await criarElemento({ ...cRest, nr_seq_banda: savedSeq, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
                     novosCampos.push({ ...cRest, id: cNewId, _firestoreId: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt });
                   }
-                  return { ...rest, id: newBandaId, _firestoreId: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, campos: novosCampos } as any;
+                  return { ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), id: newBandaId, _firestoreId: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, campos: novosCampos } as any;
                 } finally {
                   setBandaSaving(false);
                 }
@@ -1281,6 +1439,8 @@ export default function RelatorioBuilder({
               colecaoOptions={opcoesColecao}
               onViewFiltro={(f) => openFiltroVer(f.id)}
               onDeleteFiltro={onDeleteFiltro}
+              onRowCommit={(row) => { void gravarParametroEditado(row); }}
+              onDuplicateFiltro={duplicarParametro}
             />
           </section>
           </>
@@ -1352,6 +1512,26 @@ export default function RelatorioBuilder({
             </div>
             <div className="grid grid-cols-8 gap-[15px] mt-[15px]">
               <div className="group col-span-2">
+                {renderFieldLabel('operador', 'Operador', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <Select
+                  value={filtroSel.operador ?? 'igual'}
+                  onChange={(v) => {
+                    const operador = v as RelatorioFiltro['operador'];
+                    // Valor final só existe no "Entre"; vazio/não vazio não usam valor.
+                    const extra: Partial<RelatorioFiltro> = operador === 'entre' ? {} : { valorFinal: '' };
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, operador, ...extra } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, operador, ...extra } : f));
+                    }
+                  }}
+                  options={[...OPERADORES_FILTRO]}
+                  showPlaceholder={false}
+                  visibleOptions={7}
+                  className={inputClass}
+                />
+              </div>
+              <div className="group col-span-2">
                 {renderFieldLabel('ie_mascara', 'Máscara', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <Select
                   value={filtroSel.ie_mascara ?? 'texto'}
@@ -1378,6 +1558,7 @@ export default function RelatorioBuilder({
               <div className="group col-span-2">
                 {renderFieldLabel('vl_padrao', 'Valor padrão', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
                 <input type="text" value={filtroSel.vl_padrao ?? ''}
+                  disabled={filtroSel.operador === 'vazio' || filtroSel.operador === 'nao_vazio'}
                   onChange={(e) => {
                     if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
                       setPendingFiltro((prev) => prev ? { ...prev, vl_padrao: e.target.value } : prev);
@@ -1385,7 +1566,20 @@ export default function RelatorioBuilder({
                       setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, vl_padrao: e.target.value } : f));
                     }
                   }}
-                  className={inputClass} />
+                  className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
+              </div>
+              <div className="group col-span-2">
+                {renderFieldLabel('valorFinal', 'Valor final', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
+                <input type="text" value={filtroSel.valorFinal ?? ''}
+                  disabled={filtroSel.operador !== 'entre'}
+                  onChange={(e) => {
+                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
+                      setPendingFiltro((prev) => prev ? { ...prev, valorFinal: e.target.value } : prev);
+                    } else {
+                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, valorFinal: e.target.value } : f));
+                    }
+                  }}
+                  className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
               </div>
               <div className="group col-span-2">
                 {renderFieldLabel('ie_conector', 'Conector', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
@@ -1470,7 +1664,13 @@ export default function RelatorioBuilder({
                     {renderFieldLabel('ie_tipo_banda', 'Tipo', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
                     <Select
                       value={bSel.ie_tipo_banda ?? ''}
-                      onChange={(v) => updateBandaSelecionada((b) => ({ ...b, ie_tipo_banda: v as any }))}
+                      onChange={(v) => updateBandaSelecionada((b) => ({
+                        ...b,
+                        ie_tipo_banda: v as any,
+                        // Cabeçalho/Rodapé não têm coleção (o campo fica desabilitado):
+                        // limpa uma coleção escolhida antes de trocar o tipo.
+                        ...(v === 'cabecalho' || v === 'rodape' ? { ie_colecao_principal: '' } : {}),
+                      }))}
                       options={[
                         { value: '', label: '---' },
                         { value: 'lista', label: 'Lista' },
@@ -1530,10 +1730,10 @@ export default function RelatorioBuilder({
                         onClick={(event) => {
                           event.stopPropagation();
                           setInfoAnchor(event.currentTarget);
-                          setInfoPopupField((current) => (current === key ? null : key));
+                          setInfoPopupField((current) => (current === `relatorio_banda.${key}` ? null : `relatorio_banda.${key}`));
                         }}
                         aria-label={`Informações do campo ${label}`}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none opacity-0 group-hover:opacity-100"
+                        className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === `relatorio_banda.${key}` ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10" />
@@ -1541,7 +1741,7 @@ export default function RelatorioBuilder({
                           <circle cx="12" cy="16" r="0.5" />
                         </svg>
                       </button>
-                      {infoPopupField === key && (
+                      {infoPopupField === `relatorio_banda.${key}` && (
                         <FieldInfoPopup
                           anchor={infoAnchor}
                           meta={{ type: 'boolean', field: key, collection: 'relatorio_banda' }}
@@ -1749,12 +1949,12 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="flex flex-wrap gap-[15px]">
                   <div className="group flex-none w-[100px]">
-                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('nr_sequencia', 'Sequência', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric" value={campoSel.nr_sequencia ?? ''} disabled
                       className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ds_elemento', 'Descrição', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('ds_elemento', 'Descrição', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" value={campoSel.ds_elemento ?? ''}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ds_elemento: e.target.value }))}
                       className={inputClass} />
@@ -1762,19 +1962,39 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="flex flex-wrap gap-[15px] mt-2">
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ie_tipo_elemento', 'Tipo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('ie_tipo_elemento', 'Tipo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <Select
                       value={campoSel.ie_tipo_elemento ?? ''}
-                      onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_tipo_elemento: (v || undefined) as any }))}
+                      onChange={(v) => updateCampoSelecionado((c) => ({
+                        ...c,
+                        ie_tipo_elemento: (v || undefined) as any,
+                        // "Primeira página" só vale para Número da página.
+                        ie_primeira_pagina: v === 'numero_pagina' ? (c.ie_primeira_pagina ?? false) : false,
+                      }))}
                       options={
                         tipoBanda === 'lista'
                           ? [{ value: 'valor', label: 'Valor' }]
-                          : [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'imagem', label: 'Imagem' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'valor', label: 'Valor' }]
+                          : [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'imagem', label: 'Imagem' }, { value: 'numero_pagina', label: 'Número da página' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'valor', label: 'Valor' }]
                       }
                       showPlaceholder={true}
                       className={inputClass}
                     />
                   </div>
+                  {tipoBanda !== 'lista' && (
+                  <div className="group flex-none">
+                    {renderFieldLabel('ie_primeira_pagina', 'Primeira página', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    <label className={`flex h-[34px] items-center gap-2 text-sm ${campoSel.ie_tipo_elemento === 'numero_pagina' ? 'cursor-pointer' : 'cursor-default opacity-50'}`}>
+                      <input
+                        type="checkbox"
+                        className="cg-checkbox"
+                        disabled={campoSel.ie_tipo_elemento !== 'numero_pagina'}
+                        checked={campoSel.ie_tipo_elemento === 'numero_pagina' && !!campoSel.ie_primeira_pagina}
+                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_primeira_pagina: e.target.checked }))}
+                      />
+                      <span>Sim</span>
+                    </label>
+                  </div>
+                  )}
                   {!ocultarColecaoCampo && (() => {
                     const campoColecaoPrincipal = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
                     const dsPrincipal = getDataSource(campoColecaoPrincipal);
@@ -1788,7 +2008,7 @@ export default function RelatorioBuilder({
                     return (
                       <>
                         <div className="group flex-1 min-w-[140px]">
-                          {renderFieldLabel('ie_colecao', 'Coleção', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                          {renderFieldLabel('ie_colecao', 'Coleção', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                           <Select
                             value={campoSel.ie_colecao ?? ''}
                             onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_colecao: v, ie_campo: v !== c.ie_colecao ? '' : c.ie_campo }))}
@@ -1800,7 +2020,7 @@ export default function RelatorioBuilder({
                           />
                         </div>
                         <div className="group flex-1 min-w-[140px]">
-                          {renderFieldLabel('ie_campo', 'Campo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                          {renderFieldLabel('ie_campo', 'Campo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                           <Select
                             value={campoSel.statusSistema ? campoSel.ie_campo + '__sistema' : campoSel.ie_campo}
                             onChange={(v) => {
@@ -1828,7 +2048,7 @@ export default function RelatorioBuilder({
                   })()}
                   {!textoValorHidden && (
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('label', 'Label', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('label', 'Label', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" value={campoSel.label ?? ''}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, label: e.target.value }))}
                       className={inputClass} />
@@ -1844,33 +2064,33 @@ export default function RelatorioBuilder({
                   {/* Linha 1: Fonte, Tamanho fonte, Estilo, Estilo label, Estilo registro, Estilo soma, Cor, Background */}
                   <div className="flex flex-wrap gap-[15px]">
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_fonte', 'Fonte', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('ie_fonte', 'Fonte', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_fonte ?? 'Arial'} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_fonte: v }))} options={FONTES_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_fonte', 'Tamanho fonte', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('qt_fonte', 'Tamanho fonte', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric" value={campoSel.qt_fonte ?? ''}
                         onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_fonte: v ? Math.max(1, Number(v)) : 1 })); }}
                         className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo', tipoBanda === 'lista' ? 'Estilo registro' : 'Estilo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('ie_estilo', tipoBanda === 'lista' ? 'Estilo registro' : 'Estilo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_estilo ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     {!textoValorHidden && (
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo_label', 'Estilo label', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('ie_estilo_label', 'Estilo label', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_estilo_label ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_label: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     )}
                     {!textoValorHidden && (
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo_soma', 'Estilo soma', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('ie_estilo_soma', 'Estilo soma', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select value={campoSel.ie_estilo_soma ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_soma: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
                     </div>
                     )}
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('cd_cor', 'Cor', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('cd_cor', 'Cor', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <div className="relative" style={{ height: 34 }}>
                         <input type="color" id={`cor-campo-${campoSel.id}`} value={campoSel.cd_cor || '#000000'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, cd_cor: e.target.value }))}
@@ -1881,7 +2101,7 @@ export default function RelatorioBuilder({
                       </div>
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('cd_background', 'Background', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('cd_background', 'Background', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <div className="flex items-center gap-1">
                         <div className="relative flex-1" style={{ height: 34 }}>
                           <input type="color" id={`bg-campo-${campoSel.id}`} value={campoSel.cd_background || '#ffffff'}
@@ -1902,28 +2122,28 @@ export default function RelatorioBuilder({
                   {/* Linha 2: Paddings e Bordas */}
                   <div className="flex flex-wrap gap-[15px] mt-2">
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_superior', 'Padding superior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('qt_padding_superior', 'Padding superior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_superior === 0 ? '' : (campoSel.qt_padding_superior ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_superior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                         className={inputClass} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_direita', 'Padding direita', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('qt_padding_direita', 'Padding direita', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_direita === 0 ? '' : (campoSel.qt_padding_direita ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_direita: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                         className={inputClass} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_inferior', 'Padding inferior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('qt_padding_inferior', 'Padding inferior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_inferior === 0 ? '' : (campoSel.qt_padding_inferior ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_inferior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                         className={inputClass} />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_esquerda', 'Padding esquerda', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('qt_padding_esquerda', 'Padding esquerda', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_padding_esquerda === 0 ? '' : (campoSel.qt_padding_esquerda ?? '')}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
@@ -1934,7 +2154,7 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_superior === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_superior: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_superior', 'Borda superior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                        {renderFieldLabel('ie_borda_superior', 'Borda superior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                     <div className="group flex-none w-auto min-w-[110px]">
@@ -1942,7 +2162,7 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_direita === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_direita: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_direita', 'Borda direita', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                        {renderFieldLabel('ie_borda_direita', 'Borda direita', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                     <div className="group flex-none w-auto min-w-[110px]">
@@ -1950,7 +2170,7 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_inferior === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_inferior: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_inferior', 'Borda inferior', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                        {renderFieldLabel('ie_borda_inferior', 'Borda inferior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                     <div className="group flex-none w-auto min-w-[110px]">
@@ -1958,14 +2178,14 @@ export default function RelatorioBuilder({
                         <input type="checkbox" checked={campoSel.ie_borda_esquerda === 'S'}
                           onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_esquerda: e.target.checked ? 'S' : 'N' }))}
                           className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_esquerda', 'Borda esquerda', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                        {renderFieldLabel('ie_borda_esquerda', 'Borda esquerda', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       </div>
                     </div>
                   </div>
                   {/* Linha 3: Imagem, Tamanho imagem */}
                   <div className="flex flex-wrap gap-[15px] mt-2">
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('nr_seq_imagem', 'Imagem', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('nr_seq_imagem', 'Imagem', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <Select
                         value={campoSel.nr_seq_imagem ?? ''}
                         onChange={(v) => updateCampoSelecionado((c) => ({ ...c, nr_seq_imagem: v || undefined }))}
@@ -1976,7 +2196,7 @@ export default function RelatorioBuilder({
                       />
                     </div>
                     <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_tamanho_imagem', 'Tamanho imagem', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('qt_tamanho_imagem', 'Tamanho imagem', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <input type="text" inputMode="numeric"
                         value={campoSel.qt_tamanho_imagem === 0 ? '' : (campoSel.qt_tamanho_imagem ?? '')}
                         onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_tamanho_imagem: v ? Math.max(1, Number(v)) : 0 })); }}
@@ -1987,7 +2207,7 @@ export default function RelatorioBuilder({
                   {/* Linha 4: Conteúdo */}
                   <div className="flex flex-wrap gap-[15px] mt-2">
                     <div className="group flex-1 min-w-full">
-                      {renderFieldLabel('conteudo', 'Conteúdo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                      {renderFieldLabel('conteudo', 'Conteúdo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                       <textarea
                         value={campoSel.conteudo ?? ''}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, conteudo: e.target.value }))}
@@ -2004,28 +2224,28 @@ export default function RelatorioBuilder({
                 </div>
                 <div className="flex flex-wrap gap-[15px]">
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_esquerda', 'Esquerda', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('qt_esquerda', 'Esquerda', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric"
                       value={campoSel.qt_esquerda === 0 ? '' : (campoSel.qt_esquerda ?? '')}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_topo', 'Topo', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('qt_topo', 'Topo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric"
                       value={campoSel.qt_topo === 0 ? '' : (campoSel.qt_topo ?? '')}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_topo: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_largura', 'Largura', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('qt_largura', 'Largura', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <input type="text" inputMode="numeric"
                       value={campoSel.qt_largura === 0 ? '' : (campoSel.qt_largura ?? '')}
                       onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_largura: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
                       className={inputClass} />
                   </div>
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ie_alinhamento', 'Alinhamento', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('ie_alinhamento', 'Alinhamento', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <Select
                       value={campoSel.ie_alinhamento ?? 'esquerda'}
                       onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_alinhamento: v }))}
@@ -2035,7 +2255,7 @@ export default function RelatorioBuilder({
                   </div>
                   {!textoValorHidden && (
                   <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('soma', 'Soma', bandaFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
+                    {renderFieldLabel('soma', 'Soma', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
                     <div className="flex items-center h-[34px]">
                       <input type="checkbox" checked={campoSel.soma ?? false}
                         onChange={(e) => updateCampoSelecionado((c) => ({ ...c, soma: e.target.checked }))}
@@ -2075,6 +2295,7 @@ export default function RelatorioBuilder({
                   setCampoDetailId(campo.id);
                 }}
                 onDeleteCampo={onDeleteCampo}
+                onRowCommit={(row) => { void gravarElementoEditado(row); }}
                 onDuplicateCampo={async (original) => {
                   setBandaSaving(true);
                   try {
@@ -2103,7 +2324,8 @@ export default function RelatorioBuilder({
           <section className="h-full flex min-h-0 flex-col">
             <OrdenacaoRelatorioTable
               ordenacao={ordenacao}
-              onChange={setOrdenacao}
+              onChange={alterarOrdenacaoBanda}
+              editRequestId={ordenacaoEditRequest}
               camposDisponiveis={camposDisponiveisBanda}
               onEditingChange={setEditingOrdenacao}
               userId={userId}

@@ -5,6 +5,23 @@ export function removerUndefined<T extends Record<string, any>>(obj: T): Partial
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
+/**
+ * Remove `undefined` em qualquer nível (objetos e arrays aninhados). O
+ * Firestore rejeita `undefined` mesmo dentro de arrays/objetos (ex.: os
+ * elementos embutidos em `campos` de uma banda).
+ */
+export function removerUndefinedProfundo<T>(valor: T): T {
+  if (Array.isArray(valor)) return valor.map((v) => removerUndefinedProfundo(v)) as unknown as T;
+  if (valor && typeof valor === "object" && Object.getPrototypeOf(valor) === Object.prototype) {
+    return Object.fromEntries(
+      Object.entries(valor as Record<string, unknown>)
+        .filter(([, v]) => v !== undefined)
+        .map(([k, v]) => [k, removerUndefinedProfundo(v)])
+    ) as T;
+  }
+  return valor;
+}
+
 /** Campos de controle que não contam como alteração do registro. */
 const CAMPOS_CONTROLE = new Set(["id", "_firestoreId", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]);
 

@@ -184,16 +184,19 @@ import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
 import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
-import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio } from "@/services/relatorioService";
+import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio } from "@/services/relatorioService";
 
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
+import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
 import {
   parseCamposConfig,
   serializeCamposConfig,
+  parseCamposAlteracao,
+  serializeCamposAlteracao,
   campoRegrasDaColecao,
   camposObrigatoriosVazios,
   type CampoStatus,
@@ -297,7 +300,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.8";
+const SYSTEM_VERSION = "0.66.9";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -827,7 +830,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'relatorio' | 'imagem'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional' | 'relatorio' | 'imagem'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1240,7 +1243,7 @@ export default function Home() {
   const [imagemSortAsc, setImagemSortAsc] = useState<boolean | null>(null);
   async function loadImagens() { try { const data = await obterImagens(); setImagens(data); } catch { /* */ } }
   function handleImagemSortChange(logicalIndex: number) { if (imagemSortColumn === logicalIndex) { if (imagemSortAsc === true) setImagemSortAsc(false); else if (imagemSortAsc === false) { setImagemSortColumn(null); setImagemSortAsc(null); } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } }
-  const filteredSortedImagens = useMemo(() => { const list = [...imagens]; if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'ds_usuario_criacao', 'dt_alteracao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
+  const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => a.nr_sequencia - b.nr_sequencia); /* Ordem padrão: coluna # */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
   async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
@@ -1330,9 +1333,11 @@ export default function Home() {
   }
 
   const filteredSortedRelatorios = useMemo(() => {
-    const list = [...relatorios];
+    // Ordem padrão: coluna # (nr_sequencia).
+    const list = [...relatorios].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     if (relatorioSortColumn != null && relatorioSortAsc != null) {
-      const keys = ['nr_sequencia', 'ds_relatorio', 'colecao', 'formato', 'dt_alteracao'];
+      // Mesma ordem das colunas de RelatorioListView (o índice vem de lá).
+      const keys = ['nr_sequencia', 'ds_relatorio', 'ie_formato', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao'];
       const key = keys[relatorioSortColumn];
       if (key) {
         list.sort((a, b) => {
@@ -2895,7 +2900,8 @@ export default function Home() {
       // ── Salvar cada banda individualmente na coleção relatorio_banda ──
       const bandasSalvas: any[] = [];
       for (const b of bandasAtualizadas) {
-        const bandaData: Record<string, any> = {
+        // Limpeza profunda: elementos embutidos em `campos` podem ter chaves undefined.
+        const bandaData: Record<string, any> = removerUndefinedProfundo({
           nr_seq_relatorio: nrSeqRelatorio,
           ds_banda: b.ds_banda ?? '',
           ie_tipo_banda: b.ie_tipo_banda ?? '',
@@ -2919,7 +2925,8 @@ export default function Home() {
           fonteCampo: b.fonteCampo,
           tamanhoFonteCampo: b.tamanhoFonteCampo,
           campos: b.campos ?? [],
-        };
+          ordenacao: b.ordenacao, // undefined (banda antiga sem ordenação própria) não é gravado
+        });
 
         if (b._firestoreId) {
           // Banda já existe no Firestore — atualizar
@@ -2928,8 +2935,10 @@ export default function Home() {
           bandasSalvas.push({ ...b, dt_alteracao: auditBanda.dt_alteracao || b.dt_alteracao, ds_usuario_alteracao: auditBanda.ds_usuario_alteracao || b.ds_usuario_alteracao });
         } else {
           // Banda nova — criar
-          const { id: newId, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda(bandaData, auditAutor);
-          bandasSalvas.push({ ...b, _firestoreId: newId, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao });
+          // A sequência definitiva vem do contador do Firestore (os elementos da
+          // banda são vinculados por nr_seq_banda, então precisa ser a mesma do banco).
+          const { id: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda(bandaData, auditAutor);
+          bandasSalvas.push({ ...b, _firestoreId: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao });
         }
       }
 
@@ -2945,7 +2954,7 @@ export default function Home() {
 
       // ── Manter relatorio.bandas sincronizado (retrocompatibilidade) ──
       const docRef = doc(db, 'relatorio', relatorioEditingId);
-      await updateDoc(docRef, { bandas: bandasSalvas });
+      await updateDoc(docRef, { bandas: removerUndefinedProfundo(bandasSalvas) });
 
       bandaJustSavedRef.current = true;
       setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasSalvas } : prev);
@@ -2966,6 +2975,12 @@ export default function Home() {
       const bandasExistentes = await obterBandasPorRelatorioId(id);
       for (const b of bandasExistentes) {
         await excluirBanda(b.id);
+      }
+      // Parâmetros também ficam em coleção própria (relatorio_parametro).
+      const relatorioExcluido = relatorios.find((r) => r.id === id);
+      if (relatorioExcluido?.nr_sequencia != null) {
+        const { excluirParametrosPorRelatorio } = await import('@/services/relatorioServiceParametros');
+        await excluirParametrosPorRelatorio(relatorioExcluido.nr_sequencia);
       }
       await excluirRelatorio(id);
       await loadRelatorios();
@@ -3010,13 +3025,17 @@ export default function Home() {
           } catch { /* usar dados locais */ }
         }
       } catch { /* usar dados locais como fallback */ }
-      const parametros = (relatorio.filtros ?? []).filter((f) => f.ie_parametro);
+      // "Está vazio"/"Não está vazio" não pedem valor: não entram no modal.
+      const parametros = (relatorio.filtros ?? []).filter((f) => f.ie_parametro && f.operador !== 'vazio' && f.operador !== 'nao_vazio');
       if (parametros.length > 0) {
         setRelatorioParamValues((prev) => {
           const initialValues: Record<string, string> = { ...prev };
           for (const p of parametros) {
             if (initialValues[p.id] === undefined) {
               initialValues[p.id] = p.vl_padrao ?? '';
+            }
+            if (p.operador === 'entre' && initialValues[`${p.id}__fim`] === undefined) {
+              initialValues[`${p.id}__fim`] = p.valorFinal ?? '';
             }
           }
           return initialValues;
@@ -3043,7 +3062,7 @@ export default function Home() {
         let totalRegistros = 0;
 
         for (const banda of bandasComColecao) {
-          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: relatorio.filtros ?? [], ordenacao: relatorio.ordenacao ?? [] };
+          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: relatorio.filtros ?? [], ordenacao: banda.ordenacao ?? relatorio.ordenacao ?? [] };
           const resultado = await executarConsultaRelatorio(relatorioBanda);
           const dsBanda = getDataSource(banda.ie_colecao_principal!);
           const camposResolvidos = (banda.campos ?? []).map((c) => ({
@@ -3065,13 +3084,13 @@ export default function Home() {
             }
             return regResolvido;
           });
-          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, campos: camposResolvidos, registros: registrosResolvidos });
+          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo, campos: camposResolvidos, registros: registrosResolvidos });
           totalRegistros += registrosResolvidos.length;
         }
 
         // Bandas sem coleção (Cabeçalho/Rodapé) — sem consulta, apenas dados estáticos
         for (const banda of bandasSemColecao) {
-          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, campos: banda.campos ?? [], registros: [{}] });
+          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo, campos: banda.campos ?? [], registros: [{}] });
         }
 
         // Pré-buscar imagens referenciadas nos campos
@@ -3160,17 +3179,25 @@ export default function Home() {
 
   function handleRelatorioParamConfirm() {
     if (!relatorioParamModal) return;
-    const faltantes = relatorioParamModal.parametros.filter((p) => p.ie_obrigatorio && !(relatorioParamValues[p.id] ?? '').trim());
+    const faltantes = relatorioParamModal.parametros.filter((p) => p.ie_obrigatorio
+      && !(relatorioParamValues[p.id] ?? '').trim()
+      && !(p.operador === 'entre' && (relatorioParamValues[`${p.id}__fim`] ?? '').trim()));
     if (faltantes.length > 0) {
       setParamGerarFaltantes(faltantes.map((p) => p.id));
       setMessage('Preencha todos os campos obrigatórios antes de gerar o relatório.');
       return;
     }
     const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
-      if (f.ie_parametro && relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
-        return { ...f, vl_padrao: relatorioParamValues[f.id] };
+      if (!f.ie_parametro) return f;
+      let atualizado = f;
+      if (relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
+        atualizado = { ...atualizado, vl_padrao: relatorioParamValues[f.id] };
       }
-      return f;
+      const fim = relatorioParamValues[`${f.id}__fim`];
+      if (f.operador === 'entre' && fim !== undefined && fim !== '') {
+        atualizado = { ...atualizado, valorFinal: fim };
+      }
+      return atualizado;
     });
     const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
     setParamGerarFaltantes([]);
@@ -3181,13 +3208,17 @@ export default function Home() {
 
   async function handleRelatorioDuplicate(relatorio: Relatorio) {
     try {
-      const { id, nr_sequencia, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, ...rest } = relatorio;
+      if (!relatorio.id) return;
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
-      await criarRelatorio({ ...rest, ds_relatorio: `${rest.ds_relatorio} (Cópia)` }, auditAutor);
+      setRelatorioGerando(true);
+      // Copia também bandas, elementos e parâmetros (coleções próprias).
+      await duplicarRelatorio(relatorio.id, auditAutor);
       await loadRelatorios();
       setMessage('Relatório duplicado com sucesso!');
     } catch {
       setMessage('Erro ao duplicar relatório.');
+    } finally {
+      setRelatorioGerando(false);
     }
   }
 
@@ -3285,8 +3316,15 @@ export default function Home() {
     setMessage("");
     const config = parseCamposConfig(perfil.config_campos);
     config[chave] = status;
+    // Registra quando e quem alterou o status do campo (colunas Alteração/Usuário alteração).
+    const alteracoes = parseCamposAlteracao(perfil.config_campos_alteracao);
+    alteracoes[chave] = { dt_alteracao: new Date().toISOString(), ds_usuario_alteracao: auditAutor?.usuarioNome ?? '-' };
     try {
-      await atualizarPerfil(perfil.id, { config_campos: serializeCamposConfig(config) }, auditAutor);
+      await atualizarPerfil(
+        perfil.id,
+        { config_campos: serializeCamposConfig(config), config_campos_alteracao: serializeCamposAlteracao(alteracoes) },
+        auditAutor
+      );
       setMessage(`Campo atualizado com sucesso: ${status === 'O' ? 'Obrigatório' : status === 'D' ? 'Desabilitado' : 'Normal'}`);
       await loadPerfis();
     } catch {
@@ -3426,7 +3464,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -4419,13 +4457,8 @@ export default function Home() {
   const filteredSortedPessoasFisicas = useMemo(() => {
     const sorted = [...filteredPessoasFisicas];
     if (sortColumn === null || sortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = COLUMNS[sortColumn].key;
@@ -4471,13 +4504,8 @@ export default function Home() {
   const filteredSortedAlunos = useMemo(() => {
     const sorted = [...filteredAlunos];
     if (alunoSortColumn === null || alunoSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = ALUNO_COLUMNS[alunoSortColumn].key;
@@ -4526,13 +4554,8 @@ export default function Home() {
   const filteredSortedColaboradores = useMemo(() => {
     const sorted = [...filteredColaboradores];
     if (colaboradorSortColumn === null || colaboradorSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = COLABORADOR_COLUMNS[colaboradorSortColumn].key;
@@ -4595,13 +4618,8 @@ export default function Home() {
       return true;
     });
     if (ativoSortColumn === null || ativoSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = ATIVO_COLUMNS[ativoSortColumn].key;
@@ -4672,13 +4690,8 @@ export default function Home() {
   const filteredSortedPessoasJuridicas = useMemo(() => {
     const sorted = [...filteredPessoasJuridicas];
     if (pjSortColumn === null || pjSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = PJ_COLUMNS[pjSortColumn].key;
@@ -4699,13 +4712,8 @@ export default function Home() {
   const filteredSortedUsuarios = useMemo(() => {
     const sorted = [...filteredUsuarios];
     if (adminSortColumn === null || adminSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = ADMIN_COLUMNS[adminSortColumn].key;
@@ -4742,13 +4750,8 @@ export default function Home() {
   const filteredSortedPerfis = useMemo(() => {
     const sorted = [...filteredPerfis];
     if (perfilSortColumn === null || perfilSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const dateA = a.dt_criacao || "";
-        const dateB = b.dt_criacao || "";
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return a.nr_sequencia - b.nr_sequencia;
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     }
 
     const key = PERFIL_COLUMNS[perfilSortColumn].key;
@@ -4783,15 +4786,8 @@ export default function Home() {
   const filteredSortedCgItems = useMemo(() => {
     const sorted = [...filteredCgItems];
     if (cgSortColumn === null || cgSortAsc === null) {
-      return sorted.sort((a, b) => {
-        const ra = a as unknown as Record<string, unknown>;
-        const rb = b as unknown as Record<string, unknown>;
-        const dateA = String(ra.dt_criacao || "");
-        const dateB = String(rb.dt_criacao || "");
-        if (dateA < dateB) return -1;
-        if (dateA > dateB) return 1;
-        return Number(ra.nr_sequencia) - Number(rb.nr_sequencia);
-      });
+      // Ordem padrão: coluna # (nr_sequencia).
+      return sorted.sort((a, b) => Number((a as unknown as Record<string, unknown>).nr_sequencia) - Number((b as unknown as Record<string, unknown>).nr_sequencia));
     }
 
     const key = cgColumns[cgSortColumn].key as string;
@@ -6838,7 +6834,8 @@ export default function Home() {
   }), [manutencoes, appliedManutencaoFilterForm]);
 
   const filteredSortedManutencoes = useMemo(() => {
-    const list = [...filteredManutencoes];
+    // Ordem padrão: coluna # (nr_sequencia).
+    const list = [...filteredManutencoes].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     if (manutencaoSortColumn !== null && manutencaoSortAsc !== null) {
       list.sort((a, b) => {
         const colKey = MANUTENCAO_COLUMNS[manutencaoSortColumn]?.key;
@@ -10578,8 +10575,8 @@ export default function Home() {
                     const extra = confirmDeleteExtra;
                     // Excluir do Firestore
                     if (extra?._firestoreId) {
-                      import('@/services/relatorioServiceBandas').then(({ excluirElemento }) => {
-                        excluirElemento(extra._firestoreId).then(() => setMessage('Registro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir registro.'));
+                      import('@/services/relatorioServiceBandas').then(({ excluirElementoComCopias }) => {
+                        excluirElementoComCopias(extra._firestoreId, relatorioEditingId).then(() => setMessage('Registro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir registro.'));
                       });
                     }
                     // Remover do array local + state do RelatorioBuilder
@@ -10604,8 +10601,8 @@ export default function Home() {
                   } else if (confirmDeleteType === 'filtro') {
                     const extra = confirmDeleteExtra;
                     if (extra?._firestoreId) {
-                      import('@/services/relatorioServiceParametros').then(({ excluirParametro }) => {
-                        excluirParametro(extra._firestoreId).then(() => setMessage('Parâmetro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir parâmetro.'));
+                      import('@/services/relatorioServiceParametros').then(({ excluirParametroComCopia }) => {
+                        excluirParametroComCopia(extra._firestoreId, relatorioEditingId).then(() => setMessage('Parâmetro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir parâmetro.'));
                       });
                     }
                     setRelatorioForm((prev) => {
@@ -11927,9 +11924,12 @@ export default function Home() {
       )}
 
       {detailModalOpen && selectedAuditIndex !== null && (() => {
-        const after = auditLogs[selectedAuditIndex]?.detalhes ?? {};
-        const before = auditLogs[selectedAuditIndex + 1]?.detalhes ?? null;
+        // Logs antigos de alteração de imagem gravavam o estado em `depois` (sem `detalhes`).
+        const estadoDoLog = (log?: AuditEntry) => log?.detalhes ?? (log as { depois?: unknown } | undefined)?.depois;
+        const after = estadoDoLog(auditLogs[selectedAuditIndex]) ?? {};
+        const before = estadoDoLog(auditLogs[selectedAuditIndex + 1]) ?? null;
         const isPj = auditDocumentType === 'pessoa_juridica';
+        const isImagem = auditDocumentType === 'imagem';
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
@@ -11973,11 +11973,13 @@ export default function Home() {
           } else {
             flat.bandas_sequencia = '';
           }
+          flat.dt_criacao = detalhes.dt_criacao;
+          flat.dt_alteracao = detalhes.dt_alteracao;
           return flat;
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo' || auditDocumentType === 'cg_sistema_operacional';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -11989,6 +11991,13 @@ export default function Home() {
               'dt_abertura',
               'ds_email',
               'nr_telefone',
+              'nr_cep',
+              'nr_seq_logradouro',
+              'ds_endereco',
+              'nr_endereco',
+              'ds_bairro',
+              'ds_complemento',
+              'sg_estado',
               'cd_ibge_cidade',
               'dt_criacao',
               'dt_alteracao',
@@ -11999,8 +12008,17 @@ export default function Home() {
               'nr_seq_pessoa_fisica',
               'ds_usuario',
               'ds_usuario_alternativo',
+              'ds_email',
               'ie_status',
               'ds_observacao',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
+          : isImagem
+          ? [
+              'nr_sequencia',
+              'ds_imagem',
+              'ie_arquivo',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -12022,9 +12040,12 @@ export default function Home() {
               'nr_seq_pessoa_juridica',
               'nr_matricula',
               'dt_admissao',
+              'nr_seq_vinculo_contratual',
               'ie_status',
               'dt_status',
               'ds_motivo_status',
+              'ie_fornecedor',
+              'ie_prestador_servico',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -12065,7 +12086,7 @@ export default function Home() {
             ]
           : isManutencao
           ? [
-              'nr_seq_ativo', 'nr_seq_prestador_servico', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
+              'nr_sequencia', 'nr_seq_ativo', 'nr_seq_prestador_servico', 'dt_envio', 'dt_termino', 'ie_status_manutencao', 'vl_total', 'ds_motivo_manutencao', 'ds_correcoes', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
             ]                      : isRelatorio && isBanda
           ? [
@@ -12077,7 +12098,7 @@ export default function Home() {
             ]
           : isRelatorio && isElemento
           ? [
-              'nr_sequencia', 'ds_elemento', 'ie_tipo_elemento', 'conteudo', 'ie_colecao', 'ie_campo', 'label',
+              'nr_sequencia', 'ds_elemento', 'ie_tipo_elemento', 'ie_primeira_pagina', 'conteudo', 'ie_colecao', 'ie_campo', 'label',
               'backgroundLabel', 'corLabel', 'qt_largura', 'qt_esquerda', 'topoLabel', 'qt_topo',
               'ie_alinhamento', 'ie_estilo_label', 'ie_estilo', 'ie_estilo_soma', 'formatacao',
               'cd_cor', 'cd_background', 'transparentCampo', 'soma', 'statusSistema',
@@ -12099,12 +12120,14 @@ export default function Home() {
               'pdf_pagina', 'pdf_orientacao', 'pdf_borda',
               'pdf_margem_superior', 'pdf_margem_inferior', 'pdf_margem_esquerda', 'pdf_margem_direita',
               'bandas_sequencia',
+              'dt_criacao', 'dt_alteracao',
             ]
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'cg_categoria_ativo' ? 'ds_categoria' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'cg_categoria_ativo' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
+              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'cg_categoria_ativo' ? ['ds_observacao'] : []),
               'ie_status',
               'dt_criacao',
               'dt_alteracao',
@@ -12114,9 +12137,23 @@ export default function Home() {
               'ds_nome',
               'nr_cpf',
               'dt_nascimento',
+              'nr_seq_sexo',
+              'nr_seq_estado_civil',
+              'nr_seq_cor_raca',
+              'nr_seq_profissao',
+              'cd_ibge_naturalidade',
+              'nr_rg',
+              'dt_emissao',
+              'nr_seq_orgao_emissor',
+              'sg_estado',
               'ds_email',
               'nr_telefone',
-              'cd_ibge_naturalidade',
+              'nr_cep',
+              'nr_seq_logradouro',
+              'ds_endereco',
+              'nr_endereco',
+              'ds_bairro',
+              'ds_complemento',
               'dt_criacao',
               'dt_alteracao',
             ];
@@ -12162,6 +12199,26 @@ export default function Home() {
                       ds_email: 'E-mail',
                       nr_telefone: 'Telefone',
                       cd_ibge_naturalidade: 'Naturalidade',
+                      nr_seq_sexo: 'Sexo',
+                      nr_seq_estado_civil: 'Estado civil',
+                      nr_seq_cor_raca: 'Cor/Raça',
+                      nr_seq_profissao: 'Profissão',
+                      nr_rg: 'RG',
+                      dt_emissao: 'Data de emissão',
+                      nr_seq_orgao_emissor: 'Órgão emissor',
+                      sg_estado: 'UF',
+                      nr_cep: 'CEP',
+                      nr_seq_logradouro: 'Logradouro',
+                      ds_endereco: 'Rua',
+                      nr_endereco: 'Número',
+                      ds_bairro: 'Bairro',
+                      ds_complemento: 'Complemento',
+                      nr_cbo: 'CBO',
+                      ds_imagem: 'Descrição',
+                      ie_arquivo: 'Arquivo',
+                      nr_seq_vinculo_contratual: 'Vínculo contratual',
+                      ie_fornecedor: 'Fornecedor',
+                      ie_prestador_servico: 'Prestador de serviço',
 
                       ds_razao_social: 'Razão social',
                       ds_nome_fantasia: 'Nome fantasia',
@@ -12242,6 +12299,7 @@ export default function Home() {
                       ie_campo: 'Campo',
                       ds_elemento: 'Descrição',
                       ie_tipo_elemento: 'Tipo',
+                      ie_primeira_pagina: 'Primeira página',
                       conteudo: 'Conteúdo',
                       label: 'Label',
                       backgroundLabel: 'Background label',
@@ -12320,6 +12378,47 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
+                      // Referências (nr_seq_*) exibidas pela descrição do registro vinculado.
+                      const seq = Number(normalized);
+                      const descricaoPorSeq: Record<string, () => string | undefined> = {
+                        nr_seq_sexo: () => pfCgLookups.nr_seq_sexo[seq],
+                        nr_seq_estado_civil: () => pfCgLookups.nr_seq_estado_civil[seq],
+                        nr_seq_cor_raca: () => pfCgLookups.nr_seq_cor_raca[seq],
+                        nr_seq_profissao: () => pfCgLookups.nr_seq_profissao[seq],
+                        nr_seq_orgao_emissor: () => pfCgLookups.nr_seq_orgao_emissor[seq],
+                        nr_seq_logradouro: () => pfCgLookups.nr_seq_logradouro[seq],
+                        nr_seq_pessoa_fisica: () => pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome,
+                        nr_seq_pessoa_juridica: () => pessoasJuridicas.find((p) => p.nr_sequencia === seq)?.ds_razao_social,
+                        nr_seq_vinculo_contratual: () => vinculosContratuais.find((v) => v.nr_sequencia === seq)?.ds_vinculo_contratual,
+                        nr_seq_categoria: () => categoriasAtivos.find((c) => c.nr_sequencia === seq)?.ds_categoria,
+                        nr_seq_localizacao: () => localizacoes.find((l) => l.nr_sequencia === seq)?.ds_localizacao,
+                        nr_seq_marca: () => marcas.find((m) => m.nr_sequencia === seq)?.ds_marca,
+                        nr_seq_sistema_operacional: () => sistemasOperacionais.find((s) => s.nr_sequencia === seq)?.ds_sistema_operacional,
+                        nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
+                        nr_seq_prestador_servico: () => {
+                          // O campo guarda a sequência do colaborador (prestador).
+                          const col = colaboradores.find((c) => c.nr_sequencia === seq);
+                          if (col?.nr_seq_pessoa_juridica) {
+                            const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
+                            if (pj) return pj.ds_razao_social;
+                          }
+                          if (col) return pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica)?.ds_nome;
+                          return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome;
+                        },
+                      };
+                      if (descricaoPorSeq[field] && !Array.isArray(normalized)) {
+                        const descricao = Number.isFinite(seq) ? descricaoPorSeq[field]() : undefined;
+                        return descricao ? `${seq} - ${descricao}` : String(normalized);
+                      }
+                      if (field === 'ie_fornecedor' || field === 'ie_prestador_servico') {
+                        return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : String(normalized);
+                      }
+                      if (field === 'ie_status_manutencao') {
+                        return MANUTENCAO_STATUS_OPTIONS.find((o) => o.value === String(normalized))?.label ?? String(normalized);
+                      }
+                      if (field === 'ie_status' && isAtivo) {
+                        return ATIVO_STATUS_OPTIONS.find((o) => o.value === String(normalized))?.label ?? String(normalized);
+                      }
                       if (field === 'ie_status') {
                         if (isColaborador) return formatColaboradorCellValue('ie_status', normalized);
                         return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
@@ -12349,14 +12448,14 @@ export default function Home() {
                       if (field === 'ie_colecao_principal' || field === 'ie_colecao') {
                         return String(normalized) === '' ? '---' : String(normalized);
                       }
-                      if (field === 'ie_parametro' || field === 'ie_obrigatorio' || field === 'transparentCampo' || field === 'soma' || field === 'statusSistema') {
+                      if (field === 'ie_parametro' || field === 'ie_obrigatorio' || field === 'transparentCampo' || field === 'soma' || field === 'statusSistema' || field === 'ie_primeira_pagina') {
                         const s = String(normalized);
                         if (s === 'true') return 'Sim';
                         if (s === 'false') return 'Não';
                         return s === 'S' ? 'Sim' : s === 'N' ? 'Não' : '---';
                       }
                       if (field === 'ie_tipo_elemento') {
-                        const map: Record<string, string> = { 'valor': 'Valor', 'conteudo': 'Conteúdo', 'data_geracao': 'Data de geração', 'horario_geracao': 'Horário de geração', 'data_horario_geracao': 'Data e horário de geração', 'usuario_geracao': 'Usuário da geração', 'imagem': 'Imagem' };
+                        const map: Record<string, string> = { 'valor': 'Valor', 'conteudo': 'Conteúdo', 'data_geracao': 'Data de geração', 'horario_geracao': 'Horário de geração', 'data_horario_geracao': 'Data e horário de geração', 'usuario_geracao': 'Usuário da geração', 'imagem': 'Imagem', 'numero_pagina': 'Número da página' };
                         return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
                       }
                       if (field === 'ie_alinhamento') {
@@ -12889,43 +12988,56 @@ export default function Home() {
                         <span>{rotuloParametro}</span>
                       </span>
                     </label>
-                    <input
-                      type="text"
-                      inputMode={filtro.ie_mascara === 'decimal' ? 'decimal' : filtro.ie_mascara === 'inteiro' || filtro.ie_mascara === 'data' || filtro.ie_mascara === 'cpf' || filtro.ie_mascara === 'telefone' ? 'numeric' : undefined}
-                      maxLength={filtro.ie_mascara === 'data' ? 10 : filtro.ie_mascara === 'cpf' ? 14 : filtro.ie_mascara === 'telefone' ? 15 : undefined}
-                      placeholder={filtro.ie_mascara === 'data' ? 'DD/MM/AAAA' : filtro.ie_mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.ie_mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
-                      value={relatorioParamValues[filtro.id] ?? ''}
-                      onChange={(e) => {
-                        setParamGerarFaltantes((prev) => prev.filter((id) => id !== filtro.id));
-                        let val = e.target.value;
-                        if (filtro.ie_mascara === 'data') {
-                          const digits = val.replace(/\D/g, '').slice(0, 8);
-                          if (digits.length <= 2) val = digits;
-                          else if (digits.length <= 4) val = digits.slice(0, 2) + '/' + digits.slice(2);
-                          else val = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
-                        } else if (filtro.ie_mascara === 'inteiro') {
-                          val = val.replace(/\D/g, '');
-                        } else if (filtro.ie_mascara === 'decimal') {
-                          const digits = val.replace(/\D/g, '');
-                          if (digits) val = (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                          else val = '';
-                        } else if (filtro.ie_mascara === 'cpf') {
-                          const digits = val.replace(/\D/g, '').slice(0, 11);
-                          if (digits.length <= 3) val = digits;
-                          else if (digits.length <= 6) val = digits.slice(0, 3) + '.' + digits.slice(3);
-                          else if (digits.length <= 9) val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6);
-                          else val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6, 9) + '-' + digits.slice(9);
-                        } else if (filtro.ie_mascara === 'telefone') {
-                          const digits = val.replace(/\D/g, '').slice(0, 11);
-                          if (digits.length <= 2) val = digits;
-                          else if (digits.length <= 6) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2);
-                          else if (digits.length <= 10) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 6) + '-' + digits.slice(6);
-                          else val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 7) + '-' + digits.slice(7);
-                        }
-                        setRelatorioParamValues((prev) => ({ ...prev, [filtro.id]: val }));
-                      }}
-                      className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${paramGerarFaltantes.includes(filtro.id) ? 'border-red-500' : 'border-slate-300'}`}
-                    />
+                    {(() => {
+                      const renderInput = (chave: string, ariaLabel: string) => (
+                        <input
+                          type="text"
+                          aria-label={ariaLabel}
+                          inputMode={filtro.ie_mascara === 'decimal' ? 'decimal' : filtro.ie_mascara === 'inteiro' || filtro.ie_mascara === 'data' || filtro.ie_mascara === 'cpf' || filtro.ie_mascara === 'telefone' ? 'numeric' : undefined}
+                          maxLength={filtro.ie_mascara === 'data' ? 10 : filtro.ie_mascara === 'cpf' ? 14 : filtro.ie_mascara === 'telefone' ? 15 : undefined}
+                          placeholder={filtro.ie_mascara === 'data' ? 'DD/MM/AAAA' : filtro.ie_mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.ie_mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
+                          value={relatorioParamValues[chave] ?? ''}
+                          onChange={(e) => {
+                            setParamGerarFaltantes((prev) => prev.filter((id) => id !== filtro.id));
+                            let val = e.target.value;
+                            if (filtro.ie_mascara === 'data') {
+                              const digits = val.replace(/\D/g, '').slice(0, 8);
+                              if (digits.length <= 2) val = digits;
+                              else if (digits.length <= 4) val = digits.slice(0, 2) + '/' + digits.slice(2);
+                              else val = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
+                            } else if (filtro.ie_mascara === 'inteiro') {
+                              val = val.replace(/\D/g, '');
+                            } else if (filtro.ie_mascara === 'decimal') {
+                              const digits = val.replace(/\D/g, '');
+                              if (digits) val = (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+                              else val = '';
+                            } else if (filtro.ie_mascara === 'cpf') {
+                              const digits = val.replace(/\D/g, '').slice(0, 11);
+                              if (digits.length <= 3) val = digits;
+                              else if (digits.length <= 6) val = digits.slice(0, 3) + '.' + digits.slice(3);
+                              else if (digits.length <= 9) val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6);
+                              else val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6, 9) + '-' + digits.slice(9);
+                            } else if (filtro.ie_mascara === 'telefone') {
+                              const digits = val.replace(/\D/g, '').slice(0, 11);
+                              if (digits.length <= 2) val = digits;
+                              else if (digits.length <= 6) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2);
+                              else if (digits.length <= 10) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 6) + '-' + digits.slice(6);
+                              else val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 7) + '-' + digits.slice(7);
+                            }
+                            setRelatorioParamValues((prev) => ({ ...prev, [chave]: val }));
+                          }}
+                          className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${paramGerarFaltantes.includes(filtro.id) ? 'border-red-500' : 'border-slate-300'}`}
+                        />
+                      );
+                      if (filtro.operador !== 'entre') return renderInput(filtro.id, rotuloParametro);
+                      // "Entre": valor inicial e final (qualquer um pode ficar vazio = intervalo aberto).
+                      return (
+                        <div className="grid grid-cols-2 gap-2">
+                          {renderInput(filtro.id, `${rotuloParametro} (de)`)}
+                          {renderInput(`${filtro.id}__fim`, `${rotuloParametro} (até)`)}
+                        </div>
+                      );
+                    })()}
                   </div>
                 );
               })}
@@ -12953,7 +13065,7 @@ export default function Home() {
         </div>
       )}
 
-      {(gerandoCodigoPatrimonio || parametrosSaving) && <LoadingModal open message="Carregando..." />}
+      {(gerandoCodigoPatrimonio || parametrosSaving || relatorioGerando) && <LoadingModal open message="Carregando..." />}
 
       {toastMounted && (
         <Toast

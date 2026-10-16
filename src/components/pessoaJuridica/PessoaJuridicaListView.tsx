@@ -5,7 +5,7 @@ import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "re
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import { PJ_COLUMNS, formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
-import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, ajustarColunasConfig, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
@@ -52,11 +52,12 @@ export default function PessoaJuridicaListView({
   columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const savedColumns = ajustarColunasConfig(initialColumns, PJ_COLUMNS.length);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, PJ_COLUMNS.length)
-      ? [...initialColumns.order]
+    savedColumns && isValidOrder(savedColumns.order, PJ_COLUMNS.length)
+      ? [...savedColumns.order]
       : Array.from({ length: PJ_COLUMNS.length }, (_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -68,8 +69,8 @@ export default function PessoaJuridicaListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === PJ_COLUMNS.length
-      ? [...initialColumns.widths]
+    savedColumns?.widths && savedColumns.widths.length === PJ_COLUMNS.length
+      ? [...savedColumns.widths]
       : []
   );
 

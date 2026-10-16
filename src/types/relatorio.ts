@@ -160,7 +160,9 @@ export interface RelatorioCampo {
   /** Descrição do elemento. */
   ds_elemento?: string;
   /** Tipo do campo na banda Texto/Valor: 'valor' ou 'conteudo'. */
-  ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
+  ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem' | 'numero_pagina';
+  /** Número da página: se true, aparece também na primeira página (senão, da página 2 em diante). */
+  ie_primeira_pagina?: boolean;
   /** Conteúdo livre quando ie_tipo_elemento === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
@@ -276,6 +278,8 @@ export interface RelatorioBanda {
   tamanhoFonteCampo?: number;
   /** Campos da lista (apenas para tipo 'lista'). */
   campos?: RelatorioCampo[];
+  /** Ordenação dos registros da banda (apenas para tipo 'lista'). */
+  ordenacao?: RelatorioOrdenacao[];
   /** Data de criação da banda. */
   dt_criacao?: string;
   /** Data da última alteração da banda. */

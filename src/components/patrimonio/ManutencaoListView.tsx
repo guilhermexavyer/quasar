@@ -5,7 +5,7 @@ import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "re
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Manutencao } from "@/types/manutencao";
 import { MANUTENCAO_COLUMNS as COLUMNS, formatCellValue } from "@/lib/manutencaoUtils";
-import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, ajustarColunasConfig, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
@@ -54,11 +54,12 @@ export default function ManutencaoListView({
   columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const savedColumns = ajustarColunasConfig(initialColumns, COLUMNS.length);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, COLUMNS.length)
-      ? [...initialColumns.order]
+    savedColumns && isValidOrder(savedColumns.order, COLUMNS.length)
+      ? [...savedColumns.order]
       : Array.from({ length: COLUMNS.length }, (_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -70,8 +71,8 @@ export default function ManutencaoListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === COLUMNS.length
-      ? [...initialColumns.widths]
+    savedColumns?.widths && savedColumns.widths.length === COLUMNS.length
+      ? [...savedColumns.widths]
       : []
   );
 

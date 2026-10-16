@@ -106,12 +106,13 @@ export async function atualizarImagem(
   // Registrar auditoria de alteração
   try {
     const auditCol = collection(db, COLLECTION, id, "auditoria");
+    // Estado completo após a alteração em `detalhes`, como nas demais
+    // coleções: o modal "Detalhe da auditoria" compara com o log anterior.
     await addDoc(auditCol, {
       usuarioNome: usuario || "-",
       acao: "update",
       timestamp: now,
-      antes,
-      depois: { ...antes, ...atualizacoes },
+      detalhes: { ...antes, ...atualizacoes },
     });
   } catch (e) {
     console.error("Erro ao registrar auditoria de atualização de imagem", e);

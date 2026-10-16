@@ -292,7 +292,8 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
   }
 
   const sortedPessoasJuridicas = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return pessoasJuridicas;
+    // Ordem padrão: coluna # (nr_sequencia).
+    if (sortColumn === null || sortAsc === null) return [...pessoasJuridicas].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     const key = lookupColumns[sortColumn].key;
     return [...pessoasJuridicas].sort((a, b) => {
       const valA = a[key];

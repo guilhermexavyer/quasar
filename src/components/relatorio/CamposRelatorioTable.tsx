@@ -18,6 +18,8 @@ interface CamposRelatorioTableProps {
   colecaoPrincipal: string;
   /** Callback quando o estado de edição muda. */
   onEditingChange?: (editing: boolean) => void;
+  /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
+  onRowCommit?: (row: CamposRelatorioRow) => void;
   /** Sufixo para persistência de colunas por usuário. */
   userId?: string;
   /** Configuração inicial de colunas (do Firestore). */
@@ -87,7 +89,9 @@ export interface CamposRelatorioRow {
   statusSistema?: boolean;
   soma?: boolean;
   /** Tipo do campo na banda Texto/Valor/Cabeçalho/Rodapé. */
-  ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem';
+  ie_tipo_elemento?: 'valor' | 'conteudo' | 'data_geracao' | 'horario_geracao' | 'data_horario_geracao' | 'usuario_geracao' | 'imagem' | 'numero_pagina';
+  /** Número da página: se true, aparece também na primeira página (senão, da página 2 em diante). */
+  ie_primeira_pagina?: boolean;
   /** Conteúdo livre quando ie_tipo_elemento === 'conteudo'. */
   conteudo?: string;
   /** Fonte específica do campo (para banda Texto/Valor). */
@@ -155,6 +159,7 @@ export default function CamposRelatorioTable({
   camposDisponiveis,
   colecaoPrincipal,
   onEditingChange,
+  onRowCommit,
   userId,
   initialColumns,
   onColumnsChange,
@@ -174,6 +179,17 @@ export default function CamposRelatorioTable({
   useEffect(() => {
     onEditingChange?.(editingId !== null);
   }, [editingId, onEditingChange]);
+
+  // Ao terminar a edição de uma linha (lápis/Enter/Ctrl+S), avisa o pai para gravá-la.
+  const prevEditingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const anterior = prevEditingIdRef.current;
+    prevEditingIdRef.current = editingId;
+    if (anterior && anterior !== editingId) {
+      const linha = campos.find((r) => r.id === anterior);
+      if (linha) onRowCommit?.(linha as CamposRelatorioRow);
+    }
+  }, [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number; id: string } | null>(null);
   useEffect(() => {
     if (!contextMenu) return;
@@ -291,7 +307,8 @@ export default function CamposRelatorioTable({
   }
 
   const sortedCampos = [...campos].sort((a, b) => {
-    if (!sortColumn) return 0;
+    // Ordem padrão: coluna # (registros ainda não salvos, sem sequência, no fim).
+    if (!sortColumn) return (a.nr_sequencia ?? Number.MAX_SAFE_INTEGER) - (b.nr_sequencia ?? Number.MAX_SAFE_INTEGER);
     const av = a[sortColumn as keyof CamposRelatorioRow] ?? '';
     const bv = b[sortColumn as keyof CamposRelatorioRow] ?? '';
     const cmp = String(av).localeCompare(String(bv), 'pt-BR', { numeric: true });
@@ -465,15 +482,15 @@ export default function CamposRelatorioTable({
               value={isLista ? 'valor' : (row.ie_tipo_elemento ?? '')}
               onChange={(v) => atualizar(row.id, { ie_tipo_elemento: (v || undefined) as CamposRelatorioRow['ie_tipo_elemento'] })}
               options={ocultarColecaoCampo
-                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]
-                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'imagem', label: 'Imagem' }]}
+                ? [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'numero_pagina', label: 'Número da página' }, { value: 'imagem', label: 'Imagem' }]
+                : [{ value: 'valor', label: 'Valor' }, { value: 'conteudo', label: 'Conteúdo' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'numero_pagina', label: 'Número da página' }, { value: 'imagem', label: 'Imagem' }]}
               showPlaceholder={true}
               className={`${inputClass} ${isLista ? 'opacity-50 cursor-not-allowed' : ''}`}
               disabled={isLista}
             />
           );
         }
-        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração', imagem: 'Imagem' };
+        const tipoLabels: Record<string, string> = { valor: 'Valor', conteudo: 'Conteúdo', data_geracao: 'Data da geração', horario_geracao: 'Horário da geração', data_horario_geracao: 'Data + horário da geração', usuario_geracao: 'Usuário da geração', imagem: 'Imagem', numero_pagina: 'Número da página' };
         const lbl = tipoLabels[row.ie_tipo_elemento ?? ''] ?? '';
         return <span className="whitespace-nowrap">{lbl}</span>;
       },

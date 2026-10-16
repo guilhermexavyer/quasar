@@ -414,9 +414,9 @@ export default function ColaboradorFormView({
                 />
               </div>
 
-              <div className="sm:col-span-12 group">
+              <div className="sm:col-span-12">
                 <div className="flex gap-8">
-                  <div>
+                  <div className="group">
                     {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                       <input
@@ -429,7 +429,7 @@ export default function ColaboradorFormView({
                       <span>Sim</span>
                     </label>
                   </div>
-                  <div>
+                  <div className="group">
                     {renderFieldLabel('ie_prestador_servico', 'Prestador de serviço')}
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                       <input

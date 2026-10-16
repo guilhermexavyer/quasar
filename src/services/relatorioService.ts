@@ -9,7 +9,7 @@ import {
   runTransaction,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined, montarUpdateComRemocoes } from "@/lib/firestoreUtils";
+import { removerUndefined, removerUndefinedProfundo, montarUpdateComRemocoes } from "@/lib/firestoreUtils";
 import type { Relatorio } from "@/types/relatorio";
 import type { AuditAutor } from "@/services/auditService";
 
@@ -165,4 +165,68 @@ export async function salvarBandaAuditoria(
   } catch (e) {
     console.error("Erro ao registrar auditoria de banda", e);
   }
+}
+
+/** Remove identificação e auditoria de um registro, para recriá-lo como cópia. */
+function semIdentificacao(registro: Record<string, unknown>): Record<string, unknown> {
+  const { id: _id, _firestoreId: _fs, nr_sequencia: _seq, dt_criacao: _dc, dt_alteracao: _da, ds_usuario_criacao: _uc, ds_usuario_alteracao: _ua, ...resto } = registro;
+  return resto;
+}
+
+/**
+ * Duplica um relatório com tudo o que pertence a ele: bandas (com ordenação),
+ * elementos das bandas e parâmetros. Esses registros ficam em coleções
+ * próprias, ligadas pelo nr_sequencia do relatório — copiar só o documento
+ * do relatório gerava uma cópia sem bandas nem parâmetros.
+ */
+export async function duplicarRelatorio(relatorioId: string, autor?: AuditAutor): Promise<string> {
+  const snap = await getDoc(doc(db, "relatorio", relatorioId));
+  if (!snap.exists()) throw new Error("Relatório não encontrado.");
+  const original = snap.data() as Record<string, unknown>;
+  const seqOrigem = original.nr_sequencia;
+  const { bandas: bandasEmbutidas, filtros: filtrosEmbutidos, ...dadosRelatorio } = semIdentificacao(original);
+
+  const { obterBandasPorRelatorio, obterElementosPorBandaSeq, criarBanda, criarElemento } = await import("@/services/relatorioServiceBandas");
+  const { obterParametrosPorRelatorio, criarParametro } = await import("@/services/relatorioServiceParametros");
+  const bandasOrigem = seqOrigem != null ? await obterBandasPorRelatorio(Number(seqOrigem)) : [];
+  const parametrosOrigem = seqOrigem != null ? await obterParametrosPorRelatorio(Number(seqOrigem)) : [];
+
+  const novoId = await criarRelatorio(
+    { ...dadosRelatorio, ds_relatorio: `${dadosRelatorio.ds_relatorio ?? ''} (Cópia)` } as Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
+    autor
+  );
+  const novaSeq = (await getDoc(doc(db, "relatorio", novoId))).data()?.nr_sequencia;
+
+  // Bandas e seus elementos
+  const bandasNovas: Record<string, unknown>[] = [];
+  for (const banda of bandasOrigem) {
+    const elementos = banda.nr_sequencia != null ? await obterElementosPorBandaSeq(Number(banda.nr_sequencia)) : [];
+    const { campos: _campos, ...dadosBanda } = semIdentificacao(banda);
+    const novaBanda = await criarBanda(removerUndefinedProfundo({ ...dadosBanda, nr_seq_relatorio: novaSeq }), autor);
+    const camposNovos: Record<string, unknown>[] = [];
+    for (const elemento of elementos) {
+      const dadosElemento = { ...semIdentificacao(elemento), nr_seq_banda: novaBanda.nr_sequencia, nr_seq_relatorio: novaSeq };
+      const novo = await criarElemento(dadosElemento, autor);
+      camposNovos.push({ ...dadosElemento, id: novo.id, _firestoreId: novo.id, nr_sequencia: novo.nr_sequencia, dt_criacao: novo.dt_criacao, dt_alteracao: novo.dt_alteracao, ds_usuario_criacao: novo.ds_usuario_criacao, ds_usuario_alteracao: novo.ds_usuario_alteracao });
+    }
+    // Cópia embutida dos elementos na banda (mesmo formato do salvamento da banda)
+    await updateDoc(doc(db, "relatorio_banda", novaBanda.id), { campos: removerUndefinedProfundo(camposNovos) });
+    bandasNovas.push({ ...dadosBanda, nr_seq_relatorio: novaSeq, id: novaBanda.id, _firestoreId: novaBanda.id, nr_sequencia: novaBanda.nr_sequencia, dt_criacao: novaBanda.dt_criacao, dt_alteracao: novaBanda.dt_alteracao, ds_usuario_criacao: novaBanda.ds_usuario_criacao, ds_usuario_alteracao: novaBanda.ds_usuario_alteracao, campos: camposNovos });
+  }
+
+  // Parâmetros
+  const filtrosNovos: Record<string, unknown>[] = [];
+  for (const parametro of parametrosOrigem) {
+    const dadosParametro = { ...semIdentificacao(parametro), nr_seq_relatorio: novaSeq };
+    const novo = await criarParametro(dadosParametro, autor);
+    filtrosNovos.push({ ...dadosParametro, id: novo.id, _firestoreId: novo.id, nr_sequencia: novo.nr_sequencia, dt_criacao: novo.dt_criacao, dt_alteracao: novo.dt_alteracao, ds_usuario_criacao: novo.ds_usuario_criacao, ds_usuario_alteracao: novo.ds_usuario_alteracao });
+  }
+
+  // Cópias embutidas no relatório (retrocompatibilidade). Relatórios antigos,
+  // sem registros nas coleções, mantêm as cópias embutidas originais.
+  await updateDoc(doc(db, "relatorio", novoId), removerUndefinedProfundo({
+    bandas: bandasOrigem.length > 0 ? bandasNovas : (bandasEmbutidas ?? []),
+    filtros: parametrosOrigem.length > 0 ? filtrosNovos : (filtrosEmbutidos ?? []),
+  }));
+  return novoId;
 }

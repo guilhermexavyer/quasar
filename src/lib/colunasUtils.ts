@@ -31,6 +31,20 @@ export function isValidOrder(order: number[], length: number): boolean {
   return true;
 }
 
+/**
+ * Adapta a configuração salva quando a tabela ganhou colunas novas no fim
+ * (ex.: colunas de auditoria): as colunas novas entram no final da ordem
+ * salva, com largura automática (0), preservando a personalização do usuário.
+ */
+export function ajustarColunasConfig(config: ColunasConfig | null | undefined, length: number): ColunasConfig | null {
+  if (!config) return null;
+  const antigo = config.order.length;
+  if (antigo >= length || !isValidOrder(config.order, antigo)) return config;
+  const novas = Array.from({ length: length - antigo }, (_, i) => antigo + i);
+  const widths = config.widths.length === antigo ? [...config.widths, ...novas.map(() => 0)] : [];
+  return { order: [...config.order, ...novas], widths };
+}
+
 /* ── String-key helpers (para ResizableTable com chaves de coluna) ── */
 
 export interface StringColunasConfig {

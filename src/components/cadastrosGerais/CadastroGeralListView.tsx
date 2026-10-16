@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
-import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, ajustarColunasConfig, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
@@ -56,11 +56,12 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   onColumnsChange,
 }: ListViewProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const savedColumns = ajustarColunasConfig(initialColumns, columns.length);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, columns.length)
-      ? [...initialColumns.order]
+    savedColumns && isValidOrder(savedColumns.order, columns.length)
+      ? [...savedColumns.order]
       : columns.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -72,8 +73,8 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === columns.length
-      ? [...initialColumns.widths]
+    savedColumns?.widths && savedColumns.widths.length === columns.length
+      ? [...savedColumns.widths]
       : []
   );
 

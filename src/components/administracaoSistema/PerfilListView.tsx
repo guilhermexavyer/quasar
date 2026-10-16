@@ -5,7 +5,7 @@ import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "re
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Perfil } from "@/types/perfil";
 import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
-import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, ajustarColunasConfig, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
@@ -46,11 +46,12 @@ export default function PerfilListView({
   onColumnsChange,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const savedColumns = ajustarColunasConfig(initialColumns, PERFIL_COLUMNS.length);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, PERFIL_COLUMNS.length)
-      ? [...initialColumns.order]
+    savedColumns && isValidOrder(savedColumns.order, PERFIL_COLUMNS.length)
+      ? [...savedColumns.order]
       : PERFIL_COLUMNS.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -62,8 +63,8 @@ export default function PerfilListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === PERFIL_COLUMNS.length
-      ? [...initialColumns.widths]
+    savedColumns?.widths && savedColumns.widths.length === PERFIL_COLUMNS.length
+      ? [...savedColumns.widths]
       : []
   );
 

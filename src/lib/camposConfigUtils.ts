@@ -38,6 +38,37 @@ export function serializeCamposConfig(config: CamposConfig): string {
   return JSON.stringify(config);
 }
 
+/** Última alteração de status de cada campo (perfil.config_campos_alteracao). */
+export interface CampoAlteracao {
+  dt_alteracao: string;
+  /** ds_usuario de quem alterou. */
+  ds_usuario_alteracao: string;
+}
+
+export type CamposAlteracao = Record<string, CampoAlteracao>;
+
+export function parseCamposAlteracao(raw?: string | null): CamposAlteracao {
+  if (!raw) return {};
+  try {
+    const parsed = JSON.parse(raw) as unknown;
+    if (typeof parsed !== "object" || parsed === null || Array.isArray(parsed)) return {};
+    const out: CamposAlteracao = {};
+    for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
+      if (value && typeof value === "object") {
+        const v = value as Partial<CampoAlteracao>;
+        out[key] = { dt_alteracao: String(v.dt_alteracao ?? ""), ds_usuario_alteracao: String(v.ds_usuario_alteracao ?? "") };
+      }
+    }
+    return out;
+  } catch {
+    return {};
+  }
+}
+
+export function serializeCamposAlteracao(alteracoes: CamposAlteracao): string {
+  return JSON.stringify(alteracoes);
+}
+
 export function campoKey(colecao: string, campo: string): string {
   return `${colecao}.${campo}`;
 }
@@ -247,6 +278,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_parametro.operador", label: "Operador", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ie_mascara", label: "Máscara", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.vl_padrao", label: "Valor padrão", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
+    { key: "relatorio_parametro.valorFinal", label: "Valor final", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ie_conector", label: "Conector", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ie_parametro", label: "Parâmetro", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ds_label", label: "Label", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
@@ -256,6 +288,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda_elemento.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ds_elemento", label: "Descrição", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_tipo_elemento", label: "Tipo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.ie_primeira_pagina", label: "Primeira página", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_colecao", label: "Coleção", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_campo", label: "Campo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.label", label: "Label", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },

@@ -11,7 +11,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "@/lib/firebase";
-import { removerUndefined, temAlteracoes } from "@/lib/firestoreUtils";
+import { removerUndefined, removerUndefinedProfundo, temAlteracoes } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 /* ═══════════════════════════════════════════════ */
@@ -283,6 +283,38 @@ export async function atualizarElemento(
 /** Exclui um elemento. */
 export async function excluirElemento(id: string): Promise<void> {
   await deleteDoc(doc(db, "relatorio_banda_elemento", id));
+}
+
+/**
+ * Exclui um elemento e o remove das cópias embutidas (relatorio_banda.campos e
+ * relatorio.bandas[].campos). Sem isso, ao excluir o último elemento de uma
+ * banda, a cópia embutida (usada como fallback quando a coleção vem vazia)
+ * fazia o elemento reaparecer ao reabrir a banda e no PDF.
+ */
+export async function excluirElementoComCopias(id: string, relatorioDocId?: string | null): Promise<void> {
+  const elSnap = await getDoc(doc(db, "relatorio_banda_elemento", id));
+  const nrSeqBanda = elSnap.exists() ? elSnap.data().nr_seq_banda : undefined;
+  await excluirElemento(id);
+  type Embutido = { id?: string; _firestoreId?: string };
+  const semElemento = (campos: Embutido[] | undefined) =>
+    (campos ?? []).filter((c) => c?.id !== id && c?._firestoreId !== id);
+  if (nrSeqBanda !== undefined && nrSeqBanda !== null) {
+    const bandasSnap = await getDocs(query(bandaColecao, where("nr_sequencia", "==", nrSeqBanda)));
+    for (const b of bandasSnap.docs) {
+      const campos = b.data().campos;
+      if (Array.isArray(campos) && campos.length !== semElemento(campos).length) {
+        await updateDoc(b.ref, { campos: removerUndefinedProfundo(semElemento(campos)) });
+      }
+    }
+  }
+  if (relatorioDocId) {
+    const relRef = doc(db, "relatorio", relatorioDocId);
+    const relSnap = await getDoc(relRef);
+    const bandas = relSnap.exists() ? relSnap.data().bandas : undefined;
+    if (Array.isArray(bandas)) {
+      await updateDoc(relRef, { bandas: removerUndefinedProfundo(bandas.map((b: { campos?: Embutido[] }) => ({ ...b, campos: semElemento(b?.campos) }))) });
+    }
+  }
 }
 
 /** Salva todos os elementos de uma banda (sync: cria, atualiza, exclui). */
