@@ -300,7 +300,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.9";
+const SYSTEM_VERSION = "0.66.10";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -3318,7 +3318,14 @@ export default function Home() {
     config[chave] = status;
     // Registra quando e quem alterou o status do campo (colunas Alteração/Usuário alteração).
     const alteracoes = parseCamposAlteracao(perfil.config_campos_alteracao);
-    alteracoes[chave] = { dt_alteracao: new Date().toISOString(), ds_usuario_alteracao: auditAutor?.usuarioNome ?? '-' };
+    const agoraCampo = new Date().toISOString();
+    const autorCampo = auditAutor?.usuarioNome ?? '-';
+    alteracoes[chave] = {
+      dt_criacao: alteracoes[chave]?.dt_criacao || agoraCampo,
+      ds_usuario_criacao: alteracoes[chave]?.ds_usuario_criacao || autorCampo,
+      dt_alteracao: agoraCampo,
+      ds_usuario_alteracao: autorCampo,
+    };
     try {
       await atualizarPerfil(
         perfil.id,
@@ -7594,6 +7601,34 @@ export default function Home() {
     }
   }
 
+  /* ── Configuração de colunas por usuário (ordem e larguras ajustadas) ── */
+  type ChaveColunas = Extract<keyof Usuario, `config_colunas_${string}`>;
+  function salvarConfigColunas(chave: ChaveColunas, serialized: string) {
+    if (!currentUser?.id) return;
+    atualizarPreferenciasUsuario(currentUser.id, { [chave]: serialized })
+      .then(() => {
+        setCurrentUser((u) => (u ? { ...u, [chave]: serialized } : u));
+      })
+      .catch((err) => {
+        console.error(`Erro ao salvar configuração de colunas (${chave})`, err);
+      });
+  }
+  /** Props de persistência para tabelas com colunas por índice (listas e janelas de busca). */
+  function colunasPorIndice(chave: ChaveColunas) {
+    return {
+      initialColumns: parseColunasConfig(currentUser?.[chave]),
+      onColumnsChange: (config: ColunasConfig) => salvarConfigColunas(chave, serializeColunasConfig(config.order, config.widths)),
+    };
+  }
+  /** Props de persistência para o ResizableTable (colunas por chave). */
+  function colunasPorChave(chave: ChaveColunas) {
+    return {
+      initialColumns: parseStringColunasConfig(currentUser?.[chave]),
+      onColumnsChange: (order: string[], widths: Record<string, number>) => salvarConfigColunas(chave, serializeStringColunasConfig(order, widths)),
+      storageKeySuffix: currentUser?.id ?? undefined,
+    };
+  }
+
   function handlePfColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
@@ -8508,7 +8543,7 @@ export default function Home() {
               )
             ) : activeSection === "administracaoSistema" ? (
             adminManageSelection === 'campos' ? (
-              <CamposView
+              <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                 perfis={perfis}
                 onChangeStatus={handleCamposStatusChange}
                 manageSelection={adminManageSelection}
@@ -8616,6 +8651,7 @@ export default function Home() {
                   sortColumn={colaboradorSortColumn}
                   sortAsc={colaboradorSortAsc}
                   onSortChange={handleColaboradorSortChange}
+                  {...colunasPorIndice('config_colunas_colaborador')}
                   columnLookups={{
                     nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
                     nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
@@ -8624,7 +8660,7 @@ export default function Home() {
               )
             ) : activeSection === "patrimonio" ? (
               ativoManageSelection === 'parametrosFuncao' ? (
-                <ParametrosDaFuncaoView
+                <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')}
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
@@ -8635,6 +8671,8 @@ export default function Home() {
                   updatedAt={parametrosAuditInfo.updatedAt}
                   createdBy={resolverNomeAutorExibicao(parametrosAuditInfo.createdBy)}
                   updatedBy={resolverNomeAutorExibicao(parametrosAuditInfo.updatedBy)}
+                  dsUsuarioCriacao={parametrosAuditInfo.createdBy}
+                  dsUsuarioAlteracao={parametrosAuditInfo.updatedBy}
                   onOpenAudit={openParametrosAuditModal}
                   auditHasDocument={parametrosHasDocument}
                   auditAutor={auditAutor}
@@ -8902,7 +8940,7 @@ export default function Home() {
               />
             )
           ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'campos' ? (
-                <CamposView
+                <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                   perfis={perfis}
                   onChangeStatus={handleCamposStatusChange}
                   manageSelection={adminManageSelection}
@@ -11289,7 +11327,7 @@ export default function Home() {
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {!enviarManutPrestLookupApplied || enviarManutFilteredPrestadores.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
-                ) : (                   <PrestadorLookupTable
+                ) : (                   <PrestadorLookupTable {...colunasPorIndice('config_colunas_lookup_prestador')}
                      prestadores={enviarManutFilteredPrestadores}
                      pessoasFisicas={pessoasFisicas}
                      pessoasJuridicas={pessoasJuridicas}
@@ -11356,7 +11394,7 @@ export default function Home() {
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {!manutencaoAtivoLookupApplied || manutencaoFilteredAtivos.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
-                ) : (                   <AtivoLookupTable
+                ) : (                   <AtivoLookupTable {...colunasPorIndice('config_colunas_lookup_ativo')}
                      ativos={manutencaoFilteredAtivos}
                      onSelect={handleManutencaoAtivoSelect}
                      categoriasAtivos={categoriasAtivos}
@@ -11446,7 +11484,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaFisicaLookupTable
+                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')}
                     pessoasFisicas={filteredLookupPessoasFisicas}
                     onSelect={handlePessoaFisicaSelect}
                   />
@@ -11534,7 +11572,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaFisicaLookupTable
+                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')}
                     pessoasFisicas={filteredAlunoLookupPessoasFisicas}
                     onSelect={handleAlunoPessoaFisicaSelect}
                   />
@@ -11622,7 +11660,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaJuridicaLookupTable
+                  <PessoaJuridicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_juridica')}
                     pessoasJuridicas={filteredColaboradorPjLookupPessoasJuridicas}
                     onSelect={handleColaboradorPessoaJuridicaSelect}
                   />
@@ -11721,7 +11759,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaFisicaLookupTable
+                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')}
                     pessoasFisicas={pessoasFisicas.filter((pessoa) => {
                       if (adminPessoaFisicaLookupFilter.nr_sequencia) {
                         if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
@@ -11822,7 +11860,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <CidadeLookupTable
+                  <CidadeLookupTable {...colunasPorIndice('config_colunas_lookup_cidade')}
                     cidades={cidadeResults}
                     onSelect={handleCidadeSelect}
                   />
@@ -11912,7 +11950,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <CidadeLookupTable
+                  <CidadeLookupTable {...colunasPorIndice('config_colunas_lookup_cidade')}
                     cidades={pjCidadeResults}
                     onSelect={handlePjCidadeSelect}
                   />

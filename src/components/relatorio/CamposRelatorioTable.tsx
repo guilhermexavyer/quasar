@@ -456,7 +456,6 @@ export default function CamposRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: CamposRelatorioRow) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {

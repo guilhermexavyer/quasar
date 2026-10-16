@@ -231,7 +231,6 @@ export default function OrdenacaoRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: RelatorioOrdenacao) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {

@@ -14,7 +14,11 @@ import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import ResizableTable from "@/components/ui/ResizableTable";
+import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
+
+/** Colunas ordenáveis do painel de perfis. */
+type PerfilSortKey = "nr_sequencia" | "ds_perfil" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao";
 
 const FUNCAO_LABELS: Record<string, string> = {
   pessoaFisica: "Cadastro de Pessoas",
@@ -54,6 +58,10 @@ interface CamposViewProps {
   /** Indica se uma função já foi selecionada pelo menos uma vez. */
   funcaoJaSelecionada?: boolean;
   onFuncaoJaSelecionadaChange?: (v: boolean) => void;
+  /** Ordem e largura das colunas salvas no usuário, por painel. */
+  colunasPerfil?: ConfigColunasTabela;
+  colunasFuncao?: ConfigColunasTabela;
+  colunasCampos?: ConfigColunasTabela;
 }
 
 export default function CamposView({
@@ -69,6 +77,9 @@ export default function CamposView({
   onSelectedFuncaoChange,
   funcaoJaSelecionada: funcaoJaSelecionadaProp,
   onFuncaoJaSelecionadaChange,
+  colunasPerfil,
+  colunasFuncao,
+  colunasCampos,
 }: CamposViewProps) {
   // Estado controlado pelo pai (persiste entre navegações dentro da mesma seção).
   // Fallback para estado local caso as props não sejam fornecidas.
@@ -82,7 +93,7 @@ export default function CamposView({
 
   // Ordenação em 3 estados (mesma lógica das tabelas de registro):
   // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).
-  const [perfilSortKey, setPerfilSortKey] = useState<"nr_sequencia" | "ds_perfil" | null>(null);
+  const [perfilSortKey, setPerfilSortKey] = useState<PerfilSortKey | null>(null);
   const [perfilSortAsc, setPerfilSortAsc] = useState<boolean | null>(null);
   const [funcaoSortKey, setFuncaoSortKey] = useState<string | null>(null);
   const [funcaoSortAsc, setFuncaoSortAsc] = useState<boolean | null>(null);
@@ -138,7 +149,7 @@ export default function CamposView({
     return [...(CAMPOS_POR_FUNCAO[funcaoAtiva] ?? [])];
   }, [funcaoAtiva]);
 
-  function togglePerfilSort(key: "nr_sequencia" | "ds_perfil") {
+  function togglePerfilSort(key: PerfilSortKey) {
     if (perfilSortKey === key) {
       if (perfilSortAsc) {
         setPerfilSortAsc(false);
@@ -213,6 +224,8 @@ export default function CamposView({
     const valorDe = (c: (typeof campos)[number], key: string): string => {
       if (key === "tipo") return c.tipo;
       if (key === "status") return getCampoStatusByKey(config, c.key);
+      if (key === "dt_criacao") return alteracoes[c.key]?.dt_criacao ?? "";
+      if (key === "ds_usuario_criacao") return alteracoes[c.key]?.ds_usuario_criacao ?? "";
       if (key === "dt_alteracao") return alteracoes[c.key]?.dt_alteracao ?? "";
       if (key === "ds_usuario_alteracao") return alteracoes[c.key]?.ds_usuario_alteracao ?? "";
       return c.label;
@@ -267,15 +280,20 @@ export default function CamposView({
           >
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable<Perfil>
+                {...colunasPerfil}
                 columns={[
                   { key: "nr_sequencia", label: "#", align: "center", render: (p) => p.nr_sequencia },
                   { key: "ds_perfil", label: "Perfil", render: (p) => p.ds_perfil },
+                  { key: "dt_criacao", label: "Criação", render: (p) => (p.dt_criacao ? formatDate(p.dt_criacao) : "") },
+                  { key: "dt_alteracao", label: "Alteração", render: (p) => (p.dt_alteracao ? formatDate(p.dt_alteracao) : "") },
+                  { key: "ds_usuario_criacao", label: "Usuário criação", render: (p) => p.ds_usuario_criacao ?? "" },
+                  { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (p) => p.ds_usuario_alteracao ?? "" },
                 ]}
                 rows={sortedPerfis}
                 rowKey={(p) => p.id ?? String(p.nr_sequencia)}
                 sortColumn={perfilSortKey}
                 sortAsc={perfilSortAsc ?? true}
-                onSortChange={(key) => togglePerfilSort(key as "nr_sequencia" | "ds_perfil")}
+                onSortChange={(key) => togglePerfilSort(key as PerfilSortKey)}
                 rowClassName={(p) => (p.id === selectedPerfilId ? "row-selected" : "")}
                 onRowClick={(p) => {
                   setSelectedPerfilId(p.id ?? null);
@@ -318,6 +336,7 @@ export default function CamposView({
             ) : (
               <div className="overflow-auto flex-1 min-h-0">
                 <ResizableTable<string>
+                  {...colunasFuncao}
                   columns={[
                     { key: "funcao", label: "Função", render: (f) => FUNCAO_LABELS[f] ?? f },
                   ]}
@@ -356,6 +375,7 @@ export default function CamposView({
             ) : (
               <div className="overflow-auto flex-1 min-h-0">
                 <ResizableTable<(typeof sortedCampos)[number]>
+                  {...colunasCampos}
                   columns={[
                     { key: "tipo", label: "Dropdown", render: (c) => c.tipo },
                     { key: "label", label: "Campo", render: (c) => c.label },
@@ -365,9 +385,19 @@ export default function CamposView({
                       render: (c) => CAMPO_STATUS_LABELS[getCampoStatusByKey(config, c.key)],
                     },
                     {
+                      key: "dt_criacao",
+                      label: "Criação",
+                      render: (c) => (alteracoes[c.key]?.dt_criacao ? formatDate(alteracoes[c.key].dt_criacao) : ""),
+                    },
+                    {
                       key: "dt_alteracao",
                       label: "Alteração",
                       render: (c) => (alteracoes[c.key]?.dt_alteracao ? formatDate(alteracoes[c.key].dt_alteracao) : ""),
+                    },
+                    {
+                      key: "ds_usuario_criacao",
+                      label: "Usuário criação",
+                      render: (c) => alteracoes[c.key]?.ds_usuario_criacao ?? "",
                     },
                     {
                       key: "ds_usuario_alteracao",

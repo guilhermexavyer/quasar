@@ -40,6 +40,10 @@ export function serializeCamposConfig(config: CamposConfig): string {
 
 /** Última alteração de status de cada campo (perfil.config_campos_alteracao). */
 export interface CampoAlteracao {
+  /** Primeira vez que o status do campo foi definido. */
+  dt_criacao: string;
+  /** ds_usuario de quem definiu o status pela primeira vez. */
+  ds_usuario_criacao: string;
   dt_alteracao: string;
   /** ds_usuario de quem alterou. */
   ds_usuario_alteracao: string;
@@ -56,7 +60,13 @@ export function parseCamposAlteracao(raw?: string | null): CamposAlteracao {
     for (const [key, value] of Object.entries(parsed as Record<string, unknown>)) {
       if (value && typeof value === "object") {
         const v = value as Partial<CampoAlteracao>;
-        out[key] = { dt_alteracao: String(v.dt_alteracao ?? ""), ds_usuario_alteracao: String(v.ds_usuario_alteracao ?? "") };
+        // Registros antigos não têm criação: usa a alteração (primeira registrada).
+        out[key] = {
+          dt_criacao: String(v.dt_criacao ?? v.dt_alteracao ?? ""),
+          ds_usuario_criacao: String(v.ds_usuario_criacao ?? v.ds_usuario_alteracao ?? ""),
+          dt_alteracao: String(v.dt_alteracao ?? ""),
+          ds_usuario_alteracao: String(v.ds_usuario_alteracao ?? ""),
+        };
       }
     }
     return out;

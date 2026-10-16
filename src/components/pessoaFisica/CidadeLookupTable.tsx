@@ -2,11 +2,15 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { isValidOrder, prepararColunasSalvas, type ColunasConfig } from "@/lib/colunasUtils";
 import type { Cidade } from "@/services/cidadeService";
 
 interface CidadeLookupTableProps {
   cidades: Cidade[];
   onSelect: (cidade: Cidade) => void;
+  /** Ordem e largura das colunas salvas no usuário (0 = largura automática). */
+  initialColumns?: ColunasConfig | null;
+  onColumnsChange?: (config: ColunasConfig) => void;
 }
 
 const COLS: { key: "id" | "nome" | "uf"; label: string; dataClass?: string }[] = [
@@ -15,11 +19,23 @@ const COLS: { key: "id" | "nome" | "uf"; label: string; dataClass?: string }[] =
   { key: "uf", label: "UF" },
 ];
 
-export default function CidadeLookupTable({ cidades, onSelect }: CidadeLookupTableProps) {
+export default function CidadeLookupTable({ cidades, onSelect, initialColumns, onColumnsChange }: CidadeLookupTableProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2]);
+  const savedColumns = prepararColunasSalvas(initialColumns, COLS);
+  const [columnOrder, setColumnOrder] = useState<number[]>(() =>
+    savedColumns && isValidOrder(savedColumns.order, COLS.length)
+      ? [...savedColumns.order]
+      : COLS.map((_, i) => i)
+  );
+  /** Larguras ajustadas pelo usuário, por coluna lógica (0 = automática). */
+  const currentWidthsRef = useRef<number[]>(
+    savedColumns && savedColumns.widths.length === COLS.length ? [...savedColumns.widths] : []
+  );
+  function largurasAjustadas(): number[] {
+    return Array.from({ length: COLS.length }, (_, i) => currentWidthsRef.current[i] || 0);
+  }
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
@@ -198,6 +214,7 @@ export default function CidadeLookupTable({ cidades, onSelect }: CidadeLookupTab
         const adjustedDrop = currentDropIdx > curPos ? currentDropIdx - 1 : currentDropIdx;
         newOrder.splice(adjustedDrop, 0, logicalIndex);
         setColumnOrder(newOrder);
+        onColumnsChange?.({ order: newOrder, widths: largurasAjustadas() });
       }
 
       setDragCol(null);
@@ -250,6 +267,11 @@ export default function CidadeLookupTable({ cidades, onSelect }: CidadeLookupTab
     const finalWidth = Math.max(minW, Math.ceil(maxWidth));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
+    // Duplo clique = largura automática (acompanha o conteúdo); salvo.
+    const larguras = largurasAjustadas();
+    larguras[logicalIdx] = 0;
+    currentWidthsRef.current = larguras;
+    onColumnsChange?.({ order: columnOrder, widths: larguras });
   }
 
   function handleResizeStart(logicalIdx: number, e: ReactMouseEvent<HTMLDivElement>) {
@@ -281,6 +303,10 @@ export default function CidadeLookupTable({ cidades, onSelect }: CidadeLookupTab
       document.body.style.userSelect = "";
       if (table) {
         setFrozenWidth(table.style.width);
+        const larguras = largurasAjustadas();
+        larguras[logicalIdx] = th.offsetWidth;
+        currentWidthsRef.current = larguras;
+        onColumnsChange?.({ order: columnOrder, widths: larguras });
       }
     }
 
@@ -329,7 +355,8 @@ export default function CidadeLookupTable({ cidades, onSelect }: CidadeLookupTab
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const contentW = measureColumnContentWidth(table, domIdx);
-      const finalWidth = Math.max(minW, contentW);
+      const savedW = currentWidthsRef.current[logicalIdx];
+      const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);
     });
 

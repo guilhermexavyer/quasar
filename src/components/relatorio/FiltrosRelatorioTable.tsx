@@ -397,7 +397,6 @@ export default function FiltrosRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: RelatorioFiltro) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {

@@ -266,7 +266,6 @@ export default function BandasRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: Banda) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {
