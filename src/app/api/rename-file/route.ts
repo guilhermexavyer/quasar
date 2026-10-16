@@ -4,8 +4,9 @@ import { readFile } from "fs/promises";
 import path from "path";
 import {
   EXTENSOES_IMAGEM,
-  IMAGENS_PREFIXO,
+  pastaImagens,
   ehUrlBlob,
+  blobDoAmbienteAtual,
   existeImagemNoBlob,
 } from "@/lib/blobImagens";
 
@@ -33,26 +34,34 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Caminho inválido" }, { status: 400 });
     }
 
-    // Verificar se o novo nome já existe
+    // Verificar se o novo nome já existe nesta base
     if (await existeImagemNoBlob(newFileName)) {
       return NextResponse.json({ error: "A imagem já existe." }, { status: 409 });
     }
 
-    const novoPathname = IMAGENS_PREFIXO + newFileName;
+    const novoPathname = pastaImagens() + newFileName;
 
-    if (ehUrlBlob(oldPath)) {
-      // Renomear dentro do Blob (sem reenviar o arquivo)
+    // Imagem desta base: renomeia dentro do Blob, sem reenviar o arquivo
+    if (ehUrlBlob(oldPath) && blobDoAmbienteAtual(oldPath)) {
       const resultado = await rename(oldPath, novoPathname, { access: "public" });
       return NextResponse.json({ path: resultado.url });
     }
 
-    // Imagem legada do repositório: copia para o Blob com o novo nome
-    const arquivoLocal = path.join(process.cwd(), "public", oldPath);
+    // Imagem de outra origem (legada do repositório ou de outra base): copia para
+    // a pasta desta base com o novo nome e não mexe no original.
     let conteudo: Buffer;
-    try {
-      conteudo = await readFile(arquivoLocal);
-    } catch {
-      return NextResponse.json({ error: "Arquivo original não encontrado" }, { status: 404 });
+    if (ehUrlBlob(oldPath)) {
+      const resposta = await fetch(oldPath);
+      if (!resposta.ok) {
+        return NextResponse.json({ error: "Arquivo original não encontrado" }, { status: 404 });
+      }
+      conteudo = Buffer.from(await resposta.arrayBuffer());
+    } else {
+      try {
+        conteudo = await readFile(path.join(process.cwd(), "public", oldPath));
+      } catch {
+        return NextResponse.json({ error: "Arquivo original não encontrado" }, { status: 404 });
+      }
     }
     const blob = await put(novoPathname, conteudo, {
       access: "public",
