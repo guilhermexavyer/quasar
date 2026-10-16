@@ -17,6 +17,10 @@ interface FiltrosRelatorioTableProps {
   onChange: (filtros: RelatorioFiltro[]) => void;
   camposDisponiveis: DataSourceCampo[];
   onEditingChange?: (editing: boolean) => void;
+  /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
+  onRowCommit?: (row: RelatorioFiltro) => void;
+  /** Duplica o parâmetro no Firestore e devolve a cópia salva. */
+  onDuplicateFiltro?: (original: RelatorioFiltro) => Promise<RelatorioFiltro | null>;
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
@@ -91,6 +95,8 @@ export default function FiltrosRelatorioTable({
   colecaoOptions = [],
   onViewFiltro,
   onDeleteFiltro,
+  onRowCommit,
+  onDuplicateFiltro,
 }: FiltrosRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -100,6 +106,17 @@ export default function FiltrosRelatorioTable({
 
   // Notificar o pai quando o estado de edição muda
   useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
+
+  // Ao terminar a edição de uma linha (lápis/Enter/Ctrl+S), avisa o pai para gravá-la.
+  const prevEditingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const anterior = prevEditingIdRef.current;
+    prevEditingIdRef.current = editingId;
+    if (anterior && anterior !== editingId) {
+      const linha = filtros.find((r) => r.id === anterior);
+      if (linha) onRowCommit?.(linha as RelatorioFiltro);
+    }
+  }, [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -126,7 +143,8 @@ export default function FiltrosRelatorioTable({
   }
 
   const sortedFiltros = useMemo(() => {
-    if (!sortColumn) return filtros;
+    // Ordem padrão: coluna # (registros ainda não salvos, sem sequência, no fim).
+    if (!sortColumn) return [...filtros].sort((a, b) => (a.nr_sequencia ?? Number.MAX_SAFE_INTEGER) - (b.nr_sequencia ?? Number.MAX_SAFE_INTEGER));
     return [...filtros].sort((a, b) => {
       const va = (a as any)[sortColumn] ?? "";
       const vb = (b as any)[sortColumn] ?? "";
@@ -209,7 +227,6 @@ export default function FiltrosRelatorioTable({
   }
 
   function excluir(id: string) {
-    if (filtros.length <= 1) return;
     const filtro = filtros.find((f) => f.id === id);
     if (onDeleteFiltro && filtro) {
       onDeleteFiltro(filtro);
@@ -222,6 +239,17 @@ export default function FiltrosRelatorioTable({
   function duplicar(id: string) {
     const original = filtros.find((f) => f.id === id);
     if (!original) return;
+    if (onDuplicateFiltro) {
+      onDuplicateFiltro(original).then((salvo) => {
+        if (!salvo) return;
+        const idx = filtros.findIndex((f) => f.id === id);
+        const updated = [...filtros];
+        updated.splice(idx + 1, 0, salvo);
+        onChange(updated);
+      });
+      setContextMenu(null);
+      return;
+    }
     const clone: RelatorioFiltro = { ...original, id: gerarId(), nr_sequencia: getNextSeq ? getNextSeq() : (Math.max(0, ...filtros.map((f) => f.nr_sequencia ?? 0)) + 1) };
     const idx = filtros.findIndex((f) => f.id === id);
     const updated = [...filtros];
@@ -369,7 +397,6 @@ export default function FiltrosRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: RelatorioFiltro) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {

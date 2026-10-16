@@ -1,7 +1,9 @@
 "use client";
 
+import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
 import type { Ativo } from "@/types/ativo";
 
 interface AtivoLookupTableProps {
@@ -9,6 +11,9 @@ interface AtivoLookupTableProps {
   onSelect: (ativo: Ativo) => void;
   categoriasAtivos?: { nr_sequencia: number; ds_categoria: string }[];
   marcas?: { nr_sequencia: number; ds_marca: string }[];
+  /** Ordem e largura das colunas salvas no usuário (0 = largura automática). */
+  initialColumns?: ColunasConfig | null;
+  onColumnsChange?: (config: ColunasConfig) => void;
 }
 
 interface LookupColumn {
@@ -25,6 +30,10 @@ const LOOKUP_COLUMNS: LookupColumn[] = [
   { key: "ds_categoria", label: "Categoria" },
   { key: "ds_marca", label: "Marca" },
   { key: "ie_status_label", label: "Status" },
+  { key: "dt_criacao", label: "Criação" },
+  { key: "dt_alteracao", label: "Alteração" },
+  { key: "ds_usuario_criacao", label: "Usuário criação" },
+  { key: "ds_usuario_alteracao", label: "Usuário alteração" },
 ];
 
 const STATUS_MAP: Record<string, string> = {
@@ -34,12 +43,24 @@ const STATUS_MAP: Record<string, string> = {
   O: "Operacional",
 };
 
-export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = [], marcas = [] }: AtivoLookupTableProps) {
+export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = [], marcas = [], initialColumns, onColumnsChange }: AtivoLookupTableProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const lookupColumns = useMemo(() => LOOKUP_COLUMNS, []);
-  const [columnOrder, setColumnOrder] = useState<number[]>([0, 1, 2, 3, 4, 5, 6]);
+  const savedColumns = prepararColunasSalvas(initialColumns, lookupColumns);
+  const [columnOrder, setColumnOrder] = useState<number[]>(() =>
+    savedColumns && isValidOrder(savedColumns.order, lookupColumns.length)
+      ? [...savedColumns.order]
+      : lookupColumns.map((_, i) => i)
+  );
+  /** Larguras ajustadas pelo usuário, por coluna lógica (0 = automática). */
+  const currentWidthsRef = useRef<number[]>(
+    savedColumns && savedColumns.widths.length === lookupColumns.length ? [...savedColumns.widths] : []
+  );
+  function largurasAjustadas(): number[] {
+    return Array.from({ length: lookupColumns.length }, (_, i) => currentWidthsRef.current[i] || 0);
+  }
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
@@ -188,6 +209,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
         const adjustedDrop = currentDropIdx > curPos ? currentDropIdx - 1 : currentDropIdx;
         newOrder.splice(adjustedDrop, 0, logicalIndex);
         setColumnOrder(newOrder);
+        onColumnsChange?.({ order: newOrder, widths: largurasAjustadas() });
       }
       setDragCol(null);
       if (dropLineRef.current) dropLineRef.current.style.display = "none";
@@ -230,6 +252,11 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
     const finalWidth = Math.max(minW, Math.ceil(maxWidth));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
+    // Duplo clique = largura automática (acompanha o conteúdo); salvo.
+    const larguras = largurasAjustadas();
+    larguras[logicalIdx] = 0;
+    currentWidthsRef.current = larguras;
+    onColumnsChange?.({ order: columnOrder, widths: larguras });
   }
 
   function handleResizeStart(logicalIdx: number, e: ReactMouseEvent<HTMLDivElement>) {
@@ -256,7 +283,13 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
       document.removeEventListener("mouseup", onMouseUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      if (table) setFrozenWidth(table.style.width);
+      if (table) {
+        setFrozenWidth(table.style.width);
+        const larguras = largurasAjustadas();
+        larguras[logicalIdx] = th.offsetWidth;
+        currentWidthsRef.current = larguras;
+        onColumnsChange?.({ order: columnOrder, widths: larguras });
+      }
     }
 
     document.body.style.cursor = "col-resize";
@@ -275,7 +308,8 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
   }, [ativos, categoriasAtivos, marcas]);
 
   const sortedData = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return enrichedData;
+    // Ordem padrão: coluna # (nr_sequencia).
+    if (sortColumn === null || sortAsc === null) return [...enrichedData].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     const key = lookupColumns[sortColumn].key;
     return [...enrichedData].sort((a, b) => {
       const valA = (a as unknown as Record<string, unknown>)[key];
@@ -309,7 +343,8 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const contentW = measureColumnContentWidth(table, domIdx);
-      const finalWidth = Math.max(minW, contentW);
+      const savedW = currentWidthsRef.current[logicalIdx];
+      const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);
     });
     setFrozenWidth(table.style.width);
@@ -381,6 +416,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
             th .header-content > svg { flex-shrink: 0; margin-left: auto; }
             td { max-width: 0; overflow: hidden; }
             .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
+            ${CSS_CABECALHO_SEQUENCIA}
           `}</style>
           <div className="overflow-x-auto overflow-y-auto relative flex-1 min-h-0 h-full">
             <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
@@ -393,7 +429,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
                       <th
                         key={logicalIdx}
                         scope="col"
-                        className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? "opacity-50" : ""}`}
+                        className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''} ${col.key === 'nr_sequencia' ? 'th-seq' : ''}`}
                         style={{ borderRightColor: "#666", borderBottomColor: "#999", backgroundClip: "padding-box", boxShadow: "inset 0 -1px 0 #999", position: "relative" }}
                         onClick={(e) => handleHeaderClick(logicalIdx, e)}
                         onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}
@@ -422,7 +458,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
                     {columnOrder.map((logicalIdx) => {
                       const col = lookupColumns[logicalIdx];
                       const value = (ativo as unknown as Record<string, unknown>)[col.key];
-                      const displayValue = value !== null && value !== undefined ? String(value) : "";
+                      const displayValue = value === null || value === undefined ? "" : col.key.startsWith("dt_") ? formatDate(String(value)) : String(value);
                       return (
                         <td key={logicalIdx} className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ""}`} style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)" }}>
                           <span className="cell-content">{displayValue}</span>

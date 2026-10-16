@@ -74,23 +74,34 @@ export default function ImagemListView({
   const [previewImg, setPreviewImg] = useState<Imagem | null>(null);
 
   const IMAGEM_COLUMNS: ResizableTableColumn<Imagem>[] = useMemo(() => [
-    { key: "preview", label: "", width: 30, fixed: true, render: (row) => (
+    // Sem largura fixa: a coluna fixa é medida pelo ícone (ResizableTable).
+    { key: "preview", label: "", fixed: true, render: (row) => (
       row.ie_arquivo ? (
         <button type="button" onClick={(e) => { e.stopPropagation(); setPreviewImg(row); }} className="cursor-pointer p-0 bg-transparent border-none flex items-center justify-center" title="Pré-visualizar imagem">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
       ) : null
     )},
-    { key: "nr_sequencia", label: "#", width: 50 },
+    { key: "nr_sequencia", label: "#", align: "center" }, // largura automática (maior número)
     { key: "ds_imagem", label: "Descrição", width: 250 },
     { key: "ie_arquivo", label: "Arquivo", width: 200, render: (row) => (
       <span className="truncate">{row.ie_arquivo ? row.ie_arquivo.split('/').pop() : ''}</span>
     )},
     { key: "dt_criacao", label: "Criação", width: 160, render: (row) => row.dt_criacao ? formatDate(row.dt_criacao) : '' },
-    { key: "ds_usuario_criacao", label: "Usuário criação", width: 130 },
     { key: "dt_alteracao", label: "Alteração", width: 160, render: (row) => row.dt_alteracao ? formatDate(row.dt_alteracao) : '' },
+    { key: "ds_usuario_criacao", label: "Usuário criação", width: 130 },
     { key: "ds_usuario_alteracao", label: "Usuário alteração", width: 130 },
   ], []);
+
+  // A configuração de colunas é salva automaticamente na primeira exibição;
+  // se ela ainda estiver na ordem padrão antiga (Usuário criação entre
+  // Criação e Alteração), adota a nova ordem padrão mantendo as larguras.
+  const savedColumns = useMemo(() => {
+    if (!initialColumns) return null;
+    const ordemAntiga = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'ds_usuario_criacao', 'dt_alteracao', 'ds_usuario_alteracao'];
+    if (initialColumns.order.join('|') !== ordemAntiga.join('|')) return initialColumns;
+    return { ...initialColumns, order: IMAGEM_COLUMNS.map((c) => c.key) };
+  }, [initialColumns, IMAGEM_COLUMNS]);
 
   const IMAGEM_SELECT_OPTIONS = useMemo(() => [
     { value: 'campos', label: 'Campos' },
@@ -167,7 +178,7 @@ export default function ImagemListView({
               }}
               rowClassName={(row) => row.id === selectedId ? 'row-selected' : ''}
               pinnedColumns={["preview"]}
-              initialColumns={initialColumns ?? null}
+              initialColumns={savedColumns}
               onColumnsChange={onColumnsChange}
             />
 

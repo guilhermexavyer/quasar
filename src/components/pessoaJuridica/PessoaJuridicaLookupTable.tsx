@@ -2,25 +2,37 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import { PJ_COLUMNS, formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
 
 interface PessoaJuridicaLookupTableProps {
   pessoasJuridicas: PessoaJuridica[];
   onSelect: (pessoa: PessoaJuridica) => void;
+  /** Ordem e largura das colunas salvas no usuário (0 = largura automática). */
+  initialColumns?: ColunasConfig | null;
+  onColumnsChange?: (config: ColunasConfig) => void;
 }
 
-export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }: PessoaJuridicaLookupTableProps) {
+export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect, initialColumns, onColumnsChange }: PessoaJuridicaLookupTableProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
-  const lookupColumns = useMemo(
-    () => PJ_COLUMNS.filter((col) => col.key !== 'dt_criacao' && col.key !== 'dt_alteracao'),
-    []
-  );
+  // Mesmas colunas da listagem, terminando em Criação, Alteração, Usuário criação e Usuário alteração.
+  const lookupColumns = useMemo(() => PJ_COLUMNS, []);
+  const savedColumns = prepararColunasSalvas(initialColumns, lookupColumns);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    Array.from({ length: lookupColumns.length }, (_, i) => i)
+    savedColumns && isValidOrder(savedColumns.order, lookupColumns.length)
+      ? [...savedColumns.order]
+      : lookupColumns.map((_, i) => i)
   );
+  /** Larguras ajustadas pelo usuário, por coluna lógica (0 = automática). */
+  const currentWidthsRef = useRef<number[]>(
+    savedColumns && savedColumns.widths.length === lookupColumns.length ? [...savedColumns.widths] : []
+  );
+  function largurasAjustadas(): number[] {
+    return Array.from({ length: lookupColumns.length }, (_, i) => currentWidthsRef.current[i] || 0);
+  }
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [sortColumn, setSortColumn] = useState<number | null>(null);
   const [sortAsc, setSortAsc] = useState<boolean | null>(null);
@@ -199,6 +211,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
         const adjustedDrop = currentDropIdx > curPos ? currentDropIdx - 1 : currentDropIdx;
         newOrder.splice(adjustedDrop, 0, logicalIndex);
         setColumnOrder(newOrder);
+        onColumnsChange?.({ order: newOrder, widths: largurasAjustadas() });
       }
 
       setDragCol(null);
@@ -251,6 +264,11 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
     const finalWidth = Math.max(minW, Math.ceil(maxWidth));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
+    // Duplo clique = largura automática (acompanha o conteúdo); salvo.
+    const larguras = largurasAjustadas();
+    larguras[logicalIdx] = 0;
+    currentWidthsRef.current = larguras;
+    onColumnsChange?.({ order: columnOrder, widths: larguras });
   }
 
   function handleResizeStart(logicalIdx: number, e: ReactMouseEvent<HTMLDivElement>) {
@@ -282,6 +300,10 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
       document.body.style.userSelect = "";
       if (table) {
         setFrozenWidth(table.style.width);
+        const larguras = largurasAjustadas();
+        larguras[logicalIdx] = th.offsetWidth;
+        currentWidthsRef.current = larguras;
+        onColumnsChange?.({ order: columnOrder, widths: larguras });
       }
     }
 
@@ -292,7 +314,8 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
   }
 
   const sortedPessoasJuridicas = useMemo(() => {
-    if (sortColumn === null || sortAsc === null) return pessoasJuridicas;
+    // Ordem padrão: coluna # (nr_sequencia).
+    if (sortColumn === null || sortAsc === null) return [...pessoasJuridicas].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
     const key = lookupColumns[sortColumn].key;
     return [...pessoasJuridicas].sort((a, b) => {
       const valA = a[key];
@@ -330,7 +353,8 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const contentW = measureColumnContentWidth(table, domIdx);
-      const finalWidth = Math.max(minW, contentW);
+      const savedW = currentWidthsRef.current[logicalIdx];
+      const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);
     });
 
@@ -409,6 +433,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
             th .header-content > svg { flex-shrink: 0; margin-left: auto; }
             td { max-width: 0; overflow: hidden; }
             .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
+            ${CSS_CABECALHO_SEQUENCIA}
           `}</style>
           <div className="overflow-x-auto overflow-y-auto relative flex-1 min-h-0 h-full">
             <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
@@ -421,7 +446,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect }
                       <th
                         key={logicalIdx}
                         scope="col"
-                        className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
+                        className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''} ${col.key === 'nr_sequencia' ? 'th-seq' : ''}`}
                         style={{ borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999', position: 'relative' }}
                         onClick={(e) => handleHeaderClick(logicalIdx, e)}
                         onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}

@@ -33,6 +33,8 @@ interface BandasRelatorioTableProps {
   onChange: (bandas: Banda[]) => void;
   colecaoOptions?: { value: string; label: string }[];
   onEditingChange?: (editing: boolean) => void;
+  /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
+  onRowCommit?: (row: Banda) => void;
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
@@ -52,6 +54,7 @@ export default function BandasRelatorioTable({
   onChange,
   colecaoOptions = [],
   onEditingChange,
+  onRowCommit,
   userId,
   initialColumns,
   onColumnsChange,
@@ -70,6 +73,17 @@ export default function BandasRelatorioTable({
   const [sortAsc, setSortAsc] = useState(true);
 
   useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
+
+  // Ao terminar a edição de uma linha (lápis/Enter/Ctrl+S), avisa o pai para gravá-la.
+  const prevEditingIdRef = useRef<string | null>(null);
+  useEffect(() => {
+    const anterior = prevEditingIdRef.current;
+    prevEditingIdRef.current = editingId;
+    if (anterior && anterior !== editingId) {
+      const linha = bandas.find((r) => r.id === anterior);
+      if (linha) onRowCommit?.(linha as Banda);
+    }
+  }, [editingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!contextMenu) return;
@@ -96,7 +110,8 @@ export default function BandasRelatorioTable({
   }
 
   const sortedBandas = useMemo(() => {
-    if (!sortColumn) return bandas;
+    // Ordem padrão: coluna # (registros ainda não salvos, sem sequência, no fim).
+    if (!sortColumn) return [...bandas].sort((a, b) => (a.nr_sequencia ?? Number.MAX_SAFE_INTEGER) - (b.nr_sequencia ?? Number.MAX_SAFE_INTEGER));
     return [...bandas].sort((a, b) => {
       const va = (a as any)[sortColumn] ?? "";
       const vb = (b as any)[sortColumn] ?? "";
@@ -251,7 +266,6 @@ export default function BandasRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: Banda) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {

@@ -20,6 +20,8 @@ interface OrdenacaoRelatorioTableProps {
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   getNextSeq?: () => number;
+  /** Linha a abrir em edição (ex.: recém-adicionada pelo botão Adicionar). */
+  editRequestId?: string | null;
 }
 
 export default function OrdenacaoRelatorioTable({
@@ -31,6 +33,7 @@ export default function OrdenacaoRelatorioTable({
   initialColumns,
   onColumnsChange,
   getNextSeq,
+  editRequestId,
 }: OrdenacaoRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -39,6 +42,13 @@ export default function OrdenacaoRelatorioTable({
   const [sortAsc, setSortAsc] = useState(true);
 
   useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
+
+  // Linha recém-adicionada pelo pai abre direto em edição (ajuste de estado no render).
+  const [ultimoEditRequest, setUltimoEditRequest] = useState<string | null | undefined>(editRequestId);
+  if (editRequestId !== ultimoEditRequest) {
+    setUltimoEditRequest(editRequestId);
+    if (editRequestId) { setEditingId(editRequestId); setSelectedId(editRequestId); }
+  }
 
   useEffect(() => {
     const needsId = ordenacao.some((o) => !o.id);
@@ -155,7 +165,6 @@ export default function OrdenacaoRelatorioTable({
   }
 
   function excluir(id: string) {
-    if (ordenacao.length <= 1) return;
     onChange(ordenacao.filter((o) => o.id !== id));
     setContextMenu(null);
   }
@@ -222,7 +231,6 @@ export default function OrdenacaoRelatorioTable({
     {
       key: "nr_sequencia",
       label: "#",
-      width: 40,
       render: (row: RelatorioOrdenacao) => <span className="text-sm">{row.nr_sequencia ?? ''}</span>,
     },
     {

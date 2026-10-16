@@ -13,6 +13,8 @@ export const COR_RACA_COLUMNS: ColDef[] = [
   { key: 'ie_status', label: 'Status' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
+  { key: 'ds_usuario_criacao', label: 'Usuário criação' },
+  { key: 'ds_usuario_alteracao', label: 'Usuário alteração' },
 ];
 
 export const COR_RACA_FIELD_INFOS = {

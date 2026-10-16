@@ -5,7 +5,7 @@ import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "re
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Manutencao } from "@/types/manutencao";
 import { MANUTENCAO_COLUMNS as COLUMNS, formatCellValue } from "@/lib/manutencaoUtils";
-import { isValidOrder, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 
@@ -54,11 +54,12 @@ export default function ManutencaoListView({
   columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  const savedColumns = prepararColunasSalvas(initialColumns, COLUMNS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    initialColumns && isValidOrder(initialColumns.order, COLUMNS.length)
-      ? [...initialColumns.order]
+    savedColumns && isValidOrder(savedColumns.order, COLUMNS.length)
+      ? [...savedColumns.order]
       : Array.from({ length: COLUMNS.length }, (_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
@@ -70,8 +71,8 @@ export default function ManutencaoListView({
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
   const currentWidthsRef = useRef<number[]>(
-    initialColumns?.widths && initialColumns.widths.length === COLUMNS.length
-      ? [...initialColumns.widths]
+    savedColumns?.widths && savedColumns.widths.length === COLUMNS.length
+      ? [...savedColumns.widths]
       : []
   );
 
@@ -156,6 +157,11 @@ export default function ManutencaoListView({
     return Math.ceil(maxWidth);
   }
 
+  /** Larguras ajustadas pelo usuário, por coluna lógica (0 = automática). */
+  function largurasAjustadas(): number[] {
+    return Array.from({ length: COLUMNS.length }, (_, i) => currentWidthsRef.current[i] || 0);
+  }
+
   function setDefaultColumnWidths() {
     const table = tableRef.current;
     if (!table) return;
@@ -164,15 +170,18 @@ export default function ManutencaoListView({
       measureAllMinWidths();
     }
 
+    // Medição/ajuste de larguras altera estilos do DOM da tabela de propósito.
+    // eslint-disable-next-line react-hooks/immutability
     const ths = freezeTableColumns(table);
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const savedW = currentWidthsRef.current[logicalIdx];
       const contentW = measureColumnContentWidth(table, domIdx);
+      // Largura ajustada pelo usuário (salva) ou automática (maior conteúdo / cabeçalho).
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
+      // eslint-disable-next-line react-hooks/immutability
       applyColumnWidth(table, ths, domIdx, finalWidth);
-      currentWidthsRef.current[logicalIdx] = finalWidth;
     });
 
     setFrozenWidth(table.style.width);
@@ -244,15 +253,7 @@ export default function ManutencaoListView({
         const adjustedDrop = currentDropIdx > curPos ? currentDropIdx - 1 : currentDropIdx;
         newOrder.splice(adjustedDrop, 0, logicalIndex);
         setColumnOrder(newOrder);
-        if (tableRef.current) {
-          const ths = tableRef.current.querySelectorAll<HTMLElement>("thead tr th");
-          const byLogical = new Array<number>(COLUMNS.length).fill(0);
-          ths.forEach((thEl, domIdx) => {
-            byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
-          });
-          currentWidthsRef.current = byLogical;
-          onColumnsChange?.({ order: newOrder, widths: byLogical });
-        }
+        onColumnsChange?.({ order: newOrder, widths: largurasAjustadas() });
       }
 
       setDragCol(null);
@@ -397,6 +398,11 @@ export default function ManutencaoListView({
     const finalWidth = Math.max(minW, Math.ceil(maxWidth));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
+    // O auto-ajuste (duplo clique) também é salvo, como o arrastar da borda.
+    const larguras = largurasAjustadas();
+    larguras[logicalIdx] = 0; // 0 = automática: continua acompanhando o conteúdo
+    currentWidthsRef.current = larguras;
+    onColumnsChange?.({ order: columnOrder, widths: larguras });
   }
 
   function handleResizeStart(logicalIdx: number, e: ReactMouseEvent<HTMLDivElement>) {
@@ -428,12 +434,10 @@ export default function ManutencaoListView({
       document.body.style.userSelect = "";
       if (table) {
         setFrozenWidth(table.style.width);
-        const byLogical = new Array<number>(COLUMNS.length).fill(0);
-        ths.forEach((thEl, domIdx) => {
-          byLogical[columnOrder[domIdx]] = thEl.offsetWidth;
-        });
-        currentWidthsRef.current = byLogical;
-        onColumnsChange?.({ order: columnOrder, widths: byLogical });
+        const larguras = largurasAjustadas();
+        larguras[logicalIdx] = th.offsetWidth;
+        currentWidthsRef.current = larguras;
+        onColumnsChange?.({ order: columnOrder, widths: larguras });
       }
     }
 
@@ -456,6 +460,7 @@ export default function ManutencaoListView({
         th .header-content > svg { flex-shrink: 0; margin-left: auto; }
         td { max-width: 0; overflow: hidden; }
         .cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
+        ${CSS_CABECALHO_SEQUENCIA}
       `}</style>
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
         <div className="flex min-h-[42px] items-center justify-between gap-3">
@@ -527,7 +532,7 @@ export default function ManutencaoListView({
                           <th
                             key={logicalIdx}
                             scope="col"
-                            className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
+                            className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''} ${col.key === 'nr_sequencia' ? 'th-seq' : ''}`}
                             style={{ borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999' }}
                             onClick={(e) => handleHeaderClick(logicalIdx, e)}
                             onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}

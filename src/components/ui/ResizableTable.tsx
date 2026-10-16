@@ -2,6 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
+import { prepararStringColunasSalvas, CSS_CABECALHO_SEQUENCIA } from "@/lib/colunasUtils";
 
 export interface ResizableTableColumn<T = unknown> {
   key: string;
@@ -14,6 +15,13 @@ export interface ResizableTableColumn<T = unknown> {
   width?: number;
   /** Coluna fixa: não pode ser reordenada, redimensionada ou ordenada. */
   fixed?: boolean;
+}
+
+/** Persistência de ordem/largura das colunas (configuração do usuário). */
+export interface ConfigColunasTabela {
+  initialColumns?: { order: string[]; widths: Record<string, number> } | null;
+  onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
+  storageKeySuffix?: string;
 }
 
 interface ResizableTableProps<T> {
@@ -64,6 +72,8 @@ export default function ResizableTable<T>({
   const [dragCol, setDragCol] = useState<string | null>(null);
   const minWidthsRef = useRef<Record<string, number>>({});
   const widthsRef = useRef<Record<string, number>>({});
+  /** Larguras ajustadas pelo usuário (as únicas salvas); as demais são automáticas. */
+  const ajustadasRef = useRef<Record<string, number>>({});
   const dragStartXRef = useRef(0);
   const didDragRef = useRef(false);
   const dropLineRef = useRef<HTMLDivElement | null>(null);
@@ -103,15 +113,17 @@ export default function ResizableTable<T>({
     const keys = columns.map((c) => c.key);
     const pinned = keys.filter((k) => pinnedColumns.includes(k));
     const unpinned = keys.filter((k) => !pinnedColumns.includes(k));
-    const saved = initialColumns ?? loadSaved();
+    const saved = prepararStringColunasSalvas(initialColumns ?? loadSaved());
     if (saved) {
       const savedOrder = saved.order.filter((k) => unpinned.includes(k));
       const extra = unpinned.filter((k) => !savedOrder.includes(k));
       setColumnOrder([...pinned, ...savedOrder, ...extra]);
       widthsRef.current = { ...saved.widths };
+      ajustadasRef.current = { ...saved.widths };
     } else {
       setColumnOrder([...pinned, ...unpinned]);
       widthsRef.current = {};
+      ajustadasRef.current = {};
     }
     minWidthsRef.current = {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -214,15 +226,19 @@ export default function ResizableTable<T>({
     ths.forEach((th, domIdx) => {
       const key = columnOrder[domIdx];
       const minW = minWidthsRef.current[key] || 0;
-      const savedW = widthsRef.current[key];
+      const savedW = ajustadasRef.current[key];
       const contentW = measureColumnContentWidth(table, domIdx);
       const colDef = columns.find((c) => c.key === key);
       const defW = colDef?.width ?? 0;
-      widths[key] = savedW && savedW > 0 ? savedW : (defW > 0 ? Math.max(defW, minW) : Math.max(minW, contentW));
+      // Coluna fixa (ex.: ícone de pré-visualização): o usuário não altera a
+      // largura, então ela sempre acompanha o conteúdo e ignora a salva.
+      widths[key] = colDef?.fixed
+        ? Math.max(minW, contentW, defW)
+        : savedW && savedW > 0 ? savedW : (defW > 0 ? Math.max(defW, minW) : Math.max(minW, contentW));
     });
     widthsRef.current = widths;
     applyWidths(table, widths);
-    saveState(columnOrder, widths);
+    // Larguras automáticas não são salvas: só ações do usuário gravam no banco.
   }
 
   useLayoutEffect(() => {
@@ -255,7 +271,8 @@ export default function ResizableTable<T>({
       document.removeEventListener("mouseup", onMouseUp);
       document.body.style.cursor = "";
       document.body.style.userSelect = "";
-      saveState(columnOrder, widthsRef.current);
+      ajustadasRef.current = { ...ajustadasRef.current, [key]: widthsRef.current[key] };
+      saveState(columnOrder, ajustadasRef.current);
     }
 
     document.body.style.cursor = "col-resize";
@@ -274,7 +291,10 @@ export default function ResizableTable<T>({
     const finalWidth = Math.max(minW, contentW);
     widthsRef.current = { ...widthsRef.current, [key]: finalWidth };
     applyWidths(table, widthsRef.current);
-    saveState(columnOrder, widthsRef.current);
+    // Duplo clique = largura automática (acompanha o conteúdo).
+    const { [key]: _removida, ...restantes } = ajustadasRef.current;
+    ajustadasRef.current = restantes;
+    saveState(columnOrder, ajustadasRef.current);
   }
 
   function handleHeaderMouseDown(key: string, e: ReactMouseEvent<HTMLTableCellElement>) {
@@ -345,7 +365,7 @@ export default function ResizableTable<T>({
           });
           widthsRef.current = byLogical;
           applyWidths(tableRef.current, byLogical);
-          saveState(newOrder, byLogical);
+          saveState(newOrder, ajustadasRef.current);
         }
       }
 
@@ -398,6 +418,7 @@ export default function ResizableTable<T>({
         th .rt-header-content > svg { flex-shrink: 0; margin-left: auto; }
         td { max-width: 0; }
         .rt-cell-content { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; min-width: 0; }
+        ${CSS_CABECALHO_SEQUENCIA}
       `}</style>
       <div className="relative h-full w-full">
         <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: "100%", borderCollapse: "separate", borderSpacing: 0 }}>
@@ -411,7 +432,7 @@ export default function ResizableTable<T>({
                   <th
                     key={key}
                     scope="col"
-                    className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${col.headerClassName || ""} ${isDragSource ? "opacity-50" : ""}`}
+                    className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${col.headerClassName || ""} ${isDragSource ? "opacity-50" : ""} ${col.key === "nr_sequencia" ? "th-seq" : ""}`}
                     style={{ borderRightColor: "#666", borderBottomColor: "#999", backgroundClip: "padding-box", boxShadow: "inset 0 -1px 0 #999" }}
                     onClick={(e) => handleHeaderClick(key, e)}
                     onMouseDown={(e) => handleHeaderMouseDown(key, e)}

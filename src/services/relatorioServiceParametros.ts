@@ -158,6 +158,23 @@ export async function excluirParametro(id: string): Promise<void> {
   await deleteDoc(doc(db, "relatorio_parametro", id));
 }
 
+/**
+ * Exclui um parâmetro e o remove da cópia embutida em relatorio.filtros.
+ * Sem isso, ao excluir o último parâmetro, a cópia (usada como fallback quando
+ * a coleção vem vazia) fazia o parâmetro reaparecer.
+ */
+export async function excluirParametroComCopia(id: string, relatorioDocId?: string | null): Promise<void> {
+  await excluirParametro(id);
+  if (!relatorioDocId) return;
+  const relRef = doc(db, "relatorio", relatorioDocId);
+  const relSnap = await getDoc(relRef);
+  const filtros = relSnap.exists() ? relSnap.data().filtros : undefined;
+  if (Array.isArray(filtros)) {
+    const restantes = filtros.filter((f: { id?: string; _firestoreId?: string }) => f?.id !== id && f?._firestoreId !== id);
+    if (restantes.length !== filtros.length) await updateDoc(relRef, { filtros: restantes });
+  }
+}
+
 /** Exclui todos os parâmetros de um relatório. */
 export async function excluirParametrosPorRelatorio(nrSeqRelatorio: number): Promise<void> {
   const parametros = await obterParametrosPorRelatorio(nrSeqRelatorio);

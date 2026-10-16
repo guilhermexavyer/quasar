@@ -13,6 +13,18 @@ export interface Usuario {
   config_colunas_pessoa_fisica?: string;
   config_colunas_pessoa_juridica?: string;
   config_colunas_aluno?: string;
+  config_colunas_colaborador?: string;
+  /* Janelas de busca (lookups) */
+  config_colunas_lookup_pessoa_fisica?: string;
+  config_colunas_lookup_pessoa_juridica?: string;
+  config_colunas_lookup_ativo?: string;
+  config_colunas_lookup_prestador?: string;
+  config_colunas_lookup_cidade?: string;
+  /* Administração do Sistema > Campos (painéis) e Patrimônio > Parâmetros da função */
+  config_colunas_campos_perfil?: string;
+  config_colunas_campos_funcao?: string;
+  config_colunas_campos_campo?: string;
+  config_colunas_parametros_funcao?: string;
   config_colunas_as_usuario?: string;
   config_colunas_as_perfil?: string;
   config_colunas_as_imagem?: string;

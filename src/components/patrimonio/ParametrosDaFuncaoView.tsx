@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
   obterParamCodigoPatrimonio,
@@ -71,6 +72,11 @@ interface ParametrosDaFuncaoViewProps {
   auditHasDocument?: boolean;
   auditAutor?: AuditAutor;
   onAfterSave?: (auditInfo: { createdAt: string; updatedAt: string; createdBy: string; updatedBy: string }) => void;
+  /** ds_usuario (sem resolver o nome) de criação/alteração do registro do parâmetro, para as colunas da tabela. */
+  dsUsuarioCriacao?: string;
+  dsUsuarioAlteracao?: string;
+  /** Ordem e largura das colunas salvas no usuário. */
+  colunas?: ConfigColunasTabela;
 }
 
 export default function ParametrosDaFuncaoView({
@@ -88,6 +94,9 @@ export default function ParametrosDaFuncaoView({
   auditHasDocument,
   auditAutor,
   onAfterSave,
+  dsUsuarioCriacao,
+  dsUsuarioAlteracao,
+  colunas,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
@@ -245,9 +254,15 @@ export default function ParametrosDaFuncaoView({
           >
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
+                {...colunas}
                 columns={[
                   { key: "dropdown", label: "Dropdown" },
                   { key: "parametro", label: "Parâmetro" },
+                  // Auditoria do registro do parâmetro (pat_param_codigo_patrimonio).
+                  { key: "dt_criacao", label: "Criação", render: (p) => (p.id === "geracao_codigo_patrimonio" && createdAt ? formatDate(createdAt) : "") },
+                  { key: "dt_alteracao", label: "Alteração", render: (p) => (p.id === "geracao_codigo_patrimonio" && updatedAt ? formatDate(updatedAt) : "") },
+                  { key: "ds_usuario_criacao", label: "Usuário criação", render: (p) => (p.id === "geracao_codigo_patrimonio" ? dsUsuarioCriacao ?? "" : "") },
+                  { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (p) => (p.id === "geracao_codigo_patrimonio" ? dsUsuarioAlteracao ?? "" : "") },
                 ]}
                 rows={PARAMETROS_PATRIMONIO}
                 rowKey={(p) => p.id}

@@ -25,6 +25,8 @@ export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
   { key: "vl_total", label: "Valor total" },
   { key: "dt_criacao", label: "Criação" },
   { key: "dt_alteracao", label: "Alteração" },
+  { key: "ds_usuario_criacao", label: "Usuário criação" },
+  { key: "ds_usuario_alteracao", label: "Usuário alteração" },
 ];
 
 /** Metadados dos campos para infobutton / configuração em Admin > Campos. */

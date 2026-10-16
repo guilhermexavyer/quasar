@@ -208,6 +208,7 @@ function renderizarTabelaBanda(
   mapFontJsPdf: (fonte?: string) => string,
   bordas?: { superior?: boolean; inferior?: boolean; esquerda?: boolean; direita?: boolean },
   bandaConfig?: { espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number },
+  paginacao?: Paginacao,
 ): number {
   if (campos.length === 0) return yStart;
 
@@ -225,13 +226,39 @@ function renderizarTabelaBanda(
 
   let y = yStart;
 
+  // Bordas da banda: desenhadas por trecho, já que a tabela pode atravessar
+  // páginas (superior só no primeiro trecho, inferior só no último).
+  const temBordas = !!bordas && !!(bordas.superior || bordas.inferior || bordas.esquerda || bordas.direita);
+  let ySegmento = yStart;
+  let primeiroSegmento = true;
+  function desenharBordasSegmento(ultimo: boolean) {
+    if (!temBordas || !bordas) return;
+    const x0 = marginLeft;
+    const x1 = marginLeft + contentW;
+    doc.setDrawColor(0);
+    doc.setLineWidth(0.2);
+    if (bordas.superior && primeiroSegmento) doc.line(x0, ySegmento, x1, ySegmento);
+    if (bordas.inferior && ultimo) doc.line(x0, y, x1, y);
+    if (bordas.esquerda) doc.line(x0, ySegmento, x0, y);
+    if (bordas.direita) doc.line(x1, ySegmento, x1, y);
+  }
+
+  const limiteInferior = paginacao?.limiteInferior ?? pageH - marginBottom;
   const bordaOffset = config.estiloBorda ? 2 : 0;
   function checkPage(needed: number) {
-    if (y + needed > pageH - marginBottom) {
-      doc.addPage();
-      y = marginTop + bordaOffset;
-      // Redesenhar borda na nova página
-      desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
+    if (y + needed > limiteInferior) {
+      if (y > ySegmento) desenharBordasSegmento(false);
+      else primeiroSegmento = true; // nada desenhado ainda: a banda começa na próxima página
+      const continuaPrimeiro = y <= ySegmento && primeiroSegmento;
+      if (paginacao) {
+        y = paginacao.novaPagina();
+      } else {
+        doc.addPage();
+        y = marginTop + bordaOffset;
+        desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
+      }
+      ySegmento = y;
+      primeiroSegmento = continuaPrimeiro;
       return true;
     }
     return false;
@@ -248,7 +275,8 @@ function renderizarTabelaBanda(
   const maxXGroups = Math.max(...Object.values(xGroupCount), 1);
   const totalHeaderH = headerH * maxXGroups;
 
-  checkPage(totalHeaderH + 4);
+  // Cabeçalho + ao menos uma linha na mesma página (sem cabeçalho órfão no rodapé).
+  checkPage(totalHeaderH + rowH);
 
   // ── Cabeçalho da tabela ──
   doc.setFontSize(fontSize);
@@ -304,15 +332,7 @@ function renderizarTabelaBanda(
       const valor = obterValorCampo(reg, chaveResolvida);
       const valorFmt = formatarValor(valor, campo);
 
-      if (config.incluirBordas) {
-        doc.setDrawColor(51, 51, 51);
-        doc.rect(x, y, w, rowH, 'S');
-      }
-
-      const campoCor = hexToRgb(bandaConfig?.corCampoGlobal ?? (relatorio.corCampoGlobal || '#1a1a1a'));
-      if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
-      else doc.setTextColor(26, 26, 26);
-
+      // Fundo antes da borda, para o preenchimento não cobrir a borda da célula.
       if ((bandaConfig?.bgCampo ?? relatorio.bgCampo) === 'zebrado') {
         const isOdd = regIdx % 2 === 1;
         const zebraRgb = hexToRgb(isOdd ? '#ccc' : '#fff');
@@ -322,9 +342,18 @@ function renderizarTabelaBanda(
         }
       }
 
+      if (config.incluirBordas) {
+        doc.setDrawColor(51, 51, 51);
+        doc.rect(x, y, w, rowH, 'S');
+      }
+
+      const campoCor = hexToRgb(bandaConfig?.corCampoGlobal ?? (relatorio.corCampoGlobal || '#1a1a1a'));
+      if (campoCor) doc.setTextColor(campoCor.r, campoCor.g, campoCor.b);
+      else doc.setTextColor(26, 26, 26);
+
       const campoAlign = campo.ie_alinhamento ?? 'esquerda';
       const campoTxtX = campoAlign === 'centro' ? x + w / 2 : campoAlign === 'direita' ? x + w - cellPadding : x + cellPadding;
-      const campoTxtY = y + pxToMm(bandaConfig?.topoRegistro ?? relatorio.topoRegistro ?? 0) + fontSize * 0.35;
+      const campoTxtY = y + pxToMm(bandaConfig?.topoRegistro ?? relatorio.topoRegistro ?? 0) + fontSizeCampo * 0.35;
       const campoAlignOpt: 'left' | 'center' | 'right' = campoAlign === 'centro' ? 'center' : campoAlign === 'direita' ? 'right' : 'left';
       doc.setFont(fontCampo, estiloPdf(campo.ie_estilo));
       doc.setFontSize(fontSizeCampo);
@@ -384,22 +413,18 @@ function renderizarTabelaBanda(
     y += rowH;
   }
 
-  // ── Desenhar bordas da banda (se configuradas) ──
-  if (bordas && (bordas.superior || bordas.inferior || bordas.esquerda || bordas.direita)) {
-    const totalH = y - yStart;
-    const x0 = marginLeft;
-    const x1 = marginLeft + contentW;
-    const y0 = yStart;
-    const y1 = yStart + totalH;
-    doc.setDrawColor(0);
-    doc.setLineWidth(0.2);
-    if (bordas.superior) doc.line(x0, y0, x1, y0);
-    if (bordas.inferior) doc.line(x0, y1, x1, y1);
-    if (bordas.esquerda) doc.line(x0, y0, x0, y1);
-    if (bordas.direita) doc.line(x1, y0, x1, y1);
-  }
+  // ── Bordas da banda (último trecho) ──
+  desenharBordasSegmento(true);
 
   return y;
+}
+
+/** Controle de quebra de página compartilhado com as bandas de tabela. */
+interface Paginacao {
+  /** Y máximo do conteúdo na página (acima do rodapé). */
+  limiteInferior: number;
+  /** Abre uma nova página e devolve o Y inicial do conteúdo (abaixo do cabeçalho). */
+  novaPagina: () => number;
 }
 
 /**
@@ -445,6 +470,12 @@ function renderizarTextoValorBanda(
       texto = fmtHora(agora);
     } else if (ie_tipo_elemento === 'data_horario_geracao') {
       texto = `${fmtData(agora)} ${fmtHora(agora)}`;
+    } else if (ie_tipo_elemento === 'numero_pagina') {
+      // Página em que o elemento está sendo desenhado. Sem "Primeira página"
+      // marcada, o número só aparece da página 2 em diante.
+      const pagina = doc.getCurrentPageInfo().pageNumber;
+      if (pagina === 1 && !campo.ie_primeira_pagina) return;
+      texto = String(pagina);
     } else if (ie_tipo_elemento === 'usuario_geracao') {
       texto = usuarioGeracao ?? (relatorio as any).ds_usuario_criacao ?? '';
     } else if (ie_tipo_elemento === 'imagem') {
@@ -656,17 +687,6 @@ export function gerarPdf(
   const fontCampo = mapFontJsPdf(relatorio.fonteCampo);
 
   let y = marginTop + BORDA_CONTEUDO_OFFSET;
-  let onNewPage: (() => void) | null = null;
-
-  function checkPage(needed: number) {
-    if (y + needed > pageH - marginBottom) {
-      doc.addPage();
-      y = marginTop;
-      onNewPage?.();
-      return true;
-    }
-    return false;
-  }
 
   // ── Renderizar bandas ou tabela única ──
   if (bandasRegistros && bandasRegistros.length > 0) {
@@ -676,48 +696,53 @@ export function gerarPdf(
     const bandaRodape = bandasOrdenadas.filter((b) => b.tipo === 'rodape');
     const bandasConteudo = bandasOrdenadas.filter((b) => b.tipo !== 'cabecalho' && b.tipo !== 'rodape');
 
-    // Renderizar cabeçalho de banda no topo de cada página (abaixo da borda)
-    function renderCabecalhoBanda() {
-      bandaCabecalho.forEach((bc) => {
-        renderizarTextoValorBanda(
-          doc, relatorio, config, bc.campos, bc.registros,
-          y, marginLeft, marginTop, mapFontJsPdf,
-          bc.altura ? pxToMm(bc.altura) : undefined,
-          { superior: bc.ie_borda_superior, inferior: bc.ie_borda_inferior, esquerda: bc.ie_borda_esquerda, direita: bc.ie_borda_direita },
-          contentW, usuarioGeracao, imagensMap,
-        );
-        if (bc.altura) y += pxToMm(bc.altura);
-      });
+    // Espaço reservado em toda página para o cabeçalho (topo) e o rodapé (base):
+    // o conteúdo nunca invade essas áreas, mesmo quando uma lista quebra página.
+    const alturaCabecalho = bandaCabecalho.reduce((soma, b) => soma + (b.altura ? pxToMm(b.altura) : 0), 0);
+    const alturaRodape = bandaRodape.reduce((soma, b) => soma + (b.altura ? pxToMm(b.altura) : 10), 0);
+    const topoConteudo = marginTop + BORDA_CONTEUDO_OFFSET + alturaCabecalho;
+    const limiteConteudo = pageH - marginBottom - BORDA_CONTEUDO_OFFSET - alturaRodape;
+
+    function novaPagina(): number {
+      doc.addPage();
+      return topoConteudo;
+    }
+    const paginacao: Paginacao = { limiteInferior: limiteConteudo, novaPagina };
+
+    // Cabeçalho, rodapé e moldura de cada página são desenhados ao final,
+    // quando todas as páginas já existem (o número da página fica correto).
+    function renderMolduraPaginas() {
+      const totalPaginas = doc.getNumberOfPages();
+      for (let p = 1; p <= totalPaginas; p++) {
+        doc.setPage(p);
+        let yCab = marginTop + BORDA_CONTEUDO_OFFSET;
+        bandaCabecalho.forEach((bc) => {
+          renderizarTextoValorBanda(
+            doc, relatorio, config, bc.campos, bc.registros,
+            yCab, marginLeft, marginTop, mapFontJsPdf,
+            bc.altura ? pxToMm(bc.altura) : undefined,
+            { superior: bc.ie_borda_superior, inferior: bc.ie_borda_inferior, esquerda: bc.ie_borda_esquerda, direita: bc.ie_borda_direita },
+            contentW, usuarioGeracao, imagensMap,
+          );
+          if (bc.altura) yCab += pxToMm(bc.altura);
+        });
+        let yRod = pageH - marginBottom - BORDA_CONTEUDO_OFFSET - alturaRodape;
+        bandaRodape.forEach((br) => {
+          const alturaMm = br.altura ? pxToMm(br.altura) : 10;
+          renderizarTextoValorBanda(
+            doc, relatorio, config, br.campos, br.registros,
+            yRod, marginLeft, marginTop, mapFontJsPdf,
+            br.altura ? pxToMm(br.altura) : undefined,
+            { superior: br.ie_borda_superior, inferior: br.ie_borda_inferior, esquerda: br.ie_borda_esquerda, direita: br.ie_borda_direita },
+            contentW, usuarioGeracao, imagensMap,
+          );
+          yRod += alturaMm;
+        });
+        desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
+      }
     }
 
-    // Renderizar rodapé de banda na base de cada página (acima da borda)
-    function renderRodapeBanda() {
-      bandaRodape.forEach((br) => {
-        const rodapeY = pageH - marginBottom - BORDA_CONTEUDO_OFFSET - (br.altura ? pxToMm(br.altura) : 10);
-        renderizarTextoValorBanda(
-          doc, relatorio, config, br.campos, br.registros,
-          rodapeY, marginLeft, marginTop, mapFontJsPdf,
-          br.altura ? pxToMm(br.altura) : undefined,
-          { superior: br.ie_borda_superior, inferior: br.ie_borda_inferior, esquerda: br.ie_borda_esquerda, direita: br.ie_borda_direita },
-          contentW, usuarioGeracao, imagensMap,
-        );
-      });
-    }
-
-    // Re-renderizar cabeçalho/rodapé a cada nova página
-    onNewPage = () => {
-      renderCabecalhoBanda();
-      desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
-      renderRodapeBanda();
-    };
-
-    // Renderizar cabeçalho na primeira página
-    renderCabecalhoBanda();
-
-    // Borda da página DEPOIS do cabeçalho (para englobá-lo)
-    desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
-
-    let totalRegistros = 0;
+    y = topoConteudo;
 
     // Separa as bandas de conteúdo: 'lista' gera uma tabela; as demais
     // ('Dados' / texto_valor) formam o desenho de UM registro na página.
@@ -726,29 +751,17 @@ export function gerarPdf(
 
     if (bandasLista.length === 0 && bandasDados.length > 0) {
       // Layout de formulário (bandas Dados): quando a consulta retorna mais de
-      // um registro, o bloco de bandas é repetido — uma página por registro —
-      // repetindo em cada página as bandas Cabeçalho, o rodapé e a borda.
+      // um registro, o bloco de bandas é repetido — uma página por registro.
       const qtdPaginas = Math.max(1, ...bandasDados.map((b) => b.registros.length));
-      totalRegistros = qtdPaginas;
 
       for (let r = 0; r < qtdPaginas; r++) {
-        if (r > 0) {
-          // Nova página com cabeçalho repetido e borda redesenhada
-          doc.addPage();
-          y = marginTop + BORDA_CONTEUDO_OFFSET;
-          renderCabecalhoBanda();
-          desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
-        }
+        if (r > 0) y = novaPagina();
 
         bandasDados.forEach((banda, idx) => {
           // Aplicar offset de altura da banda anterior
           if (idx > 0) {
             const bandaAnterior = bandasDados[idx - 1];
-            if (bandaAnterior.altura) {
-              y += pxToMm(bandaAnterior.altura);
-            } else {
-              y += 4; // Pequeno espaço padrão entre bandas
-            }
+            y += bandaAnterior.altura ? pxToMm(bandaAnterior.altura) : 4;
           }
 
           const registro = banda.registros[r];
@@ -761,20 +774,16 @@ export function gerarPdf(
             contentW, usuarioGeracao, imagensMap,
           );
         });
-
-        // Renderizar rodapé de banda nesta página
-        renderRodapeBanda();
       }
     } else {
       bandasConteudo.forEach((banda, idx) => {
-        // Aplicar offset de altura da banda anterior
-        if (idx > 0 && bandasConteudo[idx - 1].altura) {
-          y += pxToMm(bandasConteudo[idx - 1].altura!);
+        // Aplicar offset de altura da banda anterior (as listas já avançam o y)
+        if (idx > 0 && bandasConteudo[idx - 1].tipo !== 'lista') {
+          const anterior = bandasConteudo[idx - 1];
+          y += anterior.altura ? pxToMm(anterior.altura) : 4;
         } else if (idx > 0) {
-          y += 4; // Pequeno espaço padrão entre bandas
+          y += 4; // Pequeno espaço padrão após uma lista
         }
-
-        checkPage(8);
 
         if (banda.tipo === 'lista') {
           y = renderizarTabelaBanda(
@@ -783,8 +792,12 @@ export function gerarPdf(
             contentW, mapFontJsPdf,
             { superior: banda.ie_borda_superior, inferior: banda.ie_borda_inferior, esquerda: banda.ie_borda_esquerda, direita: banda.ie_borda_direita },
             { espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo },
+            paginacao,
           );
         } else {
+          // Banda Dados entre listas: se não couber na página atual, vai para a próxima.
+          const alturaBanda = banda.altura ? pxToMm(banda.altura) : 8;
+          if (y + alturaBanda > limiteConteudo) y = novaPagina();
           renderizarTextoValorBanda(
             doc, relatorio, config, banda.campos, banda.registros,
             y, marginLeft, marginTop, mapFontJsPdf,
@@ -793,30 +806,23 @@ export function gerarPdf(
             contentW, usuarioGeracao, imagensMap,
           );
         }
-        totalRegistros += banda.registros.length;
       });
-
-      // Renderizar rodapé de banda
-      renderRodapeBanda();
     }
 
-    // ── Total de registros (opcional) ──
-    // Pode ser adicionado via banda Rodapé com ie_tipo_elemento 'data_geracao' etc.
+    renderMolduraPaginas();
   } else {
     // ── Modo legado: tabela única ──
-    // Configurar onNewPage para redesenhar a borda em cada nova página
-    if (!onNewPage) {
-      onNewPage = () => {
-        desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
-      };
-    }
     y = renderizarTabelaBanda(
       doc, relatorio, config, relatorio.campos ?? [], registros,
       y, pageW, pageH, marginLeft, marginRight, marginTop, marginBottom,
-      contentW, mapFontJsPdf,
+      contentW, mapFontJsPdf, undefined, undefined,
+      { limiteInferior: pageH - marginBottom, novaPagina: () => { doc.addPage(); return marginTop + BORDA_CONTEUDO_OFFSET; } },
     );
-
-    // ── Total de registros (legado) ──
+    // Moldura em todas as páginas (inclusive a primeira).
+    for (let p = 1; p <= doc.getNumberOfPages(); p++) {
+      doc.setPage(p);
+      desenharBordaPagina(doc, config.estiloBorda ?? null, marginTop, marginBottom, marginLeft, marginRight);
+    }
   }
 
   const filename = `${config.titulo || relatorio.ds_relatorio || 'relatorio'}.pdf`;

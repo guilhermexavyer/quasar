@@ -549,9 +549,9 @@ export default function AtivoFormView({
                 />
               </div>
 
-              <div className="sm:col-span-4 group">
+              <div className="sm:col-span-4">
                 <div className="flex gap-2">
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 group">
                     {renderFieldLabel('qt_ram', 'Memória RAM')}
                     <input
                       disabled={statusDe('qt_ram') === 'D'}
@@ -563,7 +563,7 @@ export default function AtivoFormView({
                       }}
                     />
                   </div>
-                  <div className="w-24">
+                  <div className="w-24 group">
                     {renderFieldLabel('ie_ram', 'Unidade')}
                     <Select
                       disabled={statusDe('ie_ram') === 'D' || !form.qt_ram}
@@ -576,9 +576,9 @@ export default function AtivoFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-4 group">
+              <div className="sm:col-span-4">
                 <div className="flex gap-2">
-                  <div className="flex-1 min-w-0">
+                  <div className="flex-1 min-w-0 group">
                     {renderFieldLabel('qt_armazenamento', 'Armazenamento')}
                     <input
                       disabled={statusDe('qt_armazenamento') === 'D'}
@@ -590,7 +590,7 @@ export default function AtivoFormView({
                       }}
                     />
                   </div>
-                  <div className="w-24">
+                  <div className="w-24 group">
                     {renderFieldLabel('ie_armazenamento', 'Unidade')}
                     <Select
                       disabled={statusDe('ie_armazenamento') === 'D' || !form.qt_armazenamento}
