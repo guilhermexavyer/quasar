@@ -18,6 +18,8 @@ interface CamposRelatorioTableProps {
   colecaoPrincipal: string;
   /** Callback quando o estado de edição muda. */
   onEditingChange?: (editing: boolean) => void;
+  /** Ordem em que as linhas estão exibidas (ids), para a navegação anterior/próximo das telas Ver. */
+  onOrdemChange?: (ids: string[]) => void;
   /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
   onRowCommit?: (row: CamposRelatorioRow) => void;
   /** Sufixo para persistência de colunas por usuário. */
@@ -159,6 +161,7 @@ export default function CamposRelatorioTable({
   camposDisponiveis,
   colecaoPrincipal,
   onEditingChange,
+  onOrdemChange,
   onRowCommit,
   userId,
   initialColumns,
@@ -314,6 +317,10 @@ export default function CamposRelatorioTable({
     const cmp = String(av).localeCompare(String(bv), 'pt-BR', { numeric: true });
     return sortAsc ? cmp : -cmp;
   });
+
+  // Informa ao pai a ordem exibida (com a ordenação atual da tabela).
+  const idsOrdenados = sortedCampos.map((r) => r.id).join("|");
+  useEffect(() => { onOrdemChange?.(idsOrdenados ? idsOrdenados.split("|") : []); }, [idsOrdenados]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pagination = usePagination(sortedCampos.length);
   const paginatedCampos = pagination.slice(sortedCampos);

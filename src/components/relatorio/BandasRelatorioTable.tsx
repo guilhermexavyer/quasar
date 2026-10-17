@@ -33,6 +33,8 @@ interface BandasRelatorioTableProps {
   onChange: (bandas: Banda[]) => void;
   colecaoOptions?: { value: string; label: string }[];
   onEditingChange?: (editing: boolean) => void;
+  /** Ordem em que as linhas estão exibidas (ids), para a navegação anterior/próximo das telas Ver. */
+  onOrdemChange?: (ids: string[]) => void;
   /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
   onRowCommit?: (row: Banda) => void;
   userId?: string;
@@ -54,6 +56,7 @@ export default function BandasRelatorioTable({
   onChange,
   colecaoOptions = [],
   onEditingChange,
+  onOrdemChange,
   onRowCommit,
   userId,
   initialColumns,
@@ -119,6 +122,10 @@ export default function BandasRelatorioTable({
       return sortAsc ? cmp : -cmp;
     });
   }, [bandas, sortColumn, sortAsc]);
+
+  // Informa ao pai a ordem exibida (com a ordenação atual da tabela).
+  const idsOrdenados = sortedBandas.map((r) => r.id).join("|");
+  useEffect(() => { onOrdemChange?.(idsOrdenados ? idsOrdenados.split("|") : []); }, [idsOrdenados]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Enter / Ctrl+S ──
   const pendingFocusCol = useRef<number | null>(null);

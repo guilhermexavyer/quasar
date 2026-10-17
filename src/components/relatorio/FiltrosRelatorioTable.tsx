@@ -17,6 +17,8 @@ interface FiltrosRelatorioTableProps {
   onChange: (filtros: RelatorioFiltro[]) => void;
   camposDisponiveis: DataSourceCampo[];
   onEditingChange?: (editing: boolean) => void;
+  /** Ordem em que as linhas estão exibidas (ids), para a navegação anterior/próximo das telas Ver. */
+  onOrdemChange?: (ids: string[]) => void;
   /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
   onRowCommit?: (row: RelatorioFiltro) => void;
   /** Duplica o parâmetro no Firestore e devolve a cópia salva. */
@@ -88,6 +90,7 @@ export default function FiltrosRelatorioTable({
   onChange,
   camposDisponiveis,
   onEditingChange,
+  onOrdemChange,
   userId,
   initialColumns,
   onColumnsChange,
@@ -152,6 +155,10 @@ export default function FiltrosRelatorioTable({
       return sortAsc ? cmp : -cmp;
     });
   }, [filtros, sortColumn, sortAsc]);
+
+  // Informa ao pai a ordem exibida (com a ordenação atual da tabela).
+  const idsOrdenados = sortedFiltros.map((r) => r.id).join("|");
+  useEffect(() => { onOrdemChange?.(idsOrdenados ? idsOrdenados.split("|") : []); }, [idsOrdenados]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pagination = usePagination(sortedFiltros.length);
   const paginatedFiltros = pagination.slice(sortedFiltros);

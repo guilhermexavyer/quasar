@@ -300,7 +300,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.10";
+const SYSTEM_VERSION = "0.66.11";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -609,10 +609,18 @@ function isAdministradorPerfil(perfil?: { ds_perfil?: string | null } | null): b
   return (perfil?.ds_perfil ?? '').trim().toLowerCase() === 'administrador';
 }
 
-const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon: React.ReactNode }> = {
+/**
+ * Largura do menu lateral aberto: acompanha o maior nome de função (medido no
+ * navegador), sem ficar menor que LARGURA_MENU_MIN nem maior que LARGURA_MENU_MAX.
+ */
+const LARGURA_MENU_MIN = 240;
+const LARGURA_MENU_MAX = 320;
+/** Espaço fixo de um item além do nome: borda (1) + nav px-1 (8) + botão px-1.5 (12) + ícone (28) + 2 gaps (20) + alça (16). */
+const LARGURA_MENU_FIXA_ITEM = 85;
+
+const SECTION_DEFS: Record<SectionType, { label: string; icon: React.ReactNode }> = {
   pessoaFisica: {
     label: "Cadastro de Pessoas",
-    labelMaxW: "max-w-[200px]",
     icon: (
       <svg
         width="14"
@@ -633,7 +641,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   administracaoSistema: {
     label: "Administração do Sistema",
-    labelMaxW: "max-w-[220px]",
     icon: (
       <svg
         width="14"
@@ -661,7 +668,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   cadastrosGerais: {
     label: "Cadastros Gerais",
-    labelMaxW: "max-w-[180px]",
     icon: (
       <svg
         width="14"
@@ -682,7 +688,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   estruturaAcademica: {
     label: "Estrutura Acadêmica",
-    labelMaxW: "max-w-[190px]",
     icon: (
       <svg
         width="14"
@@ -702,7 +707,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   patrimonio: {
     label: "Patrimônio",
-    labelMaxW: "max-w-[150px]",
     icon: (
       <svg
         width="14"
@@ -722,7 +726,6 @@ const SECTION_DEFS: Record<SectionType, { label: string; labelMaxW: string; icon
   },
   relatorio: {
     label: "Gerenciador de Relatórios",
-    labelMaxW: "max-w-[220px]",
     icon: (
       <svg
         width="14"
@@ -835,6 +838,9 @@ export default function Home() {
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  // Largura do menu aberto, medida a partir do maior nome de função exibido.
+  const sidebarRef = useRef<HTMLElement | null>(null);
+  const [larguraMenuAberto, setLarguraMenuAberto] = useState(LARGURA_MENU_MIN);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionRestoring, setSessionRestoring] = useState(true);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
@@ -843,12 +849,14 @@ export default function Home() {
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   const [loginError, setLoginError] = useState<string | null>(null);
   const [loginWarning, setLoginWarning] = useState<string | null>(null);
-  const [activeSection, setActiveSection] = useState<SectionType>("pessoaFisica");
+  // Nenhuma função vem selecionada ao entrar: o usuário escolhe no menu lateral.
+  const [activeSection, setActiveSection] = useState<SectionType | null>(null);
   const [view, setView] = useState<ViewType>("list");
   // Lembra em que tela (lista ou formulário) o usuário estava em cada função do
   // menu lateral, para restaurar ao voltar — mesma tela de antes da navegação.
   const [sectionViews, setSectionViews] = useState<Partial<Record<SectionType, ViewType>>>({});
   useEffect(() => {
+    if (!activeSection) return;
     setSectionViews((prev) => {
       if (prev[activeSection] === view) return prev;
       return { ...prev, [activeSection]: view };
@@ -2511,12 +2519,26 @@ export default function Home() {
       setContextMenu(null);
       return;
     }
-    if (!allowedSections.includes(activeSection)) {
+    if (activeSection && !allowedSections.includes(activeSection)) {
       setActiveSection(allowedSections[0]);
       setView('list');
       setContextMenu(null);
     }
   }, [allowedSections, activeSection, currentUser]);
+
+  /* ── Largura do menu lateral aberto: cabe o maior nome de função ── */
+  useLayoutEffect(() => {
+    function medir() {
+      const rotulos = sidebarRef.current?.querySelectorAll<HTMLElement>("[data-rotulo-funcao]") ?? [];
+      const maior = Array.from(rotulos).reduce((max, el) => Math.max(max, Math.ceil(el.scrollWidth)), 0);
+      if (maior === 0) return;
+      setLarguraMenuAberto(Math.min(LARGURA_MENU_MAX, Math.max(LARGURA_MENU_MIN, maior + LARGURA_MENU_FIXA_ITEM)));
+    }
+    medir();
+    let ativo = true;
+    document.fonts?.ready.then(() => { if (ativo) medir(); });
+    return () => { ativo = false; };
+  }, [currentUser, allowedSections, menuOrder]);
 
   /* ── Restaurar sessão ao montar ── */
   useEffect(() => {
@@ -6185,9 +6207,9 @@ export default function Home() {
     }
   }
   function openFormContextMenu(event: React.MouseEvent) {
-    if (view !== 'form') return;
+    if (view !== 'form' || !activeSection) return;
     let item: ContextMenuState['item'] | null = null;
-    let section: SectionType = activeSection;
+    const section: SectionType = activeSection;
 
     if (activeSection === 'pessoaFisica') {
       if (pjManageSelection === 'pessoasJuridicas') {
@@ -7483,15 +7505,12 @@ export default function Home() {
       return;
     }
 
-    console.log("[Login] origin", window.location.origin);
-    console.log("[Login] apiKey", process.env.NEXT_PUBLIC_FIREBASE_API_KEY);
     setLoginError(null);
     setLoginWarning(null);
     setIsLoginLoading(true);
 
     try {
       const usuariosCadastrados = await obterUsuarios();
-      console.log("[Login] usuários carregados", usuariosCadastrados.length, usuariosCadastrados.map((u) => u.ds_usuario));
       const hashedPassword = await hashPassword(normalizedPassword);
       const legacyHash = createFallbackHash(normalizedPassword);
       const usuarioValido = usuariosCadastrados.find((usuario) => {
@@ -7531,6 +7550,9 @@ export default function Home() {
         }
 
         window.setTimeout(() => {
+          // Ao entrar, nenhuma função vem selecionada (inclusive após a sessão ter sido encerrada).
+          setActiveSection(null);
+          setView('list');
           setCurrentUser(usuarioValido);
           setIsAuthenticated(true);
           setIsLoginLoading(false);
@@ -7538,10 +7560,7 @@ export default function Home() {
         return;
       }
 
-      console.warn("[Login] usuário/senha inválidos", {
-        normalizedUsername,
-        hashedPassword,
-      });
+      console.warn("[Login] usuário/senha inválidos", { normalizedUsername });
       setLoginError("Usuário ou senha incorretos");
     } catch (error) {
       console.error("[Login] erro ao carregar usuários", error);
@@ -7560,6 +7579,8 @@ export default function Home() {
     setIsAuthenticated(false);
     setIsLoginLoading(false);
     setIsUserMenuOpen(false);
+    setActiveSection(null);
+    setView('list');
     setIsUserMenuClosing(false);
     setCurrentUser(null);
     setLoginError(null);
@@ -8175,9 +8196,11 @@ export default function Home() {
 
       {/* Sidebar */}
       <aside
+        ref={sidebarRef}
         className={`fixed left-0 top-0 bottom-0 z-40 flex flex-col border-r border-[#004a7a] bg-[#003056] shadow-xl shadow-black/20 transition-all duration-300 ease-out ${
-          isSidebarOpen ? "w-[220px]" : "w-12"
+          isSidebarOpen ? "" : "w-12"
         }`}
+        style={isSidebarOpen ? { width: larguraMenuAberto } : undefined}
       >
         <div
           className="relative flex items-center border-b border-[#004a7a] cursor-pointer select-none outline-none"
@@ -8194,12 +8217,13 @@ export default function Home() {
           aria-label="Alternar menu"
         >
           <div className="absolute left-6 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center">
+            {/* Logo negativa (anel branco) para o fundo azul; 30px deixam o anel com o tamanho da logo anterior. */}
             <Image
-              src="/Logo.png"
+              src="/images/Logo%20Quasar%202.0%20-%20Negativa.png"
               alt="Quasar"
-              width={28}
-              height={28}
-              className="h-7 w-7 object-contain"
+              width={30}
+              height={30}
+              className="h-[30px] w-[30px] max-w-none object-contain"
             />
           </div>
           <div
@@ -8265,12 +8289,11 @@ export default function Home() {
                 </span>
                 <span
                   className={`h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
-                    isSidebarOpen
-                      ? `${def.labelMaxW} opacity-100`
-                      : "max-w-0 opacity-0"
+                    isSidebarOpen ? "opacity-100" : "max-w-0 opacity-0"
                   }`}
+                  style={isSidebarOpen ? { maxWidth: larguraMenuAberto - LARGURA_MENU_FIXA_ITEM } : undefined}
                 >
-                  <span className="text-sm leading-none text-white">
+                  <span data-rotulo-funcao className="text-sm leading-none text-white">
                     {def.label}
                   </span>
                 </span>
@@ -8323,9 +8346,12 @@ export default function Home() {
                   <circle cx="12" cy="7" r="4" />
                 </svg>
               </span>
-              <span className={`ml-0 h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
-                isSidebarOpen ? "max-w-[180px] opacity-100" : "max-w-0 opacity-0"
-              }`}>
+              <span
+                className={`ml-0 h-7 flex items-center overflow-hidden whitespace-pre transition-all duration-300 ease-out ${
+                  isSidebarOpen ? "opacity-100" : "max-w-0 opacity-0"
+                }`}
+                style={isSidebarOpen ? { maxWidth: larguraMenuAberto - LARGURA_MENU_FIXA_ITEM + 26 } : undefined}
+              >
                 <span className="text-sm leading-none text-white">
                   {currentUser?.ds_usuario_alternativo || currentUser?.ds_usuario || "Usuário"}
                 </span>
@@ -8495,6 +8521,10 @@ export default function Home() {
           {allowedSections.length === 0 ? (
             <div className="flex h-full items-center justify-center">
               <p className="text-sm text-slate-500">Nenhuma função foi liberada para o seu usuário. Contate o administrador.</p>
+            </div>
+          ) : !activeSection ? (
+            <div className="flex h-full items-center justify-center">
+              <p className="text-sm text-slate-500">Selecione uma função no menu lateral.</p>
             </div>
           ) : view === "list" ? (
             activeSection === "pessoaFisica" ? (
