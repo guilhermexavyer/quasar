@@ -42,7 +42,7 @@ const COLECOES = [
   "pessoa_fisica", "pessoa_juridica",
   "aluno", "colaborador",
   "pat_ativo", "pat_ativos", "pat_manutencao", "pat_param_codigo_patrimonio",
-  "perfil", "usuario", "imagem",
+  "perfil", "usuario", "imagem", "aviso",
   "relatorio", "relatorio_banda", "relatorio_bandas", "relatorio_banda_elemento", "relatorio_parametro",
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor",
   "cg_logradouro", "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual",

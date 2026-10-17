@@ -568,3 +568,23 @@ button[aria-label^="Informações do campo"]:focus-visible {
   background-color: #1f1f24 !important;
 }
 
+/* ============================================================
+   CONTEÚDO DOS AVISOS (.aviso-conteudo)
+   HTML configurado em Administração do Sistema > Avisos.
+   ============================================================ */
+.aviso-conteudo { white-space: pre-line; line-height: 1.5; overflow-wrap: anywhere; }
+.aviso-conteudo p { margin: 0 0 0.75em; }
+.aviso-conteudo h1 { font-size: 1.5em; font-weight: 700; margin: 0 0 0.5em; }
+.aviso-conteudo h2 { font-size: 1.3em; font-weight: 700; margin: 0 0 0.5em; }
+.aviso-conteudo h3 { font-size: 1.15em; font-weight: 600; margin: 0 0 0.5em; }
+.aviso-conteudo h4, .aviso-conteudo h5, .aviso-conteudo h6 { font-weight: 600; margin: 0 0 0.5em; }
+.aviso-conteudo ul { list-style: disc; padding-left: 1.5em; margin: 0 0 0.75em; white-space: normal; }
+.aviso-conteudo ol { list-style: decimal; padding-left: 1.5em; margin: 0 0 0.75em; white-space: normal; }
+.aviso-conteudo a { color: #066fc5; text-decoration: underline; }
+.aviso-conteudo blockquote { border-left: 3px solid #ccc; padding-left: 0.75em; color: #555; margin: 0 0 0.75em; }
+.aviso-conteudo hr { border: 0; border-top: 1px solid #ccc; margin: 0.75em 0; }
+.aviso-conteudo table { border-collapse: collapse; margin: 0 0 0.75em; white-space: normal; }
+.aviso-conteudo th, .aviso-conteudo td { border: 1px solid #ccc; padding: 4px 8px; }
+.aviso-conteudo img { max-width: 100%; height: auto; }
+.dark .aviso-conteudo { color: #d4d4d8; }
+.dark .aviso-conteudo a { color: #7cb7ee; }
