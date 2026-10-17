@@ -12,6 +12,7 @@ export interface PermissaoDef {
 export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
   administracaoSistema: [
     // Acesso aos submódulos (dropdown PAI)
+    { key: "acessar_avisos", label: "Permite acessar Avisos" },
     { key: "acessar_campos", label: "Permite acessar Campos" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
     { key: "acessar_usuarios", label: "Permite acessar Usuários" },
@@ -160,6 +161,10 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
 export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[] }[]> = {
   administracaoSistema: [
     {
+      titulo: 'Avisos',
+      chaves: ['acessar_avisos'],
+    },
+    {
       titulo: 'Campos',
       chaves: ['acessar_campos', 'adicionar_campo', 'alterar_status_campo'],
     },
@@ -268,6 +273,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
  * permissão que libera o acesso a cada um deles.
  */
 export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'avisos', label: 'Avisos', permissao: 'acessar_avisos' },
   { value: 'campos', label: 'Campos', permissao: 'acessar_campos' },
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },

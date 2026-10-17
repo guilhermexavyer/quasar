@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
+import AvisoModal from "@/components/ui/AvisoModal";
 
 interface LoginScreenProps {
   onLogin: (username: string, password: string) => Promise<void> | void;
@@ -21,6 +22,7 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, warni
   const [shouldRenderError, setShouldRenderError] = useState(false);
   const [isWarningVisible, setIsWarningVisible] = useState(false);
   const [shouldRenderWarning, setShouldRenderWarning] = useState(false);
+  const [avisoAberto, setAvisoAberto] = useState(false);
 
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -151,11 +153,13 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, warni
 
             <button
               type="button"
+              onClick={() => setAvisoAberto(true)}
               className="cursor-pointer text-center text-sm text-blue-100 transition hover:text-white hover:underline"
             >
               Esqueceu sua senha?
             </button>
           </form>
+          <AvisoModal campo={avisoAberto ? "ds_esqueceu_senha" : null} onClose={() => setAvisoAberto(false)} />
 
           {shouldRenderError ? (
             <div

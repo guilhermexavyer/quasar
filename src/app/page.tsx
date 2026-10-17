@@ -189,6 +189,9 @@ import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, 
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
 import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
+import AvisosView from "@/components/administracaoSistema/AvisosView";
+import AvisoModal from "@/components/ui/AvisoModal";
+import type { CampoAviso } from "@/services/avisoService";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
@@ -833,11 +836,13 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional' | 'relatorio' | 'imagem'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  /** Aviso aberto em modal (ex.: Política de Privacidade no menu do usuário). */
+  const [avisoModalCampo, setAvisoModalCampo] = useState<CampoAviso | null>(null);
   // Largura do menu aberto, medida a partir do maior nome de função exibido.
   const sidebarRef = useRef<HTMLElement | null>(null);
   const [larguraMenuAberto, setLarguraMenuAberto] = useState(LARGURA_MENU_MIN);
@@ -1521,7 +1526,7 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['campos', 'perfis', 'usuarios', 'imagens'];
+    if (isAdminSemConfig) return ['avisos', 'campos', 'perfis', 'usuarios', 'imagens'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2578,7 +2583,7 @@ export default function Home() {
         if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica" || session.activeSection === "patrimonio" || session.activeSection === "relatorio") {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos')) {
           setAdminManageSelection(session.adminManageSelection);
           setAdminInteracted(true);
         }
@@ -3563,6 +3568,19 @@ export default function Home() {
       } else {
         setAuditLogs([]);
       }
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openAvisoAuditModal(avisoId: string) {
+    setAuditDocumentType('aviso');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('aviso', avisoId));
     } catch {
       setAuditLogs([]);
     } finally {
@@ -8493,6 +8511,11 @@ export default function Home() {
                     )}
                     <button
                       type="button"
+                      onClick={() => {
+                        setIsUserMenuOpen(false);
+                        setIsUserMenuClosing(false);
+                        setAvisoModalCampo('ds_politica_privacidade');
+                      }}
                       className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
                     >
                       Política de Privacidade
@@ -8572,7 +8595,19 @@ export default function Home() {
                 />
               )
             ) : activeSection === "administracaoSistema" ? (
-            adminManageSelection === 'campos' ? (
+            adminManageSelection === 'avisos' ? (
+              <AvisosView
+                colunas={colunasPorChave('config_colunas_avisos')}
+                manageSelection={adminManageSelection}
+                onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
+                auditAutor={auditAutor}
+                resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                onOpenAudit={openAvisoAuditModal}
+                onSaveSuccess={(msg) => setMessage(msg)}
+                onSavingChange={setParametrosSaving}
+              />
+            ) : adminManageSelection === 'campos' ? (
               <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                 perfis={perfis}
                 onChangeStatus={handleCamposStatusChange}
@@ -8969,7 +9004,19 @@ export default function Home() {
                 campoErros={pfCampoErros}
               />
             )
-          ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'campos' ? (
+          ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'avisos' ? (
+              <AvisosView
+                colunas={colunasPorChave('config_colunas_avisos')}
+                manageSelection={adminManageSelection}
+                onManageSelectionChange={handleAdminManageSelectionChange}
+                allowedSubmodulos={allowedAdminSubmodulos}
+                auditAutor={auditAutor}
+                resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                onOpenAudit={openAvisoAuditModal}
+                onSaveSuccess={(msg) => setMessage(msg)}
+                onSavingChange={setParametrosSaving}
+              />
+            ) : adminManageSelection === 'campos' ? (
                 <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                   perfis={perfis}
                   onChangeStatus={handleCamposStatusChange}
@@ -11998,6 +12045,7 @@ export default function Home() {
         const before = estadoDoLog(auditLogs[selectedAuditIndex + 1]) ?? null;
         const isPj = auditDocumentType === 'pessoa_juridica';
         const isImagem = auditDocumentType === 'imagem';
+        const isAviso = auditDocumentType === 'aviso';
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
@@ -12079,6 +12127,13 @@ export default function Home() {
               'ds_email',
               'ie_status',
               'ds_observacao',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
+          : isAviso
+          ? [
+              'ds_esqueceu_senha',
+              'ds_politica_privacidade',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -12283,6 +12338,8 @@ export default function Home() {
                       ds_complemento: 'Complemento',
                       nr_cbo: 'CBO',
                       ds_imagem: 'Descrição',
+                      ds_esqueceu_senha: 'Esqueceu sua senha? (Conteúdo)',
+                      ds_politica_privacidade: 'Política de Privacidade (Conteúdo)',
                       ie_arquivo: 'Arquivo',
                       nr_seq_vinculo_contratual: 'Vínculo contratual',
                       ie_fornecedor: 'Fornecedor',
@@ -12676,6 +12733,17 @@ export default function Home() {
                             rows={maxPermissoesRows}
                             value={getPermissoesDisplay(val)}
                             className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none"
+                          />
+                        );
+                      }
+                      // Conteúdo dos avisos: texto longo (HTML), exibido em várias linhas.
+                      if (field === 'ds_esqueceu_senha' || field === 'ds_politica_privacidade') {
+                        return (
+                          <textarea
+                            disabled
+                            rows={6}
+                            value={getDisplay(field, val)}
+                            className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm font-mono resize-none"
                           />
                         );
                       }
@@ -13134,6 +13202,8 @@ export default function Home() {
       )}
 
       {(gerandoCodigoPatrimonio || parametrosSaving || relatorioGerando) && <LoadingModal open message="Carregando..." />}
+
+      <AvisoModal campo={avisoModalCampo} onClose={() => setAvisoModalCampo(null)} />
 
       {toastMounted && (
         <Toast

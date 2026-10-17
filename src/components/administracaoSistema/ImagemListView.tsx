@@ -103,7 +103,8 @@ export default function ImagemListView({
     return { ...initialColumns, order: IMAGEM_COLUMNS.map((c) => c.key) };
   }, [initialColumns, IMAGEM_COLUMNS]);
 
-  const IMAGEM_SELECT_OPTIONS = useMemo(() => [
+  const IMAGEM_SELECT_OPTIONS = useMemo(() => [
+    { value: 'avisos', label: 'Avisos' },
     { value: 'campos', label: 'Campos' },
     { value: 'imagens', label: 'Imagens' },
     { value: 'perfis', label: 'Perfis' },
