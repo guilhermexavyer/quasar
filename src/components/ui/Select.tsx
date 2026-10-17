@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 
 export interface SelectOption {
   value: string;
@@ -77,9 +78,9 @@ export default function Select({
   useEffect(() => {
     if (!open) return;
     function handleClose(event: MouseEvent) {
-      if (rootRef.current && !rootRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
+      const alvo = event.target as Node;
+      if (rootRef.current?.contains(alvo) || listRef.current?.contains(alvo)) return;
+      setOpen(false);
     }
     document.addEventListener("mousedown", handleClose);
     return () => document.removeEventListener("mousedown", handleClose);
@@ -306,7 +307,7 @@ export default function Select({
         </span>
       </button>
 
-      {open && dropdownPos && (
+      {open && dropdownPos && renderLista(
         <div
           ref={listRef}
           role="listbox"
@@ -349,4 +350,16 @@ export default function Select({
       )}
     </div>
   );
+
+  /**
+   * A lista "fixed" é renderizada em document.body: dentro de um ancestral com
+   * transform/filter/backdrop-filter (ex.: rodapé de paginação com
+   * backdrop-blur), position: fixed passa a ser relativo a ele e a lista abria
+   * fora da tela. O modo escuro (.dark num contêiner do app) é repassado ao portal.
+   */
+  function renderLista(lista: React.ReactElement) {
+    if (absolute || typeof document === "undefined") return lista;
+    const escuro = !!rootRef.current?.closest(".dark");
+    return createPortal(<div className={escuro ? "dark" : undefined}>{lista}</div>, document.body);
+  }
 }

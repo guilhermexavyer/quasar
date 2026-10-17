@@ -460,7 +460,7 @@ export default function PerfilListView({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={[{ value: 'campos', label: 'Campos' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }, { value: 'imagens', label: 'Imagens' }].filter((o) => allowedSubmodulos.includes(o.value))}
+              options={[{ value: 'campos', label: 'Campos' }, { value: 'imagens', label: 'Imagens' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={!manageSelection}
               className="!w-[180px]"
             />

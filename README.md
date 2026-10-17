@@ -12,37 +12,70 @@ O Quasar roda em ambiente local, com todo o estado gerenciado de forma centraliz
 
 ## Como instalar
 
-1. Clone o repositório ou baixe os arquivos do projeto.
-2. Abra o terminal na pasta do projeto.
-3. Instale as dependências:
+```bash
+npm.cmd install                 # instala as dependências
+cp db-homologacao.txt .env.local   # credenciais Firebase da homologação (base usada no dia a dia)
+cp db-producao.txt .env.producao   # credenciais Firebase da produção (usadas só nos scripts)
+npm.cmd run dev                 # inicia o servidor em http://localhost:3000
+```
+
+Para cadastrar imagens localmente, adicione no `.env.local` a linha `BLOB_READ_WRITE_TOKEN=...` (Vercel → projeto `quasar` → Storage → `quasar-blob` → aba `.env.local`).
+
+Outro gerenciador de pacotes: troque `npm install` / `npm run dev` por `yarn` ou `pnpm`.
+
+## Como publicar em produção
+
+`homologacao` é a branch de trabalho; cada push em `producao` dispara o deploy na Vercel. Antes, deixe `git status` limpo e teste na homologação.
 
 ```bash
-npm.cmd install
+git checkout producao      # vai para a branch de produção
+git pull                   # atualiza com o GitHub
+git merge homologacao      # traz as mudanças da homologação
+git push                   # envia e dispara o deploy
+git checkout homologacao   # volta para a branch de trabalho
 ```
 
-4. Configure as credenciais do Firebase criando um arquivo `.env.local` na raiz do projeto, seguindo o padrão esperado em `src/lib/firebase.ts`:
+Em caso de conflito no merge: resolva os arquivos, rode `git add <arquivo>` e `git commit` antes do `git push`.
 
-```
-NEXT_PUBLIC_FIREBASE_API_KEY=...
-NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN=...
-NEXT_PUBLIC_FIREBASE_PROJECT_ID=...
-NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET=...
-NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID=...
-NEXT_PUBLIC_FIREBASE_APP_ID=...
-```
+O merge publica só o código. Os dados e as imagens de cada base não são copiados.
 
-5. Inicie o servidor de desenvolvimento:
+## Copiar produção para homologação
+
+Deixa a homologação idêntica à produção (Firestore e imagens). **Apaga tudo da homologação antes de copiar**; a produção só é lida. Requer `.env.producao` e `.env.local` (com `BLOB_READ_WRITE_TOKEN`) preenchidos.
 
 ```bash
-npm.cmd run dev
+npm.cmd run db:copiar-producao -- --dry-run                  # simula: mostra o que seria copiado e apagado
+npm.cmd run db:copiar-producao -- --confirmar                # copia de verdade
+npm.cmd run db:copiar-producao -- --confirmar --sem-imagens  # copia só o Firestore, sem mexer no Blob
 ```
 
-6. Abra o navegador em:
+- Antes de apagar, grava um backup dos dados em `backups/` (fora do Git). As imagens não entram no backup.
+- As imagens ficam no Vercel Blob em `producao/images/` e `homologacao/images/`. O script apaga a segunda, copia a primeira para ela e atualiza `ie_arquivo` nos registros.
+- Plano gratuito do Firebase: 50 mil leituras e 20 mil gravações por dia. Evite repetir a cópia várias vezes no mesmo dia.
+
+## Começar do zero (apagar a base e recriar o básico)
+
+**Apaga todos os dados do Firestore** da base escolhida e recria o mínimo para usar o sistema: o perfil `Administrador`, o usuário `administrador` (senha definida em `scripts/seed.mjs`) e os Cadastros Gerais de `scripts/dados/cadastros-gerais.json`. Rode na ordem.
+
+Homologação (`.env.local`):
 
 ```bash
-http://localhost:3000
+npm.cmd run db:limpar                     # simula: mostra o que seria apagado
+npm.cmd run db:limpar -- --confirmar      # faz backup em backups/ e APAGA tudo
+npm.cmd run seed                          # cria o perfil e o usuário administrador
+npm.cmd run seed:cg                       # recria os Cadastros Gerais
 ```
 
-## Observação
+Produção (`.env.producao`):
 
-Se você usar outro gerenciador de pacotes, substitua `npm install` por `yarn install` ou `pnpm install`, e `npm run dev` por `yarn dev` ou `pnpm dev`.
+```bash
+npm.cmd run db:limpar:producao                  # simula: mostra o que seria apagado
+npm.cmd run db:limpar:producao -- --confirmar   # faz backup em backups/ e APAGA tudo
+npm.cmd run seed:producao                       # cria o perfil e o usuário administrador
+npm.cmd run seed:cg:producao                    # recria os Cadastros Gerais
+```
+
+- Os seeders aceitam `-- --dry-run` para simular. São idempotentes: não duplicam o administrador e pulam a coleção de Cadastros Gerais que já tiver registros.
+- Os Cadastros Gerais mantêm o `nr_sequencia` original, e o contador de cada um continua a partir do maior.
+- As imagens do Vercel Blob não são apagadas pelo `db:limpar`.
+- Para atualizar `scripts/dados/cadastros-gerais.json` com os Cadastros Gerais atuais da produção: `npm.cmd run seed:cg:exportar`.

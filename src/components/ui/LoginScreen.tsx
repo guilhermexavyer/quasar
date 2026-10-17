@@ -97,7 +97,9 @@ export default function LoginScreen({ onLogin, errorMessage, onClearError, warni
         <div className="w-full max-w-[440px] p-7 text-white">
           <div className="flex flex-col items-center">
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-white/20 bg-white/10 p-3 shadow-[0_0_0_8px_rgba(255,255,255,0.08)]">
-              <Image src="/Logo.png" alt="Quasar" width={72} height={72} className="h-16 w-16 object-contain" />
+              {/* Logo negativa (anel branco) para o fundo azul. O anel ocupa 75% da imagem: 68px deixam o anel
+                  com o mesmo diâmetro do disco da logo anterior (80% de 64px). */}
+              <Image src="/images/Logo%20Quasar%202.0%20-%20Negativa.png" alt="Quasar" width={68} height={68} className="h-[68px] w-[68px] max-w-none object-contain" />
             </div>
             <h1 className="text-[2rem] font-semibold tracking-tight text-white">Quasar</h1>
             <p className="mt-2 text-base text-blue-100">Bem vindo(a)</p>

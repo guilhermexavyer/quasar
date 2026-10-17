@@ -473,6 +473,9 @@ export default function RelatorioBuilder({
     setBandaContentSubView('dados');
     // Carregar configurações visuais da banda selecionada
     const bSel = (pendingBanda && pendingBanda.id === bandaId) ? pendingBanda : bandas.find((b) => b.id === bandaId);
+    // Elementos da própria banda: o Salvar/Voltar grava camposRef na banda aberta.
+    setCampos(bSel?.campos?.length ? [...bSel.campos] : []);
+    bandaSnapshotRef.current = bSel && !(pendingBanda && pendingBanda.id === bandaId) ? JSON.parse(JSON.stringify(bSel)) : null;
     if (bSel) {
       setEspessuraLabel(bSel.espessuraLabel ?? 16);
       setTopoLabelVal(bSel.topoLabel ?? 0);
@@ -490,8 +493,71 @@ export default function RelatorioBuilder({
   }
 
   function openFiltroVer(filtroId: string) {
+    const atual = filtros.find((f) => f.id === filtroId);
+    filtroSnapshotRef.current = atual ? JSON.parse(JSON.stringify(atual)) : null;
     setFiltroDetailId(filtroId);
     setPendingFiltro(null);
+  }
+
+  // ── Navegação anterior/próximo nas telas Ver de banda, elemento e parâmetro ──
+  // As setas percorrem os registros da tabela de origem na ordem exibida (com a
+  // ordenação atual); nas demais telas navegam entre relatórios.
+  const bandaSnapshotRef = useRef<BandaState | null>(null);
+  const filtroSnapshotRef = useRef<RelatorioFiltro | null>(null);
+  const [ordemBandas, setOrdemBandas] = useState<string[]>([]);
+  const [ordemCampos, setOrdemCampos] = useState<string[]>([]);
+  const [ordemFiltros, setOrdemFiltros] = useState<string[]>([]);
+
+  /** Ordem exibida pela tabela; itens ainda não refletidos nela vão para o fim. */
+  function ordemDe(ordem: string[], ids: string[]): string[] {
+    const exibidos = ordem.filter((id) => ids.includes(id));
+    return [...exibidos, ...ids.filter((id) => !exibidos.includes(id))];
+  }
+
+  /** Descarta alterações não salvas da banda aberta no Ver. */
+  function restaurarBandaVer() {
+    const snap = bandaSnapshotRef.current;
+    bandaSnapshotRef.current = null;
+    if (snap) setBandas((prev) => prev.map((b) => (b.id === snap.id ? snap : b)));
+  }
+
+  /** Descarta alterações não salvas do parâmetro aberto no Ver. */
+  function restaurarFiltroVer() {
+    const snap = filtroSnapshotRef.current;
+    filtroSnapshotRef.current = null;
+    if (snap) setFiltros((prev) => prev.map((f) => (f.id === snap.id ? snap : f)));
+  }
+
+  const navContexto: 'relatorio' | 'banda' | 'elemento' | 'parametro' =
+    campoDetailId ? 'elemento' : filtroDetailId ? 'parametro' : bandaDetailId && bandaViewMode === 'ver' ? 'banda' : 'relatorio';
+  const navLista =
+    navContexto === 'elemento' ? ordemDe(ordemCampos, campos.map((c) => c.id))
+    : navContexto === 'parametro' ? ordemDe(ordemFiltros, filtros.map((f) => f.id))
+    : navContexto === 'banda' ? ordemDe(ordemBandas, bandas.map((b) => b.id))
+    : [];
+  // Item novo (ainda não salvo) não está na lista: setas desabilitadas.
+  const navAtual = navContexto === 'elemento' ? campoDetailId : navContexto === 'parametro' ? filtroDetailId : bandaDetailId;
+  const navIndice = navAtual ? navLista.indexOf(navAtual) : -1;
+  const temAnterior = navContexto === 'relatorio' ? hasPrevRecord : navIndice > 0;
+  const temProximo = navContexto === 'relatorio' ? hasNextRecord : navIndice >= 0 && navIndice < navLista.length - 1;
+
+  function navegarRegistro(direcao: 'prev' | 'next') {
+    if (navContexto === 'relatorio') { handleNavClick(direcao); return; }
+    const alvo = navLista[navIndice + (direcao === 'prev' ? -1 : 1)];
+    if (!alvo || navIndice < 0) return;
+    if (navContexto === 'elemento') {
+      // Mesmo comportamento do Cancelar: descarta o que não foi salvo.
+      const originalBanda = bandas.find((b) => b.id === bandaDetailId);
+      if (originalBanda?.campos) syncCampos(originalBanda.campos);
+      setPendingCampo(null);
+      setCampoDetailId(alvo);
+    } else if (navContexto === 'parametro') {
+      restaurarFiltroVer();
+      openFiltroVer(alvo);
+    } else {
+      restaurarBandaVer();
+      openBandaVer(alvo);
+    }
   }
 
   /** Atualiza a banda selecionada (funciona tanto para banda existente quanto pendente) */
@@ -1152,9 +1218,9 @@ export default function RelatorioBuilder({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => handleNavClick('prev')}
-              disabled={!hasPrevRecord}
-              className={hasPrevRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
+              onClick={() => navegarRegistro('prev')}
+              disabled={!temAnterior}
+              className={temAnterior ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
               style={{ borderBottomColor: '#000' }}
               aria-label="Registro anterior"
             >
@@ -1164,9 +1230,9 @@ export default function RelatorioBuilder({
             </button>
             <button
               type="button"
-              onClick={() => handleNavClick('next')}
-              disabled={!hasNextRecord}
-              className={hasNextRecord ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
+              onClick={() => navegarRegistro('next')}
+              disabled={!temProximo}
+              className={temProximo ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
               style={{ borderBottomColor: '#000' }}
               aria-label="Próximo registro"
             >
@@ -1391,6 +1457,7 @@ export default function RelatorioBuilder({
               onColumnsChange={onBandasColumnsChange}
               onOpenBanda={(b) => openBandaDetail(b.id)}
               onViewBanda={(b) => openBandaVer(b.id)}
+              onOrdemChange={setOrdemBandas}
               getNextBandaSeq={getNextBandaSeq}
               selectedRecordId={lastBandaDetailIdRef.current}
               onDeleteBanda={onDeleteBanda}
@@ -1438,6 +1505,7 @@ export default function RelatorioBuilder({
               getNextSeq={getNextFiltroSeq}
               colecaoOptions={opcoesColecao}
               onViewFiltro={(f) => openFiltroVer(f.id)}
+              onOrdemChange={setOrdemFiltros}
               onDeleteFiltro={onDeleteFiltro}
               onRowCommit={(row) => { void gravarParametroEditado(row); }}
               onDuplicateFiltro={duplicarParametro}
@@ -2276,6 +2344,7 @@ export default function RelatorioBuilder({
           {/* ═══════════════════════════════════════════════ */}
           <section className="h-full flex min-h-0 flex-col">
               <CamposRelatorioTable
+                onOrdemChange={setOrdemCampos}
                 campos={campos}
                 onChange={syncCampos}
                 camposDisponiveis={camposDisponiveis}
@@ -2399,9 +2468,10 @@ export default function RelatorioBuilder({
                     // Filtro novo cancelado: remover do array
                     setFiltros((prev) => prev.filter((f) => f.id !== filtroDetailId));
                   }
+                  else restaurarFiltroVer();
                   setPendingFiltro(null);
                   setFiltroDetailId(null);
-                } : bandaDetailId ? () => { setPendingBanda(null); closeBandaDetail(); } : onCancel}
+                } : bandaDetailId ? () => { restaurarBandaVer(); setPendingBanda(null); closeBandaDetail(); } : onCancel}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >

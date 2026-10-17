@@ -105,9 +105,9 @@ export default function ImagemListView({
 
   const IMAGEM_SELECT_OPTIONS = useMemo(() => [
     { value: 'campos', label: 'Campos' },
+    { value: 'imagens', label: 'Imagens' },
     { value: 'perfis', label: 'Perfis' },
     { value: 'usuarios', label: 'Usuários' },
-    { value: 'imagens', label: 'Imagens' },
   ].filter((o) => allowedSubmodulos.includes(o.value)), [allowedSubmodulos]);
 
   return (
