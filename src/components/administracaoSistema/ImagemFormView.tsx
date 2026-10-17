@@ -6,6 +6,7 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import type { ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 const IMAGEM_FIELD_INFOS: Record<string, { type: string; field: string; collection: string }> = {
   nr_sequencia: { type: 'number', field: 'nr_sequencia', collection: 'imagem' },
@@ -126,7 +127,8 @@ export default function ImagemFormView({
         e.preventDefault();
         if (submitting) return;
         const f = formRef.current;
-        if (!f) return;
+        // Funções abertas ficam montadas, porém escondidas: só o formulário na tela salva.
+        if (!f || !elementoVisivel(f)) return;
         if (typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
         } else {

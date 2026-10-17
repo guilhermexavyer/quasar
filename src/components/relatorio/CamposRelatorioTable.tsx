@@ -9,6 +9,7 @@ import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
@@ -176,6 +177,7 @@ export default function CamposRelatorioTable({
   onDuplicateCampo,
 }: CamposRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
 
   // Notificar o pai quando o estado de edição muda
@@ -371,7 +373,7 @@ export default function CamposRelatorioTable({
   // Atalhos de teclado
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (!editingId) return;
+      if (!editingId || !elementoVisivel(raizRef.current)) return;
       const target = e.target as HTMLElement;
       const tagName = target?.tagName?.toLowerCase();
 
@@ -893,7 +895,7 @@ export default function CamposRelatorioTable({
     : columns.filter((c) => !listaHidden.has(c.key) && !colecaoCampoHidden.has(c.key));
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
+    <div ref={raizRef} className="relative flex h-full min-h-0 flex-col">
       <style>{`
         .campo-edit-icon { opacity: 1; }
       `}</style>

@@ -8,6 +8,7 @@ import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
@@ -36,6 +37,7 @@ export default function OrdenacaoRelatorioTable({
   editRequestId,
 }: OrdenacaoRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -135,7 +137,7 @@ export default function OrdenacaoRelatorioTable({
 
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (!editingId) return;
+      if (!editingId || !elementoVisivel(raizRef.current)) return;
       const target = e.target as HTMLElement;
       const tagName = target?.tagName?.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -307,7 +309,7 @@ export default function OrdenacaoRelatorioTable({
   ], [editingId, camposDisponiveis, ordenacao]);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={raizRef} className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={columns}

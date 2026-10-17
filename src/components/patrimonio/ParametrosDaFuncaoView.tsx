@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
@@ -10,6 +11,7 @@ import {
   salvarParamCodigoPatrimonio,
 } from "@/services/paramCodigoPatrimonioService";
 import type { AuditAutor } from "@/services/auditService";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 /** Parâmetros de configuração da função Patrimônio. */
 const PARAMETROS_PATRIMONIO = [
@@ -69,12 +71,10 @@ interface ParametrosDaFuncaoViewProps {
   createdBy?: string;
   updatedBy?: string;
   onOpenAudit?: () => void;
+  /** @deprecated O rodapé de auditoria agora é sempre exibido. */
   auditHasDocument?: boolean;
   auditAutor?: AuditAutor;
   onAfterSave?: (auditInfo: { createdAt: string; updatedAt: string; createdBy: string; updatedBy: string }) => void;
-  /** ds_usuario (sem resolver o nome) de criação/alteração do registro do parâmetro, para as colunas da tabela. */
-  dsUsuarioCriacao?: string;
-  dsUsuarioAlteracao?: string;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
 }
@@ -91,18 +91,18 @@ export default function ParametrosDaFuncaoView({
   createdBy,
   updatedBy,
   onOpenAudit,
-  auditHasDocument,
   auditAutor,
   onAfterSave,
-  dsUsuarioCriacao,
-  dsUsuarioAlteracao,
   colunas,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
   const [segmentosDraft, setSegmentosDraft] = useState<Segmento[] | null>(null);
   const [saving, setSaving] = useState(false);
+  const [infoAberto, setInfoAberto] = useState(false);
+  const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
   const handleSalvarRef = useRef<() => void>(() => {});
+  const raizRef = useRef<HTMLDivElement>(null);
 
   const selectedParametro = PARAMETROS_PATRIMONIO.find((p) => p.id === selectedParametroId) ?? null;
   const segmentosEmEdicao = segmentosDraft ?? segmentos;
@@ -217,6 +217,7 @@ export default function ParametrosDaFuncaoView({
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        if (!elementoVisivel(raizRef.current)) return; // função escondida: não salva
         e.preventDefault();
         if (!saving) handleSalvarRef.current();
       }
@@ -226,7 +227,7 @@ export default function ParametrosDaFuncaoView({
   }, [saving]);
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 space-y-6">
+    <div ref={raizRef} className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Header replicando o padrão das listagens */}
       <div className="flex min-h-[42px] items-center gap-2">
         <Select
@@ -258,11 +259,7 @@ export default function ParametrosDaFuncaoView({
                 columns={[
                   { key: "dropdown", label: "Dropdown" },
                   { key: "parametro", label: "Parâmetro" },
-                  // Auditoria do registro do parâmetro (pat_param_codigo_patrimonio).
-                  { key: "dt_criacao", label: "Criação", render: (p) => (p.id === "geracao_codigo_patrimonio" && createdAt ? formatDate(createdAt) : "") },
-                  { key: "dt_alteracao", label: "Alteração", render: (p) => (p.id === "geracao_codigo_patrimonio" && updatedAt ? formatDate(updatedAt) : "") },
-                  { key: "ds_usuario_criacao", label: "Usuário criação", render: (p) => (p.id === "geracao_codigo_patrimonio" ? dsUsuarioCriacao ?? "" : "") },
-                  { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (p) => (p.id === "geracao_codigo_patrimonio" ? dsUsuarioAlteracao ?? "" : "") },
+                  // Sem colunas de auditoria: os parâmetros são padrão do sistema, não registros criados pelo usuário.
                 ]}
                 rows={PARAMETROS_PATRIMONIO}
                 rowKey={(p) => p.id}
@@ -291,6 +288,35 @@ export default function ParametrosDaFuncaoView({
             ) : selectedParametro.id === "geracao_codigo_patrimonio" ? (
               <div className="flex flex-col h-full min-h-0">
                 <div className="overflow-auto flex-1 min-h-0">
+                  {/* Rótulo dos campos da regra (com infobutton, como os demais campos do sistema) */}
+                  <div className="block text-sm mb-1" style={{ color: "#666" }}>
+                    <div className="relative group inline-flex items-center gap-2">
+                      <span>Regra</span>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setInfoAnchor(event.currentTarget);
+                          setInfoAberto((v) => !v);
+                        }}
+                        aria-label="Informações do campo Regra"
+                        className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoAberto ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                      >
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                          <circle cx="12" cy="12" r="10" />
+                          <path d="M12 8v4" />
+                          <circle cx="12" cy="16" r="0.5" />
+                        </svg>
+                      </button>
+                      {infoAberto && (
+                        <FieldInfoPopup
+                          anchor={infoAnchor}
+                          meta={{ type: "string", field: "ds_regra", collection: "pat_param_codigo_patrimonio" }}
+                          onClose={() => setInfoAberto(false)}
+                        />
+                      )}
+                    </div>
+                  </div>
                   <div className="space-y-2 w-full">
                     {segmentosEmEdicao.map((seg, index) => {
                       const isTexto = seg.tipo === "texto";
@@ -352,7 +378,7 @@ export default function ParametrosDaFuncaoView({
 
                 {/* Botões Cancelar / Salvar — canto inferior direito */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
-                  {auditHasDocument && (
+                  {/* Logs de criação/alteração: sempre visíveis ("-" até o primeiro salvamento). */}
                   <div className="text-[13px] text-slate-500">
                     <div className="relative group flex items-center gap-2">
                       <span>Criado por {createdBy || '-'} em {createdAt ? formatDate(createdAt) : '-'}</span>
@@ -385,7 +411,6 @@ export default function ParametrosDaFuncaoView({
                       </button>
                     </div>
                   </div>
-                  )}
                   <div className="flex items-center justify-end gap-2 ml-auto">
                     <button
                       type="button"
