@@ -9,6 +9,7 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 export type AdminFormData = Omit<Usuario, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -135,7 +136,8 @@ export default function AdministracaoSistemaFormView({
         e.preventDefault();
         if (submitting || readOnly) return;
         const f = formRef.current;
-        if (!f) return;
+        // Funções abertas ficam montadas, porém escondidas: só o formulário na tela salva.
+        if (!f || !elementoVisivel(f)) return;
         if (typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
         } else {

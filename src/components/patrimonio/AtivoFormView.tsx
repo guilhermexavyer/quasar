@@ -10,6 +10,7 @@ import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import LoadingModal from "@/components/ui/LoadingModal";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 export type AtivoFormData = Omit<Ativo, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -171,7 +172,8 @@ export default function AtivoFormView({
         e.preventDefault();
         if (submitting) return;
         const f = formRef.current;
-        if (!f) return;
+        // Funções abertas ficam montadas, porém escondidas: só o formulário na tela salva.
+        if (!f || !elementoVisivel(f)) return;
         if (typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
         } else {

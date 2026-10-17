@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { obterAviso, salvarAviso, type Aviso, type CampoAviso } from "@/services/avisoService";
 import { TITULOS_AVISO } from "@/components/ui/AvisoModal";
 import type { AuditAutor } from "@/services/auditService";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 /** Avisos configuráveis (tabela da esquerda). O texto de cada um fica em um campo da coleção aviso. */
 const AVISOS: { id: CampoAviso; aviso: string }[] = [
@@ -28,7 +29,8 @@ interface AvisosViewProps {
   auditAutor?: AuditAutor;
   /** Resolve ds_usuario para o nome exibido no rodapé de auditoria. */
   resolverNomeAutorExibicao?: (dsUsuario: string) => string;
-  onOpenAudit?: (avisoId: string) => void;
+  /** Abre o histórico de auditoria somente do aviso informado. */
+  onOpenAudit?: (avisoId: string, campo: CampoAviso) => void;
   onSaveSuccess?: (message: string) => void;
   onSavingChange?: (saving: boolean) => void;
   /** Ordem e largura das colunas salvas no usuário. */
@@ -53,6 +55,7 @@ export default function AvisosView({
   const [infoAberto, setInfoAberto] = useState(false);
   const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
   const handleSalvarRef = useRef<() => void>(() => {});
+  const raizRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     let cancelado = false;
@@ -96,6 +99,7 @@ export default function AvisosView({
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
+        if (!elementoVisivel(raizRef.current)) return; // função escondida: não salva
         e.preventDefault();
         handleSalvarRef.current();
       }
@@ -114,7 +118,7 @@ export default function AvisosView({
   } as const;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0 space-y-6">
+    <div ref={raizRef} className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Header replicando o padrão das listagens */}
       <div className="flex min-h-[42px] items-center gap-2">
         <Select
@@ -179,7 +183,6 @@ export default function AvisosView({
                     value={valorEmEdicao}
                     onChange={(e) => setRascunho(e.target.value)}
                     spellCheck={false}
-                    placeholder="Texto do aviso. É possível usar tags HTML, ex.: <b>negrito</b>, <a href=&quot;https://...&quot;>link</a>"
                     className="flex-1 min-h-[160px] w-full resize-none rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm font-mono transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
                   />
                 </div>
@@ -190,14 +193,14 @@ export default function AvisosView({
                     <div className="text-[13px] text-slate-500">
                       <div className="relative group flex items-center gap-2">
                         <span>Criado por {resolverNomeAutorExibicao(aviso.ds_usuario_criacao ?? "") || "-"} em {aviso.dt_criacao ? formatDate(aviso.dt_criacao) : "-"}</span>
-                        <button type="button" aria-hidden="true" onClick={() => aviso.id && onOpenAudit?.(aviso.id)}
+                        <button type="button" aria-hidden="true" onClick={() => aviso.id && selecionado && onOpenAudit?.(aviso.id, selecionado)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
                         </button>
                       </div>
                       <div className="relative group flex items-center gap-2 mt-1">
                         <span>Alterado por {resolverNomeAutorExibicao(aviso.ds_usuario_alteracao ?? "") || "-"} em {aviso.dt_alteracao ? formatDate(aviso.dt_alteracao) : "-"}</span>
-                        <button type="button" aria-hidden="true" onClick={() => aviso.id && onOpenAudit?.(aviso.id)}
+                        <button type="button" aria-hidden="true" onClick={() => aviso.id && selecionado && onOpenAudit?.(aviso.id, selecionado)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
                         </button>

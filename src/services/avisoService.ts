@@ -19,6 +19,21 @@ export interface Aviso {
 
 export type CampoAviso = "ds_esqueceu_senha" | "ds_politica_privacidade";
 
+/**
+ * Logs de auditoria de um aviso específico (os dois avisos ficam no mesmo
+ * documento). Logs novos trazem o campo alterado; nos antigos, o aviso é
+ * identificado comparando o conteúdo com o log anterior.
+ * Recebe os logs do mais recente para o mais antigo (ordem de fetchAuditByDocumentId).
+ */
+export function filtrarAuditoriaDoAviso<T extends { campo?: string; detalhes?: Record<string, unknown> }>(logs: T[], campo: CampoAviso): T[] {
+  return logs.filter((log, i) => {
+    if (log.campo) return log.campo === campo;
+    const atual = String(log.detalhes?.[campo] ?? "");
+    const anterior = i + 1 < logs.length ? String(logs[i + 1].detalhes?.[campo] ?? "") : "";
+    return atual !== anterior;
+  });
+}
+
 export async function obterAviso(): Promise<Aviso | null> {
   const snapshot = await getDocs(collection(db, COLECAO));
   if (snapshot.empty) return null;
@@ -48,7 +63,7 @@ export async function salvarAviso(campo: CampoAviso, conteudo: string, autor?: A
       ds_usuario_alteracao: nomeAutor,
     };
     await setDoc(ref, dados);
-    await registrarAuditoria(ref.id, "create", agora, autor, dados);
+    await registrarAuditoria(ref.id, "create", agora, autor, dados, campo);
     return { id: ref.id, ...dados };
   }
 
@@ -56,16 +71,18 @@ export async function salvarAviso(campo: CampoAviso, conteudo: string, autor?: A
   const { id, ...dadosAtuais } = atual;
   const dados: Aviso = { ...dadosAtuais, [campo]: conteudo, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
   await setDoc(doc(db, COLECAO, id), { [campo]: conteudo, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor }, { merge: true });
-  await registrarAuditoria(id, "update", agora, autor, dados);
+  await registrarAuditoria(id, "update", agora, autor, dados, campo);
   return { id, ...dados };
 }
 
-async function registrarAuditoria(id: string, acao: "create" | "update", agora: string, autor: AuditAutor | undefined, detalhes: Aviso) {
+/** O log guarda o aviso alterado (campo): cada aviso tem seu próprio histórico de auditoria. */
+async function registrarAuditoria(id: string, acao: "create" | "update", agora: string, autor: AuditAutor | undefined, detalhes: Aviso, campo: CampoAviso) {
   try {
     await addDoc(collection(db, COLECAO, id, "auditoria"), {
       usuarioId: autor?.usuarioId ?? null,
       usuarioNome: autor?.usuarioNome?.trim() || "-",
       acao,
+      campo,
       timestamp: agora,
       detalhes,
     });

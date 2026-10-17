@@ -14,11 +14,16 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     // Acesso aos submódulos (dropdown PAI)
     { key: "acessar_avisos", label: "Permite acessar Avisos" },
     { key: "acessar_campos", label: "Permite acessar Campos" },
+    { key: "acessar_imagens", label: "Permite acessar Imagens" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
     { key: "acessar_usuarios", label: "Permite acessar Usuários" },
     // Opção Campos
-    { key: "adicionar_campo", label: "Permite adicionar" },
     { key: "alterar_status_campo", label: "Permite alterar o status do campo" },
+    // Opção Imagens
+    { key: "adicionar_imagem", label: "Permite adicionar" },
+    { key: "ver_imagem", label: "Permite ver" },
+    { key: "renomear_imagem", label: "Permite renomear" },
+    { key: "excluir_imagem", label: "Permite excluir" },
     // Opção Perfis
     { key: "adicionar_perfil", label: "Permite adicionar" },
     { key: "ver_perfil", label: "Permite ver" },
@@ -84,7 +89,14 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "cancelar_manutencao", label: "Permite cancelar manutenção" },
     { key: "excluir_manutencao", label: "Permite excluir" },
   ],
-  relatorio: [],
+  relatorio: [
+    { key: "adicionar_relatorio", label: "Permite adicionar" },
+    { key: "ver_relatorio", label: "Permite ver" },
+    { key: "gerar_relatorio", label: "Permite gerar relatório" },
+    { key: "duplicar_relatorio", label: "Permite duplicar" },
+    { key: "bandas_relatorio", label: "Permite configurar bandas" },
+    { key: "excluir_relatorio", label: "Permite excluir" },
+  ],
   cadastrosGerais: [
     // Cor/Raça
     { key: "acessar_cor_raca", label: "Permite acessar Cor/Raça" },
@@ -166,7 +178,11 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Campos',
-      chaves: ['acessar_campos', 'adicionar_campo', 'alterar_status_campo'],
+      chaves: ['acessar_campos', 'alterar_status_campo'],
+    },
+    {
+      titulo: 'Imagens',
+      chaves: ['acessar_imagens', 'adicionar_imagem', 'ver_imagem', 'renomear_imagem', 'excluir_imagem'],
     },
     {
       titulo: 'Perfis',
@@ -211,7 +227,12 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_parametros_funcao'],
     },
   ],
-  relatorio: [],
+  relatorio: [
+    {
+      titulo: 'Relatórios',
+      chaves: ['adicionar_relatorio', 'ver_relatorio', 'gerar_relatorio', 'duplicar_relatorio', 'bandas_relatorio', 'excluir_relatorio'],
+    },
+  ],
   cadastrosGerais: [
     {
       titulo: 'Cargo',
@@ -307,7 +328,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 11;
+export const PERMISSOES_CONFIG_VERSION = 12;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com

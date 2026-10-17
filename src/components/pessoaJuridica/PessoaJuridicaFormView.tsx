@@ -18,6 +18,7 @@ import {
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import { buscarEnderecoPorCep } from "@/services/cepService";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 export type FormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -191,7 +192,8 @@ export default function PessoaJuridicaFormView({
         e.preventDefault();
         if (submitting) return;
         const f = formRef.current;
-        if (!f) return;
+        // Funções abertas ficam montadas, porém escondidas: só o formulário na tela salva.
+        if (!f || !elementoVisivel(f)) return;
         if (typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
         } else {

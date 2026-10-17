@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 export interface Banda {
   id: string;
@@ -69,6 +70,7 @@ export default function BandasRelatorioTable({
   onDuplicateBanda,
 }: BandasRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(selectedRecordId ?? null);
   useEffect(() => { if (selectedRecordId != null) setSelectedId(selectedRecordId); }, [selectedRecordId]);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
@@ -168,7 +170,7 @@ export default function BandasRelatorioTable({
 
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (!editingId) return;
+      if (!editingId || !elementoVisivel(raizRef.current)) return;
       const target = e.target as HTMLElement;
       const tagName = target?.tagName?.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -412,7 +414,7 @@ export default function BandasRelatorioTable({
   const paginatedBandas = pagination.slice(sortedBandas);
 
   return (
-    <div className="flex h-full min-h-0 flex-col">
+    <div ref={raizRef} className="flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={columns}

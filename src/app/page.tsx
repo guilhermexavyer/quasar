@@ -191,7 +191,7 @@ import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQu
 import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
 import AvisoModal from "@/components/ui/AvisoModal";
-import type { CampoAviso } from "@/services/avisoService";
+import { filtrarAuditoriaDoAviso, type CampoAviso } from "@/services/avisoService";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
@@ -303,7 +303,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.11";
+const SYSTEM_VERSION = "0.66.12";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -856,6 +856,13 @@ export default function Home() {
   const [loginWarning, setLoginWarning] = useState<string | null>(null);
   // Nenhuma função vem selecionada ao entrar: o usuário escolhe no menu lateral.
   const [activeSection, setActiveSection] = useState<SectionType | null>(null);
+  /** Funções abertas (montadas) — a ativa aparece, as demais ficam escondidas até o usuário voltar a elas. */
+  const [secoesAbertas, setSecoesAbertas] = useState<SectionType[]>([]);
+  /** Função cujo fechamento aguarda confirmação no modal. */
+  const [secaoParaFechar, setSecaoParaFechar] = useState<SectionType | null>(null);
+  if (activeSection && !secoesAbertas.includes(activeSection)) {
+    setSecoesAbertas([...secoesAbertas, activeSection]);
+  }
   const [view, setView] = useState<ViewType>("list");
   // Lembra em que tela (lista ou formulário) o usuário estava em cada função do
   // menu lateral, para restaurar ao voltar — mesma tela de antes da navegação.
@@ -1538,6 +1545,10 @@ export default function Home() {
       isAdminSemConfig || temPermissao(permissoesAtivas, 'administracaoSistema', permissao);
     return {
       alterarStatusCampo: permitida('alterar_status_campo'),
+      adicionarImagem: permitida('adicionar_imagem'),
+      verImagem: permitida('ver_imagem'),
+      renomearImagem: permitida('renomear_imagem'),
+      excluirImagem: permitida('excluir_imagem'),
       adicionarPerfil: permitida('adicionar_perfil'),
       verPerfil: permitida('ver_perfil'),
       delegarFuncoesPerfil: permitida('delegar_funcoes_perfil'),
@@ -1686,7 +1697,7 @@ export default function Home() {
   // conforme as permissões do perfil ativo.
   const allowedPatrimonioSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['ativos', 'parametrosFuncao'];
+    if (isAdminSemConfig) return ['ativos', 'manutencoes', 'parametrosFuncao'];
     return patrimonioSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1715,6 +1726,21 @@ export default function Home() {
       concluirManutencaoRegistro: permitida('concluir_manutencao_registro'),
       cancelarManutencao: permitida('cancelar_manutencao'),
       excluirManutencao: permitida('excluir_manutencao'),
+    };
+  }, [isAdminSemConfig, permissoesAtivas]);
+
+  // Permissões da função Gerenciador de Relatórios para o usuário logado: o
+  // administrador tem tudo liberado; os demais seguem o perfil ativo.
+  const permissoesRelatorio = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'relatorio', permissao);
+    return {
+      adicionar: permitida('adicionar_relatorio'),
+      ver: permitida('ver_relatorio'),
+      gerar: permitida('gerar_relatorio'),
+      duplicar: permitida('duplicar_relatorio'),
+      bandas: permitida('bandas_relatorio'),
+      excluir: permitida('excluir_relatorio'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2804,6 +2830,21 @@ export default function Home() {
     setRelatorioAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   }
 
+  // Botão "Adicionar" de Relatórios: sem a permissão, mostra aviso.
+  function handleRelatorioNewForm() {
+    if (!permissoesRelatorio.adicionar) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openRelatorioNewForm();
+  }
+
+  // Duplo clique na lista de relatórios abre as bandas: respeita a permissão.
+  function handleRelatorioBandasDaLista(relatorio: Relatorio) {
+    if (!permissoesRelatorio.bandas) return;
+    openRelatorioBandas(relatorio);
+  }
+
   async function openRelatorioEditForm(relatorio: Relatorio) {
     setRelatorioEditingId(relatorio.id ?? null);
     setRelatorioView('builder');
@@ -3257,6 +3298,7 @@ export default function Home() {
     if (s === 'administracaoSistema') {
       if (adminManageSelection === 'perfis') return permissoesAdmin.verPerfil;
       if (adminManageSelection === 'usuarios') return permissoesAdmin.verUsuario;
+      if (adminManageSelection === 'imagens') return permissoesAdmin.verImagem;
       return true;
     }
     if (s === 'pessoaFisica') {
@@ -3274,7 +3316,7 @@ export default function Home() {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
       return permissoesPatrimonio.verAtivo;
     }
-    if (s === 'relatorio') return true;
+    if (s === 'relatorio') return permissoesRelatorio.ver;
     return true;
   }
 
@@ -3289,6 +3331,7 @@ export default function Home() {
       if (adminManageSelection === 'usuarios' && isAdministradorUsuario(contextMenu?.item as Usuario)) return false;
       if (adminManageSelection === 'perfis') return permissoesAdmin.excluirPerfil;
       if (adminManageSelection === 'usuarios') return permissoesAdmin.excluirUsuario;
+      if (adminManageSelection === 'imagens') return permissoesAdmin.excluirImagem;
       return true;
     }
     if (s === 'pessoaFisica') {
@@ -3306,6 +3349,7 @@ export default function Home() {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
       return permissoesPatrimonio.excluirAtivo;
     }
+    if (s === 'relatorio') return permissoesRelatorio.excluir;
     return true;
   }
 
@@ -3575,12 +3619,15 @@ export default function Home() {
     }
   }
 
-  async function openAvisoAuditModal(avisoId: string) {
+  /** Aviso cujo histórico está aberto: o Detalhe da auditoria mostra só o Conteúdo dele. */
+  const [avisoAuditCampo, setAvisoAuditCampo] = useState<CampoAviso>('ds_esqueceu_senha');
+  async function openAvisoAuditModal(avisoId: string, campo: CampoAviso) {
     setAuditDocumentType('aviso');
+    setAvisoAuditCampo(campo);
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      setAuditLogs(await fetchAuditByDocumentId('aviso', avisoId));
+      setAuditLogs(filtrarAuditoriaDoAviso(await fetchAuditByDocumentId('aviso', avisoId), campo));
     } catch {
       setAuditLogs([]);
     } finally {
@@ -6770,6 +6817,10 @@ export default function Home() {
   }
 
   function handleManutencaoNewForm() {
+    if (!permissoesPatrimonio.adicionarManutencao) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     const dataAtual = `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`;
@@ -7570,6 +7621,8 @@ export default function Home() {
         window.setTimeout(() => {
           // Ao entrar, nenhuma função vem selecionada (inclusive após a sessão ter sido encerrada).
           setActiveSection(null);
+          setSecoesAbertas([]);
+          setSectionViews({});
           setView('list');
           setCurrentUser(usuarioValido);
           setIsAuthenticated(true);
@@ -7598,6 +7651,8 @@ export default function Home() {
     setIsLoginLoading(false);
     setIsUserMenuOpen(false);
     setActiveSection(null);
+    setSecoesAbertas([]);
+    setSectionViews({});
     setView('list');
     setIsUserMenuClosing(false);
     setCurrentUser(null);
@@ -7618,6 +7673,35 @@ export default function Home() {
     setAtivoInteracted(false);
     setRelatorioInteracted(false);
     setRelatorioParamValues({});
+  }
+
+  /**
+   * Fecha uma função aberta: desmonta a tela e volta ao estado padrão do login
+   * (nenhuma opção no dropdown PAI, nada em edição). Se era a função ativa,
+   * nenhuma fica selecionada.
+   */
+  function fecharSecao(secao: SectionType) {
+    setSecoesAbertas((prev) => prev.filter((s) => s !== secao));
+    setSectionViews((prev) => Object.fromEntries(Object.entries(prev).filter(([chave]) => chave !== secao)) as typeof prev);
+    if (secao === 'pessoaFisica') {
+      setPjManageSelection(''); setPjInteracted(false); setEditingId(null); setPjEditingId(null);
+    } else if (secao === 'administracaoSistema') {
+      setAdminManageSelection(''); setAdminInteracted(false); setAdminEditingId(null); setPerfilEditingId(null); setImagemEditingId(null);
+      setCamposPerfilId(null); setCamposFuncao(null); setCamposFuncaoJaSelecionada(false);
+    } else if (secao === 'cadastrosGerais') {
+      setCgManageSelection(''); setCgInteracted(false); setCgEditingId(null);
+    } else if (secao === 'estruturaAcademica') {
+      setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null);
+    } else if (secao === 'patrimonio') {
+      setAtivoManageSelection(''); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null);
+    } else if (secao === 'relatorio') {
+      setRelatorioManageSelection(''); setRelatorioInteracted(false); setRelatorioView('list'); setRelatorioEditingId(null); setRelatorioForm(null); setRelatorioBandasMode(false);
+    }
+    if (secao === activeSection) {
+      setActiveSection(null);
+      setView('list');
+      setContextMenu(null);
+    }
   }
 
   function toggleDarkMode() {
@@ -7753,6 +7837,10 @@ export default function Home() {
   }
 
   function handleImagemNewForm() {
+    if (!permissoesAdmin.adicionarImagem) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
     openImagemNewForm();
   }
 
@@ -7948,6 +8036,742 @@ export default function Home() {
     );
   }
 
+  /**
+   * Conteúdo (lista ou formulário) de uma função do menu. Recebe a seção e a tela
+   * como parâmetros para que cada função aberta mantenha a sua própria tela.
+   */
+  function renderConteudoSecao(activeSection: SectionType, view: ViewType) {
+    return (
+      view === "list" ? (
+              activeSection === "pessoaFisica" ? (
+                pjManageSelection === 'pessoasJuridicas' ? (
+                  <PessoaJuridicaListView
+                    message={message}
+                    loading={loading}
+                    pessoasJuridicas={filteredSortedPessoasJuridicas}
+                    openNewForm={handlePjNewForm}
+                    openEditForm={openPjEditForm}
+                    openFilter={openPjFilterModal}
+                    handleDelete={handlePjDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    sortColumn={pjSortColumn}
+                    sortAsc={pjSortAsc}
+                    onSortChange={handlePjSortChange}
+                    initialColumns={pjColunasConfig}
+                    onColumnsChange={handlePjColumnsChange}
+                    columnLookups={pjCgLookups}
+                  />
+                ) : (
+                  <PessoaFisicaListView
+                    message={message}
+                    loading={loading}
+                    pessoasFisicas={filteredSortedPessoasFisicas}
+                    openNewForm={handlePessoaNewForm}
+                    openEditForm={openEditForm}
+                    openFilter={openFilterModal}
+                    handleDelete={handleDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    sortColumn={sortColumn}
+                    sortAsc={sortAsc}
+                    onSortChange={handleSortChange}
+                    initialColumns={pfColunasConfig}
+                    onColumnsChange={handlePfColumnsChange}
+                    columnLookups={pfCgLookups}
+                  />
+                )
+              ) : activeSection === "administracaoSistema" ? (
+              adminManageSelection === 'avisos' ? (
+                <AvisosView
+                  colunas={colunasPorChave('config_colunas_avisos')}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  auditAutor={auditAutor}
+                  resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                  onOpenAudit={openAvisoAuditModal}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
+                />
+              ) : adminManageSelection === 'campos' ? (
+                <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
+                  perfis={perfis}
+                  onChangeStatus={handleCamposStatusChange}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
+                  selectedPerfilId={camposPerfilId}
+                  onSelectedPerfilIdChange={setCamposPerfilId}
+                  selectedFuncao={camposFuncao}
+                  onSelectedFuncaoChange={setCamposFuncao}
+                  funcaoJaSelecionada={camposFuncaoJaSelecionada}
+                  onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
+                />
+              ) : adminManageSelection === 'usuarios' ? (
+                  <AdministracaoSistemaListView
+                    message={message}
+                    loading={loading}
+                    usuarios={filteredSortedUsuarios}
+                    pessoasFisicas={pessoasFisicas}
+                    openNewForm={handleAdminNewForm}
+                    openEditForm={openAdminEditForm}
+                    setContextMenu={setContextMenu}
+                    sortColumn={adminSortColumn}
+                    sortAsc={adminSortAsc}
+                    onSortChange={handleAdminSortChange}
+                    manageSelection={adminManageSelection}
+                    onManageSelectionChange={handleAdminManageSelectionChange}
+                    allowedSubmodulos={allowedAdminSubmodulos}
+                    openFilter={openAdminFilterModal}
+                    initialColumns={adminColunasConfig}
+                    onColumnsChange={handleAdminColumnsChange}
+                  />
+                ) : adminManageSelection === 'imagens' ? (
+                  <ImagemListView
+                    loading={loading}
+                    imagens={filteredSortedImagens}
+                    openNewForm={handleImagemNewForm}
+                    openEditForm={openImagemEditForm}
+                    handleDelete={handleImagemDelete}
+                    setContextMenu={setContextMenu}
+                    sortColumn={imagemSortColumn}
+                    sortAsc={imagemSortAsc}
+                    onSortChange={handleImagemSortChange}
+                    manageSelection={adminManageSelection}
+                    onManageSelectionChange={handleAdminManageSelectionChange}
+                    allowedSubmodulos={allowedAdminSubmodulos}
+                    initialColumns={imagemColunasConfig}
+                    onColumnsChange={handleImagemColumnsChange}
+                  />
+                ) : (
+                  <PerfilListView
+                    message={message}
+                    loading={loading}
+                    perfis={filteredSortedPerfis}
+                    openNewForm={handlePerfilNewForm}
+                    openEditForm={openPerfilEditForm}
+                    setContextMenu={setContextMenu}
+                    sortColumn={perfilSortColumn}
+                    sortAsc={perfilSortAsc}
+                    onSortChange={handlePerfilSortChange}
+                    manageSelection={adminManageSelection}
+                    onManageSelectionChange={handleAdminManageSelectionChange}
+                    allowedSubmodulos={allowedAdminSubmodulos}
+                    openFilter={openPerfilFilterModal}
+                    initialColumns={perfilColunasConfig}
+                    onColumnsChange={handlePerfilColumnsChange}
+                  />
+                )
+              ) : activeSection === "estruturaAcademica" ? (
+                alunoManageSelection === 'alunos' ? (
+                  <AlunoListView
+                    message={message}
+                    loading={loading}
+                    alunos={filteredSortedAlunos}
+                    openNewForm={handleAlunoNewForm}
+                    openEditForm={openAlunoEditForm}
+                    openFilter={openAlunoFilterModal}
+                    handleDelete={handleAlunoDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    sortColumn={alunoSortColumn}
+                    sortAsc={alunoSortAsc}
+                    onSortChange={handleAlunoSortChange}
+                    initialColumns={alunoColunasConfig}
+                    onColumnsChange={handleAlunoColumnsChange}
+                    columnLookups={alunoPessoaFisicaLookups}
+                  />
+                ) : (
+                  <ColaboradorListView
+                    message={message}
+                    loading={loading}
+                    colaboradores={filteredSortedColaboradores}
+                    openNewForm={handleColaboradorNewForm}
+                    openEditForm={openColaboradorEditForm}
+                    openFilter={openColaboradorFilterModal}
+                    handleDelete={handleColaboradorDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    sortColumn={colaboradorSortColumn}
+                    sortAsc={colaboradorSortAsc}
+                    onSortChange={handleColaboradorSortChange}
+                    {...colunasPorIndice('config_colunas_colaborador')}
+                    columnLookups={{
+                      nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+                      nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
+                    }}
+                  />
+                )
+              ) : activeSection === "patrimonio" ? (
+                ativoManageSelection === 'parametrosFuncao' ? (
+                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')}
+                    manageSelection={ativoManageSelection}
+                    onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    allowedSubmodulos={allowedPatrimonioSubmodulos}
+                    onSaveSuccess={(msg) => setMessage(msg)}
+                    onSavingChange={setParametrosSaving}
+                    createdAt={parametrosAuditInfo.createdAt}
+                    updatedAt={parametrosAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(parametrosAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(parametrosAuditInfo.updatedBy)}
+                    onOpenAudit={openParametrosAuditModal}
+                    auditHasDocument={parametrosHasDocument}
+                    auditAutor={auditAutor}
+                    onAfterSave={(info) => {
+                      setParametrosAuditInfo(info);
+                      setParametrosHasDocument(true);
+                    }}
+                  />
+                ) : ativoManageSelection === 'manutencoes' ? (
+                  <ManutencaoListView
+                    message={message}
+                    loading={loading}
+                    manutencoes={filteredSortedManutencoes}
+                    openNewForm={handleManutencaoNewForm}
+                    openEditForm={openManutencaoEditForm}
+                    handleDelete={handleManutencaoDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    manageSelection={ativoManageSelection}
+                    onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                    openFilter={openManutencaoFilterModal}
+                    allowedSubmodulos={allowedPatrimonioSubmodulos}
+                    sortColumn={manutencaoSortColumn}
+                    sortAsc={manutencaoSortAsc}
+                    onSortChange={handleManutencaoSortChange}
+                    initialColumns={manutencaoColunasConfig}
+                    onColumnsChange={handleManutencaoColumnsChange}
+                    columnLookups={{
+                      nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? `#${a.nr_sequencia}`])),
+                      ...Object.fromEntries([
+                        ['nr_seq_prestador_servico', Object.fromEntries(
+                          colaboradores.map((c) => {
+                            const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
+                            const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
+                            const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
+                            return [c.nr_sequencia, nome];
+                          })
+                        )],
+                        ['nr_seq_pessoa_fisica', Object.fromEntries(
+                          colaboradores.map((c) => {
+                            const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
+                            const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
+                            const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
+                            return [c.nr_sequencia, nome];
+                          })
+                        )],
+                      ]),
+                    }}
+                  />
+                ) : (
+                <AtivoListView
+                  message={message}
+                  loading={loading}
+                  ativos={filteredSortedAtivos}
+                  openNewForm={handleAtivoNewForm}
+                  openEditForm={openAtivoEditForm}
+                  handleDelete={handleAtivoDelete}
+                  setContextMenu={setContextMenu}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  manageSelection={ativoManageSelection}
+                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  openFilter={openAtivoFilterModal}
+                  allowedSubmodulos={allowedPatrimonioSubmodulos}
+                  sortColumn={ativoSortColumn}
+                  sortAsc={ativoSortAsc}
+                  onSortChange={handleAtivoSortChange}
+                  initialColumns={ativoColunasConfig}
+                  onColumnsChange={handleAtivoColumnsChange}
+                  columnLookups={{
+                    nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria])),
+                    nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
+                    nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
+                  }}
+                />
+                )
+              ) : activeSection === "relatorio" ? (
+                relatorioView === 'builder' ? (
+                  <div className="flex flex-col h-full">                   <RelatorioBuilder
+                       key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
+                       relatorio={relatorioForm}
+                       onSave={handleRelatorioSave}
+                       onCancel={closeRelatorioBuilder}
+                       onChange={(r) => setRelatorioForm(r)}
+                       saving={relatorioSubmitting}
+                       manageSelection={relatorioManageSelection}
+                       onManageSelectionChange={handleRelatorioManageSelectionChange}
+                       allowedSubmodulos={allowedRelatorioSubmodulos}
+                       userId={currentUser?.id}
+                       userDisplayName={currentUser?.ds_usuario || ''}
+                       resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                       onToast={mostrarToast}
+                       initialListaColumns={relatorioListaColunasConfig}
+                       onListaColumnsChange={handleRelatorioListaColumnsChange}
+                       initialDadosColumns={relatorioDadosColunasConfig}
+                       onDadosColumnsChange={handleRelatorioDadosColumnsChange}
+                       initialFiltrosColumns={relatorioFiltrosColunasConfig}
+                       onFiltrosColumnsChange={handleRelatorioFiltrosColumnsChange}
+                       initialOrdenacaoColumns={relatorioOrdenacaoColunasConfig}                      onOrdenacaoColumnsChange={handleRelatorioOrdenacaoColumnsChange}
+                        initialBandasColumns={relatorioBandasColunasConfig}
+                        onBandasColumnsChange={handleRelatorioBandasColumnsChange}
+                        contextMenuItems={relatorioEditingId ? [
+                         ...(permissoesRelatorio.gerar ? [{ label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } }] : []),
+                         ...(permissoesRelatorio.duplicar ? [{ label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } }] : []),
+                         ...(permissoesRelatorio.excluir ? [{ label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } }] : []),
+                       ] : []}
+                       onPrevRecord={goToPrevRelatorioRecord}
+                       onNextRecord={goToNextRelatorioRecord}
+                       hasPrevRecord={hasPrevRelatorioRecord}
+                       hasNextRecord={hasNextRelatorioRecord}
+                       createdAt={relatorioAuditInfo.createdAt}
+                       updatedAt={relatorioAuditInfo.updatedAt}
+                       createdBy={relatorioAuditInfo.createdBy}
+                       updatedBy={relatorioAuditInfo.updatedBy}
+                       onOpenAudit={(rid) => openRelatorioAuditModal(rid, null, 'relatorio')}
+                        onOpenBandaAudit={(rid, bid) => openRelatorioAuditModal(rid, bid, 'relatorio_banda')}
+                        onOpenCampoAudit={(rid, cid) => openRelatorioAuditModal(rid, cid, 'relatorio_banda_elemento')}
+                        onOpenFiltroAudit={(rid, fid) => openRelatorioAuditModal(rid, fid, 'relatorio_parametro')}
+                        onBandaSave={handleBandaSave}
+                        imagens={imagens}
+                        viewMode={relatorioBandasMode ? 'bandas' : 'form'}
+                        darkMode={darkMode}
+                        campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
+                        bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
+                        elementoCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda_elemento')}
+                        parametroCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_parametro')}
+                        onNavigateToList={closeRelatorioBuilder}
+                        onDeleteCampo={(campo) => {
+                          setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${campo.nr_sequencia ?? ''}?`);
+                          setConfirmDeleteType('campo');
+                          setConfirmDeleteItemId(campo.id);
+                          setConfirmDeleteExtra({ _firestoreId: campo._firestoreId });
+                          setConfirmDeleteAction(null);
+                          setConfirmDeleteOpen(true);
+                        }}
+                        onDeleteBanda={(banda) => {
+                          setConfirmDeleteMessage(`Deseja mesmo excluir a banda ${banda.nr_sequencia ?? ''}?`);
+                          setConfirmDeleteType('banda');
+                          setConfirmDeleteItemId(banda.id);
+                          setConfirmDeleteExtra({ _firestoreId: banda._firestoreId });
+                          setConfirmDeleteAction(null);
+                          setConfirmDeleteOpen(true);
+                        }}
+                        onDeleteFiltro={(f) => {
+                          setConfirmDeleteMessage(`Deseja mesmo excluir o parâmetro ${f.nr_sequencia ?? ''}?`);
+                          setConfirmDeleteType('filtro');
+                          setConfirmDeleteItemId(f.id);
+                          setConfirmDeleteExtra({ _firestoreId: (f as any)._firestoreId });
+                          setConfirmDeleteAction(null);
+                          setConfirmDeleteOpen(true);
+                        }}
+                        stateActionsRef={relatorioStateActionsRef}
+                      />
+                  </div>
+                ) : (
+                  <RelatorioListView
+                    loading={loading}
+                    relatorios={filteredSortedRelatorios}
+                    openNewForm={handleRelatorioNewForm}
+                    openEditForm={openRelatorioEditForm}
+                    openBandas={handleRelatorioBandasDaLista}
+                    handleDelete={handleRelatorioDelete}
+                    setContextMenu={setContextMenu}
+                    sortColumn={relatorioSortColumn}
+                    sortAsc={relatorioSortAsc}
+                    onSortChange={handleRelatorioSortChange}
+                    manageSelection={relatorioManageSelection}
+                    onManageSelectionChange={handleRelatorioManageSelectionChange}
+                    allowedSubmodulos={allowedRelatorioSubmodulos}
+                    userId={currentUser?.id}
+                    initialColumns={relatorioColunasConfig}
+                    onColumnsChange={handleRelatorioColumnsChange}
+                    selectedRecordId={lastRelatorioEditingIdRef.current}
+                  />
+                )
+              ) : (
+                <CadastroGeralListView
+                  key={cgManageSelection}
+                  loading={loading}
+                  items={filteredSortedCgItems}
+                  columns={cgColumns}
+                  formatCellValue={formatCadastroGeralCellValue}
+                  emptyMessage={cgEmptyMessage}
+                  selectOptions={CG_SELECT_OPTIONS}
+                  manageSelection={cgManageSelection}
+                  onManageSelectionChange={handleCgManageSelectionChange}
+                  allowedSubmodulos={allowedCgSubmodulos}
+                  openNewForm={handleCgNewForm}
+                  openEditForm={openCgEditForm}
+                  openFilter={openCgFilterModal}
+                  setContextMenu={setContextMenu}
+                  sortColumn={cgSortColumn}
+                  sortAsc={cgSortAsc}
+                  onSortChange={handleCgSortChange}
+                  initialColumns={cgColunasConfig}
+                  onColumnsChange={handleCgColumnsChange}
+                />
+              )
+            ) : activeSection === "pessoaFisica" ? (
+              pjManageSelection === 'pessoasJuridicas' ? (
+                <PessoaJuridicaFormView
+                  message={message}
+                  editingId={pjEditingId}
+                  sequence={pjEditingId ? (pessoasJuridicas.find((a) => a.id === pjEditingId)?.nr_sequencia ?? null) : null}
+                  form={pjForm}
+                  setForm={setPjForm}
+                  submitting={pjSubmitting}
+                  handleSubmit={handlePjSubmit}
+                  goToList={goToPjList}
+                  createdAt={pjAuditInfo.createdAt}
+                  updatedAt={pjAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(pjAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(pjAuditInfo.updatedBy)}
+                  onOpenAudit={openPjAuditModal}
+                  onPrevRecord={goToPrevPjRecord}
+                  onNextRecord={goToNextPjRecord}
+                  hasPrevRecord={hasPrevPjRecord}
+                  hasNextRecord={hasNextPjRecord}
+                  cidadeNome={pjCidadeNome}
+                  onOpenCidadeLookup={openPjCidadeLookup}
+                  onCidadeCodeChange={handlePjCidadeCodeChange}
+                  logradouros={pfCgOptions.logradouros}
+                  estados={estados}
+                  selectOptions={PJ_SELECT_OPTIONS}
+                  manageSelection={pjManageSelection}
+                  onManageSelectionChange={handlePjManageSelectionChange}
+                  allowedSubmodulos={allowedPessoaSubmodulos}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_juridica')}
+                  campoErros={pjCampoErros}
+                />
+              ) : (
+                <PessoaFisicaFormView
+                  message={message}
+                  editingId={editingId}
+                  sequence={editingId ? (pessoasFisicas.find((a) => a.id === editingId)?.nr_sequencia ?? null) : null}
+                  form={form}
+                  setForm={setForm}
+                  submitting={submitting}
+                  handleSubmit={handleSubmit}
+                  goToList={goToList}
+                  createdAt={auditInfo.createdAt}
+                  updatedAt={auditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(auditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(auditInfo.updatedBy)}
+                  onOpenAudit={openAuditModal}
+                  onPrevRecord={goToPrevRecord}
+                  onNextRecord={goToNextRecord}
+                  hasPrevRecord={hasPrevRecord}
+                  hasNextRecord={hasNextRecord}
+                  sexos={pfCgOptions.sexos}
+                  estadoCivis={pfCgOptions.estadoCivis}
+                  coresRacas={pfCgOptions.coresRacas}
+                  profissoes={pfCgOptions.profissoes}
+                  orgaosEmissores={pfCgOptions.orgaosEmissores}
+                  logradouros={pfCgOptions.logradouros}
+                  estados={estados}
+                  naturalidadeNome={naturalidadeNome}
+                  onOpenNaturalidadeLookup={openNaturalidadeLookup}
+                  onNaturalidadeCodeChange={handleNaturalidadeCodeChange}
+                  selectOptions={PJ_SELECT_OPTIONS}
+                  manageSelection={pjManageSelection}
+                  onManageSelectionChange={handlePjManageSelectionChange}
+                  allowedSubmodulos={allowedPessoaSubmodulos}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica')}
+                  campoErros={pfCampoErros}
+                />
+              )
+            ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'avisos' ? (
+                <AvisosView
+                  colunas={colunasPorChave('config_colunas_avisos')}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  auditAutor={auditAutor}
+                  resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                  onOpenAudit={openAvisoAuditModal}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
+                />
+              ) : adminManageSelection === 'campos' ? (
+                  <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
+                    perfis={perfis}
+                    onChangeStatus={handleCamposStatusChange}
+                    manageSelection={adminManageSelection}
+                    onManageSelectionChange={handleAdminManageSelectionChange}
+                    allowedSubmodulos={allowedAdminSubmodulos}
+                    podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
+                    selectedPerfilId={camposPerfilId}
+                    onSelectedPerfilIdChange={setCamposPerfilId}
+                    selectedFuncao={camposFuncao}
+                    onSelectedFuncaoChange={setCamposFuncao}
+                    funcaoJaSelecionada={camposFuncaoJaSelecionada}
+                    onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
+                  />
+                ) : adminManageSelection === 'usuarios' ? (
+                  <AdministracaoSistemaFormView
+                  message={message}
+                  editingId={adminEditingId}
+                  sequence={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.nr_sequencia ?? null) : null}
+                  form={adminForm}
+                  setForm={setAdminForm}
+                  submitting={adminSubmitting}
+                  handleSubmit={handleAdminSubmit}
+                  goToList={goToAdminList}
+                  createdAt={adminAuditInfo.createdAt}
+                  updatedAt={adminAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(adminAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(adminAuditInfo.updatedBy)}
+                  onPrevRecord={goToPrevAdminRecord}
+                  onNextRecord={goToNextAdminRecord}
+                  hasPrevRecord={hasPrevAdminRecord}
+                  hasNextRecord={hasNextAdminRecord}
+                  pessoaFisicaName={selectedPessoaFisicaName}
+                  onOpenPessoaFisicaLookup={openPessoaFisicaLookup}
+                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                  onOpenAudit={openAdminAuditModal}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'usuario')}
+                  campoErros={adminCampoErros}
+                />
+              ) : adminManageSelection === 'imagens' ? (
+                <ImagemFormView
+                  message={message}
+                  editingId={imagemEditingId}
+                  imagem={imagemForm}
+                  setImagem={setImagemForm as any}
+                  submitting={imagemSubmitting}
+                  handleSubmit={handleImagemSubmit}
+                  goToList={() => { setView('list'); }}
+                  createdAt={imagemAuditInfo.createdAt}
+                  updatedAt={imagemAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(imagemAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(imagemAuditInfo.updatedBy)}
+                  onPrevRecord={goToPrevImagemRecord}
+                  onNextRecord={goToNextImagemRecord}
+                  hasPrevRecord={hasPrevImagemRecord}
+                  hasNextRecord={hasNextImagemRecord}
+                  onOpenAudit={openImagemAuditModal}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                />
+              ) : (
+                <PerfilFormView
+                  message={message}
+                  editingId={perfilEditingId}
+                  sequence={perfilEditingId ? (perfis.find((a) => a.id === perfilEditingId)?.nr_sequencia ?? null) : null}
+                  form={perfilForm}
+                  setForm={setPerfilForm}
+                  submitting={perfilSubmitting}
+                  handleSubmit={handlePerfilSubmit}
+                  goToList={goToPerfilList}
+                  createdAt={perfilAuditInfo.createdAt}
+                  updatedAt={perfilAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(perfilAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(perfilAuditInfo.updatedBy)}
+                  onPrevRecord={goToPrevPerfilRecord}
+                  onNextRecord={goToNextPerfilRecord}
+                  hasPrevRecord={hasPrevPerfilRecord}
+                  hasNextRecord={hasNextPerfilRecord}
+                  onOpenAudit={openPerfilAuditModal}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  readOnly={!isAdministrador && perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'perfil')}
+                  campoErros={perfilCampoErros}
+                />
+              )            ) : activeSection === "estruturaAcademica" ? (
+                alunoManageSelection === 'alunos' ? (
+                  <AlunoFormView
+                    message={message}
+                    editingId={alunoEditingId}
+                    sequence={alunoEditingId ? (alunos.find((a) => a.id === alunoEditingId)?.nr_sequencia ?? null) : null}
+                    form={alunoForm}
+                    setForm={setAlunoForm}
+                    submitting={alunoSubmitting}
+                    handleSubmit={handleAlunoSubmit}
+                    goToList={goToAlunoList}
+                    createdAt={alunoAuditInfo.createdAt}
+                    updatedAt={alunoAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(alunoAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(alunoAuditInfo.updatedBy)}
+                    onOpenAudit={openAlunoAuditModal}
+                    onPrevRecord={goToPrevAlunoRecord}
+                    onNextRecord={goToNextAlunoRecord}
+                    hasPrevRecord={hasPrevAlunoRecord}
+                    hasNextRecord={hasNextAlunoRecord}
+                    pessoaFisicaName={selectedAlunoPessoaFisicaName}
+                    onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
+                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                    responsaveisNames={selectedAlunoResponsaveisNames}
+                    onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('responsavel', index)}
+                    onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
+                    grauParentescoOptions={alunoGrauParentescoOptions}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno')}
+                    campoErros={alunoCampoErros}
+                  />
+                ) : (
+                  <ColaboradorFormView
+                    message={message}
+                    editingId={colaboradorEditingId}
+                    sequence={colaboradorEditingId ? (colaboradores.find((c) => c.id === colaboradorEditingId)?.nr_sequencia ?? null) : null}
+                    form={colaboradorForm}
+                    setForm={setColaboradorForm}
+                    submitting={colaboradorSubmitting}
+                    handleSubmit={handleColaboradorSubmit}
+                    goToList={goToColaboradorList}
+                    createdAt={colaboradorAuditInfo.createdAt}
+                    updatedAt={colaboradorAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(colaboradorAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(colaboradorAuditInfo.updatedBy)}
+                    onOpenAudit={openColaboradorAuditModal}
+                    onPrevRecord={goToPrevColaboradorRecord}
+                    onNextRecord={goToNextColaboradorRecord}
+                    hasPrevRecord={hasPrevColaboradorRecord}
+                    hasNextRecord={hasNextColaboradorRecord}
+                    pessoaFisicaName={selectedColaboradorPessoaFisicaName}
+                    onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('colaborador')}
+                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                    pessoaJuridicaName={selectedColaboradorPessoaJuridicaName}
+                    onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
+                    onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
+                    vinculosContratuais={colaboradorVinculosOptions}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
+                    campoErros={colaboradorCampoErros}
+                  />
+                )
+              ) : activeSection === "patrimonio" && ativoManageSelection === 'manutencoes' ? (
+                <ManutencaoFormView
+                  message={message}
+                  editingId={manutencaoEditingId}
+                  sequence={manutencaoEditingId ? (manutencoes.find((m) => m.id === manutencaoEditingId)?.nr_sequencia ?? null) : null}
+                  form={manutencaoForm}
+                  setForm={setManutencaoForm}
+                  submitting={manutencaoSubmitting}
+                  handleSubmit={handleManutencaoSubmit}
+                  goToList={goToManutencaoList}
+                  createdAt={manutencaoAuditInfo.createdAt}
+                  updatedAt={manutencaoAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(manutencaoAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(manutencaoAuditInfo.updatedBy)}
+                  onOpenAudit={openManutencaoAuditModal}
+                  onPrevRecord={goToPrevManutencaoRecord}
+                  onNextRecord={goToNextManutencaoRecord}
+                  hasPrevRecord={hasPrevManutencaoRecord}
+                  hasNextRecord={hasNextManutencaoRecord}
+                  ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))}
+                  ativoName={manutencaoAtivoName}
+                  onOpenAtivoLookup={openManutencaoAtivoLookup}
+                  onViewAtivo={(seq) => { const a = ativos.find((at) => at.nr_sequencia === seq); if (a) setAtivoView(a); }}
+                  prestadorName={manutencaoPrestadorName}
+                  onOpenPrestadorLookup={() => openEnviarManutPrestadorLookup('form')}
+                  onViewPrestador={(seq) => openColaboradorView(seq)}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  manageSelection={ativoManageSelection}
+                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  allowedSubmodulos={allowedPatrimonioSubmodulos}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao')}
+                  campoErros={manutencaoCampoErros}
+                />
+              ) : activeSection === "patrimonio" ? (
+                <AtivoFormView
+                  message={message}
+                  editingId={ativoEditingId}
+                  sequence={ativoEditingId ? (ativos.find((a) => a.id === ativoEditingId)?.nr_sequencia ?? null) : null}
+                  form={ativoForm}
+                  setForm={setAtivoForm}
+                  submitting={ativoSubmitting}
+                  handleSubmit={handleAtivoSubmit}
+                  goToList={goToAtivoList}
+                  createdAt={ativoAuditInfo.createdAt}
+                  updatedAt={ativoAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(ativoAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(ativoAuditInfo.updatedBy)}
+                  onOpenAudit={openAtivoAuditModal}
+                  onPrevRecord={goToPrevAtivoRecord}
+                  onNextRecord={goToNextAtivoRecord}
+                  hasPrevRecord={hasPrevAtivoRecord}
+                  hasNextRecord={hasNextAtivoRecord}
+                  categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))}
+                  localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
+                  marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
+                  sistemasOperacionais={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  manageSelection={ativoManageSelection}
+                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  allowedSubmodulos={allowedPatrimonioSubmodulos}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo')}
+                  campoErros={ativoCampoErros}
+                  responsaveisNames={selectedAtivoResponsaveisNames}
+                  onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('ativo', index)}
+                  onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
+                  ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
+                  onViewManutencao={(seq) => openManutencaoView(seq)}
+                />
+              ) : (
+              <CadastroGeralFormView
+                key={cgManageSelection}
+                editingId={cgEditingId}
+                sequence={cgEditingId ? (cgItems.find((a) => a.id === cgEditingId)?.nr_sequencia ?? null) : null}
+                form={cgForm}
+                setForm={setCgForm}
+                submitting={cgSubmitting}
+                handleSubmit={handleCgSubmit}
+                goToList={goToCgList}
+                createdAt={cgAuditInfo.createdAt}
+                updatedAt={cgAuditInfo.updatedAt}
+                createdBy={resolverNomeAutorExibicao(cgAuditInfo.createdBy)}
+                updatedBy={resolverNomeAutorExibicao(cgAuditInfo.updatedBy)}
+                onPrevRecord={goToPrevCgRecord}
+                onNextRecord={goToNextCgRecord}
+                hasPrevRecord={hasPrevCgRecord}
+                hasNextRecord={hasNextCgRecord}
+                onOpenAudit={openCgAuditModal}
+                manageSelection={cgManageSelection}
+                onManageSelectionChange={handleCgManageSelectionChange}
+                allowedSubmodulos={allowedCgSubmodulos}
+                selectOptions={CG_SELECT_OPTIONS}
+                fieldInfos={cgFieldInfos}
+                descFieldKey={cgDescKey}
+                collectionName={cgCollection}
+                showCbo={cgKind === 'profissao'}
+                showSigla={cgKind === 'orgaoEmissor' || cgKind === 'logradouro'}
+                showObservacao={cgKind === 'categoriaAtivo'}
+                siglaFieldKey={cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : undefined}
+                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, cgCollection)}
+                campoErros={cgCampoErros}
+              />
+            )
+    );
+  }
+
   return (
     <div className={`relative h-screen overflow-hidden animate-fade-in ${darkMode ? "dark bg-[#18181b] text-slate-200" : "bg-white text-slate-800"}`}>
       {/* Overlay do sidebar */}
@@ -8083,14 +8907,22 @@ export default function Home() {
             }
             if (contextMenu.section === 'relatorio') {
               const items: { label: string; onClick: () => void }[] = [];
-              items.push({ label: 'Gerar relatório', onClick: () => { handleRelatorioGerar(contextMenu.item as Relatorio); setContextMenu(null); } });
-              items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(contextMenu.item as Relatorio); setContextMenu(null); } });
-              items.push({ label: 'Bandas', onClick: () => { openRelatorioBandas(contextMenu.item as Relatorio); setContextMenu(null); } });
-              return items;
+              if (permissoesRelatorio.gerar) {
+                items.push({ label: 'Gerar relatório', onClick: () => { handleRelatorioGerar(contextMenu.item as Relatorio); setContextMenu(null); } });
+              }
+              if (permissoesRelatorio.duplicar) {
+                items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(contextMenu.item as Relatorio); setContextMenu(null); } });
+              }
+              if (permissoesRelatorio.bandas) {
+                items.push({ label: 'Bandas', onClick: () => { openRelatorioBandas(contextMenu.item as Relatorio); setContextMenu(null); } });
+              }
+              return items.length > 0 ? items : undefined;
             }
             if (contextMenu.section === 'administracaoSistema' && adminManageSelection === 'imagens') {
               const items: { label: string; onClick: () => void }[] = [];
-              items.push({ label: 'Renomear imagem', onClick: () => { openRenomearModal(contextMenu.item as Imagem); setContextMenu(null); } });
+              if (permissoesAdmin.renomearImagem) {
+                items.push({ label: 'Renomear imagem', onClick: () => { openRenomearModal(contextMenu.item as Imagem); setContextMenu(null); } });
+              }
               return items.length > 0 ? items : undefined;
             }
             return undefined;
@@ -8302,6 +9134,33 @@ export default function Home() {
                 }}
                 aria-label={def.label}
               >
+                {secoesAbertas.includes(section) && (
+                  <span
+                    role="button"
+                    tabIndex={0}
+                    title={`Fechar ${def.label}`}
+                    aria-label={`Fechar ${def.label}`}
+                    draggable={false}
+                    onMouseDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSecaoParaFechar(section);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        setSecaoParaFechar(section);
+                      }
+                    }}
+                    className="fechar-funcao absolute left-0 top-0 z-10 flex h-3.5 w-3.5 items-center justify-center rounded-full cursor-pointer transition"
+                  >
+                    <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                      <path d="M18 6 6 18" />
+                      <path d="M6 6l12 12" />
+                    </svg>
+                  </span>
+                )}
                 <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-[3px] bg-white/15 text-white">
                   {def.icon}
                 </span>
@@ -8545,738 +9404,21 @@ export default function Home() {
             <div className="flex h-full items-center justify-center">
               <p className="text-sm text-slate-500">Nenhuma função foi liberada para o seu usuário. Contate o administrador.</p>
             </div>
-          ) : !activeSection ? (
-            <div className="flex h-full items-center justify-center">
-              <p className="text-sm text-slate-500">Selecione uma função no menu lateral.</p>
-            </div>
-          ) : view === "list" ? (
-            activeSection === "pessoaFisica" ? (
-              pjManageSelection === 'pessoasJuridicas' ? (
-                <PessoaJuridicaListView
-                  message={message}
-                  loading={loading}
-                  pessoasJuridicas={filteredSortedPessoasJuridicas}
-                  openNewForm={handlePjNewForm}
-                  openEditForm={openPjEditForm}
-                  openFilter={openPjFilterModal}
-                  handleDelete={handlePjDelete}
-                  setContextMenu={setContextMenu}
-                  selectOptions={PJ_SELECT_OPTIONS}
-                  manageSelection={pjManageSelection}
-                  onManageSelectionChange={handlePjManageSelectionChange}
-                  allowedSubmodulos={allowedPessoaSubmodulos}
-                  sortColumn={pjSortColumn}
-                  sortAsc={pjSortAsc}
-                  onSortChange={handlePjSortChange}
-                  initialColumns={pjColunasConfig}
-                  onColumnsChange={handlePjColumnsChange}
-                  columnLookups={pjCgLookups}
-                />
-              ) : (
-                <PessoaFisicaListView
-                  message={message}
-                  loading={loading}
-                  pessoasFisicas={filteredSortedPessoasFisicas}
-                  openNewForm={handlePessoaNewForm}
-                  openEditForm={openEditForm}
-                  openFilter={openFilterModal}
-                  handleDelete={handleDelete}
-                  setContextMenu={setContextMenu}
-                  selectOptions={PJ_SELECT_OPTIONS}
-                  manageSelection={pjManageSelection}
-                  onManageSelectionChange={handlePjManageSelectionChange}
-                  allowedSubmodulos={allowedPessoaSubmodulos}
-                  sortColumn={sortColumn}
-                  sortAsc={sortAsc}
-                  onSortChange={handleSortChange}
-                  initialColumns={pfColunasConfig}
-                  onColumnsChange={handlePfColumnsChange}
-                  columnLookups={pfCgLookups}
-                />
-              )
-            ) : activeSection === "administracaoSistema" ? (
-            adminManageSelection === 'avisos' ? (
-              <AvisosView
-                colunas={colunasPorChave('config_colunas_avisos')}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-                auditAutor={auditAutor}
-                resolverNomeAutorExibicao={resolverNomeAutorExibicao}
-                onOpenAudit={openAvisoAuditModal}
-                onSaveSuccess={(msg) => setMessage(msg)}
-                onSavingChange={setParametrosSaving}
-              />
-            ) : adminManageSelection === 'campos' ? (
-              <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
-                perfis={perfis}
-                onChangeStatus={handleCamposStatusChange}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-                podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
-                selectedPerfilId={camposPerfilId}
-                onSelectedPerfilIdChange={setCamposPerfilId}
-                selectedFuncao={camposFuncao}
-                onSelectedFuncaoChange={setCamposFuncao}
-                funcaoJaSelecionada={camposFuncaoJaSelecionada}
-                onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
-              />
-            ) : adminManageSelection === 'usuarios' ? (
-                <AdministracaoSistemaListView
-                  message={message}
-                  loading={loading}
-                  usuarios={filteredSortedUsuarios}
-                  pessoasFisicas={pessoasFisicas}
-                  openNewForm={handleAdminNewForm}
-                  openEditForm={openAdminEditForm}
-                  setContextMenu={setContextMenu}
-                  sortColumn={adminSortColumn}
-                  sortAsc={adminSortAsc}
-                  onSortChange={handleAdminSortChange}
-                  manageSelection={adminManageSelection}
-                  onManageSelectionChange={handleAdminManageSelectionChange}
-                  allowedSubmodulos={allowedAdminSubmodulos}
-                  openFilter={openAdminFilterModal}
-                  initialColumns={adminColunasConfig}
-                  onColumnsChange={handleAdminColumnsChange}
-                />
-              ) : adminManageSelection === 'imagens' ? (
-                <ImagemListView
-                  loading={loading}
-                  imagens={filteredSortedImagens}
-                  openNewForm={handleImagemNewForm}
-                  openEditForm={openImagemEditForm}
-                  handleDelete={handleImagemDelete}
-                  setContextMenu={setContextMenu}
-                  sortColumn={imagemSortColumn}
-                  sortAsc={imagemSortAsc}
-                  onSortChange={handleImagemSortChange}
-                  manageSelection={adminManageSelection}
-                  onManageSelectionChange={handleAdminManageSelectionChange}
-                  allowedSubmodulos={allowedAdminSubmodulos}
-                  initialColumns={imagemColunasConfig}
-                  onColumnsChange={handleImagemColumnsChange}
-                />
-              ) : (
-                <PerfilListView
-                  message={message}
-                  loading={loading}
-                  perfis={filteredSortedPerfis}
-                  openNewForm={handlePerfilNewForm}
-                  openEditForm={openPerfilEditForm}
-                  setContextMenu={setContextMenu}
-                  sortColumn={perfilSortColumn}
-                  sortAsc={perfilSortAsc}
-                  onSortChange={handlePerfilSortChange}
-                  manageSelection={adminManageSelection}
-                  onManageSelectionChange={handleAdminManageSelectionChange}
-                  allowedSubmodulos={allowedAdminSubmodulos}
-                  openFilter={openPerfilFilterModal}
-                  initialColumns={perfilColunasConfig}
-                  onColumnsChange={handlePerfilColumnsChange}
-                />
-              )
-            ) : activeSection === "estruturaAcademica" ? (
-              alunoManageSelection === 'alunos' ? (
-                <AlunoListView
-                  message={message}
-                  loading={loading}
-                  alunos={filteredSortedAlunos}
-                  openNewForm={handleAlunoNewForm}
-                  openEditForm={openAlunoEditForm}
-                  openFilter={openAlunoFilterModal}
-                  handleDelete={handleAlunoDelete}
-                  setContextMenu={setContextMenu}
-                  selectOptions={EA_SELECT_OPTIONS}
-                  manageSelection={alunoManageSelection}
-                  onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={allowedAlunoSubmodulos}
-                  sortColumn={alunoSortColumn}
-                  sortAsc={alunoSortAsc}
-                  onSortChange={handleAlunoSortChange}
-                  initialColumns={alunoColunasConfig}
-                  onColumnsChange={handleAlunoColumnsChange}
-                  columnLookups={alunoPessoaFisicaLookups}
-                />
-              ) : (
-                <ColaboradorListView
-                  message={message}
-                  loading={loading}
-                  colaboradores={filteredSortedColaboradores}
-                  openNewForm={handleColaboradorNewForm}
-                  openEditForm={openColaboradorEditForm}
-                  openFilter={openColaboradorFilterModal}
-                  handleDelete={handleColaboradorDelete}
-                  setContextMenu={setContextMenu}
-                  selectOptions={EA_SELECT_OPTIONS}
-                  manageSelection={alunoManageSelection}
-                  onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={allowedAlunoSubmodulos}
-                  sortColumn={colaboradorSortColumn}
-                  sortAsc={colaboradorSortAsc}
-                  onSortChange={handleColaboradorSortChange}
-                  {...colunasPorIndice('config_colunas_colaborador')}
-                  columnLookups={{
-                    nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
-                    nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
-                  }}
-                />
-              )
-            ) : activeSection === "patrimonio" ? (
-              ativoManageSelection === 'parametrosFuncao' ? (
-                <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')}
-                  manageSelection={ativoManageSelection}
-                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
-                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
-                  allowedSubmodulos={allowedPatrimonioSubmodulos}
-                  onSaveSuccess={(msg) => setMessage(msg)}
-                  onSavingChange={setParametrosSaving}
-                  createdAt={parametrosAuditInfo.createdAt}
-                  updatedAt={parametrosAuditInfo.updatedAt}
-                  createdBy={resolverNomeAutorExibicao(parametrosAuditInfo.createdBy)}
-                  updatedBy={resolverNomeAutorExibicao(parametrosAuditInfo.updatedBy)}
-                  dsUsuarioCriacao={parametrosAuditInfo.createdBy}
-                  dsUsuarioAlteracao={parametrosAuditInfo.updatedBy}
-                  onOpenAudit={openParametrosAuditModal}
-                  auditHasDocument={parametrosHasDocument}
-                  auditAutor={auditAutor}
-                  onAfterSave={(info) => {
-                    setParametrosAuditInfo(info);
-                    setParametrosHasDocument(true);
-                  }}
-                />
-              ) : ativoManageSelection === 'manutencoes' ? (
-                <ManutencaoListView
-                  message={message}
-                  loading={loading}
-                  manutencoes={filteredSortedManutencoes}
-                  openNewForm={handleManutencaoNewForm}
-                  openEditForm={openManutencaoEditForm}
-                  handleDelete={handleManutencaoDelete}
-                  setContextMenu={setContextMenu}
-                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
-                  manageSelection={ativoManageSelection}
-                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
-                  openFilter={openManutencaoFilterModal}
-                  allowedSubmodulos={allowedPatrimonioSubmodulos}
-                  sortColumn={manutencaoSortColumn}
-                  sortAsc={manutencaoSortAsc}
-                  onSortChange={handleManutencaoSortChange}
-                  initialColumns={manutencaoColunasConfig}
-                  onColumnsChange={handleManutencaoColumnsChange}
-                  columnLookups={{
-                    nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? `#${a.nr_sequencia}`])),
-                    ...Object.fromEntries([
-                      ['nr_seq_prestador_servico', Object.fromEntries(
-                        colaboradores.map((c) => {
-                          const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
-                          const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
-                          const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
-                          return [c.nr_sequencia, nome];
-                        })
-                      )],
-                      ['nr_seq_pessoa_fisica', Object.fromEntries(
-                        colaboradores.map((c) => {
-                          const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
-                          const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
-                          const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
-                          return [c.nr_sequencia, nome];
-                        })
-                      )],
-                    ]),
-                  }}
-                />
-              ) : (
-              <AtivoListView
-                message={message}
-                loading={loading}
-                ativos={filteredSortedAtivos}
-                openNewForm={handleAtivoNewForm}
-                openEditForm={openAtivoEditForm}
-                handleDelete={handleAtivoDelete}
-                setContextMenu={setContextMenu}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
-                manageSelection={ativoManageSelection}
-                onManageSelectionChange={handlePatrimonioManageSelectionChange}
-                openFilter={openAtivoFilterModal}
-                allowedSubmodulos={allowedPatrimonioSubmodulos}
-                sortColumn={ativoSortColumn}
-                sortAsc={ativoSortAsc}
-                onSortChange={handleAtivoSortChange}
-                initialColumns={ativoColunasConfig}
-                onColumnsChange={handleAtivoColumnsChange}
-                columnLookups={{
-                  nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria])),
-                  nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
-                  nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
-                }}
-              />
-              )
-            ) : activeSection === "relatorio" ? (
-              relatorioView === 'builder' ? (
-                <div className="flex flex-col h-full">                   <RelatorioBuilder
-                     key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
-                     relatorio={relatorioForm}
-                     onSave={handleRelatorioSave}
-                     onCancel={closeRelatorioBuilder}
-                     onChange={(r) => setRelatorioForm(r)}
-                     saving={relatorioSubmitting}
-                     manageSelection={relatorioManageSelection}
-                     onManageSelectionChange={handleRelatorioManageSelectionChange}
-                     allowedSubmodulos={allowedRelatorioSubmodulos}
-                     userId={currentUser?.id}
-                     userDisplayName={currentUser?.ds_usuario || ''}
-                     resolverNomeAutorExibicao={resolverNomeAutorExibicao}
-                     onToast={mostrarToast}
-                     initialListaColumns={relatorioListaColunasConfig}
-                     onListaColumnsChange={handleRelatorioListaColumnsChange}
-                     initialDadosColumns={relatorioDadosColunasConfig}
-                     onDadosColumnsChange={handleRelatorioDadosColumnsChange}
-                     initialFiltrosColumns={relatorioFiltrosColunasConfig}
-                     onFiltrosColumnsChange={handleRelatorioFiltrosColumnsChange}
-                     initialOrdenacaoColumns={relatorioOrdenacaoColunasConfig}                      onOrdenacaoColumnsChange={handleRelatorioOrdenacaoColumnsChange}
-                      initialBandasColumns={relatorioBandasColunasConfig}
-                      onBandasColumnsChange={handleRelatorioBandasColumnsChange}
-                      contextMenuItems={relatorioEditingId ? [
-                       { label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } },
-                       { label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } },
-                       { label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } },
-                     ] : []}
-                     onPrevRecord={goToPrevRelatorioRecord}
-                     onNextRecord={goToNextRelatorioRecord}
-                     hasPrevRecord={hasPrevRelatorioRecord}
-                     hasNextRecord={hasNextRelatorioRecord}
-                     createdAt={relatorioAuditInfo.createdAt}
-                     updatedAt={relatorioAuditInfo.updatedAt}
-                     createdBy={relatorioAuditInfo.createdBy}
-                     updatedBy={relatorioAuditInfo.updatedBy}
-                     onOpenAudit={(rid) => openRelatorioAuditModal(rid, null, 'relatorio')}
-                      onOpenBandaAudit={(rid, bid) => openRelatorioAuditModal(rid, bid, 'relatorio_banda')}
-                      onOpenCampoAudit={(rid, cid) => openRelatorioAuditModal(rid, cid, 'relatorio_banda_elemento')}
-                      onOpenFiltroAudit={(rid, fid) => openRelatorioAuditModal(rid, fid, 'relatorio_parametro')}
-                      onBandaSave={handleBandaSave}
-                      imagens={imagens}
-                      viewMode={relatorioBandasMode ? 'bandas' : 'form'}
-                      darkMode={darkMode}
-                      campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
-                      bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
-                      elementoCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda_elemento')}
-                      parametroCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_parametro')}
-                      onNavigateToList={closeRelatorioBuilder}
-                      onDeleteCampo={(campo) => {
-                        setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${campo.nr_sequencia ?? ''}?`);
-                        setConfirmDeleteType('campo');
-                        setConfirmDeleteItemId(campo.id);
-                        setConfirmDeleteExtra({ _firestoreId: campo._firestoreId });
-                        setConfirmDeleteAction(null);
-                        setConfirmDeleteOpen(true);
-                      }}
-                      onDeleteBanda={(banda) => {
-                        setConfirmDeleteMessage(`Deseja mesmo excluir a banda ${banda.nr_sequencia ?? ''}?`);
-                        setConfirmDeleteType('banda');
-                        setConfirmDeleteItemId(banda.id);
-                        setConfirmDeleteExtra({ _firestoreId: banda._firestoreId });
-                        setConfirmDeleteAction(null);
-                        setConfirmDeleteOpen(true);
-                      }}
-                      onDeleteFiltro={(f) => {
-                        setConfirmDeleteMessage(`Deseja mesmo excluir o parâmetro ${f.nr_sequencia ?? ''}?`);
-                        setConfirmDeleteType('filtro');
-                        setConfirmDeleteItemId(f.id);
-                        setConfirmDeleteExtra({ _firestoreId: (f as any)._firestoreId });
-                        setConfirmDeleteAction(null);
-                        setConfirmDeleteOpen(true);
-                      }}
-                      stateActionsRef={relatorioStateActionsRef}
-                    />
+          ) : (
+            <>
+              {!activeSection && (
+                <div className="flex h-full items-center justify-center">
+                  <p className="text-sm text-slate-500">Selecione uma função no menu lateral.</p>
                 </div>
-              ) : (
-                <RelatorioListView
-                  loading={loading}
-                  relatorios={filteredSortedRelatorios}
-                  openNewForm={openRelatorioNewForm}
-                  openEditForm={openRelatorioEditForm}
-                  openBandas={openRelatorioBandas}
-                  handleDelete={handleRelatorioDelete}
-                  setContextMenu={setContextMenu}
-                  sortColumn={relatorioSortColumn}
-                  sortAsc={relatorioSortAsc}
-                  onSortChange={handleRelatorioSortChange}
-                  manageSelection={relatorioManageSelection}
-                  onManageSelectionChange={handleRelatorioManageSelectionChange}
-                  allowedSubmodulos={allowedRelatorioSubmodulos}
-                  userId={currentUser?.id}
-                  initialColumns={relatorioColunasConfig}
-                  onColumnsChange={handleRelatorioColumnsChange}
-                  selectedRecordId={lastRelatorioEditingIdRef.current}
-                />
-              )
-            ) : (
-              <CadastroGeralListView
-                key={cgManageSelection}
-                loading={loading}
-                items={filteredSortedCgItems}
-                columns={cgColumns}
-                formatCellValue={formatCadastroGeralCellValue}
-                emptyMessage={cgEmptyMessage}
-                selectOptions={CG_SELECT_OPTIONS}
-                manageSelection={cgManageSelection}
-                onManageSelectionChange={handleCgManageSelectionChange}
-                allowedSubmodulos={allowedCgSubmodulos}
-                openNewForm={handleCgNewForm}
-                openEditForm={openCgEditForm}
-                openFilter={openCgFilterModal}
-                setContextMenu={setContextMenu}
-                sortColumn={cgSortColumn}
-                sortAsc={cgSortAsc}
-                onSortChange={handleCgSortChange}
-                initialColumns={cgColunasConfig}
-                onColumnsChange={handleCgColumnsChange}
-              />
-            )
-          ) : activeSection === "pessoaFisica" ? (
-            pjManageSelection === 'pessoasJuridicas' ? (
-              <PessoaJuridicaFormView
-                message={message}
-                editingId={pjEditingId}
-                sequence={pjEditingId ? (pessoasJuridicas.find((a) => a.id === pjEditingId)?.nr_sequencia ?? null) : null}
-                form={pjForm}
-                setForm={setPjForm}
-                submitting={pjSubmitting}
-                handleSubmit={handlePjSubmit}
-                goToList={goToPjList}
-                createdAt={pjAuditInfo.createdAt}
-                updatedAt={pjAuditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(pjAuditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(pjAuditInfo.updatedBy)}
-                onOpenAudit={openPjAuditModal}
-                onPrevRecord={goToPrevPjRecord}
-                onNextRecord={goToNextPjRecord}
-                hasPrevRecord={hasPrevPjRecord}
-                hasNextRecord={hasNextPjRecord}
-                cidadeNome={pjCidadeNome}
-                onOpenCidadeLookup={openPjCidadeLookup}
-                onCidadeCodeChange={handlePjCidadeCodeChange}
-                logradouros={pfCgOptions.logradouros}
-                estados={estados}
-                selectOptions={PJ_SELECT_OPTIONS}
-                manageSelection={pjManageSelection}
-                onManageSelectionChange={handlePjManageSelectionChange}
-                allowedSubmodulos={allowedPessoaSubmodulos}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_juridica')}
-                campoErros={pjCampoErros}
-              />
-            ) : (
-              <PessoaFisicaFormView
-                message={message}
-                editingId={editingId}
-                sequence={editingId ? (pessoasFisicas.find((a) => a.id === editingId)?.nr_sequencia ?? null) : null}
-                form={form}
-                setForm={setForm}
-                submitting={submitting}
-                handleSubmit={handleSubmit}
-                goToList={goToList}
-                createdAt={auditInfo.createdAt}
-                updatedAt={auditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(auditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(auditInfo.updatedBy)}
-                onOpenAudit={openAuditModal}
-                onPrevRecord={goToPrevRecord}
-                onNextRecord={goToNextRecord}
-                hasPrevRecord={hasPrevRecord}
-                hasNextRecord={hasNextRecord}
-                sexos={pfCgOptions.sexos}
-                estadoCivis={pfCgOptions.estadoCivis}
-                coresRacas={pfCgOptions.coresRacas}
-                profissoes={pfCgOptions.profissoes}
-                orgaosEmissores={pfCgOptions.orgaosEmissores}
-                logradouros={pfCgOptions.logradouros}
-                estados={estados}
-                naturalidadeNome={naturalidadeNome}
-                onOpenNaturalidadeLookup={openNaturalidadeLookup}
-                onNaturalidadeCodeChange={handleNaturalidadeCodeChange}
-                selectOptions={PJ_SELECT_OPTIONS}
-                manageSelection={pjManageSelection}
-                onManageSelectionChange={handlePjManageSelectionChange}
-                allowedSubmodulos={allowedPessoaSubmodulos}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica')}
-                campoErros={pfCampoErros}
-              />
-            )
-          ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'avisos' ? (
-              <AvisosView
-                colunas={colunasPorChave('config_colunas_avisos')}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-                auditAutor={auditAutor}
-                resolverNomeAutorExibicao={resolverNomeAutorExibicao}
-                onOpenAudit={openAvisoAuditModal}
-                onSaveSuccess={(msg) => setMessage(msg)}
-                onSavingChange={setParametrosSaving}
-              />
-            ) : adminManageSelection === 'campos' ? (
-                <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
-                  perfis={perfis}
-                  onChangeStatus={handleCamposStatusChange}
-                  manageSelection={adminManageSelection}
-                  onManageSelectionChange={handleAdminManageSelectionChange}
-                  allowedSubmodulos={allowedAdminSubmodulos}
-                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
-                  selectedPerfilId={camposPerfilId}
-                  onSelectedPerfilIdChange={setCamposPerfilId}
-                  selectedFuncao={camposFuncao}
-                  onSelectedFuncaoChange={setCamposFuncao}
-                  funcaoJaSelecionada={camposFuncaoJaSelecionada}
-                  onFuncaoJaSelecionadaChange={setCamposFuncaoJaSelecionada}
-                />
-              ) : adminManageSelection === 'usuarios' ? (
-                <AdministracaoSistemaFormView
-                message={message}
-                editingId={adminEditingId}
-                sequence={adminEditingId ? (usuarios.find((a) => a.id === adminEditingId)?.nr_sequencia ?? null) : null}
-                form={adminForm}
-                setForm={setAdminForm}
-                submitting={adminSubmitting}
-                handleSubmit={handleAdminSubmit}
-                goToList={goToAdminList}
-                createdAt={adminAuditInfo.createdAt}
-                updatedAt={adminAuditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(adminAuditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(adminAuditInfo.updatedBy)}
-                onPrevRecord={goToPrevAdminRecord}
-                onNextRecord={goToNextAdminRecord}
-                hasPrevRecord={hasPrevAdminRecord}
-                hasNextRecord={hasNextAdminRecord}
-                pessoaFisicaName={selectedPessoaFisicaName}
-                onOpenPessoaFisicaLookup={openPessoaFisicaLookup}
-                onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                onOpenAudit={openAdminAuditModal}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-                readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'usuario')}
-                campoErros={adminCampoErros}
-              />
-            ) : adminManageSelection === 'imagens' ? (
-              <ImagemFormView
-                message={message}
-                editingId={imagemEditingId}
-                imagem={imagemForm}
-                setImagem={setImagemForm as any}
-                submitting={imagemSubmitting}
-                handleSubmit={handleImagemSubmit}
-                goToList={() => { setView('list'); }}
-                createdAt={imagemAuditInfo.createdAt}
-                updatedAt={imagemAuditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(imagemAuditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(imagemAuditInfo.updatedBy)}
-                onPrevRecord={goToPrevImagemRecord}
-                onNextRecord={goToNextImagemRecord}
-                hasPrevRecord={hasPrevImagemRecord}
-                hasNextRecord={hasNextImagemRecord}
-                onOpenAudit={openImagemAuditModal}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-              />
-            ) : (
-              <PerfilFormView
-                message={message}
-                editingId={perfilEditingId}
-                sequence={perfilEditingId ? (perfis.find((a) => a.id === perfilEditingId)?.nr_sequencia ?? null) : null}
-                form={perfilForm}
-                setForm={setPerfilForm}
-                submitting={perfilSubmitting}
-                handleSubmit={handlePerfilSubmit}
-                goToList={goToPerfilList}
-                createdAt={perfilAuditInfo.createdAt}
-                updatedAt={perfilAuditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(perfilAuditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(perfilAuditInfo.updatedBy)}
-                onPrevRecord={goToPrevPerfilRecord}
-                onNextRecord={goToNextPerfilRecord}
-                hasPrevRecord={hasPrevPerfilRecord}
-                hasNextRecord={hasNextPerfilRecord}
-                onOpenAudit={openPerfilAuditModal}
-                manageSelection={adminManageSelection}
-                onManageSelectionChange={handleAdminManageSelectionChange}
-                allowedSubmodulos={allowedAdminSubmodulos}
-                readOnly={!isAdministrador && perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'perfil')}
-                campoErros={perfilCampoErros}
-              />
-            )            ) : activeSection === "estruturaAcademica" ? (
-              alunoManageSelection === 'alunos' ? (
-                <AlunoFormView
-                  message={message}
-                  editingId={alunoEditingId}
-                  sequence={alunoEditingId ? (alunos.find((a) => a.id === alunoEditingId)?.nr_sequencia ?? null) : null}
-                  form={alunoForm}
-                  setForm={setAlunoForm}
-                  submitting={alunoSubmitting}
-                  handleSubmit={handleAlunoSubmit}
-                  goToList={goToAlunoList}
-                  createdAt={alunoAuditInfo.createdAt}
-                  updatedAt={alunoAuditInfo.updatedAt}
-                  createdBy={resolverNomeAutorExibicao(alunoAuditInfo.createdBy)}
-                  updatedBy={resolverNomeAutorExibicao(alunoAuditInfo.updatedBy)}
-                  onOpenAudit={openAlunoAuditModal}
-                  onPrevRecord={goToPrevAlunoRecord}
-                  onNextRecord={goToNextAlunoRecord}
-                  hasPrevRecord={hasPrevAlunoRecord}
-                  hasNextRecord={hasNextAlunoRecord}
-                  pessoaFisicaName={selectedAlunoPessoaFisicaName}
-                  onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
-                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                  responsaveisNames={selectedAlunoResponsaveisNames}
-                  onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('responsavel', index)}
-                  onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
-                  grauParentescoOptions={alunoGrauParentescoOptions}
-                  selectOptions={EA_SELECT_OPTIONS}
-                  manageSelection={alunoManageSelection}
-                  onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={allowedAlunoSubmodulos}
-                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno')}
-                  campoErros={alunoCampoErros}
-                />
-              ) : (
-                <ColaboradorFormView
-                  message={message}
-                  editingId={colaboradorEditingId}
-                  sequence={colaboradorEditingId ? (colaboradores.find((c) => c.id === colaboradorEditingId)?.nr_sequencia ?? null) : null}
-                  form={colaboradorForm}
-                  setForm={setColaboradorForm}
-                  submitting={colaboradorSubmitting}
-                  handleSubmit={handleColaboradorSubmit}
-                  goToList={goToColaboradorList}
-                  createdAt={colaboradorAuditInfo.createdAt}
-                  updatedAt={colaboradorAuditInfo.updatedAt}
-                  createdBy={resolverNomeAutorExibicao(colaboradorAuditInfo.createdBy)}
-                  updatedBy={resolverNomeAutorExibicao(colaboradorAuditInfo.updatedBy)}
-                  onOpenAudit={openColaboradorAuditModal}
-                  onPrevRecord={goToPrevColaboradorRecord}
-                  onNextRecord={goToNextColaboradorRecord}
-                  hasPrevRecord={hasPrevColaboradorRecord}
-                  hasNextRecord={hasNextColaboradorRecord}
-                  pessoaFisicaName={selectedColaboradorPessoaFisicaName}
-                  onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('colaborador')}
-                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                  pessoaJuridicaName={selectedColaboradorPessoaJuridicaName}
-                  onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
-                  onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
-                  vinculosContratuais={colaboradorVinculosOptions}
-                  selectOptions={EA_SELECT_OPTIONS}
-                  manageSelection={alunoManageSelection}
-                  onManageSelectionChange={handleAlunoManageSelectionChange}
-                  allowedSubmodulos={allowedAlunoSubmodulos}
-                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
-                  campoErros={colaboradorCampoErros}
-                />
-              )
-            ) : activeSection === "patrimonio" && ativoManageSelection === 'manutencoes' ? (
-              <ManutencaoFormView
-                message={message}
-                editingId={manutencaoEditingId}
-                sequence={manutencaoEditingId ? (manutencoes.find((m) => m.id === manutencaoEditingId)?.nr_sequencia ?? null) : null}
-                form={manutencaoForm}
-                setForm={setManutencaoForm}
-                submitting={manutencaoSubmitting}
-                handleSubmit={handleManutencaoSubmit}
-                goToList={goToManutencaoList}
-                createdAt={manutencaoAuditInfo.createdAt}
-                updatedAt={manutencaoAuditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(manutencaoAuditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(manutencaoAuditInfo.updatedBy)}
-                onOpenAudit={openManutencaoAuditModal}
-                onPrevRecord={goToPrevManutencaoRecord}
-                onNextRecord={goToNextManutencaoRecord}
-                hasPrevRecord={hasPrevManutencaoRecord}
-                hasNextRecord={hasNextManutencaoRecord}
-                ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))}
-                ativoName={manutencaoAtivoName}
-                onOpenAtivoLookup={openManutencaoAtivoLookup}
-                onViewAtivo={(seq) => { const a = ativos.find((at) => at.nr_sequencia === seq); if (a) setAtivoView(a); }}
-                prestadorName={manutencaoPrestadorName}
-                onOpenPrestadorLookup={() => openEnviarManutPrestadorLookup('form')}
-                onViewPrestador={(seq) => openColaboradorView(seq)}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
-                manageSelection={ativoManageSelection}
-                onManageSelectionChange={handlePatrimonioManageSelectionChange}
-                allowedSubmodulos={allowedPatrimonioSubmodulos}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao')}
-                campoErros={manutencaoCampoErros}
-              />
-            ) : activeSection === "patrimonio" ? (
-              <AtivoFormView
-                message={message}
-                editingId={ativoEditingId}
-                sequence={ativoEditingId ? (ativos.find((a) => a.id === ativoEditingId)?.nr_sequencia ?? null) : null}
-                form={ativoForm}
-                setForm={setAtivoForm}
-                submitting={ativoSubmitting}
-                handleSubmit={handleAtivoSubmit}
-                goToList={goToAtivoList}
-                createdAt={ativoAuditInfo.createdAt}
-                updatedAt={ativoAuditInfo.updatedAt}
-                createdBy={resolverNomeAutorExibicao(ativoAuditInfo.createdBy)}
-                updatedBy={resolverNomeAutorExibicao(ativoAuditInfo.updatedBy)}
-                onOpenAudit={openAtivoAuditModal}
-                onPrevRecord={goToPrevAtivoRecord}
-                onNextRecord={goToNextAtivoRecord}
-                hasPrevRecord={hasPrevAtivoRecord}
-                hasNextRecord={hasNextAtivoRecord}
-                categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))}
-                localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
-                marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
-                sistemasOperacionais={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))}
-                selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
-                manageSelection={ativoManageSelection}
-                onManageSelectionChange={handlePatrimonioManageSelectionChange}
-                allowedSubmodulos={allowedPatrimonioSubmodulos}
-                campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo')}
-                campoErros={ativoCampoErros}
-                responsaveisNames={selectedAtivoResponsaveisNames}
-                onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('ativo', index)}
-                onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
-                ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
-                onViewManutencao={(seq) => openManutencaoView(seq)}
-              />
-            ) : (
-            <CadastroGeralFormView
-              key={cgManageSelection}
-              editingId={cgEditingId}
-              sequence={cgEditingId ? (cgItems.find((a) => a.id === cgEditingId)?.nr_sequencia ?? null) : null}
-              form={cgForm}
-              setForm={setCgForm}
-              submitting={cgSubmitting}
-              handleSubmit={handleCgSubmit}
-              goToList={goToCgList}
-              createdAt={cgAuditInfo.createdAt}
-              updatedAt={cgAuditInfo.updatedAt}
-              createdBy={resolverNomeAutorExibicao(cgAuditInfo.createdBy)}
-              updatedBy={resolverNomeAutorExibicao(cgAuditInfo.updatedBy)}
-              onPrevRecord={goToPrevCgRecord}
-              onNextRecord={goToNextCgRecord}
-              hasPrevRecord={hasPrevCgRecord}
-              hasNextRecord={hasNextCgRecord}
-              onOpenAudit={openCgAuditModal}
-              manageSelection={cgManageSelection}
-              onManageSelectionChange={handleCgManageSelectionChange}
-              allowedSubmodulos={allowedCgSubmodulos}
-              selectOptions={CG_SELECT_OPTIONS}
-              fieldInfos={cgFieldInfos}
-              descFieldKey={cgDescKey}
-              collectionName={cgCollection}
-              showCbo={cgKind === 'profissao'}
-              showSigla={cgKind === 'orgaoEmissor' || cgKind === 'logradouro'}
-              showObservacao={cgKind === 'categoriaAtivo'}
-              siglaFieldKey={cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : undefined}
-              campoRegras={campoRegrasDaColecao(campoRegrasAtivas, cgCollection)}
-              campoErros={cgCampoErros}
-            />
+              )}
+              {/* Cada função aberta fica montada (só a ativa aparece): ao voltar para ela,
+                  o usuário continua exatamente de onde parou. Fechar (x no menu) desmonta. */}
+              {secoesAbertas.filter((secao) => allowedSections.includes(secao)).map((secao) => (
+                <div key={secao} className={secao === activeSection ? "flex-1 flex flex-col min-h-0" : "hidden"}>
+                  {renderConteudoSecao(secao, secao === activeSection ? view : (sectionViews[secao] ?? 'list'))}
+                </div>
+              ))}
+            </>
           )}
         </div>
       </div>
@@ -10645,6 +10787,54 @@ export default function Home() {
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {secaoParaFechar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setSecaoParaFechar(null)} />
+          <div role="dialog" aria-modal="true" aria-label="Fechar função" className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Fechar função</h2>
+              <button
+                type="button"
+                onClick={() => setSecaoParaFechar(null)}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="px-[15px] pt-[15px]">
+              <p className="text-sm text-slate-900">Tem certeza que deseja fechar a função {SECTION_DEFS[secaoParaFechar].label}?</p>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pt-20 pb-[15px]">
+              <button
+                type="button"
+                onClick={() => setSecaoParaFechar(null)}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Não
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  fecharSecao(secaoParaFechar);
+                  setSecaoParaFechar(null);
+                }}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Sim
+              </button>
+            </div>
+          </div>
         </div>
       )}
 
@@ -12091,6 +12281,8 @@ export default function Home() {
           }
           flat.dt_criacao = detalhes.dt_criacao;
           flat.dt_alteracao = detalhes.dt_alteracao;
+          flat.ds_usuario_criacao = detalhes.ds_usuario_criacao;
+          flat.ds_usuario_alteracao = detalhes.ds_usuario_alteracao;
           return flat;
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
@@ -12131,12 +12323,7 @@ export default function Home() {
               'dt_alteracao',
             ]
           : isAviso
-          ? [
-              'ds_esqueceu_senha',
-              'ds_politica_privacidade',
-              'dt_criacao',
-              'dt_alteracao',
-            ]
+          ? [avisoAuditCampo]
           : isImagem
           ? [
               'nr_sequencia',
@@ -12338,8 +12525,8 @@ export default function Home() {
                       ds_complemento: 'Complemento',
                       nr_cbo: 'CBO',
                       ds_imagem: 'Descrição',
-                      ds_esqueceu_senha: 'Esqueceu sua senha? (Conteúdo)',
-                      ds_politica_privacidade: 'Política de Privacidade (Conteúdo)',
+                      ds_esqueceu_senha: 'Conteúdo',
+                      ds_politica_privacidade: 'Conteúdo',
                       ie_arquivo: 'Arquivo',
                       nr_seq_vinculo_contratual: 'Vínculo contratual',
                       ie_fornecedor: 'Fornecedor',
@@ -12479,8 +12666,8 @@ export default function Home() {
                       ds_endereco_mac: 'Endereço MAC',
                       ds_ip: 'IPv4',
                       nr_seq_sistema_operacional: 'Sistema operacional',
-                      dt_criacao: 'Data de criação',
-                      dt_alteracao: 'Data de alteração',
+                      dt_criacao: 'Criação',
+                      dt_alteracao: 'Alteração',
                     };
                     // Em Manutenções, o campo nr_seq_prestador_servico é o Prestador.
                     if (isManutencao) FIELD_LABELS['nr_seq_prestador_servico'] = 'Prestador de serviço';
@@ -12779,13 +12966,34 @@ export default function Home() {
                       );
                     };
 
+                    // Campos de controle no fim de todo detalhe: Criação, Alteração, Usuário criação e Usuário alteração.
+                    const CAMPOS_CONTROLE = ['dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao'];
+                    const camposDetalhe = [...fieldsOrder.filter((c) => !CAMPOS_CONTROLE.includes(c)), ...CAMPOS_CONTROLE];
+                    // Logs antigos (ou que gravam só parte do registro) podem não ter esses campos:
+                    // completa com a data/usuário do próprio log e do log de criação.
+                    const logMaisAntigo = auditLogs[auditLogs.length - 1];
+                    const logCriacao = isAviso ? logMaisAntigo : auditLogs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+                    const comControle = (dados: Record<string, unknown> | null | undefined, log: AuditEntry | undefined) => {
+                      if (!dados || !log) return dados;
+                      return {
+                        ...dados,
+                        // Avisos: cada aviso tem a própria criação (primeiro log dele).
+                        dt_criacao: isAviso ? logCriacao?.timestamp : (dados.dt_criacao ?? logCriacao?.timestamp),
+                        ds_usuario_criacao: isAviso ? logCriacao?.usuarioNome : (dados.ds_usuario_criacao ?? logCriacao?.usuarioNome),
+                        dt_alteracao: dados.dt_alteracao ?? log.timestamp,
+                        ds_usuario_alteracao: dados.ds_usuario_alteracao ?? log.usuarioNome,
+                      };
+                    };
+                    const baseBefore = isBanda ? bandaBefore : (isElemento || isParametroRel) ? before : isRelatorio ? relatorioFlatBefore : before;
+                    const baseAfter = isBanda ? bandaAfter : (isElemento || isParametroRel) ? after : isRelatorio ? relatorioFlatAfter : after;
+                    const effectiveBefore = comControle(baseBefore, auditLogs[selectedAuditIndex + 1]);
+                    const effectiveAfter = comControle(baseAfter, auditLogs[selectedAuditIndex]);
+
                     return (
                       <div className="grid grid-cols-2 gap-x-6 gap-y-4 w-full">
                         <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Antes</div>
                         <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Depois</div>
-                        {fieldsOrder.map((field) => {
-                          const effectiveBefore = isBanda ? bandaBefore : (isElemento || isParametroRel) ? before : isRelatorio ? relatorioFlatBefore : before;
-                          const effectiveAfter = isBanda ? bandaAfter : (isElemento || isParametroRel) ? after : isRelatorio ? relatorioFlatAfter : after;
+                        {camposDetalhe.map((field) => {
                           return (
                           <React.Fragment key={field}>
                             <div className="w-full min-w-0">

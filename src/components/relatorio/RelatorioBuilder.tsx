@@ -24,6 +24,7 @@ import BandasRelatorioTable from "@/components/relatorio/BandasRelatorioTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 interface ContextMenuItem {
   label: string;
@@ -1040,6 +1041,8 @@ export default function RelatorioBuilder({
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        // Função escondida (aberta em segundo plano): não salva.
+        if (!elementoVisivel(formRef.current)) return;
         e.preventDefault();
         ctrlSHandlerRef.current();
       }

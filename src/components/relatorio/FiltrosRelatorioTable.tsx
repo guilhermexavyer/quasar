@@ -11,6 +11,7 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import type { RelatorioFiltro } from "@/types/relatorio";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 interface FiltrosRelatorioTableProps {
   filtros: RelatorioFiltro[];
@@ -102,6 +103,7 @@ export default function FiltrosRelatorioTable({
   onDuplicateFiltro,
 }: FiltrosRelatorioTableProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const raizRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [sortColumn, setSortColumn] = useState<string | null>(null);
@@ -204,7 +206,7 @@ export default function FiltrosRelatorioTable({
 
   useEffect(() => {
     function handleKeyDown(e: globalThis.KeyboardEvent) {
-      if (!editingId) return;
+      if (!editingId || !elementoVisivel(raizRef.current)) return;
       const target = e.target as HTMLElement;
       const tagName = target?.tagName?.toLowerCase();
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
@@ -594,7 +596,7 @@ export default function FiltrosRelatorioTable({
   ], [editingId, filtros, camposDisponiveis, colecaoOptions]);
 
   return (
-    <div className="relative flex h-full min-h-0 flex-col">
+    <div ref={raizRef} className="relative flex h-full min-h-0 flex-col">
       <div className="min-h-0 flex-1 overflow-auto">
       <ResizableTable
         columns={columns}

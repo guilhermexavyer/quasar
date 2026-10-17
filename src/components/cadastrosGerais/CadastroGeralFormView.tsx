@@ -6,6 +6,7 @@ import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
+import { elementoVisivel } from "@/lib/visibilidade";
 
 export interface CadastroGeralFormData {
   descricao: string;
@@ -150,7 +151,8 @@ export default function CadastroGeralFormView({
         e.preventDefault();
         if (submitting) return;
         const f = formRef.current;
-        if (!f) return;
+        // Funções abertas ficam montadas, porém escondidas: só o formulário na tela salva.
+        if (!f || !elementoVisivel(f)) return;
         if (typeof (f as any).requestSubmit === 'function') {
           (f as any).requestSubmit();
         } else {

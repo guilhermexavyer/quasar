@@ -588,3 +588,18 @@ button[aria-label^="Informações do campo"]:focus-visible {
 .aviso-conteudo img { max-width: 100%; height: auto; }
 .dark .aviso-conteudo { color: #d4d4d8; }
 .dark .aviso-conteudo a { color: #7cb7ee; }
+
+/* ============================================================
+   BOTÃO "x" PARA FECHAR UMA FUNÇÃO (.fechar-funcao) — menu lateral
+   Classe própria (sem bg-white): o modo escuro sobrescreve .bg-white e
+   mudava a cor do botão. Mesmo estilo nos dois temas.
+   ============================================================ */
+.fechar-funcao {
+  background-color: #ffffff;
+  color: #003056;
+  box-shadow: 0 0 0 1px rgba(0, 48, 86, 0.4), 0 1px 2px rgba(0, 0, 0, 0.15);
+}
+.fechar-funcao:hover {
+  background-color: #ef4444;
+  color: #ffffff;
+}
