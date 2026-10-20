@@ -16,6 +16,7 @@ import ContextMenu from "@/components/ui/ContextMenu";
 import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
+import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 
 /** Colunas ordenáveis do painel de perfis. */
 type PerfilSortKey = "nr_sequencia" | "ds_perfil";
@@ -257,7 +258,7 @@ export default function CamposView({
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
-          options={[{ value: 'avisos', label: 'Avisos' }, { value: 'campos', label: 'Campos' }, { value: 'imagens', label: 'Imagens' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
+          options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
           className="!w-[180px]"
         />

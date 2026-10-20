@@ -166,6 +166,8 @@ async function semearUsuarioAdministrador(perfilSeq) {
     ds_senha: createHash("sha256").update(USUARIO_ADMIN.senha).digest("hex"),
     ds_observacao: "",
     ie_status: "A",
+    ie_base_conhecimento: "S",
+    ie_central_suporte: "S",
     config_perfis: JSON.stringify([perfilSeq]),
     config_perfil_ativo: String(perfilSeq),
     dt_criacao: DATA_IMPLANTACAO,

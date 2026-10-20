@@ -192,6 +192,9 @@ import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
 import AvisoModal from "@/components/ui/AvisoModal";
 import { filtrarAuditoriaDoAviso, type CampoAviso } from "@/services/avisoService";
+import RegrasView from "@/components/administracaoSistema/RegrasView";
+import { obterRegra, filtrarAuditoriaDaRegra, CAMPOS_REGRA, type IdRegra, type Regra } from "@/services/regraService";
+import { ultimoLogoutProgramado, rotuloDiaLogout } from "@/lib/regraUtils";
 import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
 import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
@@ -303,7 +306,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.13";
+const SYSTEM_VERSION = "0.67.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -406,7 +409,7 @@ const EA_SELECT_OPTIONS = [
 const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'ativos', label: 'Ativos' },
   { value: 'manutencoes', label: 'Manutenções' },
-  { value: 'parametrosFuncao', label: 'Parâmetros da função' },
+  { value: 'parametrosFuncao', label: 'Parâmetros' },
 ];
 
 const RELATORIO_SELECT_OPTIONS = [
@@ -843,7 +846,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -867,6 +870,10 @@ export default function Home() {
   const [secoesAbertas, setSecoesAbertas] = useState<SectionType[]>([]);
   /** Função cujo fechamento aguarda confirmação no modal. */
   const [secaoParaFechar, setSecaoParaFechar] = useState<SectionType | null>(null);
+  /** Regras do sistema (Administração do Sistema > Regras), ex.: logout automático. */
+  const [regraSistema, setRegraSistema] = useState<Regra | null>(null);
+  /** Início da sessão (ms): o logout automático encerra sessões iniciadas antes do horário programado. */
+  const [sessaoInicio, setSessaoInicio] = useState<number | null>(null);
   if (activeSection && !secoesAbertas.includes(activeSection)) {
     setSecoesAbertas([...secoesAbertas, activeSection]);
   }
@@ -1540,7 +1547,7 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['avisos', 'campos', 'perfis', 'usuarios', 'imagens'];
+    if (isAdminSemConfig) return ['avisos', 'campos', 'perfis', 'usuarios', 'imagens', 'regras'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2469,12 +2476,13 @@ export default function Home() {
           alunoManageSelection,
           patrimonioManageSelection: ativoManageSelection,
           relatorioManageSelection,
+          sessaoInicio,
         })
       );
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection]);
+  }, [isAuthenticated, currentUser, sessaoInicio, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -2598,6 +2606,7 @@ export default function Home() {
           alunoManageSelection?: string;
           patrimonioManageSelection?: string;
           relatorioManageSelection?: string;
+          sessaoInicio?: number;
         };
 
         if (!session?.userId) return;
@@ -2622,7 +2631,7 @@ export default function Home() {
         if (ehSecao(session.activeSection)) {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras')) {
           setAdminManageSelection(session.adminManageSelection);
           setAdminInteracted(true);
         }
@@ -2646,6 +2655,8 @@ export default function Home() {
           setRelatorioManageSelection(session.relatorioManageSelection);
           setRelatorioInteracted(true);
         }
+        // Sessões salvas antes do logout automático não guardavam o início: conta a partir de agora.
+        setSessaoInicio(typeof session.sessaoInicio === "number" ? session.sessaoInicio : Date.now());
         setView("list");
         setIsAuthenticated(true);
       } catch {
@@ -2660,6 +2671,49 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  /* ── Logout automático (Administração do Sistema > Regras) ── */
+  // A regra é carregada ao entrar e recarregada periodicamente: uma alteração
+  // feita por outro usuário passa a valer sem recarregar a página.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    let cancelado = false;
+    const carregar = () => {
+      obterRegra()
+        .then((regra) => { if (!cancelado) setRegraSistema(regra); })
+        .catch((e) => console.error("Erro ao carregar regras do sistema", e));
+    };
+    carregar();
+    const intervalo = window.setInterval(carregar, 5 * 60 * 1000);
+    return () => {
+      cancelado = true;
+      window.clearInterval(intervalo);
+    };
+  }, [isAuthenticated]);
+
+  // Encerra a sessão quando o último horário programado é posterior ao início
+  // dela — inclusive se a aba estava fechada ou o computador suspenso na hora.
+  // A regra só vale a partir de quando foi salva: salvar um horário que já
+  // passou hoje não derruba ninguém naquele momento.
+  useEffect(() => {
+    if (!isAuthenticated || sessaoInicio === null) return;
+    const inicio = sessaoInicio;
+    function verificar() {
+      const programado = ultimoLogoutProgramado(regraSistema, new Date());
+      const vigencia = Math.max(inicio, Date.parse(regraSistema?.dt_vigencia_logout ?? regraSistema?.dt_alteracao ?? "") || 0);
+      if (programado && programado.getTime() > vigencia) {
+        handleLogout();
+        setLoginWarning("Sua sessão foi encerrada automaticamente.");
+      }
+    }
+    verificar();
+    const intervalo = window.setInterval(verificar, 30 * 1000);
+    document.addEventListener("visibilitychange", verificar);
+    return () => {
+      window.clearInterval(intervalo);
+      document.removeEventListener("visibilitychange", verificar);
+    };
+  }, [isAuthenticated, sessaoInicio, regraSistema]);
 
   /* ── Fechar menu de contexto ao clicar/right-click fora ── */
   useEffect(() => {
@@ -3648,6 +3702,22 @@ export default function Home() {
     }
   }
 
+  /** Regra cujo histórico está aberto: o Detalhe da auditoria mostra só os campos dela. */
+  const [regraAuditId, setRegraAuditId] = useState<IdRegra>('logout_automatico');
+  async function openRegraAuditModal(regraDocId: string, regra: IdRegra) {
+    setAuditDocumentType('regra');
+    setRegraAuditId(regra);
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(filtrarAuditoriaDaRegra(await fetchAuditByDocumentId('regra', regraDocId), regra));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   function closeAuditModal() {
     setAuditModalOpen(false);
     setAuditLogs([]);
@@ -4348,8 +4418,8 @@ export default function Home() {
   }
 
   function openPerfilEditForm(perfil: Perfil) {
-    // O perfil Administrador só pode ser visto/editado pelo usuário administrador.
-    if (!isAdministrador && isAdministradorPerfil(perfil)) return;
+    // Outros usuários também abrem o perfil Administrador, mas só para ver
+    // (PerfilFormView readOnly; handlePerfilSubmit bloqueia a gravação).
     setPerfilForm({
       ds_perfil: perfil.ds_perfil,
       ds_observacao: perfil.ds_observacao,
@@ -4944,17 +5014,12 @@ export default function Home() {
   const hasNextRecord = currentEditIndex >= 0 && currentEditIndex < filteredSortedPessoasFisicas.length - 1;
   const hasPrevAdminRecord = currentAdminEditIndex > 0;
   const hasNextAdminRecord = currentAdminEditIndex >= 0 && currentAdminEditIndex < filteredSortedUsuarios.length - 1;
-  // Navegação anterior/próximo: o perfil Administrador só pode ser aberto pelo usuário administrador.
-  const perfisNavegaveis = useMemo(
-    () => (isAdministrador ? filteredSortedPerfis : filteredSortedPerfis.filter((p) => !isAdministradorPerfil(p))),
-    [filteredSortedPerfis, isAdministrador]
-  );
   const currentPerfilEditIndex = useMemo(() => {
     if (!perfilEditingId) return -1;
-    return perfisNavegaveis.findIndex((p) => p.id === perfilEditingId);
-  }, [perfisNavegaveis, perfilEditingId]);
+    return filteredSortedPerfis.findIndex((p) => p.id === perfilEditingId);
+  }, [filteredSortedPerfis, perfilEditingId]);
   const hasPrevPerfilRecord = currentPerfilEditIndex > 0;
-  const hasNextPerfilRecord = currentPerfilEditIndex >= 0 && currentPerfilEditIndex < perfisNavegaveis.length - 1;
+  const hasNextPerfilRecord = currentPerfilEditIndex >= 0 && currentPerfilEditIndex < filteredSortedPerfis.length - 1;
   const hasPrevCgRecord = currentCgEditIndex > 0;
   const hasNextCgRecord = currentCgEditIndex >= 0 && currentCgEditIndex < filteredSortedCgItems.length - 1;
   const hasPrevPjRecord = currentPjEditIndex > 0;
@@ -5001,13 +5066,13 @@ export default function Home() {
 
   function goToPrevPerfilRecord() {
     if (!hasPrevPerfilRecord) return;
-    const previous = perfisNavegaveis[currentPerfilEditIndex - 1];
+    const previous = filteredSortedPerfis[currentPerfilEditIndex - 1];
     if (previous) openPerfilEditForm(previous);
   }
 
   function goToNextPerfilRecord() {
     if (!hasNextPerfilRecord) return;
-    const next = perfisNavegaveis[currentPerfilEditIndex + 1];
+    const next = filteredSortedPerfis[currentPerfilEditIndex + 1];
     if (next) openPerfilEditForm(next);
   }
 
@@ -7639,6 +7704,7 @@ export default function Home() {
           setSectionViews({});
           setView('list');
           setCurrentUser(usuarioValido);
+          setSessaoInicio(Date.now());
           setIsAuthenticated(true);
           setIsLoginLoading(false);
         }, 250);
@@ -7662,6 +7728,7 @@ export default function Home() {
       /* ignora */
     }
     setIsAuthenticated(false);
+    setSessaoInicio(null);
     setIsLoginLoading(false);
     setIsUserMenuOpen(false);
     setActiveSection(null);
@@ -8114,6 +8181,19 @@ export default function Home() {
                   onSaveSuccess={(msg) => setMessage(msg)}
                   onSavingChange={setParametrosSaving}
                 />
+              ) : adminManageSelection === 'regras' ? (
+                <RegrasView
+                  colunas={colunasPorChave('config_colunas_regras')}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  auditAutor={auditAutor}
+                  resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                  onOpenAudit={openRegraAuditModal}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
+                  onRegraSalva={setRegraSistema}
+                />
               ) : adminManageSelection === 'campos' ? (
                 <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                   perfis={perfis}
@@ -8520,6 +8600,19 @@ export default function Home() {
                   onOpenAudit={openAvisoAuditModal}
                   onSaveSuccess={(msg) => setMessage(msg)}
                   onSavingChange={setParametrosSaving}
+                />
+              ) : adminManageSelection === 'regras' ? (
+                <RegrasView
+                  colunas={colunasPorChave('config_colunas_regras')}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  auditAutor={auditAutor}
+                  resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                  onOpenAudit={openRegraAuditModal}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
+                  onRegraSalva={setRegraSistema}
                 />
               ) : adminManageSelection === 'campos' ? (
                   <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
@@ -9152,7 +9245,6 @@ export default function Home() {
                   <span
                     role="button"
                     tabIndex={0}
-                    title={`Fechar ${def.label}`}
                     aria-label={`Fechar ${def.label}`}
                     draggable={false}
                     onMouseDown={(e) => e.stopPropagation()}
@@ -9212,6 +9304,25 @@ export default function Home() {
         </nav>
 
         <div className="mt-auto border-t border-[#004a7a] px-1 py-2">
+          {/* Regra "Badge de teste": identifica a base de homologação. */}
+          {regraSistema?.ie_badge_teste === 'S' && (
+            <div
+              className={`group relative mb-1 flex w-full items-center px-1.5 py-1.5 ${isSidebarOpen ? "justify-start" : "justify-center"}`}
+              aria-label="Homologação"
+            >
+              <span className="flex h-7 w-7 flex-shrink-0 items-center justify-center text-[#facc15]">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                  <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
+                  <path d="M12 9v4" />
+                  <path d="M12 17h.01" />
+                </svg>
+              </span>
+              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 hidden -translate-y-1/2 rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap group-hover:block">
+                Homologação
+                <span className="absolute left-0 top-1/2 -translate-x-1/2 -translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
+              </span>
+            </div>
+          )}
           <div className="relative">
             <button
               type="button"
@@ -12250,6 +12361,7 @@ export default function Home() {
         const isPj = auditDocumentType === 'pessoa_juridica';
         const isImagem = auditDocumentType === 'imagem';
         const isAviso = auditDocumentType === 'aviso';
+        const isRegra = auditDocumentType === 'regra';
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
@@ -12338,6 +12450,8 @@ export default function Home() {
             ]
           : isAviso
           ? [avisoAuditCampo]
+          : isRegra
+          ? [...CAMPOS_REGRA[regraAuditId]]
           : isImagem
           ? [
               'nr_sequencia',
@@ -12583,6 +12697,9 @@ export default function Home() {
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
                       ds_regra: 'Regra',
+                      ie_logout_dia: 'Dia',
+                      hr_logout: 'Horário',
+                      ie_badge_teste: 'Badge de teste',
                       nr_seq_ativo: 'Ativo',
                       dt_envio: 'Data de envio',
                       dt_termino: 'Data de término',
@@ -12737,8 +12854,11 @@ export default function Home() {
                         const descricao = Number.isFinite(seq) ? descricaoPorSeq[field]() : undefined;
                         return descricao ? `${seq} - ${descricao}` : String(normalized);
                       }
-                      if (field === 'ie_fornecedor' || field === 'ie_prestador_servico') {
+                      if (field === 'ie_fornecedor' || field === 'ie_prestador_servico' || field === 'ie_badge_teste') {
                         return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : String(normalized);
+                      }
+                      if (field === 'ie_logout_dia') {
+                        return rotuloDiaLogout(String(normalized)) || String(normalized);
                       }
                       if (field === 'ie_status_manutencao') {
                         return MANUTENCAO_STATUS_OPTIONS.find((o) => o.value === String(normalized))?.label ?? String(normalized);
@@ -12987,14 +13107,16 @@ export default function Home() {
                     // Logs antigos (ou que gravam só parte do registro) podem não ter esses campos:
                     // completa com a data/usuário do próprio log e do log de criação.
                     const logMaisAntigo = auditLogs[auditLogs.length - 1];
-                    const logCriacao = isAviso ? logMaisAntigo : auditLogs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+                    // Avisos e regras: cada um tem a própria criação (primeiro log dele).
+                    const criacaoPorItem = isAviso || isRegra;
+                    const logCriacao = criacaoPorItem ? logMaisAntigo : auditLogs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
                     const comControle = (dados: Record<string, unknown> | null | undefined, log: AuditEntry | undefined) => {
                       if (!dados || !log) return dados;
                       return {
                         ...dados,
                         // Avisos: cada aviso tem a própria criação (primeiro log dele).
-                        dt_criacao: isAviso ? logCriacao?.timestamp : (dados.dt_criacao ?? logCriacao?.timestamp),
-                        ds_usuario_criacao: isAviso ? logCriacao?.usuarioNome : (dados.ds_usuario_criacao ?? logCriacao?.usuarioNome),
+                        dt_criacao: criacaoPorItem ? logCriacao?.timestamp : (dados.dt_criacao ?? logCriacao?.timestamp),
+                        ds_usuario_criacao: criacaoPorItem ? logCriacao?.usuarioNome : (dados.ds_usuario_criacao ?? logCriacao?.usuarioNome),
                         dt_alteracao: dados.dt_alteracao ?? log.timestamp,
                         ds_usuario_alteracao: dados.ds_usuario_alteracao ?? log.usuarioNome,
                       };

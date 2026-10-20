@@ -8,6 +8,7 @@ import type { Usuario } from "@/types/usuario";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
+import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel } from "@/lib/visibilidade";
 
@@ -465,7 +466,7 @@ export default function AdministracaoSistemaListView({
             <Select
               value={manageSelection}
               onChange={onManageSelectionChange}
-              options={[{ value: 'avisos', label: 'Avisos' }, { value: 'campos', label: 'Campos' }, { value: 'imagens', label: 'Imagens' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
+              options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={!manageSelection}
               className="!w-[180px]"
             />

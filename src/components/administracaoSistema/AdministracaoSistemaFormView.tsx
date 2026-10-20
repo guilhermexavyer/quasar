@@ -5,6 +5,7 @@ import type { Usuario } from "@/types/usuario";
 import { ADMIN_FIELD_INFOS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
+import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import ViewIcon from "@/components/ui/ViewIcon";
@@ -160,7 +161,7 @@ export default function AdministracaoSistemaFormView({
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange}
-            options={[{ value: 'avisos', label: 'Avisos' }, { value: 'campos', label: 'Campos' }, { value: 'imagens', label: 'Imagens' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
+            options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
             showPlaceholder={false}
             className="!w-[180px]"
           />

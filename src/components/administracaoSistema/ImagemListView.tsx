@@ -7,6 +7,7 @@ import type { ContextMenuState } from "@/types/contextMenu";
 import { type StringColunasConfig } from "@/lib/colunasUtils";
 import ResizableTable, { type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
+import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 
@@ -103,13 +104,7 @@ export default function ImagemListView({
     return { ...initialColumns, order: IMAGEM_COLUMNS.map((c) => c.key) };
   }, [initialColumns, IMAGEM_COLUMNS]);
 
-  const IMAGEM_SELECT_OPTIONS = useMemo(() => [
-    { value: 'avisos', label: 'Avisos' },
-    { value: 'campos', label: 'Campos' },
-    { value: 'imagens', label: 'Imagens' },
-    { value: 'perfis', label: 'Perfis' },
-    { value: 'usuarios', label: 'Usuários' },
-  ].filter((o) => allowedSubmodulos.includes(o.value)), [allowedSubmodulos]);
+  const IMAGEM_SELECT_OPTIONS = useMemo(() => ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value)), [allowedSubmodulos]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
