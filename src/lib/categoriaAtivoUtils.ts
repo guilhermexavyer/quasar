@@ -8,7 +8,7 @@ export interface ColDef {
 }
 
 export const CATEGORIA_ATIVO_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_categoria', label: 'Descrição' },
   { key: 'ds_observacao', label: 'Observação' },
   { key: 'ie_status', label: 'Status' },

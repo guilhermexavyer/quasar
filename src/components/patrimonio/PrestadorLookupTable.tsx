@@ -3,7 +3,7 @@
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import type { Colaborador } from "@/types/colaborador";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -25,7 +25,7 @@ interface LookupColumn {
 }
 
 const LOOKUP_COLUMNS: LookupColumn[] = [
-  { key: "nr_sequencia", label: "#", dataClass: "text-center" },
+  { key: "nr_sequencia", label: "#", dataClass: "text-right" },
   { key: "ds_nome", label: "Nome" },
   { key: "nr_cpf", label: "CPF" },
   { key: "ds_razao_social", label: "Razão social" },
@@ -256,7 +256,7 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
       if (width > maxWidth) maxWidth = width;
     });
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, prestadores));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // Duplo clique = largura automática (acompanha o conteúdo); salvo.
@@ -360,7 +360,7 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, prestadores));
       const savedW = currentWidthsRef.current[logicalIdx];
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);

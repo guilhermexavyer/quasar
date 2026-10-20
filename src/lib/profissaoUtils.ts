@@ -8,7 +8,7 @@ export interface ColDef {
 }
 
 export const PROFISSAO_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_profissao', label: 'Descrição' },
   { key: 'nr_cbo', label: 'CBO', dataClass: 'text-center' },
   { key: 'ie_status', label: 'Status' },

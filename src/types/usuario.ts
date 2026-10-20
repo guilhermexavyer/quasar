@@ -20,12 +20,13 @@ export interface Usuario {
   config_colunas_lookup_ativo?: string;
   config_colunas_lookup_prestador?: string;
   config_colunas_lookup_cidade?: string;
-  /* Administração do Sistema > Campos (painéis) e Patrimônio > Parâmetros da função */
+  /* Administração do Sistema > Campos (painéis) e Patrimônio > Parâmetros */
   config_colunas_campos_perfil?: string;
   config_colunas_campos_funcao?: string;
   config_colunas_campos_campo?: string;
   config_colunas_parametros_funcao?: string;
   config_colunas_avisos?: string;
+  config_colunas_regras?: string;
   config_colunas_as_usuario?: string;
   config_colunas_as_perfil?: string;
   config_colunas_as_imagem?: string;

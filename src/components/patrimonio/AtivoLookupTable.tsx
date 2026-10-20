@@ -3,7 +3,7 @@
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import type { Ativo } from "@/types/ativo";
 
 interface AtivoLookupTableProps {
@@ -23,7 +23,7 @@ interface LookupColumn {
 }
 
 const LOOKUP_COLUMNS: LookupColumn[] = [
-  { key: "nr_sequencia", label: "#", dataClass: "text-center" },
+  { key: "nr_sequencia", label: "#", dataClass: "text-right" },
   { key: "cd_patrimonio", label: "Patrimônio" },
   { key: "ds_ativo", label: "Descrição" },
   { key: "ds_modelo", label: "Modelo" },
@@ -249,7 +249,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
       if (width > maxWidth) maxWidth = width;
     });
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, ativos));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // Duplo clique = largura automática (acompanha o conteúdo); salvo.
@@ -342,7 +342,7 @@ export default function AtivoLookupTable({ ativos, onSelect, categoriasAtivos = 
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, ativos));
       const savedW = currentWidthsRef.current[logicalIdx];
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);

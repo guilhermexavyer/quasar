@@ -48,7 +48,7 @@ function formatCellValue(key: string, value: any): string {
 }
 
 const COLUMNS = [
-  { key: "nr_sequencia", label: "#", align: "center" as const },
+  { key: "nr_sequencia", label: "#" },
   { key: "ds_relatorio", label: "Descrição" },
   { key: "formato", label: "Formato" },
   { key: "dt_criacao", label: "Criação" },
@@ -171,7 +171,6 @@ export default function RelatorioListView({
               columns={COLUMNS.map((col) => ({
                 key: col.key,
                 label: col.label,
-                align: col.align,
                 render: (row: any) => {
                   if (col.key === "colecao") return row.colecaoLabel;
                   if (col.key === "qtdCampos") return row.qtdCampos;

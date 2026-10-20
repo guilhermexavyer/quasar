@@ -24,7 +24,7 @@ export interface PerfilColDef {
 }
 
 export const PERFIL_COLUMNS: PerfilColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_perfil', label: 'Perfil' },
   { key: 'ie_status', label: 'Status' },
   { key: 'dt_criacao', label: 'Criação' },

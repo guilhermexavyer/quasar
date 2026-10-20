@@ -12,7 +12,7 @@ export interface ColDef {
 }
 
 export const ALUNO_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física' },
   { key: 'nr_matricula', label: 'Matrícula' },
   { key: 'dt_ingresso', label: 'Data de ingresso' },

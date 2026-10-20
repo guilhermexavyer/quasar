@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
-import { prepararStringColunasSalvas, CSS_CABECALHO_SEQUENCIA } from "@/lib/colunasUtils";
+import { prepararStringColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia } from "@/lib/colunasUtils";
 import { elementoVisivel } from "@/lib/visibilidade";
 
 export interface ResizableTableColumn<T = unknown> {
@@ -228,7 +228,7 @@ export default function ResizableTable<T>({
       const key = columnOrder[domIdx];
       const minW = minWidthsRef.current[key] || 0;
       const savedW = ajustadasRef.current[key];
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, rows));
       const colDef = columns.find((c) => c.key === key);
       const defW = colDef?.width ?? 0;
       // Coluna fixa (ex.: ícone de pré-visualização): o usuário não altera a
@@ -289,7 +289,7 @@ export default function ResizableTable<T>({
     const domIdx = columnOrder.indexOf(key);
     if (domIdx === -1) return;
     const minW = minWidthsRef.current[key] || 0;
-    const contentW = measureColumnContentWidth(table, domIdx);
+    const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, rows));
     const finalWidth = Math.max(minW, contentW);
     widthsRef.current = { ...widthsRef.current, [key]: finalWidth };
     applyWidths(table, widthsRef.current);
@@ -482,7 +482,7 @@ export default function ResizableTable<T>({
                     return (
                       <td
                         key={key}
-                        className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.cellClassName || ""} ${col.align === "center" ? "text-center" : ""}`}
+                        className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.cellClassName || ""} ${col.key === "nr_sequencia" ? "text-right" : col.align === "center" ? "text-center" : ""}`}
                         style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)" }}
                       >
                         <span className="rt-cell-content">{content}</span>

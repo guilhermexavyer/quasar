@@ -9,7 +9,7 @@ export interface ColDef {
 }
 
 export const ADMIN_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_usuario', label: 'Usuário' },
   { key: 'ds_usuario_alternativo', label: 'Usuário alternativo' },
   { key: 'ds_email', label: 'E-mail' },

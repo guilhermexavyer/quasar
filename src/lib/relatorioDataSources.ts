@@ -14,6 +14,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'cd_patrimonio', label: 'Patrimônio', tipo: 'string' },
+      { key: 'cd_patrimonio_externo', label: 'Código externo', tipo: 'string' },
       { key: 'ds_ativo', label: 'Descrição', tipo: 'string' },
       { key: 'nr_seq_categoria', label: 'Categoria', tipo: 'number', isFK: true, fkColecao: 'cg_categoria_ativo', fkLabel: 'ds_categoria' },
       { key: 'nr_seq_localizacao', label: 'Localização', tipo: 'number', isFK: true, fkColecao: 'cg_localizacao', fkLabel: 'ds_localizacao' },

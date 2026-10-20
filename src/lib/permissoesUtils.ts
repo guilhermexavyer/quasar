@@ -16,6 +16,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_campos", label: "Permite acessar Campos" },
     { key: "acessar_imagens", label: "Permite acessar Imagens" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
+    { key: "acessar_regras", label: "Permite acessar Regras" },
     { key: "acessar_usuarios", label: "Permite acessar Usuários" },
     // Opção Campos
     { key: "alterar_status_campo", label: "Permite alterar o status do campo" },
@@ -66,8 +67,8 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "excluir_colaborador", label: "Permite excluir" },
   ],
   patrimonio: [
-    // Parâmetros da função
-    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros da função" },
+    // Parâmetros
+    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros" },
     // Ativos
     { key: "acessar_ativo", label: "Permite acessar Ativos" },
     { key: "adicionar_ativo", label: "Permite adicionar" },
@@ -189,6 +190,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_perfis', 'adicionar_perfil', 'ver_perfil', 'delegar_funcoes_perfil', 'duplicar_perfil', 'excluir_perfil'],
     },
     {
+      titulo: 'Regras',
+      chaves: ['acessar_regras'],
+    },
+    {
       titulo: 'Usuários',
       chaves: ['acessar_usuarios', 'adicionar_usuario', 'ver_usuario', 'alterar_senha_usuario', 'delegar_perfis_usuario', 'excluir_usuario'],
     },
@@ -223,7 +228,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'concluir_manutencao_registro', 'cancelar_manutencao', 'excluir_manutencao'],
     },
     {
-      titulo: 'Parâmetros da função',
+      titulo: 'Parâmetros',
       chaves: ['acessar_parametros_funcao'],
     },
   ],
@@ -299,7 +304,13 @@ export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
   { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
+  { value: 'regras', label: 'Regras', permissao: 'acessar_regras' },
 ];
+
+/** Opções do dropdown PAI de Administração do Sistema, em ordem alfabética (filtradas pelas permitidas em cada tela). */
+export const ADMIN_OPCOES_DROPDOWN: { value: string; label: string }[] = [...ADMIN_SUBMODULOS]
+  .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'))
+  .map(({ value, label }) => ({ value, label }));
 
 /**
  * Submódulos da função Cadastro de Pessoas (dropdown PAI) e a permissão
@@ -328,7 +339,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 12;
+export const PERMISSOES_CONFIG_VERSION = 13;
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -452,7 +463,7 @@ export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): st
 export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'ativos', label: 'Ativos', permissao: 'acessar_ativo' },
   { value: 'manutencoes', label: 'Manutenções', permissao: 'acessar_manutencao' },
-  { value: 'parametrosFuncao', label: 'Parâmetros da função', permissao: 'acessar_parametros_funcao' },
+  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
 
 /**

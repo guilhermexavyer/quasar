@@ -16,9 +16,10 @@ import ContextMenu from "@/components/ui/ContextMenu";
 import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
+import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 
 /** Colunas ordenáveis do painel de perfis. */
-type PerfilSortKey = "nr_sequencia" | "ds_perfil" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao";
+type PerfilSortKey = "nr_sequencia" | "ds_perfil";
 
 const FUNCAO_LABELS: Record<string, string> = {
   pessoaFisica: "Cadastro de Pessoas",
@@ -257,7 +258,7 @@ export default function CamposView({
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
-          options={[{ value: 'avisos', label: 'Avisos' }, { value: 'campos', label: 'Campos' }, { value: 'imagens', label: 'Imagens' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
+          options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
           className="!w-[180px]"
         />
@@ -282,12 +283,8 @@ export default function CamposView({
               <ResizableTable<Perfil>
                 {...colunasPerfil}
                 columns={[
-                  { key: "nr_sequencia", label: "#", align: "center", render: (p) => p.nr_sequencia },
+                  { key: "nr_sequencia", label: "#", render: (p) => p.nr_sequencia },
                   { key: "ds_perfil", label: "Perfil", render: (p) => p.ds_perfil },
-                  { key: "dt_criacao", label: "Criação", render: (p) => (p.dt_criacao ? formatDate(p.dt_criacao) : "") },
-                  { key: "dt_alteracao", label: "Alteração", render: (p) => (p.dt_alteracao ? formatDate(p.dt_alteracao) : "") },
-                  { key: "ds_usuario_criacao", label: "Usuário criação", render: (p) => p.ds_usuario_criacao ?? "" },
-                  { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (p) => p.ds_usuario_alteracao ?? "" },
                 ]}
                 rows={sortedPerfis}
                 rowKey={(p) => p.id ?? String(p.nr_sequencia)}

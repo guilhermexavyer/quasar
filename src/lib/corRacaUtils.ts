@@ -8,7 +8,7 @@ export interface ColDef {
 }
 
 export const COR_RACA_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_cor_raca', label: 'Descrição' },
   { key: 'ie_status', label: 'Status' },
   { key: 'dt_criacao', label: 'Criação' },

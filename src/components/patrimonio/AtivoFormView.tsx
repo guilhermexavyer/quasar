@@ -255,18 +255,32 @@ export default function AtivoFormView({
                 />
               </div>
 
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('cd_patrimonio', 'Patrimônio')}
-                <input
-                  disabled
-                  maxLength={30}
-                  className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm transition focus:outline-none cursor-default bg-slate-100 text-slate-500"
-                  value={form.cd_patrimonio ?? ''}
-                  onChange={(e) => setForm({ ...form, cd_patrimonio: e.target.value })}
-                />
+              {/* Patrimônio e Código externo dividem as 4 colunas ao meio. */}
+              <div className="sm:col-span-4 grid gap-[15px] sm:grid-cols-2">
+                <div className="group">
+                  {renderFieldLabel('cd_patrimonio', 'Patrimônio')}
+                  <input
+                    disabled
+                    maxLength={30}
+                    className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm transition focus:outline-none cursor-default bg-slate-100 text-slate-500"
+                    value={form.cd_patrimonio ?? ''}
+                    onChange={(e) => setForm({ ...form, cd_patrimonio: e.target.value })}
+                  />
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('cd_patrimonio_externo', 'Código externo')}
+                  <input
+                    disabled={statusDe('cd_patrimonio_externo') === 'D'}
+                    maxLength={30}
+                    className={`${inputClass('cd_patrimonio_externo')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                    value={form.cd_patrimonio_externo ?? ''}
+                    onChange={(e) => setForm({ ...form, cd_patrimonio_externo: e.target.value })}
+                  />
+                </div>
               </div>
 
-              <div className="sm:col-span-8 group">
+              <div className="sm:col-span-7 group">
                 {renderFieldLabel('ds_ativo', 'Descrição')}
                 <input
                   disabled={statusDe('ds_ativo') === 'D'}

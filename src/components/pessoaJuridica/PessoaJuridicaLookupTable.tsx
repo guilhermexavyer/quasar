@@ -2,7 +2,7 @@
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import { PJ_COLUMNS, formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
 
@@ -261,7 +261,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect, 
     });
 
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, pessoasJuridicas));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // Duplo clique = largura automática (acompanha o conteúdo); salvo.
@@ -352,7 +352,7 @@ export default function PessoaJuridicaLookupTable({ pessoasJuridicas, onSelect, 
     ths.forEach((th, domIdx) => {
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, pessoasJuridicas));
       const savedW = currentWidthsRef.current[logicalIdx];
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       applyColumnWidth(table, ths, domIdx, finalWidth);

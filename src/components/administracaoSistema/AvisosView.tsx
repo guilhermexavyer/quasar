@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
+import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
@@ -124,7 +125,7 @@ export default function AvisosView({
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
-          options={[{ value: 'avisos', label: 'Avisos' }, { value: 'campos', label: 'Campos' }, { value: 'imagens', label: 'Imagens' }, { value: 'perfis', label: 'Perfis' }, { value: 'usuarios', label: 'Usuários' }].filter((o) => allowedSubmodulos.includes(o.value))}
+          options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
           className="!w-[180px]"
         />
@@ -187,7 +188,7 @@ export default function AvisosView({
                   />
                 </div>
 
-                {/* Auditoria + Cancelar / Salvar — padrão de Parâmetros da função */}
+                {/* Auditoria + Cancelar / Salvar — padrão de Patrimônio > Parâmetros */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
                   {aviso?.id && (
                     <div className="text-[13px] text-slate-500">
