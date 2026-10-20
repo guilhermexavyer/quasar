@@ -3,7 +3,7 @@
 import { useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { prepararStringColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia } from "@/lib/colunasUtils";
-import { elementoVisivel } from "@/lib/visibilidade";
+import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
 export interface ResizableTableColumn<T = unknown> {
   key: string;
@@ -69,6 +69,8 @@ export default function ResizableTable<T>({
   initialColumns,
 }: ResizableTableProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
+  // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
+  const versaoVisivel = useVersaoVisivel(tableRef);
   const [columnOrder, setColumnOrder] = useState<string[]>(() => columns.map((c) => c.key));
   const [dragCol, setDragCol] = useState<string | null>(null);
   const minWidthsRef = useRef<Record<string, number>>({});
@@ -247,7 +249,7 @@ export default function ResizableTable<T>({
     // Escondida (função aberta em segundo plano): mantém as larguras atuais.
     if (!table || !elementoVisivel(table)) return;
     setDefaultWidths();
-  }, [columnOrder, rows.length, columnsKey]);
+  }, [columnOrder, rows.length, columnsKey, versaoVisivel]);
 
   function handleResizeStart(key: string, e: ReactMouseEvent<HTMLDivElement>) {
     e.preventDefault();

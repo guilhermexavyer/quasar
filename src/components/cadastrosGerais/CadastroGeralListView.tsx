@@ -6,7 +6,7 @@ import type { ContextMenuState } from "@/types/contextMenu";
 import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
-import { elementoVisivel } from "@/lib/visibilidade";
+import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
 export interface CadastroGeralColumn {
   key: string;
@@ -57,6 +57,8 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   onColumnsChange,
 }: ListViewProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
+  // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
+  const versaoVisivel = useVersaoVisivel(tableRef);
   const savedColumns = prepararColunasSalvas(initialColumns, columns);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
@@ -294,7 +296,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
     if (!table || !elementoVisivel(table)) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, items.length]);
+  }, [columnOrder, loading, items.length, versaoVisivel]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {

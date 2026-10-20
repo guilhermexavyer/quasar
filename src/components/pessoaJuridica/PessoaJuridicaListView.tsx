@@ -8,7 +8,7 @@ import { PJ_COLUMNS, formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
 import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
-import { elementoVisivel } from "@/lib/visibilidade";
+import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
 interface ListViewProps {
   message: string;
@@ -53,6 +53,8 @@ export default function PessoaJuridicaListView({
   columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
+  const versaoVisivel = useVersaoVisivel(tableRef);
   const savedColumns = prepararColunasSalvas(initialColumns, PJ_COLUMNS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
@@ -290,7 +292,7 @@ export default function PessoaJuridicaListView({
     if (!table || !elementoVisivel(table)) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, pessoasJuridicas.length]);
+  }, [columnOrder, loading, pessoasJuridicas.length, versaoVisivel]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {
