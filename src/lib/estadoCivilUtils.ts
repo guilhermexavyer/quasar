@@ -8,7 +8,7 @@ export interface ColDef {
 }
 
 export const ESTADO_CIVIL_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_estado_civil', label: 'Descrição' },
   { key: 'ie_status', label: 'Status' },
   { key: 'dt_criacao', label: 'Criação' },

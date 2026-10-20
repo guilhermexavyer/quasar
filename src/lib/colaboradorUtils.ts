@@ -12,7 +12,7 @@ export interface ColDef {
 }
 
 export const COLABORADOR_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física' },
   { key: 'nr_seq_pessoa_juridica', label: 'Pessoa jurídica' },
   { key: 'nr_matricula', label: 'Matrícula' },

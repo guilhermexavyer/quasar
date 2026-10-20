@@ -18,7 +18,7 @@ import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
 
 /** Colunas ordenáveis do painel de perfis. */
-type PerfilSortKey = "nr_sequencia" | "ds_perfil" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao";
+type PerfilSortKey = "nr_sequencia" | "ds_perfil";
 
 const FUNCAO_LABELS: Record<string, string> = {
   pessoaFisica: "Cadastro de Pessoas",
@@ -282,12 +282,8 @@ export default function CamposView({
               <ResizableTable<Perfil>
                 {...colunasPerfil}
                 columns={[
-                  { key: "nr_sequencia", label: "#", align: "center", render: (p) => p.nr_sequencia },
+                  { key: "nr_sequencia", label: "#", render: (p) => p.nr_sequencia },
                   { key: "ds_perfil", label: "Perfil", render: (p) => p.ds_perfil },
-                  { key: "dt_criacao", label: "Criação", render: (p) => (p.dt_criacao ? formatDate(p.dt_criacao) : "") },
-                  { key: "dt_alteracao", label: "Alteração", render: (p) => (p.dt_alteracao ? formatDate(p.dt_alteracao) : "") },
-                  { key: "ds_usuario_criacao", label: "Usuário criação", render: (p) => p.ds_usuario_criacao ?? "" },
-                  { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (p) => p.ds_usuario_alteracao ?? "" },
                 ]}
                 rows={sortedPerfis}
                 rowKey={(p) => p.id ?? String(p.nr_sequencia)}

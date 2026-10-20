@@ -10,7 +10,7 @@ export interface PjColDef {
 }
 
 export const PJ_COLUMNS: PjColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_razao_social', label: 'Razão social', dataClass: 'text-black' },
   { key: 'ds_nome_fantasia', label: 'Nome fantasia' },
   { key: 'nr_cnpj', label: 'CNPJ' },

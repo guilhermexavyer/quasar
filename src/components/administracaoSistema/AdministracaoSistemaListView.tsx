@@ -6,7 +6,7 @@ import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Usuario } from "@/types/usuario";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
-import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel } from "@/lib/visibilidade";
@@ -173,7 +173,7 @@ export default function AdministracaoSistemaListView({
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const savedW = currentWidthsRef.current[logicalIdx];
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, usuarios));
       // Largura ajustada pelo usuário (salva) ou automática (maior conteúdo / cabeçalho).
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       // eslint-disable-next-line react-hooks/immutability
@@ -392,7 +392,7 @@ export default function AdministracaoSistemaListView({
     });
 
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, usuarios));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // O auto-ajuste (duplo clique) também é salvo, como o arrastar da borda.

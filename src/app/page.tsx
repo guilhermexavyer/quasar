@@ -303,7 +303,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.66.12";
+const SYSTEM_VERSION = "0.66.13";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -323,6 +323,12 @@ function getActivePerfilKey(userId?: string | null): string {
 
 type ViewType = "list" | "form";
 type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio";
+
+const SECOES: readonly SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio"];
+
+function ehSecao(valor: unknown): valor is SectionType {
+  return SECOES.includes(valor as SectionType);
+}
 
 type FilterFormData = Omit<
   FormData,
@@ -440,6 +446,7 @@ const emptyColaboradorForm: ColaboradorFormData = {
 
 const emptyAtivoForm: AtivoFormData = {
   cd_patrimonio: "",
+  cd_patrimonio_externo: "",
   ds_ativo: "",
   nr_seq_categoria: undefined,
   nr_seq_localizacao: undefined,
@@ -2455,6 +2462,7 @@ export default function Home() {
         JSON.stringify({
           userId: currentUser.id,
           activeSection,
+          secoesAbertas,
           adminManageSelection,
           cgManageSelection,
           pjManageSelection,
@@ -2466,7 +2474,7 @@ export default function Home() {
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, activeSection, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection]);
+  }, [isAuthenticated, currentUser, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -2583,6 +2591,7 @@ export default function Home() {
         const session = JSON.parse(raw) as {
           userId?: string;
           activeSection?: SectionType;
+          secoesAbertas?: unknown;
           adminManageSelection?: string;
           cgManageSelection?: string;
           pjManageSelection?: string;
@@ -2606,7 +2615,11 @@ export default function Home() {
         }
 
         setCurrentUser(usuarioSalvo);
-        if (session.activeSection === "administracaoSistema" || session.activeSection === "pessoaFisica" || session.activeSection === "cadastrosGerais" || session.activeSection === "estruturaAcademica" || session.activeSection === "patrimonio" || session.activeSection === "relatorio") {
+        // Funções abertas sobrevivem à recarga: só fecham pelo X ou no Sair.
+        if (Array.isArray(session.secoesAbertas)) {
+          setSecoesAbertas(session.secoesAbertas.filter(ehSecao).filter((s, i, lista) => lista.indexOf(s) === i));
+        }
+        if (ehSecao(session.activeSection)) {
           setActiveSection(session.activeSection);
         }
         if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos')) {
@@ -4290,6 +4303,7 @@ export default function Home() {
   function openAtivoEditForm(ativo: Ativo) {
     setAtivoForm({
       cd_patrimonio: ativo.cd_patrimonio ?? '',
+      cd_patrimonio_externo: ativo.cd_patrimonio_externo ?? '',
       ds_ativo: ativo.ds_ativo ?? '',
       nr_seq_categoria: ativo.nr_seq_categoria,
       nr_seq_localizacao: ativo.nr_seq_localizacao,
@@ -5309,7 +5323,7 @@ export default function Home() {
       if (ativoEditingId) {
         const currentAtivo = ativos.find((a) => a.id === ativoEditingId);
         const formKeys: Array<keyof AtivoFormData> = [
-          'cd_patrimonio', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
+          'cd_patrimonio', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
           'nr_seq_marca', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
           'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
           'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
@@ -12380,7 +12394,7 @@ export default function Home() {
             ]
           : isAtivo
           ? [
-              'nr_sequencia', 'cd_patrimonio', 'ds_ativo', 'nr_seq_categoria',
+              'nr_sequencia', 'cd_patrimonio', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'dt_aquisicao', 'dt_garantia',
               'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status',
@@ -12648,6 +12662,7 @@ export default function Home() {
                       ds_usuario_criacao: 'Usuário criação',
                       ds_usuario_alteracao: 'Usuário alteração',
                       cd_patrimonio: 'Patrimônio',
+                      cd_patrimonio_externo: 'Código externo',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
                       nr_seq_localizacao: 'Localização',
@@ -13053,11 +13068,17 @@ export default function Home() {
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={String(ativoView.nr_sequencia ?? '')} />
                     </div>
-                    <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
-                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio ?? ''} />
+                    <div className="sm:col-span-4 grid gap-[15px] sm:grid-cols-2">
+                      <div className="group">
+                        <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                        <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio ?? ''} />
+                      </div>
+                      <div className="group">
+                        <label className="block text-sm mb-1" style={{ color: '#666' }}>Código externo</label>
+                        <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio_externo ?? ''} />
+                      </div>
                     </div>
-                    <div className="sm:col-span-8 group">
+                    <div className="sm:col-span-7 group">
                       <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ativo ?? ''} />
                     </div>

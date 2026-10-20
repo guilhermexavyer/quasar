@@ -85,9 +85,50 @@ export function lerLargurasPorColuna(ths: ArrayLike<HTMLElement>, columnOrder: n
 /**
  * CSS do cabeçalho compacto da coluna # (classe th-seq): com o padding padrão,
  * "#" + ícone de ordenação deixavam a coluna mais larga que os números.
+ * Só a direita é reduzida; a esquerda mantém os 10px das demais colunas.
  */
 export const CSS_CABECALHO_SEQUENCIA =
-  'th.th-seq { padding-left: 4px; padding-right: 4px; } th.th-seq .header-content, th.th-seq .rt-header-content { padding-right: 0; }';
+  'th.th-seq { padding-right: 4px; } th.th-seq .header-content, th.th-seq .rt-header-content { padding-right: 0; }';
+
+/**
+ * Largura do maior número da coluna # (th-seq) entre todos os registros (não
+ * só os da página atual), medida com o estilo das células. A largura padrão do
+ * # é a maior entre esta e a do cabeçalho. Retorna 0 para as demais colunas ou
+ * quando não há linhas.
+ */
+export function larguraColunaSequencia(table: HTMLTableElement, domIdx: number, registros: ReadonlyArray<unknown>): number {
+  const th = table.querySelectorAll<HTMLElement>("thead tr th")[domIdx];
+  if (!th?.classList.contains("th-seq")) return 0;
+  const td = table.querySelector<HTMLElement>(`tbody tr td:nth-child(${domIdx + 1})`);
+  if (!td) return 0;
+
+  let maior = "";
+  for (const r of registros) {
+    const texto = String((r as { nr_sequencia?: unknown } | null)?.nr_sequencia ?? "");
+    if (texto.length > maior.length) maior = texto;
+  }
+  if (!maior) return 0;
+
+  const clone = td.cloneNode(true) as HTMLElement;
+  (clone.querySelector<HTMLElement>(".cell-content") ?? clone).textContent = maior;
+  clone.style.position = "absolute";
+  clone.style.left = "0";
+  clone.style.top = "0";
+  clone.style.visibility = "hidden";
+  clone.style.pointerEvents = "none";
+  clone.style.display = "inline-block";
+  clone.style.whiteSpace = "nowrap";
+  clone.style.width = "auto";
+  clone.style.maxWidth = "none";
+  clone.style.minWidth = "0";
+  clone.style.overflow = "visible";
+  clone.style.textOverflow = "clip";
+
+  document.body.appendChild(clone);
+  const width = clone.getBoundingClientRect().width;
+  document.body.removeChild(clone);
+  return Math.ceil(width);
+}
 
 /* ── String-key helpers (para ResizableTable com chaves de coluna) ── */
 

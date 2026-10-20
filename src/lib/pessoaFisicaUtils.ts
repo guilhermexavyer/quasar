@@ -9,7 +9,7 @@ export interface ColDef {
 }
 
 export const COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'ds_nome', label: 'Nome', dataClass: 'text-black' },
   { key: 'nr_cpf', label: 'CPF' },
   { key: 'dt_nascimento', label: 'Nascimento' },

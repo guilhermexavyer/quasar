@@ -8,7 +8,7 @@ export interface ColDef {
 }
 
 export const ORGAO_EMISSOR_COLUMNS: ColDef[] = [
-  { key: 'nr_sequencia', label: '#', dataClass: 'text-center' },
+  { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
   { key: 'sg_orgao_emissor', label: 'Sigla' },
   { key: 'ds_orgao_emissor', label: 'Descrição' },
   { key: 'ie_status', label: 'Status' },

@@ -16,7 +16,7 @@ export interface ManutencaoColDef {
 
 /** Colunas da tabela de manutenções (ordem padrão). */
 export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
-  { key: "nr_sequencia", label: "#", dataClass: "text-center" },
+  { key: "nr_sequencia", label: "#", dataClass: "text-right" },
   { key: "nr_seq_ativo", label: "Ativo" },
   { key: "nr_seq_prestador_servico", label: "Prestador de serviço" },
   { key: "dt_envio", label: "Data de envio" },

@@ -5,7 +5,7 @@ import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "re
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Perfil } from "@/types/perfil";
 import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
-import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel } from "@/lib/visibilidade";
@@ -170,7 +170,7 @@ export default function PerfilListView({
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const savedW = currentWidthsRef.current[logicalIdx];
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, perfis));
       // Largura ajustada pelo usuário (salva) ou automática (maior conteúdo / cabeçalho).
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       // eslint-disable-next-line react-hooks/immutability
@@ -389,7 +389,7 @@ export default function PerfilListView({
     });
 
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, perfis));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // O auto-ajuste (duplo clique) também é salvo, como o arrastar da borda.

@@ -5,7 +5,7 @@ import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "re
 import type { ContextMenuState } from "@/types/contextMenu";
 import type { Manutencao } from "@/types/manutencao";
 import { MANUTENCAO_COLUMNS as COLUMNS, formatCellValue } from "@/lib/manutencaoUtils";
-import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel } from "@/lib/visibilidade";
@@ -178,7 +178,7 @@ export default function ManutencaoListView({
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const savedW = currentWidthsRef.current[logicalIdx];
-      const contentW = measureColumnContentWidth(table, domIdx);
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, manutencoes));
       // Largura ajustada pelo usuário (salva) ou automática (maior conteúdo / cabeçalho).
       const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       // eslint-disable-next-line react-hooks/immutability
@@ -397,7 +397,7 @@ export default function ManutencaoListView({
     });
 
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, manutencoes));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // O auto-ajuste (duplo clique) também é salvo, como o arrastar da borda.

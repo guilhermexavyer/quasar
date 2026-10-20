@@ -82,7 +82,7 @@ export default function ImagemListView({
         </button>
       ) : null
     )},
-    { key: "nr_sequencia", label: "#", align: "center" }, // largura automática (maior número)
+    { key: "nr_sequencia", label: "#" }, // largura automática (maior número)
     { key: "ds_imagem", label: "Descrição", width: 250 },
     { key: "ie_arquivo", label: "Arquivo", width: 200, render: (row) => (
       <span className="truncate">{row.ie_arquivo ? row.ie_arquivo.split('/').pop() : ''}</span>
