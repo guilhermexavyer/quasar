@@ -38,7 +38,7 @@ const COLECOES = [
   "relatorio_banda_elemento", "relatorio_parametro",
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao",
   "cg_orgao_emissor", "cg_logradouro", "cg_grau_parentesco", "cg_cargo",
-  "cg_sistema_operacional", "cg_categoria_ativo", "cg_localizacao",
+  "cg_sistema_operacional", "pat_categoria", "cg_localizacao",
   "cg_marca", "cg_vinculo_contratual",
 ];
 

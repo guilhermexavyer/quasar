@@ -81,6 +81,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "descartar_ativo", label: "Permite descartar" },
     { key: "alterar_status_descartado", label: "Permite alterar status de um ativo descartado" },
     { key: "excluir_ativo", label: "Permite excluir" },
+    // Categoria
+    { key: "acessar_categoria", label: "Permite acessar Categoria" },
+    { key: "adicionar_categoria", label: "Permite adicionar" },
+    { key: "ver_categoria", label: "Permite ver" },
+    { key: "excluir_categoria", label: "Permite excluir" },
     // Manutenções
     { key: "acessar_manutencao", label: "Permite acessar Manutenções" },
     { key: "adicionar_manutencao", label: "Permite adicionar" },
@@ -119,11 +124,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_marca", label: "Permite adicionar" },
     { key: "ver_marca", label: "Permite ver" },
     { key: "excluir_marca", label: "Permite excluir" },
-    // Categoria
-    { key: "acessar_categoria_ativo", label: "Permite acessar Categoria (ativo)" },
-    { key: "adicionar_categoria_ativo", label: "Permite adicionar" },
-    { key: "ver_categoria_ativo", label: "Permite ver" },
-    { key: "excluir_categoria_ativo", label: "Permite excluir" },
     // Órgão emissor
     { key: "acessar_orgao_emissor", label: "Permite acessar Órgão emissor" },
     { key: "adicionar_orgao_emissor", label: "Permite adicionar" },
@@ -224,6 +224,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'gerar_codigo_patrimonio', 'gerar_codigo_patrimonio_descartado', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
     },
     {
+      titulo: 'Categoria',
+      chaves: ['acessar_categoria', 'adicionar_categoria', 'ver_categoria', 'excluir_categoria'],
+    },
+    {
       titulo: 'Manutenções',
       chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'concluir_manutencao_registro', 'cancelar_manutencao', 'excluir_manutencao'],
     },
@@ -242,10 +246,6 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     {
       titulo: 'Cargo',
       chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
-    },
-    {
-      titulo: 'Categoria (ativo)',
-      chaves: ['acessar_categoria_ativo', 'adicionar_categoria_ativo', 'ver_categoria_ativo', 'excluir_categoria_ativo'],
     },
     {
       titulo: 'Cor/Raça',
@@ -339,7 +339,19 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 13;
+export const PERMISSOES_CONFIG_VERSION = 14;
+
+/**
+ * Permissões que mudaram de função (e de chave). Na migração, a nova só é
+ * concedida a quem tinha a antiga — mover um submódulo não amplia acessos.
+ * Versão 14: Categoria (ativo) saiu de Cadastros Gerais e foi para Patrimônio.
+ */
+const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
+  { de: ["cadastrosGerais", "acessar_categoria_ativo"], para: ["patrimonio", "acessar_categoria"] },
+  { de: ["cadastrosGerais", "adicionar_categoria_ativo"], para: ["patrimonio", "adicionar_categoria"] },
+  { de: ["cadastrosGerais", "ver_categoria_ativo"], para: ["patrimonio", "ver_categoria"] },
+  { de: ["cadastrosGerais", "excluir_categoria_ativo"], para: ["patrimonio", "excluir_categoria"] },
+];
 
 /**
  * Migra uma configuração antiga para a versão atual: para cada função com
@@ -348,6 +360,7 @@ export const PERMISSOES_CONFIG_VERSION = 13;
  * concedidas (sem quebrar o que já estava marcado).
  */
 export function migrarPermissoesConfig(config: PermissoesConfig): PermissoesConfig {
+  const destinosMovidos = new Set(PERMISSOES_MOVIDAS.map(({ para }) => para.join(".")));
   const out: PermissoesConfig = {};
   for (const [funcao, salvos] of Object.entries(config)) {
     const defs = PERMISSOES_POR_FUNCAO[funcao] ?? [];
@@ -355,8 +368,26 @@ export function migrarPermissoesConfig(config: PermissoesConfig): PermissoesConf
       out[funcao] = salvos;
       continue;
     }
-    const chavesAtuais = defs.map((d) => d.key);
+    // Permissões movidas não entram como "novas": seguem a permissão de origem (abaixo).
+    const chavesAtuais = defs.map((d) => d.key).filter((k) => !destinosMovidos.has(`${funcao}.${k}`));
     out[funcao] = [...new Set([...salvos, ...chavesAtuais])];
+  }
+
+  // Permissão movida: concedida só se a de origem estava (sem configuração na
+  // função de origem = tudo liberado). Se a função de destino não tinha
+  // configuração (tudo liberado), passa a ter uma, sem as que não eram concedidas.
+  const negadasPorFuncao: Record<string, Set<string>> = {};
+  for (const { de: [funcaoDe, chaveDe], para: [funcaoPara, chavePara] } of PERMISSOES_MOVIDAS) {
+    const origem = config[funcaoDe];
+    const concedida = !origem || origem.includes(chaveDe);
+    if (out[funcaoPara]) {
+      if (concedida && !out[funcaoPara].includes(chavePara)) out[funcaoPara].push(chavePara);
+    } else if (!concedida) {
+      (negadasPorFuncao[funcaoPara] ??= new Set()).add(chavePara);
+    }
+  }
+  for (const [funcao, negadas] of Object.entries(negadasPorFuncao)) {
+    out[funcao] = (PERMISSOES_POR_FUNCAO[funcao] ?? []).map((d) => d.key).filter((k) => !negadas.has(k));
   }
   return out;
 }
@@ -462,6 +493,7 @@ export function eaSubmodulosPermitidos(config: PermissoesConfig | undefined): st
  */
 export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'ativos', label: 'Ativos', permissao: 'acessar_ativo' },
+  { value: 'categoria', label: 'Categoria', permissao: 'acessar_categoria' },
   { value: 'manutencoes', label: 'Manutenções', permissao: 'acessar_manutencao' },
   { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
@@ -484,7 +516,6 @@ export function patrimonioSubmodulosPermitidos(config: PermissoesConfig | undefi
  */
 export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'cargo', label: 'Cargo', permissao: 'acessar_cargo' },
-  { value: 'categoriaAtivo', label: 'Categoria (ativo)', permissao: 'acessar_categoria_ativo' },
   { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
   { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco', permissao: 'acessar_grau_parentesco' },

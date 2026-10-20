@@ -45,7 +45,7 @@ export interface Usuario {
   config_colunas_cg_vinculo_contratual?: string;
   config_colunas_cg_localizacao?: string;
   config_colunas_cg_marca?: string;
-  config_colunas_cg_categoria_ativo?: string;
+  config_colunas_pat_categoria?: string;
   config_colunas_cg_sistema_operacional?: string;
   config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;

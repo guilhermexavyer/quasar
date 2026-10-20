@@ -379,7 +379,6 @@ const emptyCgForm: CadastroGeralFormData = {
 
 const CG_SELECT_OPTIONS = [
   { value: 'cargo', label: 'Cargo' },
-  { value: 'categoriaAtivo', label: 'Categoria (ativo)' },
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'estadoCivil', label: 'Estado civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco' },
@@ -408,6 +407,7 @@ const EA_SELECT_OPTIONS = [
 /* Opções do dropdown da função Patrimônio */
 const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'ativos', label: 'Ativos' },
+  { value: 'categoria', label: 'Categoria' },
   { value: 'manutencoes', label: 'Manutenções' },
   { value: 'parametrosFuncao', label: 'Parâmetros' },
 ];
@@ -846,7 +846,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -966,6 +966,20 @@ export default function Home() {
   const [adminCampoErros, setAdminCampoErros] = useState<string[]>([]);
   const [perfilCampoErros, setPerfilCampoErros] = useState<string[]>([]);
   const [cgCampoErros, setCgCampoErros] = useState<string[]>([]);
+  /* Patrimônio > Categoria (coleção pat_categoria): usa os componentes genéricos
+     de Cadastros Gerais, mas com estado próprio — as duas funções podem estar
+     abertas ao mesmo tempo sem uma interferir na edição da outra. */
+  const [categoriaForm, setCategoriaForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [categoriaEditingId, setCategoriaEditingId] = useState<string | null>(null);
+  const [categoriaSubmitting, setCategoriaSubmitting] = useState(false);
+  const [categoriaAuditInfo, setCategoriaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditCategoriaIdRef = useRef<string | null>(null);
+  const [categoriaCampoErros, setCategoriaCampoErros] = useState<string[]>([]);
+  const [categoriaSortColumn, setCategoriaSortColumn] = useState<number | null>(null);
+  const [categoriaSortAsc, setCategoriaSortAsc] = useState<boolean | null>(null);
+  const [categoriaFilterModalOpen, setCategoriaFilterModalOpen] = useState(false);
+  const [categoriaFilterForm, setCategoriaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedCategoriaFilterForm, setAppliedCategoriaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [delegatePerfisUsuario, setDelegatePerfisUsuario] = useState<Usuario | null>(null);
 
   // Perfis ativos disponíveis no modal "Delegar perfis": ordenados por nome e,
@@ -1616,7 +1630,6 @@ export default function Home() {
       grauParentesco: 'grau_parentesco',
       localizacao: 'localizacao',
       marca: 'marca',
-      categoriaAtivo: 'categoria_ativo',
       profissao: 'profissao',
       orgaoEmissor: 'orgao_emissor',
       logradouro: 'logradouro',
@@ -1637,7 +1650,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['cargo', 'categoriaAtivo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional'];
+    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1711,7 +1724,7 @@ export default function Home() {
   // conforme as permissões do perfil ativo.
   const allowedPatrimonioSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['ativos', 'manutencoes', 'parametrosFuncao'];
+    if (isAdminSemConfig) return ['ativos', 'categoria', 'manutencoes', 'parametrosFuncao'];
     return patrimonioSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1740,6 +1753,9 @@ export default function Home() {
       concluirManutencaoRegistro: permitida('concluir_manutencao_registro'),
       cancelarManutencao: permitida('cancelar_manutencao'),
       excluirManutencao: permitida('excluir_manutencao'),
+      adicionarCategoria: permitida('adicionar_categoria'),
+      verCategoria: permitida('ver_categoria'),
+      excluirCategoria: permitida('excluir_categoria'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1957,15 +1973,6 @@ export default function Home() {
       items: (): CgItem[] => marcas,
       emptyMessage: 'Clique em "Adicionar" para cadastrar uma marca.',
     },
-    categoriaAtivo: {
-      descKey: 'ds_categoria',
-      collection: 'cg_categoria_ativo',
-      configKey: 'config_colunas_cg_categoria_ativo',
-      columns: CATEGORIA_ATIVO_COLUMNS,
-      fieldInfos: CATEGORIA_ATIVO_FIELD_INFOS,
-      items: (): CgItem[] => categoriasAtivos,
-      emptyMessage: 'Clique em "Adicionar" para cadastrar uma categoria.',
-    },
     cargo: {
       descKey: 'ds_cargo',
       collection: 'cg_cargo',
@@ -1995,7 +2002,7 @@ export default function Home() {
     },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'categoriaAtivo' ? 'categoriaAtivo' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -2387,8 +2394,6 @@ export default function Home() {
       await loadLocalizacoes();
     } else if (cgKind === 'marca') {
       await loadMarcas();
-    } else if (cgKind === 'categoriaAtivo') {
-      await loadCategoriasAtivos();
     } else if (cgKind === 'profissao') {
       await loadProfissoes();
     } else if (cgKind === 'logradouro') {
@@ -2398,7 +2403,7 @@ export default function Home() {
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais]);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -3381,6 +3386,7 @@ export default function Home() {
     }
     if (s === 'patrimonio') {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
+      if (ativoManageSelection === 'categoria') return permissoesPatrimonio.verCategoria;
       return permissoesPatrimonio.verAtivo;
     }
     if (s === 'relatorio') return permissoesRelatorio.ver;
@@ -3414,6 +3420,7 @@ export default function Home() {
     }
     if (s === 'patrimonio') {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
+      if (ativoManageSelection === 'categoria') return permissoesPatrimonio.excluirCategoria;
       return permissoesPatrimonio.excluirAtivo;
     }
     if (s === 'relatorio') return permissoesRelatorio.excluir;
@@ -3528,6 +3535,9 @@ export default function Home() {
     setAtivoForm(emptyAtivoForm);
     setAtivoEditingId(null);
     setAtivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setCategoriaForm(emptyCgForm);
+    setCategoriaEditingId(null);
+    setCategoriaFilterModalOpen(false);
     setMessage("");
     setView("list");
   }
@@ -3609,7 +3619,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'cg_categoria_ativo' | 'cg_sistema_operacional');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -5088,6 +5098,206 @@ export default function Home() {
     if (next) openCgEditForm(next);
   }
 
+  /* ── Patrimônio > Categoria ── */
+  const filteredSortedCategorias = useMemo(() => {
+    const filtro = appliedCategoriaFilterForm;
+    const lista = categoriasAtivos.filter((c) => {
+      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+      if (filtro.descricao && !String(c.ds_categoria ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+      if (filtro.ie_status && filtro.ie_status.toUpperCase() !== 'T' && String(c.ie_status ?? '').toUpperCase() !== filtro.ie_status.toUpperCase()) return false;
+      return true;
+    });
+    if (categoriaSortColumn === null || categoriaSortAsc === null) {
+      // Ordem padrão: coluna # (nr_sequencia).
+      return lista.sort((a, b) => Number(a.nr_sequencia) - Number(b.nr_sequencia));
+    }
+    const key = CATEGORIA_ATIVO_COLUMNS[categoriaSortColumn].key;
+    return lista.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') return categoriaSortAsc ? valA - valB : valB - valA;
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return categoriaSortAsc ? -1 : 1;
+      if (strA > strB) return categoriaSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [categoriasAtivos, appliedCategoriaFilterForm, categoriaSortColumn, categoriaSortAsc]);
+
+  const currentCategoriaEditIndex = categoriaEditingId ? filteredSortedCategorias.findIndex((c) => c.id === categoriaEditingId) : -1;
+  const hasPrevCategoriaRecord = currentCategoriaEditIndex > 0;
+  const hasNextCategoriaRecord = currentCategoriaEditIndex >= 0 && currentCategoriaEditIndex < filteredSortedCategorias.length - 1;
+
+  function handleCategoriaSortChange(logicalIndex: number) {
+    if (categoriaSortColumn === logicalIndex) {
+      if (categoriaSortAsc) {
+        setCategoriaSortAsc(false);
+      } else {
+        setCategoriaSortColumn(null);
+        setCategoriaSortAsc(null);
+      }
+    } else {
+      setCategoriaSortColumn(logicalIndex);
+      setCategoriaSortAsc(true);
+    }
+  }
+
+  // Botão "Adicionar": sem a permissão, mostra aviso.
+  function handleCategoriaNewForm() {
+    if (!permissoesPatrimonio.adicionarCategoria) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    setCategoriaForm(emptyCgForm);
+    setCategoriaEditingId(null);
+    setCategoriaAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setCategoriaCampoErros([]);
+    setView("form");
+    setActiveSection("patrimonio");
+  }
+
+  async function carregarAutorAuditoriaCategoria(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('pat_categoria', id);
+      if (auditCategoriaIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
+      setCategoriaAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  function openCategoriaEditForm(categoria: CategoriaAtivo) {
+    setCategoriaForm({
+      descricao: categoria.ds_categoria ?? '',
+      ie_status: categoria.ie_status ?? 'A',
+      nr_cbo: '',
+      sg_sigla: '',
+      ds_observacao: categoria.ds_observacao ?? '',
+    });
+    setCategoriaEditingId(categoria.id ?? null);
+    setCategoriaAuditInfo({
+      createdAt: categoria.dt_criacao ?? '',
+      updatedAt: categoria.dt_alteracao ?? '',
+      createdBy: categoria.ds_usuario_criacao ?? '',
+      updatedBy: categoria.ds_usuario_alteracao ?? '',
+    });
+    auditCategoriaIdRef.current = categoria.id ?? null;
+    setMessage("");
+    setCategoriaCampoErros([]);
+    setView("form");
+    setActiveSection("patrimonio");
+    if (categoria.id) carregarAutorAuditoriaCategoria(categoria.id);
+  }
+
+  function goToCategoriaList() {
+    setCategoriaForm(emptyCgForm);
+    setCategoriaEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("patrimonio");
+  }
+
+  function goToPrevCategoriaRecord() {
+    const anterior = hasPrevCategoriaRecord ? filteredSortedCategorias[currentCategoriaEditIndex - 1] : undefined;
+    if (anterior) openCategoriaEditForm(anterior);
+  }
+
+  function goToNextCategoriaRecord() {
+    const proximo = hasNextCategoriaRecord ? filteredSortedCategorias[currentCategoriaEditIndex + 1] : undefined;
+    if (proximo) openCategoriaEditForm(proximo);
+  }
+
+  async function openCategoriaAuditModal(categoriaId?: string | null) {
+    if (!categoriaId) return;
+    setAuditDocumentType('pat_categoria');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('pat_categoria', categoriaId));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openCategoriaFilterModal() {
+    setCategoriaFilterForm(appliedCategoriaFilterForm);
+    setCategoriaFilterModalOpen(true);
+  }
+
+  function clearCategoriaFilter() {
+    setCategoriaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedCategoriaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  }
+
+  function handleCategoriaFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedCategoriaFilterForm({ ...categoriaFilterForm, ie_status: categoriaFilterForm.ie_status || 'T' });
+    setCategoriaFilterModalOpen(false);
+  }
+
+  async function handleCategoriaSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const payload = {
+      ds_categoria: categoriaForm.descricao,
+      ie_status: categoriaForm.ie_status,
+      ds_observacao: categoriaForm.ds_observacao ?? '',
+    };
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'pat_categoria'));
+    if (faltantes.length > 0) {
+      setCategoriaCampoErros(faltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setCategoriaCampoErros([]);
+    setCategoriaSubmitting(true);
+    try {
+      if (categoriaEditingId) {
+        const atual = categoriasAtivos.find((c) => c.id === categoriaEditingId);
+        const mudou = !atual || (Object.keys(payload) as (keyof typeof payload)[]).some((k) => String(atual[k] ?? '') !== String(payload[k] ?? ''));
+        if (!mudou) {
+          setMessage("Nenhuma alteração detectada.");
+        } else {
+          await atualizarCategoriaAtivo(categoriaEditingId, payload, auditAutor);
+          setMessage("Atualizado com sucesso!");
+        }
+      } else {
+        await criarCategoriaAtivo(payload, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+      setCategoriaForm(emptyCgForm);
+      setCategoriaEditingId(null);
+      await loadCategoriasAtivos();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setCategoriaSubmitting(false);
+    }
+  }
+
+  async function handleCategoriaDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirCategoriaAtivo(id);
+      setMessage("Excluído com sucesso!");
+      await loadCategoriasAtivos();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToCategoriaList();
+  }
+
   function goToPrevPjRecord() {
     if (!hasPrevPjRecord) return;
     const previous = filteredSortedPessoasJuridicas[currentPjEditIndex - 1];
@@ -5795,12 +6005,11 @@ export default function Home() {
         ...(cgKind === 'profissao' ? { nr_cbo: cgForm.nr_cbo ?? '' } : {}),
         ...(cgKind === 'orgaoEmissor' ? { sg_orgao_emissor: cgForm.sg_sigla ?? '' } : {}),
         ...(cgKind === 'logradouro' ? { sg_logradouro: cgForm.sg_sigla ?? '' } : {}),
-        ...(cgKind === 'categoriaAtivo' ? { ds_observacao: cgForm.ds_observacao ?? '' } : {}),
       } as Record<string, unknown>;
 
       if (cgEditingId) {
         const currentItem = cgItems.find((s) => s.id === cgEditingId);
-        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : cgKind === 'logradouro' ? [cgDescKey, 'ie_status', 'sg_logradouro'] : cgKind === 'categoriaAtivo' ? [cgDescKey, 'ie_status', 'ds_observacao'] : [cgDescKey, 'ie_status'];
+        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : cgKind === 'logradouro' ? [cgDescKey, 'ie_status', 'sg_logradouro'] : [cgDescKey, 'ie_status'];
         const hasChanges = currentItem
           ? changeKeys.some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
           : true;
@@ -5834,8 +6043,6 @@ export default function Home() {
           await atualizarLocalizacao(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'marca') {
           await atualizarMarca(cgEditingId, payload as any, auditAutor);
-        } else if (cgKind === 'categoriaAtivo') {
-          await atualizarCategoriaAtivo(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'sistemaOperacional') {
           await atualizarSistemaOperacional(cgEditingId, payload as any, auditAutor);
         } else {
@@ -5863,8 +6070,6 @@ export default function Home() {
           await criarLocalizacao(payload as any, auditAutor);
         } else if (cgKind === 'marca') {
           await criarMarca(payload as any, auditAutor);
-        } else if (cgKind === 'categoriaAtivo') {
-          await criarCategoriaAtivo(payload as any, auditAutor);
         } else if (cgKind === 'sistemaOperacional') {
           await criarSistemaOperacional(payload as any, auditAutor);
         } else {
@@ -6374,7 +6579,9 @@ export default function Home() {
         item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
     } else if (activeSection === 'patrimonio') {
-      item = ativos.find((a) => a.id === ativoEditingId) ?? null;
+      item = ativoManageSelection === 'categoria'
+        ? categoriasAtivos.find((c) => c.id === categoriaEditingId) ?? null
+        : ativos.find((a) => a.id === ativoEditingId) ?? null;
     } else {
       item = cgItems.find((i) => i.id === cgEditingId) ?? null;
     }
@@ -7570,8 +7777,6 @@ export default function Home() {
         await excluirLocalizacao(id);
       } else if (cgKind === 'marca') {
         await excluirMarca(id);
-      } else if (cgKind === 'categoriaAtivo') {
-        await excluirCategoriaAtivo(id);
       } else if (cgKind === 'profissao') {
         await excluirProfissao(id);
       } else if (cgKind === 'logradouro') {
@@ -7774,7 +7979,7 @@ export default function Home() {
     } else if (secao === 'estruturaAcademica') {
       setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null);
     } else if (secao === 'patrimonio') {
-      setAtivoManageSelection(''); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null);
+      setAtivoManageSelection(''); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
       setRelatorioManageSelection(''); setRelatorioInteracted(false); setRelatorioView('list'); setRelatorioEditingId(null); setRelatorioForm(null); setRelatorioBandasMode(false);
     }
@@ -8331,6 +8536,27 @@ export default function Home() {
                       setParametrosHasDocument(true);
                     }}
                   />
+                ) : ativoManageSelection === 'categoria' ? (
+                  <CadastroGeralListView
+                    loading={loading}
+                    items={filteredSortedCategorias}
+                    columns={CATEGORIA_ATIVO_COLUMNS}
+                    formatCellValue={formatCadastroGeralCellValue}
+                    emptyMessage='Clique em "Adicionar" para cadastrar uma categoria.'
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    manageSelection={ativoManageSelection}
+                    onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                    allowedSubmodulos={allowedPatrimonioSubmodulos}
+                    openNewForm={handleCategoriaNewForm}
+                    openEditForm={openCategoriaEditForm}
+                    openFilter={openCategoriaFilterModal}
+                    setContextMenu={setContextMenu}
+                    contextMenuSection="patrimonio"
+                    sortColumn={categoriaSortColumn}
+                    sortAsc={categoriaSortAsc}
+                    onSortChange={handleCategoriaSortChange}
+                    {...colunasPorIndice('config_colunas_pat_categoria')}
+                  />
                 ) : ativoManageSelection === 'manutencoes' ? (
                   <ManutencaoListView
                     message={message}
@@ -8774,6 +9000,35 @@ export default function Home() {
                     campoErros={colaboradorCampoErros}
                   />
                 )
+              ) : activeSection === "patrimonio" && ativoManageSelection === 'categoria' ? (
+                <CadastroGeralFormView
+                  editingId={categoriaEditingId}
+                  sequence={categoriaEditingId ? (categoriasAtivos.find((c) => c.id === categoriaEditingId)?.nr_sequencia ?? null) : null}
+                  form={categoriaForm}
+                  setForm={setCategoriaForm}
+                  submitting={categoriaSubmitting}
+                  handleSubmit={handleCategoriaSubmit}
+                  goToList={goToCategoriaList}
+                  createdAt={categoriaAuditInfo.createdAt}
+                  updatedAt={categoriaAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(categoriaAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(categoriaAuditInfo.updatedBy)}
+                  onPrevRecord={goToPrevCategoriaRecord}
+                  onNextRecord={goToNextCategoriaRecord}
+                  hasPrevRecord={hasPrevCategoriaRecord}
+                  hasNextRecord={hasNextCategoriaRecord}
+                  onOpenAudit={openCategoriaAuditModal}
+                  manageSelection={ativoManageSelection}
+                  onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                  allowedSubmodulos={allowedPatrimonioSubmodulos}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS}
+                  descFieldKey="ds_categoria"
+                  collectionName="pat_categoria"
+                  showObservacao
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_categoria')}
+                  campoErros={categoriaCampoErros}
+                />
               ) : activeSection === "patrimonio" && ativoManageSelection === 'manutencoes' ? (
                 <ManutencaoFormView
                   message={message}
@@ -8870,7 +9125,6 @@ export default function Home() {
                 collectionName={cgCollection}
                 showCbo={cgKind === 'profissao'}
                 showSigla={cgKind === 'orgaoEmissor' || cgKind === 'logradouro'}
-                showObservacao={cgKind === 'categoriaAtivo'}
                 siglaFieldKey={cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : undefined}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, cgCollection)}
                 campoErros={cgCampoErros}
@@ -8918,7 +9172,11 @@ export default function Home() {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
             } else if (contextMenu.section === 'patrimonio') {
-              openAtivoEditForm(contextMenu.item as Ativo);
+              if (ativoManageSelection === 'categoria') {
+                openCategoriaEditForm(contextMenu.item as CategoriaAtivo);
+              } else {
+                openAtivoEditForm(contextMenu.item as Ativo);
+              }
             } else if (contextMenu.section === 'relatorio') {
               openRelatorioEditForm(contextMenu.item as Relatorio);
             } else {
@@ -9123,6 +9381,13 @@ export default function Home() {
                   setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
                   setConfirmDeleteOpen(true);
                 }
+              }
+            } else if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'categoria') {
+              const categoria = contextMenu.item as CategoriaAtivo;
+              if (categoria.id) {
+                setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${categoria.nr_sequencia}?`);
+                setConfirmDeleteAction(() => () => handleCategoriaDelete(categoria.id as string));
+                setConfirmDeleteOpen(true);
               }
             } else if (contextMenu.section === 'patrimonio') {
               const ativo = contextMenu.item as Ativo;
@@ -10758,6 +11023,17 @@ export default function Home() {
           setFilterForm={setCgFilterForm}
           onSubmit={handleCgFilterSubmit}
           onClear={clearCgFilter}
+        />
+      )}
+
+      {categoriaFilterModalOpen && view === "list" && activeSection === "patrimonio" && ativoManageSelection === 'categoria' && (
+        <CadastroGeralFilterModal
+          open={categoriaFilterModalOpen}
+          onClose={() => setCategoriaFilterModalOpen(false)}
+          filterForm={categoriaFilterForm}
+          setFilterForm={setCategoriaFilterForm}
+          onSubmit={handleCategoriaFilterSubmit}
+          onClear={clearCategoriaFilter}
         />
       )}
 
@@ -12413,7 +12689,7 @@ export default function Home() {
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'cg_categoria_ativo' || auditDocumentType === 'cg_sistema_operacional';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -12563,9 +12839,9 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'cg_categoria_ativo' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
-              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'cg_categoria_ativo' ? ['ds_observacao'] : []),
+              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' ? ['ds_observacao'] : []),
               'ie_status',
               'dt_criacao',
               'dt_alteracao',

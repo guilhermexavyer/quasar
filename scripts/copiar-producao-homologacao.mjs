@@ -62,11 +62,12 @@ const COLECOES = [
   "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro",
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor",
   "cg_logradouro", "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual",
-  "cg_localizacao", "cg_marca", "cg_categoria_ativo", "cg_sistema_operacional",
+  "cg_localizacao", "cg_marca", "pat_categoria", "cg_sistema_operacional",
 ];
 
 /** Coleções apagadas na homologação antes da cópia: as do sistema e as legadas. */
-const COLECOES_LIMPEZA = [...COLECOES, "pat_ativos", "relatorio_bandas"];
+// Coleções antigas (renomeadas/removidas) também são apagadas do destino.
+const COLECOES_LIMPEZA = [...COLECOES, "pat_ativos", "relatorio_bandas", "cg_categoria_ativo"];
 
 /** Tamanho da página de leitura e do lote de escrita (limite do Firestore: 500). */
 const PAGINA = 500;

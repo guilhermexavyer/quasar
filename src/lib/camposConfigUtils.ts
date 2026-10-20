@@ -203,8 +203,6 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     { key: "cg_marca.ds_marca", label: "Descrição", tipo: "Marca", colecao: "cg_marca" },
 
-    { key: "cg_categoria_ativo.ds_categoria", label: "Descrição", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
-    { key: "cg_categoria_ativo.ds_observacao", label: "Observação", tipo: "Categoria (ativo)", colecao: "cg_categoria_ativo" },
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
     { key: "cg_localizacao.ds_localizacao", label: "Descrição", tipo: "Localização", colecao: "cg_localizacao" },
     { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
@@ -236,6 +234,10 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativo.nr_seq_sistema_operacional", label: "Sistema operacional", tipo: "Ativos", colecao: "pat_ativo" },
 
     { key: "pat_ativo.ds_observacao", label: "Observação", tipo: "Ativos", colecao: "pat_ativo" },
+
+    // Categoria
+    { key: "pat_categoria.ds_categoria", label: "Descrição", tipo: "Categoria", colecao: "pat_categoria" },
+    { key: "pat_categoria.ds_observacao", label: "Observação", tipo: "Categoria", colecao: "pat_categoria" },
 
     // Manutenções
     // Ativo, Prestador, Data de envio e Valor total são campos fixos (sempre desabilitados).

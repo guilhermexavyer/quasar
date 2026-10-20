@@ -34,6 +34,8 @@ interface ListViewProps<T extends { id?: string }> {
   onSortChange: (logicalIndex: number) => void;
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
+  /** Função dona da lista (menu de contexto). Padrão: Cadastros Gerais. */
+  contextMenuSection?: ContextMenuState['section'];
 }
 
 export default function CadastroGeralListView<T extends { id?: string }>({
@@ -46,6 +48,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   manageSelection,
   onManageSelectionChange,
   allowedSubmodulos = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'],
+  contextMenuSection = 'cadastrosGerais',
   openNewForm,
   openEditForm,
   openFilter,
@@ -563,7 +566,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(item.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'cadastrosGerais', item: item as unknown as ContextMenuState['item'] });
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: contextMenuSection, item: item as unknown as ContextMenuState['item'] });
                         }}
                       >
                         {columnOrder.map((logicalIdx) => {
