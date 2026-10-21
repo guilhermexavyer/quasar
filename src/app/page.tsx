@@ -118,7 +118,8 @@ import {
   obterAtivos,
   atualizarAtivo,
 } from "@/services/ativoService";
-import { obterParamCodigoPatrimonio } from "@/services/paramCodigoPatrimonioService";
+import { COLECAO_PARAM_CODIGO_PATRIMONIO, COLECAO_PARAM_MATRICULA_ALUNO, obterParamRegra } from "@/services/paramRegraService";
+import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
@@ -162,7 +163,7 @@ import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estr
 import ColaboradorViewModal from "@/components/estruturaAcademica/ColaboradorViewModal";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
-import ParametrosDaFuncaoView from "@/components/patrimonio/ParametrosDaFuncaoView";
+import ParametrosDaFuncaoView, { PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
 import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
@@ -297,6 +298,12 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
   ds_bairro: "",
   ds_complemento: "",
   nr_seq_logradouro: undefined,
+  ds_tipo_sanguineo: '',
+  ds_alergia: [],
+  ds_medicamento_continuo: [],
+  ds_restricao_alimentar: [],
+  ds_necessidade_especial: [],
+  ds_observacao_medica: "",
 };
 
 /* Chave da sessão persistida no localStorage */
@@ -306,7 +313,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.67.1";
+const SYSTEM_VERSION = "0.67.2";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -402,6 +409,7 @@ const PJ_SELECT_OPTIONS = [
 const EA_SELECT_OPTIONS = [
   { value: 'alunos', label: 'Alunos' },
   { value: 'colaboradores', label: 'Colaboradores' },
+  { value: 'parametrosFuncao', label: 'Parâmetros' },
 ];
 
 /* Opções do dropdown da função Patrimônio */
@@ -426,12 +434,6 @@ const emptyAlunoForm: AlunoFormData = {
   ds_status: "",
   ie_status: 'A',
   responsaveis: [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }],
-  ds_tipo_sanguineo: '',
-  ds_alergia: [],
-  ds_medicamento_continuo: [],
-  ds_restricao_alimentar: [],
-  ds_necessidade_especial: [],
-  ds_observacao_medica: "",
 };
 
 const emptyColaboradorForm: ColaboradorFormData = {
@@ -477,9 +479,9 @@ const emptyAtivoForm: AtivoFormData = {
   ds_observacao: "",
 };
 
-/** Chaves da seção Informações médicas com lista de valores (Observações
- * médicas é campo único e fica de fora). */
-const CAMPOS_MEDICOS_ALUNO = [
+/** Chaves da seção Informações médicas (Pessoa Física) com lista de valores
+ * (Observações médicas é campo único e fica de fora). */
+const CAMPOS_MEDICOS = [
   'ds_alergia',
   'ds_medicamento_continuo',
   'ds_restricao_alimentar',
@@ -487,10 +489,10 @@ const CAMPOS_MEDICOS_ALUNO = [
 ] as const;
 
 /** Extrai os valores preenchidos das listas de informações médicas (descarta vazios). */
-function filtroValoresMedicos(aluno: Partial<Aluno>): Record<string, string[]> {
+function filtroValoresMedicos(pessoa: Partial<PessoaFisica>): Record<string, string[]> {
   const result: Record<string, string[]> = {};
-  for (const campo of CAMPOS_MEDICOS_ALUNO) {
-    const lista = aluno[campo];
+  for (const campo of CAMPOS_MEDICOS) {
+    const lista = pessoa[campo];
     result[campo] = Array.isArray(lista) ? lista.filter((v) => v && v.trim() !== '') : [];
   }
   return result;
@@ -846,7 +848,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'ea_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1115,6 +1117,7 @@ export default function Home() {
   const [concluirManutSaving, setConcluirManutSaving] = useState(false);
   const [cancelarManutOpen, setCancelarManutOpen] = useState(false);
   const [cancelarManutTarget, setCancelarManutTarget] = useState<Manutencao | null>(null);
+  const [cancelarManutSaving, setCancelarManutSaving] = useState(false);
   const enviarManutPrestadores = useMemo(() => {
     // Apenas colaboradores com ie_prestador_servico === 'S'.
     return colaboradores.filter((c) => c.ie_prestador_servico === 'S');
@@ -1177,6 +1180,9 @@ export default function Home() {
   const auditAtivoIdRef = useRef<string | null>(null);
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
   const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
+  const [gerandoMatricula, setGerandoMatricula] = useState(false);
+  // Confirmação de Gerar/Regerar (código de patrimônio / matrícula).
+  const [confirmGerar, setConfirmGerar] = useState<{ titulo: string; mensagem: string; acao: () => void } | null>(null);
 
   // Filtro de Ativos.
   type AtivoFilterFormData = {
@@ -1215,6 +1221,8 @@ export default function Home() {
   const [parametrosSaving, setParametrosSaving] = useState(false);
   const [parametrosAuditInfo, setParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const [parametrosHasDocument, setParametrosHasDocument] = useState(false);
+  // Estrutura Acadêmica > Parâmetros (rodapé de auditoria).
+  const [eaParametrosAuditInfo, setEaParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
 
   // Patrimônio > Manutenções.
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
@@ -1308,6 +1316,7 @@ export default function Home() {
   const [renomearImagemId, setRenomearImagemId] = useState<string | null>(null);
   const [renomearNovoNome, setRenomearNovoNome] = useState('');
   const [renomearSubmitting, setRenomearSubmitting] = useState(false);
+  const [camposStatusSaving, setCamposStatusSaving] = useState(false);
 
   function openRenomearModal(imagem: Imagem) {
     const currentFile = imagem.ie_arquivo ? imagem.ie_arquivo.split('/').pop() || '' : '';
@@ -1685,7 +1694,7 @@ export default function Home() {
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['alunos', 'colaboradores'];
+    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'parametrosFuncao'];
     return eaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1699,6 +1708,7 @@ export default function Home() {
       acessarAluno: permitida('acessar_aluno'),
       adicionarAluno: permitida('adicionar_aluno'),
       verAluno: permitida('ver_aluno'),
+      gerarMatricula: permitida('gerar_matricula_aluno'),
       alterarDataIngresso: permitida('alterar_data_ingresso_aluno'),
       alterarStatusAluno: permitida('alterar_status_aluno'),
       excluirAluno: permitida('excluir_aluno'),
@@ -2432,10 +2442,26 @@ export default function Home() {
     // Carregar auditoria dos parâmetros de Patrimônio
     (async () => {
       try {
-        const paramDoc = await obterParamCodigoPatrimonio();
+        const paramDoc = await obterParamRegra(COLECAO_PARAM_CODIGO_PATRIMONIO);
         if (paramDoc?.id) {
           setParametrosHasDocument(true);
           setParametrosAuditInfo({
+            createdAt: paramDoc.dt_criacao ?? '',
+            updatedAt: paramDoc.dt_alteracao ?? '',
+            createdBy: paramDoc.ds_usuario_criacao ?? '',
+            updatedBy: paramDoc.ds_usuario_alteracao ?? '',
+          });
+        }
+      } catch {
+        // mantém vazio em caso de falha
+      }
+    })();
+    // Carregar auditoria dos parâmetros de Estrutura Acadêmica
+    (async () => {
+      try {
+        const paramDoc = await obterParamRegra(COLECAO_PARAM_MATRICULA_ALUNO);
+        if (paramDoc?.id) {
+          setEaParametrosAuditInfo({
             createdAt: paramDoc.dt_criacao ?? '',
             updatedAt: paramDoc.dt_alteracao ?? '',
             createdBy: paramDoc.ds_usuario_criacao ?? '',
@@ -2648,7 +2674,7 @@ export default function Home() {
           setPjManageSelection(session.pjManageSelection);
           setPjInteracted(true);
         }
-        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores')) {
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao')) {
           setAlunoManageSelection(session.alunoManageSelection);
           setAlunoInteracted(true);
         }
@@ -3471,6 +3497,7 @@ export default function Home() {
       dt_alteracao: agoraCampo,
       ds_usuario_alteracao: autorCampo,
     };
+    setCamposStatusSaving(true);
     try {
       await atualizarPerfil(
         perfil.id,
@@ -3481,6 +3508,8 @@ export default function Home() {
       await loadPerfis();
     } catch {
       setMessage("Erro ao salvar configuração do campo.");
+    } finally {
+      setCamposStatusSaving(false);
     }
   }
 
@@ -3682,9 +3711,28 @@ export default function Home() {
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const paramDoc = await obterParamCodigoPatrimonio();
+      const paramDoc = await obterParamRegra(COLECAO_PARAM_CODIGO_PATRIMONIO);
       if (paramDoc?.id) {
-        const logs = await fetchAuditByDocumentId('pat_param_codigo_patrimonio', paramDoc.id);
+        const logs = await fetchAuditByDocumentId(COLECAO_PARAM_CODIGO_PATRIMONIO, paramDoc.id);
+        setAuditLogs(logs);
+      } else {
+        setAuditLogs([]);
+      }
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openEaParametrosAuditModal() {
+    setAuditDocumentType('ea_parametros');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const paramDoc = await obterParamRegra(COLECAO_PARAM_MATRICULA_ALUNO);
+      if (paramDoc?.id) {
+        const logs = await fetchAuditByDocumentId(COLECAO_PARAM_MATRICULA_ALUNO, paramDoc.id);
         setAuditLogs(logs);
       } else {
         setAuditLogs([]);
@@ -4236,6 +4284,12 @@ export default function Home() {
       ds_bairro: pessoa.ds_bairro ?? '',
       ds_complemento: pessoa.ds_complemento ?? '',
       nr_seq_logradouro: pessoa.nr_seq_logradouro,
+      ds_tipo_sanguineo: pessoa.ds_tipo_sanguineo ?? '',
+      ds_alergia: Array.isArray(pessoa.ds_alergia) ? [...pessoa.ds_alergia] : [],
+      ds_medicamento_continuo: Array.isArray(pessoa.ds_medicamento_continuo) ? [...pessoa.ds_medicamento_continuo] : [],
+      ds_restricao_alimentar: Array.isArray(pessoa.ds_restricao_alimentar) ? [...pessoa.ds_restricao_alimentar] : [],
+      ds_necessidade_especial: Array.isArray(pessoa.ds_necessidade_especial) ? [...pessoa.ds_necessidade_especial] : [],
+      ds_observacao_medica: pessoa.ds_observacao_medica ?? '',
     });
     // Resolve o nome da cidade a partir do código IBGE salvo
     const codigo = pessoa.cd_ibge_naturalidade ?? '';
@@ -4329,12 +4383,6 @@ export default function Home() {
       ds_status: aluno.ds_status ?? '',
       ie_status: aluno.ie_status ?? 'A',
       responsaveis: migrarResponsaveis(aluno),
-      ds_tipo_sanguineo: aluno.ds_tipo_sanguineo ?? '',
-      ds_alergia: Array.isArray(aluno.ds_alergia) ? [...aluno.ds_alergia] : [],
-      ds_medicamento_continuo: Array.isArray(aluno.ds_medicamento_continuo) ? [...aluno.ds_medicamento_continuo] : [],
-      ds_restricao_alimentar: Array.isArray(aluno.ds_restricao_alimentar) ? [...aluno.ds_restricao_alimentar] : [],
-      ds_necessidade_especial: Array.isArray(aluno.ds_necessidade_especial) ? [...aluno.ds_necessidade_especial] : [],
-      ds_observacao_medica: aluno.ds_observacao_medica ?? '',
     });
     setAlunoEditingId(aluno.id ?? null);
     setAlunoAuditInfo({
@@ -5361,6 +5409,8 @@ export default function Home() {
     setPfCampoErros([]);
     setSubmitting(true);
 
+    const payloadPessoa = { ...form, ...filtroValoresMedicos(form) };
+
     try {
       if (editingId) {
         const currentPessoa = pessoasFisicas.find((p) => p.id === editingId);
@@ -5385,9 +5435,14 @@ export default function Home() {
           'ds_bairro',
           'ds_complemento',
           'nr_seq_logradouro',
+          'ds_tipo_sanguineo',
+          'ds_observacao_medica',
         ];
+        const medicasMudaram =
+          JSON.stringify(filtroValoresMedicos(currentPessoa ?? {})) !==
+          JSON.stringify(filtroValoresMedicos(form));
         const hasChanges = currentPessoa
-          ? formKeys.some((key) => String(currentPessoa[key] ?? '') !== String(form[key] ?? ''))
+          ? formKeys.some((key) => String(currentPessoa[key] ?? '') !== String(form[key] ?? '')) || medicasMudaram
           : true;
 
         if (!hasChanges) {
@@ -5399,10 +5454,10 @@ export default function Home() {
           return;
         }
 
-        await atualizarPessoaFisica(editingId, form, auditAutor);
+        await atualizarPessoaFisica(editingId, payloadPessoa, auditAutor);
         setMessage("Atualizado com sucesso!");
       } else {
-        await criarPessoaFisica(form, auditAutor);
+        await criarPessoaFisica(payloadPessoa, auditAutor);
         setMessage("Cadastrado com sucesso!");
       }
 
@@ -5465,7 +5520,6 @@ export default function Home() {
     const payloadAluno = {
       ...alunoForm,
       responsaveis: responsaveisFiltrados,
-      ...filtroValoresMedicos(alunoForm),
     };
 
     try {
@@ -5478,8 +5532,6 @@ export default function Home() {
           'dt_status',
           'ds_status',
           'ie_status',
-          'ds_observacao_medica',
-          'ds_tipo_sanguineo',
         ];
         const responsaveisAtuais = migrarResponsaveis(currentAluno ?? ({} as Aluno)).filter(
           (r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco
@@ -5487,11 +5539,8 @@ export default function Home() {
         const responsaveisForm = (alunoForm.responsaveis ?? []).filter((r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco);
         const responsaveisMudaram =
           JSON.stringify(responsaveisAtuais) !== JSON.stringify(responsaveisForm);
-        const medicasMudaram =
-          JSON.stringify(filtroValoresMedicos(currentAluno ?? ({} as Aluno))) !==
-          JSON.stringify(filtroValoresMedicos(alunoForm));
         const hasChanges = currentAluno
-          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? '')) || responsaveisMudaram || medicasMudaram
+          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? '')) || responsaveisMudaram
           : true;
 
         if (!hasChanges) {
@@ -6665,141 +6714,23 @@ export default function Home() {
     setMessage("");
     setGerandoCodigoPatrimonio(true);
     try {
-      const doc = await obterParamCodigoPatrimonio();
+      const doc = await obterParamRegra(COLECAO_PARAM_CODIGO_PATRIMONIO);
       if (!doc?.ds_regra) {
         setMessage("Nenhuma regra de geração de patrimônio configurada.");
         return;
       }
-
-      const segmentos = doc.ds_regra.split("-").filter((v) => v.trim() !== "");
-      if (segmentos.length === 0) {
+      if (doc.ds_regra.split("-").every((v) => v.trim() === "")) {
         setMessage("Regra de patrimônio vazia.");
         return;
       }
 
-      const agora = new Date();
-      const pad2 = (n: number) => String(n).padStart(2, "0");
-
-      // Encontra o último número sequencial entre todos os ativos
-      const todosAtivos = [...ativos];
-      const numerosPatrimonio = todosAtivos
-        .map((a) => {
-          const m = (a.cd_patrimonio ?? "").match(/(\d+)$/);
-          return m ? parseInt(m[1], 10) : 0;
-        })
-        .filter((n) => !isNaN(n));
-      const ultimoSequencial = numerosPatrimonio.length > 0 ? Math.max(...numerosPatrimonio) : 0;
-
-      // Encontra o último número sequencial do mês atual
-      const mesAtual = pad2(agora.getMonth() + 1);
-      const anoAtual = String(agora.getFullYear());
-      const numerosSequencialMes = todosAtivos
-        .map((a) => {
-          const m = (a.cd_patrimonio ?? "").match(new RegExp(`${anoAtual}${mesAtual}(\d+)$`));
-          return m ? parseInt(m[1], 10) : 0;
-        })
-        .filter((n) => !isNaN(n));
-      const ultimoSequencialMes = numerosSequencialMes.length > 0 ? Math.max(...numerosSequencialMes) : 0;
-
-      // Encontra o último número sequencial do ano atual
-      const prefixoAno = String(agora.getFullYear()).slice(-2);
-      const numerosSequencialAno = todosAtivos
-        .map((a) => {
-          const m = (a.cd_patrimonio ?? "").match(new RegExp(`${prefixoAno}(\d+)$`));
-          return m ? parseInt(m[1], 10) : 0;
-        })
-        .filter((n) => !isNaN(n));
-      const ultimoSequencialAno = numerosSequencialAno.length > 0 ? Math.max(...numerosSequencialAno) : 0;
-
-      const partes: string[] = [];
-      let textoCustomizado = "";
-
-      for (const seg of segmentos) {
-        if (seg.toLowerCase().startsWith("texto:")) {
-          textoCustomizado = seg.slice(6);
-          partes.push(textoCustomizado);
-        } else {
-          switch (seg.toLowerCase()) {
-            case "ano_atual":
-              partes.push(String(agora.getFullYear()));
-              break;
-            case "ano_atual_2":
-              partes.push(String(agora.getFullYear()).slice(-2));
-              break;
-            case "chave_esquerda":
-              partes.push("{");
-              break;
-            case "chave_direita":
-              partes.push("}");
-              break;
-            case "colchete_esquerdo":
-              partes.push("[");
-              break;
-            case "colchete_direito":
-              partes.push("]");
-              break;
-            case "data_atual":
-              partes.push(`${pad2(agora.getDate())}${pad2(agora.getMonth() + 1)}${agora.getFullYear()}`);
-              break;
-            case "data_atual_2digitos":
-              partes.push(`${pad2(agora.getDate())}${pad2(agora.getMonth() + 1)}${String(agora.getFullYear()).slice(-2)}`);
-              break;
-            case "data_atual_2digitos_mascara":
-              partes.push(`${pad2(agora.getDate())}/${pad2(agora.getMonth() + 1)}/${String(agora.getFullYear()).slice(-2)}`);
-              break;
-            case "data_atual_mascara":
-              partes.push(`${pad2(agora.getDate())}/${pad2(agora.getMonth() + 1)}/${agora.getFullYear()}`);
-              break;
-            case "dia_atual":
-              partes.push(pad2(agora.getDate()));
-              break;
-            case "dois_pontos":
-              partes.push(":");
-              break;
-            case "hifen":
-              partes.push("-");
-              break;
-            case "mes_atual":
-              partes.push(pad2(agora.getMonth() + 1));
-              break;
-            case "parentese_esquerdo":
-              partes.push("(");
-              break;
-            case "parentese_direito":
-              partes.push(")");
-              break;
-            case "ponto":
-              partes.push(".");
-              break;
-            case "sequencial":
-              partes.push(String(ultimoSequencial + 1));
-              break;
-            case "sequencial_mes":
-              partes.push(String(ultimoSequencialMes + 1));
-              break;
-            case "sequencial_ano":
-              partes.push(String(ultimoSequencialAno + 1));
-              break;
-            case "sequencia":
-              partes.push(String(ativo.nr_sequencia));
-              break;
-            default:
-              if (seg.toLowerCase().startsWith("sequencia_digitos:")) {
-                const digitos = parseInt(seg.slice(18), 10);
-                if (!isNaN(digitos) && digitos > 0) {
-                  partes.push(String(ativo.nr_sequencia).padStart(digitos, "0"));
-                } else {
-                  partes.push(String(ativo.nr_sequencia));
-                }
-              } else {
-                partes.push(seg);
-              }
-              break;
-          }
-        }
-      }
-
-      const codigo = partes.join("");
+      // Ao regerar, o código atual do próprio ativo não conta para o Sequencial.
+      const regerando = !!ativo.cd_patrimonio?.trim();
+      const codigo = gerarCodigoPorRegra(
+        doc.ds_regra,
+        ativo.nr_sequencia,
+        ativos.filter((a) => a.id !== ativo.id).map((a) => a.cd_patrimonio ?? "")
+      );
 
       if (!ativo.id) {
         setMessage("Erro: ativo sem ID.");
@@ -6808,12 +6739,51 @@ export default function Home() {
 
       await atualizarAtivo(ativo.id, { cd_patrimonio: codigo }, auditAutor);
       await loadAtivos();
-      setMessage("Código de patrimônio gerado.");
+      setMessage(regerando ? "Código de patrimônio regerado." : "Código de patrimônio gerado.");
     } catch (e) {
       console.error("Erro ao gerar código de patrimônio", e);
       setMessage("Erro ao gerar código de patrimônio.");
     } finally {
       setGerandoCodigoPatrimonio(false);
+    }
+  }
+
+  /** Gera a matrícula de um aluno com base na regra salva (Estrutura Acadêmica > Parâmetros). */
+  async function handleGerarMatricula(aluno: Aluno) {
+    setMessage("");
+    setGerandoMatricula(true);
+    try {
+      const doc = await obterParamRegra(COLECAO_PARAM_MATRICULA_ALUNO);
+      if (!doc?.ds_regra) {
+        setMessage("Nenhuma regra de geração de matrícula configurada.");
+        return;
+      }
+      if (doc.ds_regra.split("-").every((v) => v.trim() === "")) {
+        setMessage("Regra de matrícula vazia.");
+        return;
+      }
+
+      // Ao regerar, a matrícula atual do próprio aluno não conta para o Sequencial.
+      const regerando = !!aluno.nr_matricula?.trim();
+      const matricula = gerarCodigoPorRegra(
+        doc.ds_regra,
+        aluno.nr_sequencia,
+        alunos.filter((a) => a.id !== aluno.id).map((a) => a.nr_matricula ?? "")
+      );
+
+      if (!aluno.id) {
+        setMessage("Erro: aluno sem ID.");
+        return;
+      }
+
+      await atualizarAluno(aluno.id, { nr_matricula: matricula }, auditAutor);
+      await loadAlunos();
+      setMessage(regerando ? "Matrícula regerada." : "Matrícula gerada.");
+    } catch (e) {
+      console.error("Erro ao gerar matrícula", e);
+      setMessage("Erro ao gerar matrícula.");
+    } finally {
+      setGerandoMatricula(false);
     }
   }
 
@@ -6972,7 +6942,8 @@ export default function Home() {
   }
 
   async function handleCancelarManutSubmit() {
-    if (!cancelarManutTarget) return;
+    if (!cancelarManutTarget || cancelarManutSaving) return;
+    setCancelarManutSaving(true);
     try {
       await atualizarManutencao(cancelarManutTarget.id!, { ie_status_manutencao: 'CA', dt_termino: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
       const ativo = ativos.find((a) => a.nr_sequencia === cancelarManutTarget.nr_seq_ativo);
@@ -6986,6 +6957,8 @@ export default function Home() {
       await loadManutencoes();
     } catch {
       setMessage('Erro ao cancelar manutenção.');
+    } finally {
+      setCancelarManutSaving(false);
     }
   }
 
@@ -8470,7 +8443,24 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "estruturaAcademica" ? (
-                alunoManageSelection === 'alunos' ? (
+                alunoManageSelection === 'parametrosFuncao' ? (
+                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_ea')}
+                    parametros={PARAMETROS_ESTRUTURA_ACADEMICA}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    onSaveSuccess={(msg) => setMessage(msg)}
+                    onSavingChange={setParametrosSaving}
+                    createdAt={eaParametrosAuditInfo.createdAt}
+                    updatedAt={eaParametrosAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(eaParametrosAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(eaParametrosAuditInfo.updatedBy)}
+                    onOpenAudit={openEaParametrosAuditModal}
+                    auditAutor={auditAutor}
+                    onAfterSave={setEaParametrosAuditInfo}
+                  />
+                ) : alunoManageSelection === 'alunos' ? (
                   <AlunoListView
                     message={message}
                     loading={loading}
@@ -8518,6 +8508,7 @@ export default function Home() {
               ) : activeSection === "patrimonio" ? (
                 ativoManageSelection === 'parametrosFuncao' ? (
                   <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')}
+                    parametros={PARAMETROS_PATRIMONIO}
                     manageSelection={ativoManageSelection}
                     onManageSelectionChange={handlePatrimonioManageSelectionChange}
                     selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
@@ -9218,7 +9209,19 @@ export default function Home() {
               const items: { label: string; onClick?: () => void; children?: { label: string; onClick: () => void }[] }[] = [];
               const isDescartadoForGerar = currentStatus === 'D';
               if (isDescartadoForGerar ? permissoesPatrimonio.gerarCodigoPatrimonioDescartado : permissoesPatrimonio.gerarCodigoPatrimonio) {
-                items.push({ label: 'Gerar código de patrimônio', onClick: () => { handleGerarCodigoPatrimonio(contextMenu.item as Ativo); setContextMenu(null); } });
+                const ativoGerar = contextMenu.item as Ativo;
+                const regerarCodigo = !!ativoGerar.cd_patrimonio?.trim();
+                items.push({
+                  label: regerarCodigo ? 'Regerar código de patrimônio' : 'Gerar código de patrimônio',
+                  onClick: () => {
+                    setConfirmGerar({
+                      titulo: regerarCodigo ? 'Regerar código de patrimônio' : 'Gerar código de patrimônio',
+                      mensagem: `Deseja ${regerarCodigo ? 'regerar' : 'gerar'} o código de patrimônio?`,
+                      acao: () => handleGerarCodigoPatrimonio(ativoGerar),
+                    });
+                    setContextMenu(null);
+                  },
+                });
               }
               const isDescartado = currentStatus === 'D';
               const podeAlterarStatus = !isDescartado || permissoesPatrimonio.alterarStatusDescartado;
@@ -9257,6 +9260,25 @@ export default function Home() {
               }
               if (permissoesPatrimonio.excluirManutencao) {
                 items.push({ label: 'Excluir', onClick: () => { handleManutencaoDelete((contextMenu.item as Manutencao).id!); setContextMenu(null); } });
+              }
+              return items.length > 0 ? items : undefined;
+            }
+            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
+              const items: { label: string; onClick: () => void }[] = [];
+              if (permissoesEA.gerarMatricula) {
+                const alunoGerar = contextMenu.item as Aluno;
+                const regerarMatricula = !!alunoGerar.nr_matricula?.trim();
+                items.push({
+                  label: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
+                  onClick: () => {
+                    setConfirmGerar({
+                      titulo: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
+                      mensagem: `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
+                      acao: () => handleGerarMatricula(alunoGerar),
+                    });
+                    setContextMenu(null);
+                  },
+                });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -11556,7 +11578,8 @@ export default function Home() {
                   value={alterarStatusForm.ie_status}
                   onChange={(v) => setAlterarStatusForm({ ...alterarStatusForm, ie_status: v })}
                   options={[
-                    { value: 'A', label: 'Ativo' },
+                    { value: 'P', label: 'Pré-matriculado' },
+                    { value: 'A', label: 'Matriculado' },
                     { value: 'I', label: 'Inativo' },
                     { value: 'C', label: 'Cancelado' },
                     { value: 'T', label: 'Transferido' },
@@ -12643,7 +12666,7 @@ export default function Home() {
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
         const isAtivo = auditDocumentType === 'pat_ativo';
-        const isParametros = auditDocumentType === 'pat_parametros';
+        const isParametros = auditDocumentType === 'pat_parametros' || auditDocumentType === 'ea_parametros';
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
         const isBanda = isRelatorio && relatorioAuditTipo === 'relatorio_banda';
@@ -12773,12 +12796,6 @@ export default function Home() {
               'dt_status',
               'ds_status',
               'responsaveis',
-              'ds_tipo_sanguineo',
-              'ds_alergia',
-              'ds_medicamento_continuo',
-              'ds_restricao_alimentar',
-              'ds_necessidade_especial',
-              'ds_observacao_medica',
               'dt_criacao',
               'dt_alteracao',
             ]
@@ -12868,6 +12885,12 @@ export default function Home() {
               'nr_endereco',
               'ds_bairro',
               'ds_complemento',
+              'ds_tipo_sanguineo',
+              'ds_alergia',
+              'ds_medicamento_continuo',
+              'ds_restricao_alimentar',
+              'ds_necessidade_especial',
+              'ds_observacao_medica',
               'dt_criacao',
               'dt_alteracao',
             ];
@@ -13689,7 +13712,28 @@ export default function Home() {
             </div>
             <div className="flex justify-end gap-2 px-[15px] pt-20 pb-[15px]">
               <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
-              <button type="button" onClick={handleCancelarManutSubmit} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
+              <button type="button" onClick={handleCancelarManutSubmit} disabled={cancelarManutSaving} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {confirmGerar && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmGerar(null)} />
+          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>{confirmGerar.titulo}</h2>
+              <button type="button" onClick={() => setConfirmGerar(null)} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
+              </button>
+            </div>
+            <div className="px-[15px] pt-[15px]">
+              <p className="text-sm text-slate-900">{confirmGerar.mensagem}</p>
+            </div>
+            <div className="flex justify-end gap-2 px-[15px] pt-20 pb-[15px]">
+              <button type="button" onClick={() => setConfirmGerar(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
+              <button type="button" onClick={() => { const acao = confirmGerar.acao; setConfirmGerar(null); acao(); }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
             </div>
           </div>
         </div>
@@ -13703,20 +13747,6 @@ export default function Home() {
         vinculoContratualName={colaboradorView?.nr_seq_vinculo_contratual ? (vinculosContratuais.find((v) => v.nr_sequencia === colaboradorView!.nr_seq_vinculo_contratual)?.ds_vinculo_contratual ?? '') : ''}
         onClose={() => setColaboradorView(null)}
       />
-
-      {(submitting || pjSubmitting || adminSubmitting || cgSubmitting) && view === "form" && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/30 px-4 py-6">
-          <div className="w-full max-w-[240px] border border-slate-200 bg-white p-6 text-center shadow-xl shadow-black/20">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-[#003056]/10 text-[#003056]">
-              <svg className="h-6 w-6 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round">
-                <circle cx="12" cy="12" r="10" strokeOpacity="0.2" />
-                <path d="M22 12a10 10 0 0 1-10 10" />
-              </svg>
-            </div>
-            <p className="text-sm text-slate-900">Carregando...</p>
-          </div>
-        </div>
-      )}
 
       {/* ── Modal: Parâmetros do relatório ── */}
       {relatorioParamModal && (
@@ -13828,7 +13858,16 @@ export default function Home() {
         </div>
       )}
 
-      {(gerandoCodigoPatrimonio || parametrosSaving || relatorioGerando) && <LoadingModal open message="Carregando..." />}
+      {/* Modal "Carregando..." exibido durante qualquer gravação. Ativo e Manutenção exibem o próprio modal no FormView. */}
+      {(
+        gerandoCodigoPatrimonio || gerandoMatricula || parametrosSaving || relatorioGerando ||
+        submitting || pjSubmitting || adminSubmitting || cgSubmitting ||
+        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting ||
+        alunoSubmitting || colaboradorSubmitting ||
+        alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
+        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving ||
+        delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving
+      ) && <LoadingModal open message="Carregando..." />}
 
       <AvisoModal campo={avisoModalCampo} onClose={() => setAvisoModalCampo(null)} />
 

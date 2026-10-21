@@ -32,7 +32,7 @@ const db = getFirestore(app);
 
 const COLECOES = [
   "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador",
-  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio",
+  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio", "ea_param_matricula_aluno",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_bandas",
   "relatorio_banda_elemento", "relatorio_parametro",

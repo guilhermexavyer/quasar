@@ -32,13 +32,7 @@ export const FIELD_INFOS = {
   dt_status: { type: 'string', field: 'dt_status', collection: 'aluno' },
   ds_status: { type: 'string', field: 'ds_status', collection: 'aluno' },
   ie_status: { type: 'string', field: 'ie_status', collection: 'aluno' },
-  ds_tipo_sanguineo: { type: 'string', field: 'ds_tipo_sanguineo', collection: 'aluno' },
   responsaveis: { type: 'array', field: 'responsaveis', collection: 'aluno' },
-  ds_alergia: { type: 'array', field: 'ds_alergia', collection: 'aluno' },
-  ds_medicamento_continuo: { type: 'array', field: 'ds_medicamento_continuo', collection: 'aluno' },
-  ds_restricao_alimentar: { type: 'array', field: 'ds_restricao_alimentar', collection: 'aluno' },
-  ds_necessidade_especial: { type: 'array', field: 'ds_necessidade_especial', collection: 'aluno' },
-  ds_observacao_medica: { type: 'string', field: 'ds_observacao_medica', collection: 'aluno' },
   // Subcampos do array responsaveis (usados nas labels do formulário).
   nr_seq_responsavel: { type: 'int64', field: 'nr_seq_responsavel', collection: 'aluno' },
   nr_seq_grau_parentesco: { type: 'int64', field: 'nr_seq_grau_parentesco', collection: 'aluno' },
@@ -54,13 +48,7 @@ export const FIELD_LABELS: Record<string, string> = {
   dt_status: 'Data do status',
   ds_status: 'Motivo do status',
   ie_status: 'Status',
-  ds_tipo_sanguineo: 'Tipo sanguíneo',
   responsaveis: 'Responsáveis',
-  ds_alergia: 'Alergia',
-  ds_medicamento_continuo: 'Medicamento de uso contínuo',
-  ds_restricao_alimentar: 'Restrição alimentar',
-  ds_necessidade_especial: 'Necessidade especial',
-  ds_observacao_medica: 'Observações médicas',
   dt_criacao: 'Criação',
   dt_alteracao: 'Alteração',
 };
@@ -78,8 +66,10 @@ export function formatCellValue(key: keyof Aluno, value: unknown): string {
       return formatDate(stringValue);
     case 'ie_status':
       switch (stringValue) {
+        case 'P':
+          return 'Pré-matriculado';
         case 'A':
-          return 'Ativo';
+          return 'Matriculado';
         case 'I':
           return 'Inativo';
         case 'C':
@@ -95,11 +85,6 @@ export function formatCellValue(key: keyof Aluno, value: unknown): string {
       const validos = arr.filter((r) => r && r.nr_seq_responsavel);
       return validos.length === 0 ? '' : validos.length === 1 ? '1 responsável' : `${validos.length} responsáveis`;
     }
-    case 'ds_alergia':
-    case 'ds_medicamento_continuo':
-    case 'ds_restricao_alimentar':
-    case 'ds_necessidade_especial':
-      return (Array.isArray(value) ? value : []).filter((v) => v && String(v).trim() !== '').join('\n');
     default:
       if (Array.isArray(value)) {
         return (value as unknown[]).filter((v) => v !== null && v !== undefined && String(v) !== '').join(', ');

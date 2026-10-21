@@ -51,10 +51,13 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "excluir_pessoa_juridica", label: "Permite excluir" },
   ],
   estruturaAcademica: [
+    // Parâmetros
+    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros" },
     // Alunos
     { key: "acessar_aluno", label: "Permite acessar Alunos" },
     { key: "adicionar_aluno", label: "Permite adicionar" },
     { key: "ver_aluno", label: "Permite ver" },
+    { key: "gerar_matricula_aluno", label: "Permite gerar matrícula" },
     { key: "alterar_data_ingresso_aluno", label: "Permite alterar data de ingresso" },
     { key: "alterar_status_aluno", label: "Permite alterar status" },
     { key: "excluir_aluno", label: "Permite excluir" },
@@ -211,11 +214,15 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   estruturaAcademica: [
     {
       titulo: 'Alunos',
-      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'excluir_aluno'],
+      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'gerar_matricula_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'excluir_aluno'],
     },
     {
       titulo: 'Colaboradores',
       chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
+    },
+    {
+      titulo: 'Parâmetros',
+      chaves: ['acessar_parametros_funcao'],
     },
   ],
   patrimonio: [
@@ -328,6 +335,7 @@ export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: strin
 export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
   { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
+  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
 
 /** Configuração de permissões: `funcao` → lista de chaves de permissão concedidas. */
@@ -339,7 +347,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 14;
+export const PERMISSOES_CONFIG_VERSION = 15;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é

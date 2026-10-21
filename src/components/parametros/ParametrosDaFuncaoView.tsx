@@ -7,46 +7,41 @@ import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
-  obterParamCodigoPatrimonio,
-  salvarParamCodigoPatrimonio,
-} from "@/services/paramCodigoPatrimonioService";
+  COLECAO_PARAM_CODIGO_PATRIMONIO,
+  COLECAO_PARAM_MATRICULA_ALUNO,
+  obterParamRegra,
+  salvarParamRegra,
+} from "@/services/paramRegraService";
+import { OPCOES_SEGMENTO_REGRA } from "@/lib/regraCodigoUtils";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
 
+/** Parâmetro de uma função: linha da lista + coleção onde a regra é salva. */
+export interface ParametroDef {
+  id: string;
+  dropdown: string;
+  parametro: string;
+  colecao: string;
+}
+
 /** Parâmetros de configuração da função Patrimônio. */
-const PARAMETROS_PATRIMONIO = [
+export const PARAMETROS_PATRIMONIO: ParametroDef[] = [
   {
     id: "geracao_codigo_patrimonio",
     dropdown: "Ativos",
     parametro: "Geração do código de patrimônio",
+    colecao: COLECAO_PARAM_CODIGO_PATRIMONIO,
   },
 ];
 
-/** Opções disponíveis para os segmentos do código de patrimônio (ordem alfabética). */
-const OPCOES_CODIGO = [
-  { value: "ano_atual", label: "Ano atual" },
-  { value: "ano_atual_2", label: "Ano atual (2 dígitos)" },
-  { value: "chave_esquerda", label: "Chave esquerda" },
-  { value: "chave_direita", label: "Chave direita" },
-  { value: "colchete_esquerdo", label: "Colchete esquerdo" },
-  { value: "colchete_direito", label: "Colchete direito" },
-  { value: "data_atual", label: "Data atual" },
-  { value: "data_atual_2digitos", label: "Data atual (ano com 2 dígitos)" },
-  { value: "data_atual_2digitos_mascara", label: "Data atual (ano com 2 dígitos + máscara)" },
-  { value: "data_atual_mascara", label: "Data atual (máscara)" },
-  { value: "dia_atual", label: "Dia atual" },
-  { value: "dois_pontos", label: "Dois pontos" },
-  { value: "hifen", label: "Hífen" },
-  { value: "mes_atual", label: "Mês atual" },
-  { value: "parentese_esquerdo", label: "Parêntese esquerdo" },
-  { value: "parentese_direito", label: "Parêntese direito" },
-  { value: "ponto", label: "Ponto" },
-  { value: "sequencial", label: "Sequencial" },
-  { value: "sequencial_ano", label: "Sequencial (por ano)" },
-  { value: "sequencial_mes", label: "Sequencial (por mês)" },
-  { value: "sequencia", label: "Sequência" },
-  { value: "sequencia_digitos", label: "Sequência (dígitos)" },
-  { value: "texto", label: "Texto" },
+/** Parâmetros de configuração da função Estrutura Acadêmica. */
+export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
+  {
+    id: "geracao_matricula_aluno",
+    dropdown: "Alunos",
+    parametro: "Geração da matrícula de alunos",
+    colecao: COLECAO_PARAM_MATRICULA_ALUNO,
+  },
 ];
 
 /** Tipo de cada segmento: tipo obrigatório + texto opcional (quando tipo === "texto"). */
@@ -60,6 +55,8 @@ function segmentoVazio(): Segmento {
 }
 
 interface ParametrosDaFuncaoViewProps {
+  /** Parâmetros da função (lista do painel esquerdo). */
+  parametros: ParametroDef[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   selectOptions?: { value: string; label: string }[];
@@ -80,6 +77,7 @@ interface ParametrosDaFuncaoViewProps {
 }
 
 export default function ParametrosDaFuncaoView({
+  parametros,
   manageSelection,
   onManageSelectionChange,
   selectOptions = [],
@@ -104,26 +102,28 @@ export default function ParametrosDaFuncaoView({
   const handleSalvarRef = useRef<() => void>(() => {});
   const raizRef = useRef<HTMLDivElement>(null);
 
-  const selectedParametro = PARAMETROS_PATRIMONIO.find((p) => p.id === selectedParametroId) ?? null;
+  const selectedParametro = parametros.find((p) => p.id === selectedParametroId) ?? null;
+  const colecaoSelecionada = selectedParametro?.colecao ?? null;
   const segmentosEmEdicao = segmentosDraft ?? segmentos;
 
-  // Carrega a regra salva ao montar o componente
+  // Carrega a regra salva do parâmetro selecionado
   useEffect(() => {
+    if (!colecaoSelecionada) return;
     let cancelled = false;
     (async () => {
       try {
-        const doc = await obterParamCodigoPatrimonio();
+        const doc = await obterParamRegra(colecaoSelecionada);
         if (cancelled) return;
         if (doc?.ds_regra) {
           const parsed = parseRegra(doc.ds_regra);
           setSegmentos(parsed.length > 0 ? parsed : [segmentoVazio()]);
         }
       } catch (e) {
-        console.error("Erro ao carregar regra de código de patrimônio", e);
+        console.error("Erro ao carregar a regra do parâmetro", e);
       }
     })();
     return () => { cancelled = true; };
-  }, []);
+  }, [colecaoSelecionada]);
 
   /** Serializa segmentos para string (ex.: "AnoAtual-Hifen-Texto:ESCOLA"). */
   function serializarRegra(segs: Segmento[]): string {
@@ -131,7 +131,7 @@ export default function ParametrosDaFuncaoView({
       .filter((s) => s.tipo !== "")
       .map((s) => {
         if (s.tipo === "texto" && s.texto) return `texto:${s.texto}`;
-        if (s.tipo === "sequencia_digitos" && s.texto) return `sequencia_digitos:${s.texto}`;
+        if ((s.tipo === "sequencia_digitos" || s.tipo === "sequencial_digitos") && s.texto) return `${s.tipo}:${s.texto}`;
         return s.tipo;
       })
       .join("-");
@@ -146,6 +146,9 @@ export default function ParametrosDaFuncaoView({
       }
       if (parte.toLowerCase().startsWith("sequencia_digitos:")) {
         return { tipo: "sequencia_digitos", texto: parte.slice(18) };
+      }
+      if (parte.toLowerCase().startsWith("sequencial_digitos:")) {
+        return { tipo: "sequencial_digitos", texto: parte.slice(19) };
       }
       return { tipo: parte, texto: "" };
     });
@@ -181,6 +184,7 @@ export default function ParametrosDaFuncaoView({
   }
 
   const handleSalvar = useCallback(async () => {
+    if (!colecaoSelecionada) return;
     const limpos = segmentosEmEdicao.filter((s) => s.tipo !== "");
     const salvos = limpos.length > 0 ? limpos : [segmentoVazio()];
     setSegmentos(salvos);
@@ -188,10 +192,10 @@ export default function ParametrosDaFuncaoView({
     setSaving(true);
     onSavingChange?.(true);
     try {
-      await salvarParamCodigoPatrimonio(serializarRegra(salvos), auditAutor);
+      await salvarParamRegra(colecaoSelecionada, serializarRegra(salvos), auditAutor);
       onSaveSuccess?.("Parâmetro salvo com sucesso");
       // Atualizar info de auditoria
-      const docAtualizado = await obterParamCodigoPatrimonio();
+      const docAtualizado = await obterParamRegra(colecaoSelecionada);
       if (docAtualizado?.id) {
         onAfterSave?.({
           createdAt: docAtualizado.dt_criacao ?? '',
@@ -201,12 +205,12 @@ export default function ParametrosDaFuncaoView({
         });
       }
     } catch (e) {
-      console.error("Erro ao salvar regra de código de patrimônio", e);
+      console.error("Erro ao salvar a regra do parâmetro", e);
     } finally {
       setSaving(false);
       onSavingChange?.(false);
     }
-  }, [segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave]);
+  }, [colecaoSelecionada, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave]);
 
   // Manter ref atualizado
   useEffect(() => {
@@ -261,10 +265,16 @@ export default function ParametrosDaFuncaoView({
                   { key: "parametro", label: "Parâmetro" },
                   // Sem colunas de auditoria: os parâmetros são padrão do sistema, não registros criados pelo usuário.
                 ]}
-                rows={PARAMETROS_PATRIMONIO}
+                rows={parametros}
                 rowKey={(p) => p.id}
                 rowClassName={(p) => (p.id === selectedParametroId ? "row-selected" : "")}
-                onRowClick={(p) => setSelectedParametroId(p.id)}
+                onRowClick={(p) => {
+                  if (p.id === selectedParametroId) return;
+                  // Troca de parâmetro: descarta a regra/edição do anterior até a nova carregar.
+                  setSegmentos([segmentoVazio()]);
+                  setSegmentosDraft(null);
+                  setSelectedParametroId(p.id);
+                }}
               />
             </div>
           </div>
@@ -285,7 +295,7 @@ export default function ParametrosDaFuncaoView({
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
                 Selecione um parâmetro para configurar.
               </div>
-            ) : selectedParametro.id === "geracao_codigo_patrimonio" ? (
+            ) : (
               <div className="flex flex-col h-full min-h-0">
                 <div className="overflow-auto flex-1 min-h-0">
                   {/* Rótulo dos campos da regra (com infobutton, como os demais campos do sistema) */}
@@ -311,7 +321,7 @@ export default function ParametrosDaFuncaoView({
                       {infoAberto && (
                         <FieldInfoPopup
                           anchor={infoAnchor}
-                          meta={{ type: "string", field: "ds_regra", collection: "pat_param_codigo_patrimonio" }}
+                          meta={{ type: "string", field: "ds_regra", collection: selectedParametro.colecao }}
                           onClose={() => setInfoAberto(false)}
                         />
                       )}
@@ -320,7 +330,7 @@ export default function ParametrosDaFuncaoView({
                   <div className="space-y-2 w-full">
                     {segmentosEmEdicao.map((seg, index) => {
                       const isTexto = seg.tipo === "texto";
-                      const isSequenciaDigitos = seg.tipo === "sequencia_digitos";
+                      const isSequenciaDigitos = seg.tipo === "sequencia_digitos" || seg.tipo === "sequencial_digitos";
                       const mostraInputExtra = isTexto || isSequenciaDigitos;
                       return (
                         <div key={index} className="flex items-center gap-2 w-full">
@@ -328,7 +338,7 @@ export default function ParametrosDaFuncaoView({
                             <Select
                               value={seg.tipo}
                               onChange={(v) => atualizarSegmentoTipo(index, v)}
-                              options={OPCOES_CODIGO}
+                              options={OPCOES_SEGMENTO_REGRA}
                               showPlaceholder
                               visibleOptions={7}
                             />
@@ -431,15 +441,6 @@ export default function ParametrosDaFuncaoView({
                     </button>
                   </div>
                 </div>
-              </div>
-            ) : (
-              <div className="overflow-auto flex-1 min-h-0 p-4">
-                <h3 className="text-sm font-semibold text-slate-700">
-                  {selectedParametro.parametro}
-                </h3>
-                <p className="mt-2 text-sm text-slate-500">
-                  Configuração será disponibilizada em breve.
-                </p>
               </div>
             )}
           </div>

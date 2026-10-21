@@ -25,6 +25,7 @@ export interface Usuario {
   config_colunas_campos_funcao?: string;
   config_colunas_campos_campo?: string;
   config_colunas_parametros_funcao?: string;
+  config_colunas_parametros_funcao_ea?: string;
   config_colunas_avisos?: string;
   config_colunas_regras?: string;
   config_colunas_as_usuario?: string;

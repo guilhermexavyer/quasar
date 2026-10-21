@@ -103,6 +103,10 @@ export async function atualizarPessoaFisica(
   const currentData = snap.data() as Record<string, any>;
   const hasActualChanges = Object.entries(pessoa).some(([key, value]) => {
     const currentValue = currentData[key];
+    // Listas (ex.: informações médicas) precisam de comparação profunda.
+    if (Array.isArray(value) || Array.isArray(currentValue)) {
+      return JSON.stringify(currentValue ?? []) !== JSON.stringify(value ?? []);
+    }
     return String(currentValue ?? '') !== String(value ?? '');
   });
 

@@ -41,7 +41,7 @@ const COLECOES = [
   "_counters",
   "pessoa_fisica", "pessoa_juridica",
   "aluno", "colaborador",
-  "pat_ativo", "pat_ativos", "pat_manutencao", "pat_param_codigo_patrimonio",
+  "pat_ativo", "pat_ativos", "pat_manutencao", "pat_param_codigo_patrimonio", "ea_param_matricula_aluno",
   "perfil", "usuario", "imagem", "aviso",
   "relatorio", "relatorio_banda", "relatorio_bandas", "relatorio_banda_elemento", "relatorio_parametro",
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor",

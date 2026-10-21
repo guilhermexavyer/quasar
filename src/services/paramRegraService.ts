@@ -11,9 +11,15 @@ import {
 import { db } from "@/lib/firebase";
 import type { AuditAutor } from "@/services/auditService";
 
-const COLECAO = "pat_param_codigo_patrimonio";
+/**
+ * Parâmetros de geração de código por regra (ex.: código de patrimônio,
+ * matrícula de alunos). Cada parâmetro tem a própria coleção com um único
+ * documento ({ ds_regra }) e a subcoleção auditoria.
+ */
+export const COLECAO_PARAM_CODIGO_PATRIMONIO = "pat_param_codigo_patrimonio";
+export const COLECAO_PARAM_MATRICULA_ALUNO = "ea_param_matricula_aluno";
 
-export interface ParamCodigoPatrimonio {
+export interface ParamRegra {
   id?: string;
   ds_regra: string;
   dt_criacao?: string;
@@ -26,9 +32,9 @@ export interface ParamCodigoPatrimonio {
  * Documentos gravados antes do controle de criação não têm dt_criacao/ds_usuario_criacao.
  * Nesse caso, a criação é inferida do registro de auditoria mais antigo.
  */
-async function obterCriacaoPelaAuditoria(id: string): Promise<{ dt_criacao: string; ds_usuario_criacao: string } | null> {
+async function obterCriacaoPelaAuditoria(colecao: string, id: string): Promise<{ dt_criacao: string; ds_usuario_criacao: string } | null> {
   try {
-    const q = query(collection(db, COLECAO, id, "auditoria"), orderBy("timestamp", "asc"), limit(1));
+    const q = query(collection(db, colecao, id, "auditoria"), orderBy("timestamp", "asc"), limit(1));
     const snap = await getDocs(q);
     if (snap.empty) return null;
     const log = snap.docs[0].data();
@@ -39,13 +45,13 @@ async function obterCriacaoPelaAuditoria(id: string): Promise<{ dt_criacao: stri
   }
 }
 
-export async function obterParamCodigoPatrimonio(): Promise<ParamCodigoPatrimonio | null> {
-  const snapshot = await getDocs(collection(db, COLECAO));
+export async function obterParamRegra(colecao: string): Promise<ParamRegra | null> {
+  const snapshot = await getDocs(collection(db, colecao));
   if (snapshot.empty) return null;
   const docSnap = snapshot.docs[0];
-  const dados = { id: docSnap.id, ...docSnap.data() } as ParamCodigoPatrimonio;
+  const dados = { id: docSnap.id, ...docSnap.data() } as ParamRegra;
   if (!dados.dt_criacao || !dados.ds_usuario_criacao) {
-    const criacao = await obterCriacaoPelaAuditoria(docSnap.id);
+    const criacao = await obterCriacaoPelaAuditoria(colecao, docSnap.id);
     if (criacao) {
       dados.dt_criacao = dados.dt_criacao || criacao.dt_criacao;
       dados.ds_usuario_criacao = dados.ds_usuario_criacao || criacao.ds_usuario_criacao;
@@ -54,12 +60,12 @@ export async function obterParamCodigoPatrimonio(): Promise<ParamCodigoPatrimoni
   return dados;
 }
 
-export async function salvarParamCodigoPatrimonio(dsRegra: string, autor?: AuditAutor): Promise<void> {
+export async function salvarParamRegra(colecao: string, dsRegra: string, autor?: AuditAutor): Promise<void> {
   const agora = new Date().toISOString();
   const nomeAutor = autor?.usuarioNome?.trim() || '-';
-  const snapshot = await getDocs(collection(db, COLECAO));
+  const snapshot = await getDocs(collection(db, colecao));
   if (snapshot.empty) {
-    const docRef = doc(collection(db, COLECAO));
+    const docRef = doc(collection(db, colecao));
     await setDoc(docRef, {
       ds_regra: dsRegra,
       dt_criacao: agora,
@@ -69,7 +75,7 @@ export async function salvarParamCodigoPatrimonio(dsRegra: string, autor?: Audit
     });
     // Registrar auditoria na subcollection
     try {
-      const auditCol = collection(db, COLECAO, docRef.id, "auditoria");
+      const auditCol = collection(db, colecao, docRef.id, "auditoria");
       await addDoc(auditCol, {
         usuarioId: autor?.usuarioId ?? null,
         usuarioNome: nomeAutor,
@@ -87,9 +93,9 @@ export async function salvarParamCodigoPatrimonio(dsRegra: string, autor?: Audit
     if (atual === dsRegra) return;
     // Completa a criação de documentos antigos que não a registravam.
     const criacao = !dadosAtuais.dt_criacao || !dadosAtuais.ds_usuario_criacao
-      ? await obterCriacaoPelaAuditoria(docSnap.id)
+      ? await obterCriacaoPelaAuditoria(colecao, docSnap.id)
       : null;
-    await setDoc(doc(db, COLECAO, docSnap.id), {
+    await setDoc(doc(db, colecao, docSnap.id), {
       ds_regra: dsRegra,
       dt_alteracao: agora,
       ds_usuario_alteracao: nomeAutor,
@@ -100,7 +106,7 @@ export async function salvarParamCodigoPatrimonio(dsRegra: string, autor?: Audit
     }, { merge: true });
     // Registrar auditoria na subcollection
     try {
-      const auditCol = collection(db, COLECAO, docSnap.id, "auditoria");
+      const auditCol = collection(db, colecao, docSnap.id, "auditoria");
       await addDoc(auditCol, {
         usuarioId: autor?.usuarioId ?? null,
         usuarioNome: nomeAutor,

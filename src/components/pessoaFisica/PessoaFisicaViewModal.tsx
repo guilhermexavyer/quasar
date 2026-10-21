@@ -78,6 +78,17 @@ const SECOES: { titulo: string; campos: CampoDef[] }[] = [
       { key: 'ds_complemento', label: 'Complemento', span: 12 },
     ],
   },
+  {
+    titulo: 'Informações médicas',
+    campos: [
+      { key: 'ds_tipo_sanguineo', label: 'Tipo sanguíneo', span: 12 },
+      { key: 'ds_alergia', label: 'Alergia', span: 6 },
+      { key: 'ds_medicamento_continuo', label: 'Medicamento de uso contínuo', span: 6 },
+      { key: 'ds_restricao_alimentar', label: 'Restrição alimentar', span: 6 },
+      { key: 'ds_necessidade_especial', label: 'Necessidade especial', span: 6 },
+      { key: 'ds_observacao_medica', label: 'Observações médicas', span: 12 },
+    ],
+  },
 ];
 
 // Campos de referência (Cadastros Gerais): mostram a descrição via lookup.
@@ -114,6 +125,9 @@ export default function PessoaFisicaViewModal({ pessoa, cgLookups = {}, onClose 
       const desc = cgLookups[lookupKey]?.[Number(value)];
       if (desc) return desc;
     }
+
+    // Listas (informações médicas) num campo de linha única: separadas por vírgula.
+    if (Array.isArray(value)) return value.filter((v) => v && String(v).trim() !== '').join(', ');
 
     // formatCellValue já trata CPF, telefone, datas e o fallback para texto.
     return formatCellValue(key, value) || String(value);
