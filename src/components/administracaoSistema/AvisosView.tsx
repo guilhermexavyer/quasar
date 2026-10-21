@@ -7,7 +7,8 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
-import { obterAviso, salvarAviso, type Aviso, type CampoAviso } from "@/services/avisoService";
+import { filtrarAuditoriaDoAviso, obterAviso, salvarAviso, type Aviso, type CampoAviso } from "@/services/avisoService";
+import { useLogsDoItem } from "@/lib/logsDoItem";
 import { TITULOS_AVISO } from "@/components/ui/AvisoModal";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
@@ -65,6 +66,9 @@ export default function AvisosView({
       .catch((e) => console.error("Erro ao carregar avisos", e));
     return () => { cancelado = true; };
   }, []);
+
+  // Logs do aviso selecionado (só aparecem depois que ele for salvo pela primeira vez).
+  const logsAviso = useLogsDoItem("aviso", aviso?.id, selecionado, filtrarAuditoriaDoAviso, aviso?.dt_alteracao);
 
   const valorSalvo = selecionado ? aviso?.[selecionado] ?? "" : "";
   const valorEmEdicao = rascunho ?? valorSalvo;
@@ -190,17 +194,17 @@ export default function AvisosView({
 
                 {/* Auditoria + Cancelar / Salvar — padrão de Patrimônio > Parâmetros */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
-                  {aviso?.id && (
+                  {aviso?.id && logsAviso && (
                     <div className="text-[13px] text-slate-500">
                       <div className="relative group flex items-center gap-2">
-                        <span>Criado por {resolverNomeAutorExibicao(aviso.ds_usuario_criacao ?? "") || "-"} em {aviso.dt_criacao ? formatDate(aviso.dt_criacao) : "-"}</span>
+                        <span>Criado por {resolverNomeAutorExibicao(logsAviso.createdBy) || "-"} em {logsAviso.createdAt ? formatDate(logsAviso.createdAt) : "-"}</span>
                         <button type="button" aria-hidden="true" onClick={() => aviso.id && selecionado && onOpenAudit?.(aviso.id, selecionado)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
                         </button>
                       </div>
                       <div className="relative group flex items-center gap-2 mt-1">
-                        <span>Alterado por {resolverNomeAutorExibicao(aviso.ds_usuario_alteracao ?? "") || "-"} em {aviso.dt_alteracao ? formatDate(aviso.dt_alteracao) : "-"}</span>
+                        <span>Alterado por {resolverNomeAutorExibicao(logsAviso.updatedBy) || "-"} em {logsAviso.updatedAt ? formatDate(logsAviso.updatedAt) : "-"}</span>
                         <button type="button" aria-hidden="true" onClick={() => aviso.id && selecionado && onOpenAudit?.(aviso.id, selecionado)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>

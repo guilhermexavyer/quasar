@@ -31,8 +31,8 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const db = getFirestore(app);
 
 const COLECOES = [
-  "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador",
-  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio", "ea_param_matricula_aluno",
+  "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador", "periodo_letivo",
+  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio", "ea_param_matricula_aluno", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado", "ea_param_encerramento_automatico_periodo_letivo",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_bandas",
   "relatorio_banda_elemento", "relatorio_parametro",

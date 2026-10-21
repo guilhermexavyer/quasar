@@ -163,6 +163,23 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
+  {
+    value: 'periodo_letivo',
+    label: 'Períodos letivos',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'nr_ano', label: 'Ano', tipo: 'number' },
+      { key: 'ds_periodo_letivo', label: 'Descrição', tipo: 'string' },
+      { key: 'qt_dias_letivos', label: 'Dias letivos', tipo: 'number' },
+      { key: 'dt_inicio', label: 'Data de início', tipo: 'date' },
+      { key: 'dt_previsao_termino', label: 'Previsão de término', tipo: 'date' },
+      { key: 'dt_termino', label: 'Data de término', tipo: 'date' },
+      { key: 'dt_reativacao', label: 'Data de reativação', tipo: 'date' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
   // ════════════════════════════════════════════════════════════
   //  Administração do Sistema
   // ════════════════════════════════════════════════════════════
@@ -383,6 +400,7 @@ export const STATUS_LABEL_MAP: Record<string, Record<string, string>> = {
   pat_manutencao: { E: 'Em andamento', CO: 'Concluída', CA: 'Cancelada' },
   aluno: { P: 'Pré-matriculado', A: 'Matriculado', I: 'Inativo', C: 'Cancelado', T: 'Transferido' },
   colaborador: { A: 'Ativo', AF: 'Afastado', F: 'Férias', L: 'Licença', D: 'Desligado' },
+  periodo_letivo: { A: 'Em andamento', E: 'Encerrado' },
   usuario: { A: 'Ativo', I: 'Inativo' },
   perfil: { A: 'Ativo', I: 'Inativo' },
   cg_sexo: { A: 'Ativo', I: 'Inativo' },

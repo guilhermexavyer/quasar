@@ -26,6 +26,14 @@ import {
   obterColaboradores,
   atualizarColaborador,
 } from "@/services/colaboradorService";
+import {
+  criarPeriodoLetivo,
+  excluirPeriodoLetivo,
+  obterPeriodosLetivos,
+  observarPeriodosLetivos,
+  encerrarPeriodoLetivoPorPrevisao,
+  atualizarPeriodoLetivo,
+} from "@/services/periodoLetivoService";
 import { obterUsuarios } from "@/services/usuarioService";
 import {
   criarUsuario,
@@ -118,7 +126,14 @@ import {
   obterAtivos,
   atualizarAtivo,
 } from "@/services/ativoService";
-import { COLECAO_PARAM_CODIGO_PATRIMONIO, COLECAO_PARAM_MATRICULA_ALUNO, obterParamRegra } from "@/services/paramRegraService";
+import {
+  COLECAO_PARAM_CODIGO_PATRIMONIO,
+  COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
+  COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
+  COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
+  COLECAO_PARAM_MATRICULA_ALUNO,
+  obterParametro,
+} from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
 import { db } from "@/lib/firebase";
 import { doc, getDoc, updateDoc } from "firebase/firestore";
@@ -127,6 +142,7 @@ import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import type { Aluno, AlunoResponsavel } from "@/types/aluno";
 import type { Colaborador } from "@/types/colaborador";
+import type { PeriodoLetivo } from "@/types/periodoLetivo";
 import {
   applyCpfMask,
   applyDateMask,
@@ -161,6 +177,9 @@ import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademi
 import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorListView";
 import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
 import ColaboradorViewModal from "@/components/estruturaAcademica/ColaboradorViewModal";
+import PeriodoLetivoListView from "@/components/estruturaAcademica/PeriodoLetivoListView";
+import PeriodoLetivoFormView, { type PeriodoLetivoFormData } from "@/components/estruturaAcademica/PeriodoLetivoFormView";
+import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import ParametrosDaFuncaoView, { PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
@@ -313,7 +332,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.67.2";
+const SYSTEM_VERSION = "0.67.3";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -410,6 +429,7 @@ const EA_SELECT_OPTIONS = [
   { value: 'alunos', label: 'Alunos' },
   { value: 'colaboradores', label: 'Colaboradores' },
   { value: 'parametrosFuncao', label: 'Parâmetros' },
+  { value: 'periodoLetivo', label: 'Período letivo' },
 ];
 
 /* Opções do dropdown da função Patrimônio */
@@ -434,6 +454,17 @@ const emptyAlunoForm: AlunoFormData = {
   ds_status: "",
   ie_status: 'A',
   responsaveis: [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }],
+};
+
+const emptyPeriodoLetivoForm: PeriodoLetivoFormData = {
+  nr_ano: undefined,
+  ds_periodo_letivo: "",
+  qt_dias_letivos: undefined,
+  dt_inicio: "",
+  dt_previsao_termino: "",
+  dt_termino: "",
+  dt_reativacao: "",
+  ie_status: 'A',
 };
 
 const emptyColaboradorForm: ColaboradorFormData = {
@@ -848,7 +879,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'pat_ativo' | 'pat_manutencao' | 'pat_parametros' | 'ea_parametros' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'periodo_letivo' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1083,6 +1114,22 @@ export default function Home() {
   const [colaboradorFilterModalOpen, setColaboradorFilterModalOpen] = useState(false);
   const [colaboradorFilterForm, setColaboradorFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', nr_seq_pessoa_juridica: '', dt_admissao_inicio: '', dt_admissao_fim: '' });
   const [appliedColaboradorFilterForm, setAppliedColaboradorFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', nr_seq_pessoa_juridica: '', dt_admissao_inicio: '', dt_admissao_fim: '' });
+  // Períodos letivos (Estrutura Acadêmica > Período letivo).
+  const [periodosLetivos, setPeriodosLetivos] = useState<PeriodoLetivo[]>([]);
+  const [periodoLetivoForm, setPeriodoLetivoForm] = useState<PeriodoLetivoFormData>(emptyPeriodoLetivoForm);
+  const [periodoLetivoEditingId, setPeriodoLetivoEditingId] = useState<string | null>(null);
+  const [periodoLetivoAuditInfo, setPeriodoLetivoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const [periodoLetivoSubmitting, setPeriodoLetivoSubmitting] = useState(false);
+  // Modal "Encerrar"/"Reativar" do período letivo (menu de contexto): só a data da ação.
+  const [statusPeriodoModal, setStatusPeriodoModal] = useState<{ periodo: PeriodoLetivo; acao: 'encerrar' | 'reativar' } | null>(null);
+  const [statusPeriodoData, setStatusPeriodoData] = useState('');
+  const [statusPeriodoSaving, setStatusPeriodoSaving] = useState(false);
+  const [periodoLetivoSortColumn, setPeriodoLetivoSortColumn] = useState<number | null>(null);
+  const [periodoLetivoSortAsc, setPeriodoLetivoSortAsc] = useState<boolean | null>(null);
+  const [periodoLetivoCampoErros, setPeriodoLetivoCampoErros] = useState<string[]>([]);
+  const [periodoLetivoFilterModalOpen, setPeriodoLetivoFilterModalOpen] = useState(false);
+  const [periodoLetivoFilterForm, setPeriodoLetivoFilterForm] = useState({ nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '' });
+  const [appliedPeriodoLetivoFilterForm, setAppliedPeriodoLetivoFilterForm] = useState({ nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '' });
   // Modal "Alterar data de admissão" do colaborador (menu de contexto de Estrutura Acadêmica).
   const [alterarAdmissaoModalOpen, setAlterarAdmissaoModalOpen] = useState(false);
   const [alterarAdmissaoColaborador, setAlterarAdmissaoColaborador] = useState<Colaborador | null>(null);
@@ -1181,8 +1228,8 @@ export default function Home() {
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
   const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
   const [gerandoMatricula, setGerandoMatricula] = useState(false);
-  // Confirmação de Gerar/Regerar (código de patrimônio / matrícula).
-  const [confirmGerar, setConfirmGerar] = useState<{ titulo: string; mensagem: string; acao: () => void } | null>(null);
+  // Confirmação de ações do menu de contexto (Gerar/Regerar código ou matrícula, Reativar período letivo).
+  const [confirmAcao, setConfirmAcao] = useState<{ titulo: string; mensagem: string; acao: () => void } | null>(null);
 
   // Filtro de Ativos.
   type AtivoFilterFormData = {
@@ -1219,10 +1266,8 @@ export default function Home() {
   const [appliedAtivoFilterForm, setAppliedAtivoFilterForm] = useState<AtivoFilterFormData>(emptyAtivoFilterForm);
   const [ativoFilterModalOpen, setAtivoFilterModalOpen] = useState(false);
   const [parametrosSaving, setParametrosSaving] = useState(false);
-  const [parametrosAuditInfo, setParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
-  const [parametrosHasDocument, setParametrosHasDocument] = useState(false);
-  // Estrutura Acadêmica > Parâmetros (rodapé de auditoria).
-  const [eaParametrosAuditInfo, setEaParametrosAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  // Cores da bolinha de status do Período letivo (Estrutura Acadêmica > Parâmetros).
+  const [coresStatusPeriodoLetivo, setCoresStatusPeriodoLetivo] = useState<Record<string, string>>(CORES_STATUS_PERIODO_LETIVO_PADRAO);
 
   // Patrimônio > Manutenções.
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
@@ -1694,7 +1739,7 @@ export default function Home() {
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'parametrosFuncao'];
+    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'parametrosFuncao', 'periodoLetivo'];
     return eaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1718,6 +1763,11 @@ export default function Home() {
       alterarDataAdmissao: permitida('alterar_data_admissao_colaborador'),
       alterarStatusColaborador: permitida('alterar_status_colaborador'),
       excluirColaborador: permitida('excluir_colaborador'),
+      adicionarPeriodoLetivo: permitida('adicionar_periodo_letivo'),
+      verPeriodoLetivo: permitida('ver_periodo_letivo'),
+      encerrarPeriodoLetivo: permitida('encerrar_periodo_letivo'),
+      reativarPeriodoLetivo: permitida('reativar_periodo_letivo'),
+      excluirPeriodoLetivo: permitida('excluir_periodo_letivo'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2159,6 +2209,45 @@ export default function Home() {
     }
   }, []);
 
+  /** Cores configuradas para a bolinha de status do Período letivo (padrão enquanto não configuradas). */
+  // Parâmetro "A previsão de término encerra o período letivo automaticamente" (Sim = 'S').
+  const [encerramentoAutomaticoPeriodoLetivo, setEncerramentoAutomaticoPeriodoLetivo] = useState(false);
+  const loadEncerramentoAutomaticoPeriodoLetivo = useCallback(async () => {
+    try {
+      const doc = await obterParametro(COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO);
+      setEncerramentoAutomaticoPeriodoLetivo(doc?.ie_regra === 'S');
+    } catch {
+      // mantém o valor atual em caso de falha
+    }
+  }, []);
+
+  const loadCoresStatusPeriodoLetivo = useCallback(async () => {
+    try {
+      const [andamento, encerrado] = await Promise.all([
+        obterParametro(COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO),
+        obterParametro(COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO),
+      ]);
+      setCoresStatusPeriodoLetivo({
+        A: andamento?.cd_cor || CORES_STATUS_PERIODO_LETIVO_PADRAO.A,
+        E: encerrado?.cd_cor || CORES_STATUS_PERIODO_LETIVO_PADRAO.E,
+      });
+    } catch {
+      // mantém as cores atuais em caso de falha
+    }
+  }, []);
+
+  const loadPeriodosLetivos = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterPeriodosLetivos();
+      setPeriodosLetivos(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadColaboradores = useCallback(async () => {
     setLoading(true);
     try {
@@ -2439,40 +2528,42 @@ export default function Home() {
     loadPessoasJuridicas();
     loadAlunos();
     loadColaboradores();
-    // Carregar auditoria dos parâmetros de Patrimônio
-    (async () => {
-      try {
-        const paramDoc = await obterParamRegra(COLECAO_PARAM_CODIGO_PATRIMONIO);
-        if (paramDoc?.id) {
-          setParametrosHasDocument(true);
-          setParametrosAuditInfo({
-            createdAt: paramDoc.dt_criacao ?? '',
-            updatedAt: paramDoc.dt_alteracao ?? '',
-            createdBy: paramDoc.ds_usuario_criacao ?? '',
-            updatedBy: paramDoc.ds_usuario_alteracao ?? '',
-          });
-        }
-      } catch {
-        // mantém vazio em caso de falha
+    loadPeriodosLetivos();
+    loadCoresStatusPeriodoLetivo();
+    loadEncerramentoAutomaticoPeriodoLetivo();
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo]);
+
+  // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
+  // (ex.: encerramento automático feito por este ou por outro usuário).
+  useEffect(() => {
+    if (!currentUser?.id) return;
+    return observarPeriodosLetivos(setPeriodosLetivos, () => setMessage("Erro ao carregar registros."));
+  }, [currentUser?.id]);
+
+  // Encerramento automático pela previsão de término (parâmetro = Sim): verifica ao
+  // abrir e a cada minuto, enquanto o sistema estiver aberto. A data de término passa
+  // a ser a própria previsão; a transação no serviço evita encerrar duas vezes.
+  const encerrandoPeriodosRef = useRef<Set<string>>(new Set());
+  useEffect(() => {
+    if (!currentUser?.id || !encerramentoAutomaticoPeriodoLetivo) return;
+    function verificar() {
+      const hoje = new Date();
+      const hojeNum = hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate();
+      for (const periodo of periodosLetivos) {
+        if (!periodo.id || periodo.ie_status === 'E' || encerrandoPeriodosRef.current.has(periodo.id)) continue;
+        const previsao = parseDateInput(periodo.dt_previsao_termino ?? '');
+        if (previsao === null || previsao > hojeNum) continue;
+        const id = periodo.id;
+        encerrandoPeriodosRef.current.add(id);
+        encerrarPeriodoLetivoPorPrevisao(id, { usuarioId: null, usuarioNome: 'Sistema' })
+          .catch((e) => console.error('Erro no encerramento automático do período letivo', e))
+          .finally(() => encerrandoPeriodosRef.current.delete(id));
       }
-    })();
-    // Carregar auditoria dos parâmetros de Estrutura Acadêmica
-    (async () => {
-      try {
-        const paramDoc = await obterParamRegra(COLECAO_PARAM_MATRICULA_ALUNO);
-        if (paramDoc?.id) {
-          setEaParametrosAuditInfo({
-            createdAt: paramDoc.dt_criacao ?? '',
-            updatedAt: paramDoc.dt_alteracao ?? '',
-            createdBy: paramDoc.ds_usuario_criacao ?? '',
-            updatedBy: paramDoc.ds_usuario_alteracao ?? '',
-          });
-        }
-      } catch {
-        // mantém vazio em caso de falha
-      }
-    })();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores]);
+    }
+    verificar();
+    const timer = window.setInterval(verificar, 60_000);
+    return () => window.clearInterval(timer);
+  }, [currentUser?.id, encerramentoAutomaticoPeriodoLetivo, periodosLetivos]);
 
   /* ── Carregar unidades federativas (UF) da API do IBGE para o dropdown do formulário ── */
   useEffect(() => {
@@ -2674,7 +2765,7 @@ export default function Home() {
           setPjManageSelection(session.pjManageSelection);
           setPjInteracted(true);
         }
-        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao')) {
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao' || session.alunoManageSelection === 'periodoLetivo')) {
           setAlunoManageSelection(session.alunoManageSelection);
           setAlunoInteracted(true);
         }
@@ -2880,6 +2971,25 @@ export default function Home() {
     setColaboradorCampoErros([]);
     setView("form");
     setActiveSection("estruturaAcademica");
+  }
+
+  function openPeriodoLetivoNewForm() {
+    setPeriodoLetivoForm(emptyPeriodoLetivoForm);
+    setPeriodoLetivoEditingId(null);
+    setPeriodoLetivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setPeriodoLetivoCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  // Botão "Adicionar" de Período letivo: sem a permissão, mostra aviso.
+  function handlePeriodoLetivoNewForm() {
+    if (!permissoesEA.adicionarPeriodoLetivo) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    openPeriodoLetivoNewForm();
   }
 
   // Botão "Adicionar" de Colaboradores: sem a permissão, mostra aviso.
@@ -3408,6 +3518,7 @@ export default function Home() {
     }
     if (s === 'estruturaAcademica') {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.verColaborador;
+      if (alunoManageSelection === 'periodoLetivo') return permissoesEA.verPeriodoLetivo;
       return permissoesEA.verAluno;
     }
     if (s === 'patrimonio') {
@@ -3442,6 +3553,7 @@ export default function Home() {
     }
     if (s === 'estruturaAcademica') {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
+      if (alunoManageSelection === 'periodoLetivo') return permissoesEA.excluirPeriodoLetivo;
       return permissoesEA.excluirAluno;
     }
     if (s === 'patrimonio') {
@@ -3552,6 +3664,10 @@ export default function Home() {
     setColaboradorForm(emptyColaboradorForm);
     setColaboradorEditingId(null);
     setColaboradorAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setPeriodoLetivoForm(emptyPeriodoLetivoForm);
+    setPeriodoLetivoEditingId(null);
+    setPeriodoLetivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setPeriodoLetivoFilterModalOpen(false);
     setMessage("");
     setView("list");
   }
@@ -3691,6 +3807,21 @@ export default function Home() {
     }
   }
 
+  async function openPeriodoLetivoAuditModal(periodoId?: string | null) {
+    if (!periodoId) return;
+    setAuditDocumentType('periodo_letivo');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      const logs = await fetchAuditByDocumentId('periodo_letivo', periodoId);
+      setAuditLogs(logs);
+    } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   async function openAtivoAuditModal(ativoId?: string | null) {
     if (!ativoId) return;
     setAuditDocumentType('pat_ativo');
@@ -3706,33 +3837,14 @@ export default function Home() {
     }
   }
 
-  async function openParametrosAuditModal() {
-    setAuditDocumentType('pat_parametros');
+  async function openParametroAuditModal(colecao: string) {
+    setAuditDocumentType('parametro');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const paramDoc = await obterParamRegra(COLECAO_PARAM_CODIGO_PATRIMONIO);
+      const paramDoc = await obterParametro(colecao);
       if (paramDoc?.id) {
-        const logs = await fetchAuditByDocumentId(COLECAO_PARAM_CODIGO_PATRIMONIO, paramDoc.id);
-        setAuditLogs(logs);
-      } else {
-        setAuditLogs([]);
-      }
-    } catch {
-      setAuditLogs([]);
-    } finally {
-      setAuditLoading(false);
-    }
-  }
-
-  async function openEaParametrosAuditModal() {
-    setAuditDocumentType('ea_parametros');
-    setAuditModalOpen(true);
-    setAuditLoading(true);
-    try {
-      const paramDoc = await obterParamRegra(COLECAO_PARAM_MATRICULA_ALUNO);
-      if (paramDoc?.id) {
-        const logs = await fetchAuditByDocumentId(COLECAO_PARAM_MATRICULA_ALUNO, paramDoc.id);
+        const logs = await fetchAuditByDocumentId(colecao, paramDoc.id);
         setAuditLogs(logs);
       } else {
         setAuditLogs([]);
@@ -3899,6 +4011,27 @@ export default function Home() {
   function handleColaboradorFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     applyColaboradorFilter();
+  }
+
+  function openPeriodoLetivoFilterModal() {
+    setPeriodoLetivoFilterForm(appliedPeriodoLetivoFilterForm);
+    setPeriodoLetivoFilterModalOpen(true);
+  }
+
+  function closePeriodoLetivoFilterModal() {
+    setPeriodoLetivoFilterModalOpen(false);
+  }
+
+  function clearPeriodoLetivoFilter() {
+    const empty = { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '' };
+    setPeriodoLetivoFilterForm(empty);
+    setAppliedPeriodoLetivoFilterForm(empty);
+  }
+
+  function handlePeriodoLetivoFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedPeriodoLetivoFilterForm(periodoLetivoFilterForm);
+    setPeriodoLetivoFilterModalOpen(false);
   }
 
   function openAdminFilterModal() {
@@ -4110,6 +4243,20 @@ export default function Home() {
     } else {
       setColaboradorSortColumn(logicalIndex);
       setColaboradorSortAsc(true);
+    }
+  }
+
+  function handlePeriodoLetivoSortChange(logicalIndex: number) {
+    if (periodoLetivoSortColumn === logicalIndex) {
+      if (periodoLetivoSortAsc) {
+        setPeriodoLetivoSortAsc(false);
+      } else {
+        setPeriodoLetivoSortColumn(null);
+        setPeriodoLetivoSortAsc(null);
+      }
+    } else {
+      setPeriodoLetivoSortColumn(logicalIndex);
+      setPeriodoLetivoSortAsc(true);
     }
   }
 
@@ -4580,6 +4727,38 @@ export default function Home() {
     setActiveSection("estruturaAcademica");
   }
 
+  function openPeriodoLetivoEditForm(periodo: PeriodoLetivo) {
+    setPeriodoLetivoForm({
+      nr_ano: periodo.nr_ano,
+      ds_periodo_letivo: periodo.ds_periodo_letivo ?? '',
+      qt_dias_letivos: periodo.qt_dias_letivos,
+      dt_inicio: periodo.dt_inicio ?? '',
+      dt_previsao_termino: periodo.dt_previsao_termino ?? '',
+      dt_termino: periodo.dt_termino ?? '',
+      dt_reativacao: periodo.dt_reativacao ?? '',
+      ie_status: periodo.ie_status ?? 'A',
+    });
+    setPeriodoLetivoEditingId(periodo.id ?? null);
+    setPeriodoLetivoAuditInfo({
+      createdAt: periodo.dt_criacao ?? '',
+      updatedAt: periodo.dt_alteracao ?? '',
+      createdBy: periodo.ds_usuario_criacao ?? '',
+      updatedBy: periodo.ds_usuario_alteracao ?? '',
+    });
+    setMessage("");
+    setPeriodoLetivoCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  function goToPeriodoLetivoList() {
+    setPeriodoLetivoForm(emptyPeriodoLetivoForm);
+    setPeriodoLetivoEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
+  }
+
   function goToColaboradorList() {
     setColaboradorForm(emptyColaboradorForm);
     setColaboradorEditingId(null);
@@ -4808,6 +4987,41 @@ export default function Home() {
       return 0;
     });
   }, [filteredColaboradores, colaboradorSortColumn, colaboradorSortAsc]);
+
+  const filteredSortedPeriodosLetivos = useMemo(() => {
+    const f = appliedPeriodoLetivoFilterForm;
+    const filtrados = periodosLetivos.filter((p) => {
+      if (f.nr_sequencia && String(p.nr_sequencia) !== f.nr_sequencia.trim()) return false;
+      if (f.nr_ano && String(p.nr_ano ?? '') !== f.nr_ano.trim()) return false;
+      if (f.ds_periodo_letivo && !(p.ds_periodo_letivo ?? '').toLowerCase().includes(f.ds_periodo_letivo.trim().toLowerCase())) return false;
+      if (f.ie_status && (p.ie_status ?? '') !== f.ie_status) return false;
+      return true;
+    });
+    if (periodoLetivoSortColumn === null || periodoLetivoSortAsc === null) {
+      // Ordem padrão: coluna # (nr_sequencia).
+      return filtrados.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+    }
+    const key = PERIODO_LETIVO_COLUMNS[periodoLetivoSortColumn].key;
+    return filtrados.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') {
+        return periodoLetivoSortAsc ? valA - valB : valB - valA;
+      }
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return periodoLetivoSortAsc ? -1 : 1;
+      if (strA > strB) return periodoLetivoSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [periodosLetivos, appliedPeriodoLetivoFilterForm, periodoLetivoSortColumn, periodoLetivoSortAsc]);
+
+  const currentPeriodoLetivoEditIndex = useMemo(() => {
+    if (!periodoLetivoEditingId) return -1;
+    return filteredSortedPeriodosLetivos.findIndex((p) => p.id === periodoLetivoEditingId);
+  }, [filteredSortedPeriodosLetivos, periodoLetivoEditingId]);
+  const hasPrevPeriodoLetivoRecord = currentPeriodoLetivoEditIndex > 0;
+  const hasNextPeriodoLetivoRecord = currentPeriodoLetivoEditIndex >= 0 && currentPeriodoLetivoEditIndex < filteredSortedPeriodosLetivos.length - 1;
 
   const filteredSortedAtivos = useMemo(() => {
     let sorted = [...ativos].filter((a) => {
@@ -5370,6 +5584,18 @@ export default function Home() {
     if (next) openAlunoEditForm(next);
   }
 
+  function goToPrevPeriodoLetivoRecord() {
+    if (!hasPrevPeriodoLetivoRecord) return;
+    const previous = filteredSortedPeriodosLetivos[currentPeriodoLetivoEditIndex - 1];
+    if (previous) openPeriodoLetivoEditForm(previous);
+  }
+
+  function goToNextPeriodoLetivoRecord() {
+    if (!hasNextPeriodoLetivoRecord) return;
+    const next = filteredSortedPeriodosLetivos[currentPeriodoLetivoEditIndex + 1];
+    if (next) openPeriodoLetivoEditForm(next);
+  }
+
   function goToPrevColaboradorRecord() {
     if (!hasPrevColaboradorRecord) return;
     const previous = filteredSortedColaboradores[currentColaboradorEditIndex - 1];
@@ -5625,6 +5851,75 @@ export default function Home() {
       setMessage("Erro ao salvar.");
     } finally {
       setColaboradorSubmitting(false);
+    }
+  }
+
+  /* ── Salvar (criar ou atualizar) Período letivo ── */
+  async function handlePeriodoLetivoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const periodoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'periodo_letivo');
+    const periodoFaltantes = camposObrigatoriosVazios(periodoLetivoForm as unknown as Record<string, unknown>, periodoRegras);
+    if (periodoFaltantes.length > 0) {
+      setPeriodoLetivoCampoErros(periodoFaltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setPeriodoLetivoCampoErros([]);
+    // Cadastro "Em andamento" não pode começar antes de hoje.
+    if (!periodoLetivoEditingId && (periodoLetivoForm.ie_status ?? 'A') === 'A' && periodoLetivoForm.dt_inicio) {
+      const inicio = parseDateInput(periodoLetivoForm.dt_inicio);
+      const hoje = new Date();
+      const hojeNum = hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate();
+      if (inicio !== null && inicio < hojeNum) {
+        mostrarToast("Não é possível cadastrar um período letivo 'Em andamento' com a data anterior a data atual.", 'error');
+        return;
+      }
+    }
+    setPeriodoLetivoSubmitting(true);
+
+    try {
+      if (periodoLetivoEditingId) {
+        const currentPeriodo = periodosLetivos.find((p) => p.id === periodoLetivoEditingId);
+        const formKeys: Array<keyof PeriodoLetivoFormData> = [
+          'nr_ano',
+          'ds_periodo_letivo',
+          'qt_dias_letivos',
+          'dt_inicio',
+          'dt_previsao_termino',
+          'dt_termino',
+          'dt_reativacao',
+          'ie_status',
+        ];
+        const hasChanges = currentPeriodo
+          ? formKeys.some((key) => String(currentPeriodo[key] ?? '') !== String(periodoLetivoForm[key] ?? ''))
+          : true;
+
+        if (!hasChanges) {
+          setMessage("Nenhuma alteração detectada.");
+          setPeriodoLetivoForm(emptyPeriodoLetivoForm);
+          setPeriodoLetivoEditingId(null);
+          await loadPeriodosLetivos();
+          setView("list");
+          return;
+        }
+
+        await atualizarPeriodoLetivo(periodoLetivoEditingId, periodoLetivoForm, auditAutor);
+        setMessage("Atualizado com sucesso!");
+      } else {
+        await criarPeriodoLetivo(periodoLetivoForm, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+
+      setPeriodoLetivoForm(emptyPeriodoLetivoForm);
+      setPeriodoLetivoEditingId(null);
+      await loadPeriodosLetivos();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setPeriodoLetivoSubmitting(false);
     }
   }
 
@@ -6624,6 +6919,8 @@ export default function Home() {
     } else if (activeSection === 'estruturaAcademica') {
       if (alunoManageSelection === 'colaboradores') {
         item = colaboradores.find((c) => c.id === colaboradorEditingId) ?? null;
+      } else if (alunoManageSelection === 'periodoLetivo') {
+        item = periodosLetivos.find((p) => p.id === periodoLetivoEditingId) ?? null;
       } else {
         item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
@@ -6697,6 +6994,65 @@ export default function Home() {
     if (view === 'form') goToColaboradorList();
   }
 
+  /** Abre o modal "Encerrar"/"Reativar" do período letivo, com a data atual preenchida. */
+  function openStatusPeriodoModal(periodo: PeriodoLetivo, acao: 'encerrar' | 'reativar') {
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setStatusPeriodoData(`${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`);
+    setStatusPeriodoModal({ periodo, acao });
+    setMessage("");
+  }
+
+  function closeStatusPeriodoModal() {
+    setStatusPeriodoModal(null);
+  }
+
+  /**
+   * Encerrar: status Encerrado + Data de término.
+   * Reativar: status Em andamento + Data de reativação (a Data de término é mantida como histórico).
+   */
+  async function handleStatusPeriodoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!statusPeriodoModal?.periodo.id) return;
+    const { periodo, acao } = statusPeriodoModal;
+    const encerrar = acao === 'encerrar';
+    setMessage("");
+    if (parseDateInput(statusPeriodoData) === null) {
+      setMessage(encerrar ? "Informe a data de término." : "Informe a data de reativação.");
+      return;
+    }
+    setStatusPeriodoSaving(true);
+    try {
+      await atualizarPeriodoLetivo(
+        periodo.id!,
+        encerrar
+          ? { ie_status: 'E', dt_termino: statusPeriodoData }
+          : { ie_status: 'A', dt_reativacao: statusPeriodoData },
+        auditAutor
+      );
+      closeStatusPeriodoModal();
+      await loadPeriodosLetivos();
+      if (view === 'form') goToPeriodoLetivoList();
+      setMessage(encerrar ? "Período letivo encerrado com sucesso." : "Período letivo reativado com sucesso.");
+    } catch {
+      setMessage(encerrar ? "Erro ao encerrar o período letivo." : "Erro ao reativar o período letivo.");
+    } finally {
+      setStatusPeriodoSaving(false);
+    }
+  }
+
+  async function handlePeriodoLetivoDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirPeriodoLetivo(id);
+      setMessage("Excluído com sucesso!");
+      await loadPeriodosLetivos();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToPeriodoLetivoList();
+  }
+
   async function handleAtivoDelete(id: string) {
     setMessage("");
     try {
@@ -6714,7 +7070,7 @@ export default function Home() {
     setMessage("");
     setGerandoCodigoPatrimonio(true);
     try {
-      const doc = await obterParamRegra(COLECAO_PARAM_CODIGO_PATRIMONIO);
+      const doc = await obterParametro(COLECAO_PARAM_CODIGO_PATRIMONIO);
       if (!doc?.ds_regra) {
         setMessage("Nenhuma regra de geração de patrimônio configurada.");
         return;
@@ -6753,7 +7109,7 @@ export default function Home() {
     setMessage("");
     setGerandoMatricula(true);
     try {
-      const doc = await obterParamRegra(COLECAO_PARAM_MATRICULA_ALUNO);
+      const doc = await obterParametro(COLECAO_PARAM_MATRICULA_ALUNO);
       if (!doc?.ds_regra) {
         setMessage("Nenhuma regra de geração de matrícula configurada.");
         return;
@@ -7769,6 +8125,7 @@ export default function Home() {
     if (
       message.toLowerCase().includes("sucesso") ||
       message.toLowerCase().includes("gerado") ||
+      message.toLowerCase().includes("gerada") ||
       message.toLowerCase().includes("criada") ||
       message.toLowerCase().includes("criado") ||
       message.toLowerCase().includes("alterada") ||
@@ -7950,7 +8307,7 @@ export default function Home() {
     } else if (secao === 'cadastrosGerais') {
       setCgManageSelection(''); setCgInteracted(false); setCgEditingId(null);
     } else if (secao === 'estruturaAcademica') {
-      setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null);
+      setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null);
     } else if (secao === 'patrimonio') {
       setAtivoManageSelection(''); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
@@ -8452,13 +8809,37 @@ export default function Home() {
                     allowedSubmodulos={allowedAlunoSubmodulos}
                     onSaveSuccess={(msg) => setMessage(msg)}
                     onSavingChange={setParametrosSaving}
-                    createdAt={eaParametrosAuditInfo.createdAt}
-                    updatedAt={eaParametrosAuditInfo.updatedAt}
-                    createdBy={resolverNomeAutorExibicao(eaParametrosAuditInfo.createdBy)}
-                    updatedBy={resolverNomeAutorExibicao(eaParametrosAuditInfo.updatedBy)}
-                    onOpenAudit={openEaParametrosAuditModal}
+                    onOpenAudit={openParametroAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
                     auditAutor={auditAutor}
-                    onAfterSave={setEaParametrosAuditInfo}
+                    onAfterSave={(colecao) => {
+                      if (colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO || colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO) {
+                        loadCoresStatusPeriodoLetivo();
+                      }
+                      if (colecao === COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO) {
+                        loadEncerramentoAutomaticoPeriodoLetivo();
+                      }
+                    }}
+                  />
+                ) : alunoManageSelection === 'periodoLetivo' ? (
+                  <PeriodoLetivoListView
+                    message={message}
+                    loading={loading}
+                    periodosLetivos={filteredSortedPeriodosLetivos}
+                    openNewForm={handlePeriodoLetivoNewForm}
+                    openEditForm={openPeriodoLetivoEditForm}
+                    openFilter={openPeriodoLetivoFilterModal}
+                    handleDelete={handlePeriodoLetivoDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    sortColumn={periodoLetivoSortColumn}
+                    sortAsc={periodoLetivoSortAsc}
+                    onSortChange={handlePeriodoLetivoSortChange}
+                    {...colunasPorIndice('config_colunas_periodo_letivo')}
+                    coresStatus={coresStatusPeriodoLetivo}
                   />
                 ) : alunoManageSelection === 'alunos' ? (
                   <AlunoListView
@@ -8515,17 +8896,9 @@ export default function Home() {
                     allowedSubmodulos={allowedPatrimonioSubmodulos}
                     onSaveSuccess={(msg) => setMessage(msg)}
                     onSavingChange={setParametrosSaving}
-                    createdAt={parametrosAuditInfo.createdAt}
-                    updatedAt={parametrosAuditInfo.updatedAt}
-                    createdBy={resolverNomeAutorExibicao(parametrosAuditInfo.createdBy)}
-                    updatedBy={resolverNomeAutorExibicao(parametrosAuditInfo.updatedBy)}
-                    onOpenAudit={openParametrosAuditModal}
-                    auditHasDocument={parametrosHasDocument}
+                    onOpenAudit={openParametroAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
                     auditAutor={auditAutor}
-                    onAfterSave={(info) => {
-                      setParametrosAuditInfo(info);
-                      setParametrosHasDocument(true);
-                    }}
                   />
                 ) : ativoManageSelection === 'categoria' ? (
                   <CadastroGeralListView
@@ -8924,7 +9297,33 @@ export default function Home() {
                   campoErros={perfilCampoErros}
                 />
               )            ) : activeSection === "estruturaAcademica" ? (
-                alunoManageSelection === 'alunos' ? (
+                alunoManageSelection === 'periodoLetivo' ? (
+                  <PeriodoLetivoFormView
+                    message={message}
+                    editingId={periodoLetivoEditingId}
+                    sequence={periodoLetivoEditingId ? (periodosLetivos.find((p) => p.id === periodoLetivoEditingId)?.nr_sequencia ?? null) : null}
+                    form={periodoLetivoForm}
+                    setForm={setPeriodoLetivoForm}
+                    submitting={periodoLetivoSubmitting}
+                    handleSubmit={handlePeriodoLetivoSubmit}
+                    goToList={goToPeriodoLetivoList}
+                    createdAt={periodoLetivoAuditInfo.createdAt}
+                    updatedAt={periodoLetivoAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(periodoLetivoAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(periodoLetivoAuditInfo.updatedBy)}
+                    onOpenAudit={openPeriodoLetivoAuditModal}
+                    onPrevRecord={goToPrevPeriodoLetivoRecord}
+                    onNextRecord={goToNextPeriodoLetivoRecord}
+                    hasPrevRecord={hasPrevPeriodoLetivoRecord}
+                    hasNextRecord={hasNextPeriodoLetivoRecord}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'periodo_letivo')}
+                    campoErros={periodoLetivoCampoErros}
+                  />
+                ) : alunoManageSelection === 'alunos' ? (
                   <AlunoFormView
                     message={message}
                     editingId={alunoEditingId}
@@ -9159,6 +9558,8 @@ export default function Home() {
             } else if (contextMenu.section === 'estruturaAcademica') {
               if (alunoManageSelection === 'colaboradores') {
                 openColaboradorEditForm(contextMenu.item as unknown as Colaborador);
+              } else if (alunoManageSelection === 'periodoLetivo') {
+                openPeriodoLetivoEditForm(contextMenu.item as PeriodoLetivo);
               } else {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
@@ -9214,7 +9615,7 @@ export default function Home() {
                 items.push({
                   label: regerarCodigo ? 'Regerar código de patrimônio' : 'Gerar código de patrimônio',
                   onClick: () => {
-                    setConfirmGerar({
+                    setConfirmAcao({
                       titulo: regerarCodigo ? 'Regerar código de patrimônio' : 'Gerar código de patrimônio',
                       mensagem: `Deseja ${regerarCodigo ? 'regerar' : 'gerar'} o código de patrimônio?`,
                       acao: () => handleGerarCodigoPatrimonio(ativoGerar),
@@ -9271,7 +9672,7 @@ export default function Home() {
                 items.push({
                   label: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
                   onClick: () => {
-                    setConfirmGerar({
+                    setConfirmAcao({
                       titulo: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
                       mensagem: `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
                       acao: () => handleGerarMatricula(alunoGerar),
@@ -9279,6 +9680,17 @@ export default function Home() {
                     setContextMenu(null);
                   },
                 });
+              }
+              return items.length > 0 ? items : undefined;
+            }
+            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'periodoLetivo') {
+              const items: { label: string; onClick: () => void }[] = [];
+              const periodo = contextMenu.item as PeriodoLetivo;
+              if (periodo.ie_status !== 'E' && permissoesEA.encerrarPeriodoLetivo) {
+                items.push({ label: 'Encerrar', onClick: () => { openStatusPeriodoModal(periodo, 'encerrar'); setContextMenu(null); } });
+              }
+              if (periodo.ie_status === 'E' && permissoesEA.reativarPeriodoLetivo) {
+                items.push({ label: 'Reativar', onClick: () => { openStatusPeriodoModal(periodo, 'reativar'); setContextMenu(null); } });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -9394,6 +9806,13 @@ export default function Home() {
                 if (colaborador.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${colaborador.nr_sequencia}?`);
                   setConfirmDeleteAction(() => () => handleColaboradorDelete(colaborador.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (alunoManageSelection === 'periodoLetivo') {
+                const periodo = contextMenu.item as PeriodoLetivo;
+                if (periodo.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${periodo.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handlePeriodoLetivoDelete(periodo.id as string));
                   setConfirmDeleteOpen(true);
                 }
               } else {
@@ -10322,6 +10741,94 @@ export default function Home() {
               <button
                 type="button"
                 onClick={clearColaboradorFilter}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Limpar
+              </button>
+              <button
+                type="submit"
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Filtrar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
+      {periodoLetivoFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'periodoLetivo' && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closePeriodoLetivoFilterModal} />
+          <form onSubmit={handlePeriodoLetivoFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
+              <button
+                type="button"
+                onClick={closePeriodoLetivoFilterModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar filtro"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
+              <div className="sm:col-span-2">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Sequência
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={10}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={periodoLetivoFilterForm.nr_sequencia}
+                  onChange={(e) => setPeriodoLetivoFilterForm({ ...periodoLetivoFilterForm, nr_sequencia: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-2">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Ano
+                </label>
+                <input
+                  inputMode="numeric"
+                  maxLength={4}
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={periodoLetivoFilterForm.nr_ano}
+                  onChange={(e) => setPeriodoLetivoFilterForm({ ...periodoLetivoFilterForm, nr_ano: e.target.value.replace(/\D/g, '').slice(0, 4) })}
+                />
+              </div>
+              <div className="sm:col-span-5">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Descrição
+                </label>
+                <input
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                  value={periodoLetivoFilterForm.ds_periodo_letivo}
+                  onChange={(e) => setPeriodoLetivoFilterForm({ ...periodoLetivoFilterForm, ds_periodo_letivo: e.target.value })}
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  Status
+                </label>
+                <Select
+                  value={periodoLetivoFilterForm.ie_status}
+                  onChange={(v) => setPeriodoLetivoFilterForm({ ...periodoLetivoFilterForm, ie_status: v })}
+                  options={STATUS_PERIODO_LETIVO_OPTIONS}
+                  showPlaceholder
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={clearPeriodoLetivoFilter}
                 className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
               >
@@ -11636,6 +12143,69 @@ export default function Home() {
         </div>
       )}
 
+      {statusPeriodoModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeStatusPeriodoModal} />
+          <form
+            onSubmit={handleStatusPeriodoSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>
+                {statusPeriodoModal.acao === 'encerrar' ? 'Encerrar período letivo' : 'Reativar período letivo'}
+              </h2>
+              <button
+                type="button"
+                onClick={closeStatusPeriodoModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <label className="block text-sm mb-1" style={{ color: '#666' }}>
+                  {statusPeriodoModal.acao === 'encerrar' ? 'Data de término' : 'Data de reativação'}
+                </label>
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  value={statusPeriodoData}
+                  onChange={(e) => setStatusPeriodoData(applyDateMask(e.target.value))}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeStatusPeriodoModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={statusPeriodoSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {alterarIngressoModalOpen && alterarIngressoAluno && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAlterarIngressoModal} />
@@ -12665,8 +13235,9 @@ export default function Home() {
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
+        const isPeriodoLetivo = auditDocumentType === 'periodo_letivo';
         const isAtivo = auditDocumentType === 'pat_ativo';
-        const isParametros = auditDocumentType === 'pat_parametros' || auditDocumentType === 'ea_parametros';
+        const isParametros = auditDocumentType === 'parametro';
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
         const isBanda = isRelatorio && relatorioAuditTipo === 'relatorio_banda';
@@ -12770,6 +13341,20 @@ export default function Home() {
               'dt_criacao',
               'dt_alteracao',
             ]
+          : isPeriodoLetivo
+          ? [
+              'nr_sequencia',
+              'nr_ano',
+              'ds_periodo_letivo',
+              'qt_dias_letivos',
+              'dt_inicio',
+              'dt_previsao_termino',
+              'dt_termino',
+              'dt_reativacao',
+              'ie_status',
+              'dt_criacao',
+              'dt_alteracao',
+            ]
           : isColaborador
           ? [
               'nr_sequencia',
@@ -12813,6 +13398,8 @@ export default function Home() {
           : isParametros
           ? [
               'ds_regra',
+              'cd_cor',
+              'ie_regra',
               'dt_criacao', 'dt_alteracao',
             ]
           : isManutencao
@@ -12920,6 +13507,12 @@ export default function Home() {
                       nr_seq_pessoa_fisica: 'Pessoa física',
                       nr_seq_pessoa_juridica: 'Pessoa jurídica',
                       dt_admissao: 'Data de admissão',
+                      nr_ano: 'Ano',
+                      ds_periodo_letivo: 'Descrição',
+                      qt_dias_letivos: 'Dias letivos',
+                      dt_inicio: 'Data de início',
+                      dt_previsao_termino: 'Previsão de término',
+                      dt_reativacao: 'Data de reativação',
                       ds_usuario: 'Usuário',
                       ds_usuario_alternativo: 'Usuário alternativo',
                       ie_status: 'Status',
@@ -12996,6 +13589,7 @@ export default function Home() {
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
                       ds_regra: 'Regra',
+                      ie_regra: 'Regra',
                       ie_logout_dia: 'Dia',
                       hr_logout: 'Horário',
                       ie_badge_teste: 'Badge de teste',
@@ -13167,7 +13761,11 @@ export default function Home() {
                       }
                       if (field === 'ie_status') {
                         if (isColaborador) return formatColaboradorCellValue('ie_status', normalized);
+                        if (isPeriodoLetivo) return formatPeriodoLetivoCellValue('ie_status', normalized);
                         return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
+                      }
+                      if (field === 'ie_regra') {
+                        return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : '---';
                       }
                       if (field === 'formato') {
                         return String(normalized) === 'pdf' ? 'PDF' : String(normalized);
@@ -13718,22 +14316,22 @@ export default function Home() {
         </div>
       )}
 
-      {confirmGerar && (
+      {confirmAcao && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmGerar(null)} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => setConfirmAcao(null)} />
           <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>{confirmGerar.titulo}</h2>
-              <button type="button" onClick={() => setConfirmGerar(null)} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>{confirmAcao.titulo}</h2>
+              <button type="button" onClick={() => setConfirmAcao(null)} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="px-[15px] pt-[15px]">
-              <p className="text-sm text-slate-900">{confirmGerar.mensagem}</p>
+              <p className="text-sm text-slate-900">{confirmAcao.mensagem}</p>
             </div>
             <div className="flex justify-end gap-2 px-[15px] pt-20 pb-[15px]">
-              <button type="button" onClick={() => setConfirmGerar(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
-              <button type="button" onClick={() => { const acao = confirmGerar.acao; setConfirmGerar(null); acao(); }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
+              <button type="button" onClick={() => setConfirmAcao(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
+              <button type="button" onClick={() => { const acao = confirmAcao.acao; setConfirmAcao(null); acao(); }} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
             </div>
           </div>
         </div>
@@ -13863,7 +14461,7 @@ export default function Home() {
         gerandoCodigoPatrimonio || gerandoMatricula || parametrosSaving || relatorioGerando ||
         submitting || pjSubmitting || adminSubmitting || cgSubmitting ||
         perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting ||
-        alunoSubmitting || colaboradorSubmitting ||
+        alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
         ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving ||
         delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving

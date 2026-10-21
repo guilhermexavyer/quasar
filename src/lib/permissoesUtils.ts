@@ -68,6 +68,13 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "alterar_data_admissao_colaborador", label: "Permite alterar data de admissão" },
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
     { key: "excluir_colaborador", label: "Permite excluir" },
+    // Período letivo
+    { key: "acessar_periodo_letivo", label: "Permite acessar Período letivo" },
+    { key: "adicionar_periodo_letivo", label: "Permite adicionar" },
+    { key: "ver_periodo_letivo", label: "Permite ver" },
+    { key: "encerrar_periodo_letivo", label: "Permite encerrar" },
+    { key: "reativar_periodo_letivo", label: "Permite reativar" },
+    { key: "excluir_periodo_letivo", label: "Permite excluir" },
   ],
   patrimonio: [
     // Parâmetros
@@ -224,6 +231,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Parâmetros',
       chaves: ['acessar_parametros_funcao'],
     },
+    {
+      titulo: 'Período letivo',
+      chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'excluir_periodo_letivo'],
+    },
   ],
   patrimonio: [
     {
@@ -336,6 +347,7 @@ export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
   { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
   { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
+  { value: 'periodoLetivo', label: 'Período letivo', permissao: 'acessar_periodo_letivo' },
 ];
 
 /** Configuração de permissões: `funcao` → lista de chaves de permissão concedidas. */
@@ -347,7 +359,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 15;
+export const PERMISSOES_CONFIG_VERSION = 18;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é

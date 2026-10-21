@@ -91,7 +91,8 @@ export default function FieldInfoPopup({ anchor, meta, onClose }: FieldInfoPopup
   return createPortal(
     <div
       ref={popupRef}
-      className={`fixed z-[9999] w-[240px] p-[10px] text-xs border shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${darkClasses}`}
+      // Largura mínima de 240px; nomes longos (ex.: coleção) alargam a pop-up até o limite da tela.
+      className={`fixed z-[9999] w-max min-w-[240px] max-w-[calc(100vw-16px)] [overflow-wrap:anywhere] p-[10px] text-xs border shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${darkClasses}`}
       style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
       onClick={(event) => event.stopPropagation()}
     >

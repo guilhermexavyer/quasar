@@ -347,5 +347,12 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos", colecao: "aluno" },
+    { key: "periodo_letivo.nr_ano", label: "Ano", tipo: "Período letivo", colecao: "periodo_letivo" },
+    { key: "periodo_letivo.ds_periodo_letivo", label: "Descrição", tipo: "Período letivo", colecao: "periodo_letivo" },
+    { key: "periodo_letivo.qt_dias_letivos", label: "Dias letivos", tipo: "Período letivo", colecao: "periodo_letivo" },
+    { key: "periodo_letivo.dt_inicio", label: "Data de início", tipo: "Período letivo", colecao: "periodo_letivo" },
+    { key: "periodo_letivo.dt_previsao_termino", label: "Previsão de término", tipo: "Período letivo", colecao: "periodo_letivo" },
+    { key: "periodo_letivo.dt_termino", label: "Data de término", tipo: "Período letivo", colecao: "periodo_letivo" },
+    { key: "periodo_letivo.ie_status", label: "Status", tipo: "Período letivo", colecao: "periodo_letivo" },
   ],
 };

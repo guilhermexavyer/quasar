@@ -8,20 +8,31 @@ import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
   COLECAO_PARAM_CODIGO_PATRIMONIO,
+  COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
+  COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
+  COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
-  obterParamRegra,
-  salvarParamRegra,
-} from "@/services/paramRegraService";
+  obterParametro,
+  salvarParametro,
+} from "@/services/parametroFuncaoService";
 import { OPCOES_SEGMENTO_REGRA } from "@/lib/regraCodigoUtils";
+import { CORES_STATUS_PERIODO_LETIVO_PADRAO } from "@/lib/periodoLetivoUtils";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
 
-/** Parâmetro de uma função: linha da lista + coleção onde a regra é salva. */
+/**
+ * Parâmetro de uma função: linha da lista + coleção onde o valor é salvo.
+ * - "regra": regra de geração de código (ds_regra);
+ * - "cor": cor de um status (cd_cor), com a cor padrão usada enquanto não for configurada;
+ * - "simNao": dropdown "Regra" com ---/Não/Sim (ie_regra; --- equivale a Não).
+ */
 export interface ParametroDef {
   id: string;
   dropdown: string;
   parametro: string;
   colecao: string;
+  tipo: "regra" | "cor" | "simNao";
+  corPadrao?: string;
 }
 
 /** Parâmetros de configuração da função Patrimônio. */
@@ -31,6 +42,7 @@ export const PARAMETROS_PATRIMONIO: ParametroDef[] = [
     dropdown: "Ativos",
     parametro: "Geração do código de patrimônio",
     colecao: COLECAO_PARAM_CODIGO_PATRIMONIO,
+    tipo: "regra",
   },
 ];
 
@@ -41,8 +53,40 @@ export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
     dropdown: "Alunos",
     parametro: "Geração da matrícula de alunos",
     colecao: COLECAO_PARAM_MATRICULA_ALUNO,
+    tipo: "regra",
+  },
+  {
+    id: "cor_status_periodo_letivo_andamento",
+    dropdown: "Período letivo",
+    parametro: "Cor do status 'Em andamento'",
+    colecao: COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_PERIODO_LETIVO_PADRAO.A,
+  },
+  {
+    id: "cor_status_periodo_letivo_encerrado",
+    dropdown: "Período letivo",
+    parametro: "Cor do status 'Encerrado'",
+    colecao: COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_PERIODO_LETIVO_PADRAO.E,
+  },
+  {
+    id: "encerramento_automatico_periodo_letivo",
+    dropdown: "Período letivo",
+    parametro: "A previsão de término encerra o período letivo automaticamente",
+    colecao: COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
+    tipo: "simNao",
   },
 ];
+
+/** Opções do parâmetro Sim/Não ("---" vale como Não). */
+const OPCOES_SIM_NAO = [
+  { value: "N", label: "Não" },
+  { value: "S", label: "Sim" },
+];
+
+const AUDIT_VAZIO = { createdAt: "", updatedAt: "", createdBy: "", updatedBy: "" };
 
 /** Tipo de cada segmento: tipo obrigatório + texto opcional (quando tipo === "texto"). */
 interface Segmento {
@@ -63,15 +107,13 @@ interface ParametrosDaFuncaoViewProps {
   allowedSubmodulos?: string[];
   onSaveSuccess?: (message: string) => void;
   onSavingChange?: (saving: boolean) => void;
-  createdAt?: string;
-  updatedAt?: string;
-  createdBy?: string;
-  updatedBy?: string;
-  onOpenAudit?: () => void;
-  /** @deprecated O rodapé de auditoria agora é sempre exibido. */
-  auditHasDocument?: boolean;
+  /** Abre o histórico de auditoria do parâmetro (coleção dele). */
+  onOpenAudit?: (colecao: string) => void;
   auditAutor?: AuditAutor;
-  onAfterSave?: (auditInfo: { createdAt: string; updatedAt: string; createdBy: string; updatedBy: string }) => void;
+  /** Chamado depois de salvar um parâmetro (coleção dele). */
+  onAfterSave?: (colecao: string) => void;
+  /** Nome de exibição do autor nos logs de criação/alteração. */
+  resolverNomeAutor?: (nome: string) => string;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
 }
@@ -84,18 +126,21 @@ export default function ParametrosDaFuncaoView({
   allowedSubmodulos = ["parametrosFuncao"],
   onSaveSuccess,
   onSavingChange,
-  createdAt,
-  updatedAt,
-  createdBy,
-  updatedBy,
   onOpenAudit,
   auditAutor,
   onAfterSave,
+  resolverNomeAutor = (nome) => nome,
   colunas,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
   const [segmentosDraft, setSegmentosDraft] = useState<Segmento[] | null>(null);
+  const [cor, setCor] = useState("");
+  const [corDraft, setCorDraft] = useState<string | null>(null);
+  const [simNao, setSimNao] = useState("");
+  const [simNaoDraft, setSimNaoDraft] = useState<string | null>(null);
+  // Logs de criação/alteração do parâmetro selecionado.
+  const [auditInfo, setAuditInfo] = useState(AUDIT_VAZIO);
   const [saving, setSaving] = useState(false);
   const [infoAberto, setInfoAberto] = useState(false);
   const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
@@ -105,25 +150,40 @@ export default function ParametrosDaFuncaoView({
   const selectedParametro = parametros.find((p) => p.id === selectedParametroId) ?? null;
   const colecaoSelecionada = selectedParametro?.colecao ?? null;
   const segmentosEmEdicao = segmentosDraft ?? segmentos;
+  const corPadrao = selectedParametro?.corPadrao ?? "#000000";
+  const corEmEdicao = corDraft ?? (cor || corPadrao);
+  const simNaoEmEdicao = simNaoDraft ?? simNao;
 
-  // Carrega a regra salva do parâmetro selecionado
+  /** Lê o documento do parâmetro: valor salvo + logs de criação/alteração. */
+  const carregarParametro = useCallback(async (colecao: string) => {
+    const doc = await obterParametro(colecao);
+    if (doc?.ds_regra) {
+      const parsed = parseRegra(doc.ds_regra);
+      setSegmentos(parsed.length > 0 ? parsed : [segmentoVazio()]);
+    }
+    setCor(doc?.cd_cor ?? "");
+    setSimNao(doc?.ie_regra ?? "");
+    setAuditInfo(doc?.id ? {
+      createdAt: doc.dt_criacao ?? "",
+      updatedAt: doc.dt_alteracao ?? "",
+      createdBy: doc.ds_usuario_criacao ?? "",
+      updatedBy: doc.ds_usuario_alteracao ?? "",
+    } : AUDIT_VAZIO);
+  }, []);
+
+  // Carrega o parâmetro selecionado
   useEffect(() => {
     if (!colecaoSelecionada) return;
     let cancelled = false;
     (async () => {
       try {
-        const doc = await obterParamRegra(colecaoSelecionada);
-        if (cancelled) return;
-        if (doc?.ds_regra) {
-          const parsed = parseRegra(doc.ds_regra);
-          setSegmentos(parsed.length > 0 ? parsed : [segmentoVazio()]);
-        }
+        if (!cancelled) await carregarParametro(colecaoSelecionada);
       } catch (e) {
-        console.error("Erro ao carregar a regra do parâmetro", e);
+        console.error("Erro ao carregar o parâmetro", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [colecaoSelecionada]);
+  }, [colecaoSelecionada, carregarParametro]);
 
   /** Serializa segmentos para string (ex.: "AnoAtual-Hifen-Texto:ESCOLA"). */
   function serializarRegra(segs: Segmento[]): string {
@@ -181,36 +241,41 @@ export default function ParametrosDaFuncaoView({
 
   function handleCancelar() {
     setSegmentosDraft(null);
+    setCorDraft(null);
+    setSimNaoDraft(null);
   }
 
   const handleSalvar = useCallback(async () => {
-    if (!colecaoSelecionada) return;
-    const limpos = segmentosEmEdicao.filter((s) => s.tipo !== "");
-    const salvos = limpos.length > 0 ? limpos : [segmentoVazio()];
-    setSegmentos(salvos);
-    setSegmentosDraft(null);
+    if (!selectedParametro || !colecaoSelecionada) return;
     setSaving(true);
     onSavingChange?.(true);
     try {
-      await salvarParamRegra(colecaoSelecionada, serializarRegra(salvos), auditAutor);
+      if (selectedParametro.tipo === "cor") {
+        setCor(corEmEdicao);
+        setCorDraft(null);
+        await salvarParametro(colecaoSelecionada, "cd_cor", corEmEdicao, auditAutor);
+      } else if (selectedParametro.tipo === "simNao") {
+        setSimNao(simNaoEmEdicao);
+        setSimNaoDraft(null);
+        await salvarParametro(colecaoSelecionada, "ie_regra", simNaoEmEdicao, auditAutor);
+      } else {
+        const limpos = segmentosEmEdicao.filter((s) => s.tipo !== "");
+        const salvos = limpos.length > 0 ? limpos : [segmentoVazio()];
+        setSegmentos(salvos);
+        setSegmentosDraft(null);
+        await salvarParametro(colecaoSelecionada, "ds_regra", serializarRegra(salvos), auditAutor);
+      }
       onSaveSuccess?.("Parâmetro salvo com sucesso");
       // Atualizar info de auditoria
-      const docAtualizado = await obterParamRegra(colecaoSelecionada);
-      if (docAtualizado?.id) {
-        onAfterSave?.({
-          createdAt: docAtualizado.dt_criacao ?? '',
-          updatedAt: docAtualizado.dt_alteracao ?? '',
-          createdBy: docAtualizado.ds_usuario_criacao ?? '',
-          updatedBy: docAtualizado.ds_usuario_alteracao ?? '',
-        });
-      }
+      await carregarParametro(colecaoSelecionada);
+      onAfterSave?.(colecaoSelecionada);
     } catch (e) {
-      console.error("Erro ao salvar a regra do parâmetro", e);
+      console.error("Erro ao salvar o parâmetro", e);
     } finally {
       setSaving(false);
       onSavingChange?.(false);
     }
-  }, [colecaoSelecionada, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave]);
+  }, [selectedParametro, colecaoSelecionada, corEmEdicao, simNaoEmEdicao, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave, carregarParametro]);
 
   // Manter ref atualizado
   useEffect(() => {
@@ -270,9 +335,14 @@ export default function ParametrosDaFuncaoView({
                 rowClassName={(p) => (p.id === selectedParametroId ? "row-selected" : "")}
                 onRowClick={(p) => {
                   if (p.id === selectedParametroId) return;
-                  // Troca de parâmetro: descarta a regra/edição do anterior até a nova carregar.
+                  // Troca de parâmetro: descarta o valor/edição do anterior até o novo carregar.
                   setSegmentos([segmentoVazio()]);
                   setSegmentosDraft(null);
+                  setCor("");
+                  setCorDraft(null);
+                  setSimNao("");
+                  setSimNaoDraft(null);
+                  setAuditInfo(AUDIT_VAZIO);
                   setSelectedParametroId(p.id);
                 }}
               />
@@ -298,10 +368,10 @@ export default function ParametrosDaFuncaoView({
             ) : (
               <div className="flex flex-col h-full min-h-0">
                 <div className="overflow-auto flex-1 min-h-0">
-                  {/* Rótulo dos campos da regra (com infobutton, como os demais campos do sistema) */}
+                  {/* Rótulo do campo (com infobutton, como os demais campos do sistema) */}
                   <div className="block text-sm mb-1" style={{ color: "#666" }}>
                     <div className="relative group inline-flex items-center gap-2">
-                      <span>Regra</span>
+                      <span>{selectedParametro.tipo === "cor" ? "Cor" : "Regra"}</span>
                       <button
                         type="button"
                         onClick={(event) => {
@@ -309,7 +379,7 @@ export default function ParametrosDaFuncaoView({
                           setInfoAnchor(event.currentTarget);
                           setInfoAberto((v) => !v);
                         }}
-                        aria-label="Informações do campo Regra"
+                        aria-label={`Informações do campo ${selectedParametro.tipo === "cor" ? "Cor" : "Regra"}`}
                         className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoAberto ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -321,12 +391,37 @@ export default function ParametrosDaFuncaoView({
                       {infoAberto && (
                         <FieldInfoPopup
                           anchor={infoAnchor}
-                          meta={{ type: "string", field: "ds_regra", collection: selectedParametro.colecao }}
+                          meta={{ type: "string", field: selectedParametro.tipo === "cor" ? "cd_cor" : selectedParametro.tipo === "simNao" ? "ie_regra" : "ds_regra", collection: selectedParametro.colecao }}
                           onClose={() => setInfoAberto(false)}
                         />
                       )}
                     </div>
                   </div>
+                  {selectedParametro.tipo === "simNao" ? (
+                    <div className="w-full">
+                      <Select
+                        value={simNaoEmEdicao}
+                        onChange={(v) => setSimNaoDraft(v)}
+                        options={OPCOES_SIM_NAO}
+                        showPlaceholder
+                      />
+                    </div>
+                  ) : selectedParametro.tipo === "cor" ? (
+                    <div className="relative w-[140px]" style={{ height: 34 }}>
+                      <input
+                        type="color"
+                        id={`cor-parametro-${selectedParametro.id}`}
+                        value={corEmEdicao}
+                        onChange={(e) => setCorDraft(e.target.value)}
+                        className="absolute opacity-0 w-0 h-0 pointer-events-none"
+                      />
+                      <div
+                        className="w-full h-full cursor-pointer border border-slate-300"
+                        style={{ backgroundColor: corEmEdicao }}
+                        onClick={() => document.getElementById(`cor-parametro-${selectedParametro.id}`)?.click()}
+                      />
+                    </div>
+                  ) : (
                   <div className="space-y-2 w-full">
                     {segmentosEmEdicao.map((seg, index) => {
                       const isTexto = seg.tipo === "texto";
@@ -384,18 +479,20 @@ export default function ParametrosDaFuncaoView({
                       );
                     })}
                   </div>
+                  )}
                 </div>
 
                 {/* Botões Cancelar / Salvar — canto inferior direito */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
-                  {/* Logs de criação/alteração: sempre visíveis ("-" até o primeiro salvamento). */}
+                  {/* Logs de criação/alteração: só depois que o parâmetro for salvo pela primeira vez. */}
+                  {auditInfo.createdAt && (
                   <div className="text-[13px] text-slate-500">
                     <div className="relative group flex items-center gap-2">
-                      <span>Criado por {createdBy || '-'} em {createdAt ? formatDate(createdAt) : '-'}</span>
+                      <span>Criado por {auditInfo.createdBy ? resolverNomeAutor(auditInfo.createdBy) : '-'} em {auditInfo.createdAt ? formatDate(auditInfo.createdAt) : '-'}</span>
                       <button
                         type="button"
                         aria-hidden="true"
-                        onClick={onOpenAudit}
+                        onClick={() => onOpenAudit?.(selectedParametro.colecao)}
                         className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -406,11 +503,11 @@ export default function ParametrosDaFuncaoView({
                       </button>
                     </div>
                     <div className="relative group flex items-center gap-2 mt-1">
-                      <span>Alterado por {updatedBy || '-'} em {updatedAt ? formatDate(updatedAt) : '-'}</span>
+                      <span>Alterado por {auditInfo.updatedBy ? resolverNomeAutor(auditInfo.updatedBy) : '-'} em {auditInfo.updatedAt ? formatDate(auditInfo.updatedAt) : '-'}</span>
                       <button
                         type="button"
                         aria-hidden="true"
-                        onClick={onOpenAudit}
+                        onClick={() => onOpenAudit?.(selectedParametro.colecao)}
                         className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -421,6 +518,7 @@ export default function ParametrosDaFuncaoView({
                       </button>
                     </div>
                   </div>
+                  )}
                   <div className="flex items-center justify-end gap-2 ml-auto">
                     <button
                       type="button"

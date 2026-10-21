@@ -10,6 +10,7 @@ import type { Logradouro } from "@/types/logradouro";
 import type { OrgaoEmissor } from "@/types/orgaoEmissor";
 import type { Aluno } from "@/types/aluno";
 import type { Colaborador } from "@/types/colaborador";
+import type { PeriodoLetivo } from "@/types/periodoLetivo";
 import type { GrauParentesco } from "@/types/grauParentesco";
 import type { Cargo } from "@/types/cargo";
 import type { VinculoContratual } from "@/types/vinculoContratual";
@@ -27,5 +28,5 @@ export interface ContextMenuState {
   x: number;
   y: number;
   section: SectionType;
-  item: PessoaFisica | PessoaJuridica | Usuario | Perfil | Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | Aluno | GrauParentesco | Colaborador | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | Ativo | Manutencao | Relatorio | Imagem;
+  item: PessoaFisica | PessoaJuridica | Usuario | Perfil | Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | Aluno | GrauParentesco | Colaborador | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | Ativo | Manutencao | Relatorio | Imagem | PeriodoLetivo;
 }

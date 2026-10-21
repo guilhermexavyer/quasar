@@ -14,6 +14,7 @@ export interface Usuario {
   config_colunas_pessoa_juridica?: string;
   config_colunas_aluno?: string;
   config_colunas_colaborador?: string;
+  config_colunas_periodo_letivo?: string;
   /* Janelas de busca (lookups) */
   config_colunas_lookup_pessoa_fisica?: string;
   config_colunas_lookup_pessoa_juridica?: string;
