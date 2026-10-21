@@ -16,6 +16,7 @@ import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils"
 import { COLECAO_PERIODO_LETIVO_FERIADO } from "@/lib/periodoLetivoFeriadoUtils";
 import type { PeriodoLetivoFeriado } from "@/types/periodoLetivoFeriado";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 const feriadoColecao = collection(db, COLECAO_PERIODO_LETIVO_FERIADO);
 const contadorDoc = doc(db, "_counters", "periodo_letivo_feriado_sequence");
@@ -110,11 +111,15 @@ export async function atualizarFeriado(
 }
 
 export async function excluirFeriado(id: string): Promise<void> {
+  await registrarExclusao(COLECAO_PERIODO_LETIVO_FERIADO, id);
   await deleteDoc(doc(db, COLECAO_PERIODO_LETIVO_FERIADO, id));
 }
 
 /** Exclui todos os feriados de um período letivo (usado ao excluir o período). */
 export async function excluirFeriadosDoPeriodo(nrSeqPeriodoLetivo: number): Promise<void> {
   const snap = await getDocs(query(feriadoColecao, where("nr_seq_periodo_letivo", "==", nrSeqPeriodoLetivo)));
-  await Promise.all(snap.docs.map((d) => deleteDoc(d.ref)));
+  await Promise.all(snap.docs.map(async (d) => {
+    await registrarExclusao(COLECAO_PERIODO_LETIVO_FERIADO, d.id);
+    await deleteDoc(d.ref);
+  }));
 }

@@ -13,6 +13,7 @@ import { db } from "@/lib/firebase";
 import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { PeriodoLetivo } from "@/types/periodoLetivo";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 const periodoLetivoColecao = collection(db, "periodo_letivo");
 const contadorDoc = doc(db, "_counters", "periodo_letivo_sequence");
@@ -204,6 +205,7 @@ export async function atualizarPeriodoLetivo(
 }
 
 export async function excluirPeriodoLetivo(id: string): Promise<void> {
+  await registrarExclusao("periodo_letivo", id);
   const docRef = doc(db, "periodo_letivo", id);
   await deleteDoc(docRef);
 }

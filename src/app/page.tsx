@@ -187,6 +187,11 @@ import ColaboradorViewModal from "@/components/estruturaAcademica/ColaboradorVie
 import PeriodoLetivoListView from "@/components/estruturaAcademica/PeriodoLetivoListView";
 import PeriodoLetivoFormView, { type PeriodoLetivoFormData } from "@/components/estruturaAcademica/PeriodoLetivoFormView";
 import PeriodoLetivoFeriadosView from "@/components/estruturaAcademica/PeriodoLetivoFeriadosView";
+import ExclusoesView, { type NavegacaoExclusoes } from "@/components/administracaoSistema/ExclusoesView";
+import ExclusaoFormularioView from "@/components/administracaoSistema/ExclusaoFormularioView";
+import FormularioExcluidoGenerico, { FORMULARIOS_GENERICOS } from "@/components/administracaoSistema/FormularioExcluidoGenerico";
+import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
+import { definirAutorExclusoes, type Exclusao } from "@/services/exclusaoService";
 import { excluirFeriadosDoPeriodo } from "@/services/periodoLetivoFeriadoService";
 import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
@@ -352,7 +357,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.68.0";
+const SYSTEM_VERSION = "0.69.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1666,7 +1671,7 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['avisos', 'campos', 'perfis', 'usuarios', 'imagens', 'regras'];
+    if (isAdminSemConfig) return ['avisos', 'campos', 'exclusoes', 'perfis', 'usuarios', 'imagens', 'regras'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2135,6 +2140,19 @@ export default function Home() {
       usuarioNome: currentUser.ds_usuario?.trim() || "-",
     };
   }, [currentUser]);
+
+  // Quem exclui um registro fica documentado em Administração do Sistema > Exclusões.
+  // O perfil em uso no momento da exclusão também fica registrado.
+  const perfilEmUso = usuarioPerfisVinculados.find((p) => p.nr_sequencia === activePerfilSequencia) ?? usuarioPerfisVinculados[0];
+  useEffect(() => {
+    definirAutorExclusoes(auditAutor, perfilEmUso ? { nr_sequencia: perfilEmUso.nr_sequencia, ds_perfil: perfilEmUso.ds_perfil } : undefined);
+  }, [auditAutor, perfilEmUso]);
+
+  // Administração do Sistema > Exclusões: função selecionada e registro aberto no "Ver".
+  const [exclusoesColecao, setExclusoesColecao] = useState<string | null>(null);
+  const [exclusaoVer, setExclusaoVer] = useState<Exclusao | null>(null);
+  const [exclusoesNavegacao, setExclusoesNavegacao] = useState<NavegacaoExclusoes>({ caminho: [], aba: null });
+  const [exclusaoCidadeNome, setExclusaoCidadeNome] = useState('');
 
   // Resolve ds_usuario → nome da pessoa física vinculada (exibição nos rodapés de auditoria).
   const nomeAutorExibicao = useMemo(() => {
@@ -2843,7 +2861,7 @@ export default function Home() {
         if (ehSecao(session.activeSection)) {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'exclusoes')) {
           setAdminManageSelection(session.adminManageSelection);
           setAdminInteracted(true);
         }
@@ -8508,6 +8526,156 @@ export default function Home() {
     };
   }
   /** Props de persistência para tabelas com colunas por índice (listas e janelas de busca). */
+  /** Descrições das colunas de referência (nr_seq_* → nome) da lista de registros excluídos. */
+  const exclusoesLookups = useMemo(() => {
+    const nomePf = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome ?? '']));
+    const nomePj = Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social ?? '']));
+    const nomeColaborador = Object.fromEntries(colaboradores.map((c) => [
+      c.nr_sequencia,
+      (c.nr_seq_pessoa_juridica ? nomePj[c.nr_seq_pessoa_juridica] : undefined) || (c.nr_seq_pessoa_fisica ? nomePf[c.nr_seq_pessoa_fisica] : '') || '',
+    ]));
+    return {
+      ...pfCgLookups,
+      nr_seq_pessoa_fisica: nomePf,
+      nr_seq_pessoa_juridica: nomePj,
+      nr_seq_prestador_servico: nomeColaborador,
+      nr_seq_vinculo_contratual: Object.fromEntries(vinculosContratuais.map((v) => [v.nr_sequencia, v.ds_vinculo_contratual ?? ''])),
+      nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria ?? ''])),
+      nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao ?? ''])),
+      nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca ?? ''])),
+      nr_seq_sistema_operacional: Object.fromEntries(sistemasOperacionais.map((s) => [s.nr_sequencia, s.ds_sistema_operacional ?? ''])),
+      nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? ''])),
+    } as Record<string, Record<number, string>>;
+  }, [pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, ativos]);
+
+  /** Colunas da lista de registros excluídos: uma configuração por função, salvas juntas no usuário. */
+  function colunasExclusoesRegistro(colecao: string) {
+    let mapa: Record<string, string> = {};
+    try { mapa = JSON.parse(currentUser?.config_colunas_exclusoes_registro || '{}') ?? {}; } catch { mapa = {}; }
+    return {
+      initialColumns: parseStringColunasConfig(mapa[colecao]),
+      onColumnsChange: (order: string[], widths: Record<string, number>) =>
+        salvarConfigColunas('config_colunas_exclusoes_registro', JSON.stringify({ ...mapa, [colecao]: serializeStringColunasConfig(order, widths) })),
+      storageKeySuffix: currentUser?.id ?? undefined,
+    };
+  }
+
+  /** "Ver" de um registro excluído: abre o formulário (somente leitura) da função. */
+  function abrirExclusaoVer(ex: Exclusao) {
+    setExclusaoVer(ex);
+    setExclusaoCidadeNome('');
+    const codigo = String(ex.dados.cd_ibge_naturalidade ?? ex.dados.cd_ibge_cidade ?? '');
+    if (codigo) {
+      cidadePorCodigo(codigo)
+        .then((cidade) => setExclusaoCidadeNome(cidade ? `${cidade.nome} - ${cidade.uf}` : ''))
+        .catch(() => setExclusaoCidadeNome(''));
+    }
+  }
+
+  /** Formulário da função com os dados do registro excluído (tudo desabilitado). */
+  function renderFormularioExcluido(ex: Exclusao) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const dados = ex.dados as any;
+    const nada = () => {};
+    const comuns = {
+      message: '',
+      editingId: ex.id_registro,
+      sequence: typeof dados.nr_sequencia === 'number' ? dados.nr_sequencia : null,
+      form: dados,
+      setForm: nada,
+      submitting: false,
+      handleSubmit: async (e: React.FormEvent) => { e.preventDefault(); },
+      goToList: nada,
+      createdAt: String(dados.dt_criacao ?? ''),
+      updatedAt: String(dados.dt_alteracao ?? ''),
+      createdBy: resolverNomeAutorExibicao(String(dados.ds_usuario_criacao ?? '')),
+      updatedBy: resolverNomeAutorExibicao(String(dados.ds_usuario_alteracao ?? '')),
+      onOpenAudit: nada,
+      onPrevRecord: nada,
+      onNextRecord: nada,
+      hasPrevRecord: false,
+      hasNextRecord: false,
+      manageSelection: '',
+      onManageSelectionChange: nada,
+      allowedSubmodulos: [] as string[],
+      campoRegras: {},
+      campoErros: [] as string[],
+    };
+    const nomePf = (seq?: number) => (seq ? pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '' : '');
+    const nomesResponsaveis = (lista?: { nr_seq_responsavel?: number }[]) => (lista ?? []).map((r) => nomePf(r.nr_seq_responsavel));
+    const cg = Object.values(CG_DEFS).find((d) => d.collection === ex.ds_colecao);
+    switch (ex.ds_colecao) {
+      case 'pessoa_fisica':
+        return <PessoaFisicaFormView {...comuns} sexos={pfCgOptions.sexos} estadoCivis={pfCgOptions.estadoCivis} coresRacas={pfCgOptions.coresRacas} profissoes={pfCgOptions.profissoes} orgaosEmissores={pfCgOptions.orgaosEmissores} logradouros={pfCgOptions.logradouros} estados={estados} naturalidadeNome={exclusaoCidadeNome} onOpenNaturalidadeLookup={nada} onNaturalidadeCodeChange={nada} selectOptions={[]} />;
+      case 'pessoa_juridica':
+        return <PessoaJuridicaFormView {...comuns} cidadeNome={exclusaoCidadeNome} onOpenCidadeLookup={nada} onCidadeCodeChange={nada} logradouros={pfCgOptions.logradouros} estados={estados} selectOptions={[]} />;
+      case 'usuario':
+        return <AdministracaoSistemaFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} readOnly />;
+      case 'perfil':
+        return <PerfilFormView {...comuns} readOnly />;
+      case 'imagem':
+        return <ImagemFormView {...comuns} imagem={dados} setImagem={nada} />;
+      case 'periodo_letivo':
+        return <PeriodoLetivoFormView {...comuns} selectOptions={[]} />;
+      case 'aluno':
+        return <AlunoFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} grauParentescoOptions={alunoGrauParentescoOptions} selectOptions={[]} />;
+      case 'colaborador':
+        return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} selectOptions={[]} />;
+      case 'pat_categoria':
+        return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS} descFieldKey="ds_categoria" collectionName="pat_categoria" showObservacao />;
+      case 'pat_manutencao':
+        return <ManutencaoFormView {...comuns} ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))} ativoName={exclusoesLookups.nr_seq_ativo[dados.nr_seq_ativo] ?? ''} onOpenAtivoLookup={nada} onViewAtivo={nada} prestadorName={exclusoesLookups.nr_seq_prestador_servico[dados.nr_seq_prestador_servico] ?? nomePf(dados.nr_seq_prestador_servico)} onOpenPrestadorLookup={nada} onViewPrestador={nada} selectOptions={[]} />;
+      case 'pat_ativo':
+        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} selectOptions={[]} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} />;
+      default:
+        if (cg) {
+          return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
+        }
+        return <FormularioExcluidoGenerico colecao={ex.ds_colecao} dados={ex.dados} resolverNomeAutor={resolverNomeAutorExibicao} />;
+    }
+  }
+
+  /** Administração do Sistema > Exclusões (lista ou "Ver" do registro excluído). */
+  function renderExclusoes() {
+    const funcaoVer = exclusaoVer ? FUNCOES_EXCLUSAO.find((fx) => fx.colecao === exclusaoVer.ds_colecao) : undefined;
+    if (exclusaoVer && funcaoVer) {
+      return (
+        <ExclusaoFormularioView
+          exclusao={exclusaoVer}
+          funcao={funcaoVer}
+          manageSelection={adminManageSelection}
+          allowedSubmodulos={allowedAdminSubmodulos}
+          onFechar={() => setExclusaoVer(null)}
+          resolverNomeAutor={resolverNomeAutorExibicao}
+          darkMode={darkMode}
+          generico={!!FORMULARIOS_GENERICOS[exclusaoVer.ds_colecao]}
+        >
+          {renderFormularioExcluido(exclusaoVer)}
+        </ExclusaoFormularioView>
+      );
+    }
+    return (
+      <ExclusoesView
+        manageSelection={adminManageSelection}
+        onManageSelectionChange={handleAdminManageSelectionChange}
+        allowedSubmodulos={allowedAdminSubmodulos}
+        colecaoSelecionada={exclusoesColecao}
+        onColecaoSelecionadaChange={setExclusoesColecao}
+        navegacao={exclusoesNavegacao}
+        onNavegacaoChange={setExclusoesNavegacao}
+        darkMode={darkMode}
+        onVer={abrirExclusaoVer}
+        lookups={exclusoesLookups}
+        resolverNomeAutor={resolverNomeAutorExibicao}
+        onMessage={setMessage}
+        colunasFuncoes={colunasPorChave('config_colunas_exclusoes_funcao')}
+        colunasDropdowns={colunasPorChave('config_colunas_exclusoes_dropdown')}
+        colunasRegistros={colunasExclusoesRegistro}
+        paineis={paineisPorChave('config_paineis_exclusoes')}
+      />
+    );
+  }
+
   function colunasPorIndice(chave: ChaveColunas) {
     return {
       initialColumns: parseColunasConfig(currentUser?.[chave]),
@@ -8859,7 +9027,9 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "administracaoSistema" ? (
-              adminManageSelection === 'avisos' ? (
+              adminManageSelection === 'exclusoes' ? (
+                renderExclusoes()
+              ) : adminManageSelection === 'avisos' ? (
                 <AvisosView
                   colunas={colunasPorChave('config_colunas_avisos')}
                   paineis={paineisPorChave('config_paineis_avisos')}
@@ -9370,7 +9540,9 @@ export default function Home() {
                   campoErros={pfCampoErros}
                 />
               )
-            ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'avisos' ? (
+            ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'exclusoes' ? (
+                renderExclusoes()
+              ) : adminManageSelection === 'avisos' ? (
                 <AvisosView
                   colunas={colunasPorChave('config_colunas_avisos')}
                   paineis={paineisPorChave('config_paineis_avisos')}

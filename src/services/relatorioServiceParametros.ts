@@ -13,6 +13,7 @@ import {
 import { db } from "@/lib/firebase";
 import { removerUndefined, temAlteracoes } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 /* ═══════════════════════════════════════════════ */
 /* ── Contador de sequência ──                    */
@@ -155,6 +156,7 @@ export async function atualizarParametro(
 
 /** Exclui um parâmetro. */
 export async function excluirParametro(id: string): Promise<void> {
+  await registrarExclusao("relatorio_parametro", id);
   await deleteDoc(doc(db, "relatorio_parametro", id));
 }
 
@@ -179,6 +181,7 @@ export async function excluirParametroComCopia(id: string, relatorioDocId?: stri
 export async function excluirParametrosPorRelatorio(nrSeqRelatorio: number): Promise<void> {
   const parametros = await obterParametrosPorRelatorio(nrSeqRelatorio);
   for (const p of parametros) {
+    await registrarExclusao("relatorio_parametro", p.id);
     await deleteDoc(doc(db, "relatorio_parametro", p.id));
   }
 }

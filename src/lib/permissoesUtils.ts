@@ -14,6 +14,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     // Acesso aos submódulos (dropdown PAI)
     { key: "acessar_avisos", label: "Permite acessar Avisos" },
     { key: "acessar_campos", label: "Permite acessar Campos" },
+    { key: "acessar_exclusoes", label: "Permite acessar Exclusões" },
     { key: "acessar_imagens", label: "Permite acessar Imagens" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
     { key: "acessar_regras", label: "Permite acessar Regras" },
@@ -193,6 +194,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_campos', 'alterar_status_campo'],
     },
     {
+      titulo: 'Exclusões',
+      chaves: ['acessar_exclusoes'],
+    },
+    {
       titulo: 'Imagens',
       chaves: ['acessar_imagens', 'adicionar_imagem', 'ver_imagem', 'renomear_imagem', 'excluir_imagem'],
     },
@@ -320,6 +325,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
 export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'avisos', label: 'Avisos', permissao: 'acessar_avisos' },
   { value: 'campos', label: 'Campos', permissao: 'acessar_campos' },
+  { value: 'exclusoes', label: 'Exclusões', permissao: 'acessar_exclusoes' },
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
   { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
@@ -360,7 +366,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 19;
+export const PERMISSOES_CONFIG_VERSION = 20;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é

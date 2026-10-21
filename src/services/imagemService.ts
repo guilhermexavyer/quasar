@@ -11,6 +11,7 @@ import {
 import { db } from "@/lib/firebase";
 import { temAlteracoes } from "@/lib/firestoreUtils";
 import type { Imagem } from "@/types/imagem";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 const COLLECTION = "imagem";
 
@@ -120,6 +121,7 @@ export async function atualizarImagem(
 }
 
 export async function excluirImagem(id: string): Promise<void> {
+  await registrarExclusao(COLLECTION, id);
   await deleteDoc(doc(db, COLLECTION, id));
 }
 
