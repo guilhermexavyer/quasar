@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { Perfil } from "@/types/perfil";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 const perfilColecao = collection(db, "perfil");
 const contadorPerfilDoc = doc(db, "_counters", "perfil_sequence");
@@ -148,6 +149,7 @@ export async function atualizarPerfil(
 }
 
 export async function excluirPerfil(id: string): Promise<void> {
+  await registrarExclusao("perfil", id);
   const docRef = doc(db, "perfil", id);
   await deleteDoc(docRef);
 }

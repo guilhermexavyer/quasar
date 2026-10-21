@@ -23,6 +23,15 @@ export interface PessoaFisica {
   ds_bairro?: string;
   ds_complemento?: string;
   nr_seq_logradouro?: number;
+  /** Tipo sanguíneo (seção Informações médicas) — dropdown. */
+  ds_tipo_sanguineo?: string;
+  /** Informações médicas (seção Informações médicas) — listas de valores. */
+  ds_alergia?: string[];
+  ds_medicamento_continuo?: string[];
+  ds_restricao_alimentar?: string[];
+  ds_necessidade_especial?: string[];
+  /** Observações médicas — campo único (sem lista). */
+  ds_observacao_medica?: string;
   dt_criacao: string;
   dt_alteracao: string;
   ds_usuario_criacao?: string;

@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 const pessoaFisicaColecao = collection(db, "pessoa_fisica");
 const contadorDoc = doc(db, "_counters", "pessoa_fisica_sequence");
@@ -103,6 +104,10 @@ export async function atualizarPessoaFisica(
   const currentData = snap.data() as Record<string, any>;
   const hasActualChanges = Object.entries(pessoa).some(([key, value]) => {
     const currentValue = currentData[key];
+    // Listas (ex.: informações médicas) precisam de comparação profunda.
+    if (Array.isArray(value) || Array.isArray(currentValue)) {
+      return JSON.stringify(currentValue ?? []) !== JSON.stringify(value ?? []);
+    }
     return String(currentValue ?? '') !== String(value ?? '');
   });
 
@@ -138,6 +143,7 @@ export async function atualizarPessoaFisica(
 }
 
 export async function excluirPessoaFisica(id: string): Promise<void> {
+  await registrarExclusao("pessoa_fisica", id);
   const docRef = doc(db, "pessoa_fisica", id);
   await deleteDoc(docRef);
 }

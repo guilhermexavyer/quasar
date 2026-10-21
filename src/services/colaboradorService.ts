@@ -12,6 +12,7 @@ import { db } from "@/lib/firebase";
 import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { Colaborador } from "@/types/colaborador";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 const colaboradorColecao = collection(db, "colaborador");
 const contadorDoc = doc(db, "_counters", "colaborador_sequence");
@@ -142,6 +143,7 @@ export async function atualizarColaborador(
 }
 
 export async function excluirColaborador(id: string): Promise<void> {
+  await registrarExclusao("colaborador", id);
   const docRef = doc(db, "colaborador", id);
   await deleteDoc(docRef);
 }

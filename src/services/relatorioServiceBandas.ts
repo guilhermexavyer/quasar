@@ -13,6 +13,7 @@ import {
 import { db } from "@/lib/firebase";
 import { removerUndefined, removerUndefinedProfundo, temAlteracoes } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 /* ═══════════════════════════════════════════════ */
 /* ── Contadores de sequência ──                  */
@@ -165,6 +166,7 @@ export async function excluirBanda(id: string): Promise<void> {
   for (const el of elementos) {
     await excluirElemento(el.id);
   }
+  await registrarExclusao("relatorio_banda", id);
   await deleteDoc(doc(db, "relatorio_banda", id));
 }
 
@@ -282,6 +284,7 @@ export async function atualizarElemento(
 
 /** Exclui um elemento. */
 export async function excluirElemento(id: string): Promise<void> {
+  await registrarExclusao("relatorio_banda_elemento", id);
   await deleteDoc(doc(db, "relatorio_banda_elemento", id));
 }
 

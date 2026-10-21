@@ -11,6 +11,7 @@ import {
 import { db } from "@/lib/firebase";
 import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
+import { registrarExclusao } from "@/services/exclusaoService";
 
 export interface CadastroGeralRecord {
   id?: string;
@@ -151,6 +152,7 @@ export function createCadastroGeralService<T extends CadastroGeralRecord>(
     },
 
     async excluir(id: string): Promise<void> {
+      await registrarExclusao(collectionName, id);
       const docRef = doc(db, collectionName, id);
       await deleteDoc(docRef);
     },

@@ -31,14 +31,14 @@ const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0
 const db = getFirestore(app);
 
 const COLECOES = [
-  "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador",
-  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio",
+  "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador", "periodo_letivo",
+  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio", "pat_param_cor_ativo_descartado", "pat_param_cor_ativo_estoque", "pat_param_cor_ativo_manutencao", "pat_param_cor_ativo_operacional", "pat_param_cor_manutencao_andamento", "pat_param_cor_manutencao_concluida", "pat_param_cor_manutencao_cancelada", "periodo_letivo_feriado", "ea_param_matricula_aluno", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado", "ea_param_encerramento_automatico_periodo_letivo",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_bandas",
   "relatorio_banda_elemento", "relatorio_parametro",
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao",
   "cg_orgao_emissor", "cg_logradouro", "cg_grau_parentesco", "cg_cargo",
-  "cg_sistema_operacional", "cg_categoria_ativo", "cg_localizacao",
+  "cg_sistema_operacional", "pat_categoria", "cg_localizacao",
   "cg_marca", "cg_vinculo_contratual",
 ];
 

@@ -4,10 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
+import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
-import { obterAviso, salvarAviso, type Aviso, type CampoAviso } from "@/services/avisoService";
+import { filtrarAuditoriaDoAviso, obterAviso, salvarAviso, type Aviso, type CampoAviso } from "@/services/avisoService";
+import { useLogsDoItem } from "@/lib/logsDoItem";
 import { TITULOS_AVISO } from "@/components/ui/AvisoModal";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
@@ -36,6 +38,8 @@ interface AvisosViewProps {
   onSavingChange?: (saving: boolean) => void;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
+  /** Largura dos painéis (redimensionável), salva no usuário. */
+  paineis?: ConfigPaineis;
 }
 
 export default function AvisosView({
@@ -48,6 +52,7 @@ export default function AvisosView({
   onSaveSuccess,
   onSavingChange,
   colunas,
+  paineis,
 }: AvisosViewProps) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [selecionado, setSelecionado] = useState<CampoAviso | null>(null);
@@ -65,6 +70,9 @@ export default function AvisosView({
       .catch((e) => console.error("Erro ao carregar avisos", e));
     return () => { cancelado = true; };
   }, []);
+
+  // Logs do aviso selecionado (só aparecem depois que ele for salvo pela primeira vez).
+  const logsAviso = useLogsDoItem("aviso", aviso?.id, selecionado, filtrarAuditoriaDoAviso, aviso?.dt_alteracao);
 
   const valorSalvo = selecionado ? aviso?.[selecionado] ?? "" : "";
   const valorEmEdicao = rascunho ?? valorSalvo;
@@ -132,7 +140,7 @@ export default function AvisosView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Avisos (1/3) ── */}
           <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             <div className="overflow-auto flex-1 min-h-0">
@@ -148,7 +156,7 @@ export default function AvisosView({
           </div>
 
           {/* ── Painel 2: Conteúdo do aviso (2/3) ── */}
-          <div className="col-span-2 flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
+          <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             {!selecionado ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
                 Selecione um aviso para configurar.
@@ -190,17 +198,17 @@ export default function AvisosView({
 
                 {/* Auditoria + Cancelar / Salvar — padrão de Patrimônio > Parâmetros */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
-                  {aviso?.id && (
+                  {aviso?.id && logsAviso && (
                     <div className="text-[13px] text-slate-500">
                       <div className="relative group flex items-center gap-2">
-                        <span>Criado por {resolverNomeAutorExibicao(aviso.ds_usuario_criacao ?? "") || "-"} em {aviso.dt_criacao ? formatDate(aviso.dt_criacao) : "-"}</span>
+                        <span>Criado por {resolverNomeAutorExibicao(logsAviso.createdBy) || "-"} em {logsAviso.createdAt ? formatDate(logsAviso.createdAt) : "-"}</span>
                         <button type="button" aria-hidden="true" onClick={() => aviso.id && selecionado && onOpenAudit?.(aviso.id, selecionado)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
                         </button>
                       </div>
                       <div className="relative group flex items-center gap-2 mt-1">
-                        <span>Alterado por {resolverNomeAutorExibicao(aviso.ds_usuario_alteracao ?? "") || "-"} em {aviso.dt_alteracao ? formatDate(aviso.dt_alteracao) : "-"}</span>
+                        <span>Alterado por {resolverNomeAutorExibicao(logsAviso.updatedBy) || "-"} em {logsAviso.updatedAt ? formatDate(logsAviso.updatedAt) : "-"}</span>
                         <button type="button" aria-hidden="true" onClick={() => aviso.id && selecionado && onOpenAudit?.(aviso.id, selecionado)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
@@ -231,7 +239,7 @@ export default function AvisosView({
               </div>
             )}
           </div>
-        </div>
+        </PaineisRedimensionaveis>
       </div>
     </div>
   );

@@ -2988,7 +2988,7 @@
       "ds_marca": "LL Audio"
     }
   ],
-  "cg_categoria_ativo": [
+  "pat_categoria": [
     {
       "ie_status": "A",
       "ds_observacao": "Mouse, teclado, etc",

@@ -53,6 +53,20 @@ npm.cmd run db:copiar-producao -- --confirmar --sem-imagens  # copia só o Fires
 - As imagens ficam no Vercel Blob em `producao/images/` e `homologacao/images/`. O script apaga a segunda, copia a primeira para ela e atualiza `ie_arquivo` nos registros.
 - Plano gratuito do Firebase: 50 mil leituras e 20 mil gravações por dia. Evite repetir a cópia várias vezes no mesmo dia.
 
+## Migração: Categoria para Patrimônio
+
+A Categoria saiu de Cadastros Gerais e foi para Patrimônio, e a coleção mudou de `cg_categoria_ativo` para `pat_categoria`. Rode a migração uma vez em cada base, **antes de publicar o código nela**. Sem a migração, a lista de categorias e os nomes de categoria nos ativos ficam vazios.
+
+```bash
+node --env-file=.env.producao scripts/migrar-categoria-patrimonio.mjs               # simula
+node --env-file=.env.producao scripts/migrar-categoria-patrimonio.mjs --confirmar   # copia para pat_categoria
+```
+
+- Copia os documentos com os mesmos IDs, a auditoria, o contador, as colunas salvas dos usuários e o status dos campos nos perfis. Rodar de novo não duplica.
+- As permissões dos perfis migram sozinhas quando o sistema abre: quem tinha acesso a "Categoria (ativo)" em Cadastros Gerais passa a ter a Categoria em Patrimônio, e quem não tinha continua sem.
+- A coleção antiga continua no banco. Depois de conferir o sistema, apague-a com `--apagar-antiga --confirmar`.
+- Para a homologação, use `--env-file=.env.local`. Ela já foi migrada (só a cópia).
+
 ## Começar do zero (apagar a base e recriar o básico)
 
 **Apaga todos os dados do Firestore** da base escolhida e recria o mínimo para usar o sistema: o perfil `Administrador`, o usuário `administrador` (senha definida em `scripts/seed.mjs`) e os Cadastros Gerais de `scripts/dados/cadastros-gerais.json`. Rode na ordem.

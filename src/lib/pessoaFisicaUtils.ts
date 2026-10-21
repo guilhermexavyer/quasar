@@ -48,6 +48,12 @@ export const FIELD_INFOS = {
   ds_bairro: { type: 'string', field: 'ds_bairro', collection: 'pessoa_fisica' },
   ds_complemento: { type: 'string', field: 'ds_complemento', collection: 'pessoa_fisica' },
   nr_seq_logradouro: { type: 'int64', field: 'nr_seq_logradouro', collection: 'pessoa_fisica' },
+  ds_tipo_sanguineo: { type: 'string', field: 'ds_tipo_sanguineo', collection: 'pessoa_fisica' },
+  ds_alergia: { type: 'array', field: 'ds_alergia', collection: 'pessoa_fisica' },
+  ds_medicamento_continuo: { type: 'array', field: 'ds_medicamento_continuo', collection: 'pessoa_fisica' },
+  ds_restricao_alimentar: { type: 'array', field: 'ds_restricao_alimentar', collection: 'pessoa_fisica' },
+  ds_necessidade_especial: { type: 'array', field: 'ds_necessidade_especial', collection: 'pessoa_fisica' },
+  ds_observacao_medica: { type: 'string', field: 'ds_observacao_medica', collection: 'pessoa_fisica' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'pessoa_fisica' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'pessoa_fisica' },
 } as const;
@@ -75,6 +81,12 @@ export const FIELD_LABELS: Record<string, string> = {
   ds_bairro: 'Bairro',
   ds_complemento: 'Complemento',
   nr_seq_logradouro: 'Logradouro',
+  ds_tipo_sanguineo: 'Tipo sanguíneo',
+  ds_alergia: 'Alergia',
+  ds_medicamento_continuo: 'Medicamento de uso contínuo',
+  ds_restricao_alimentar: 'Restrição alimentar',
+  ds_necessidade_especial: 'Necessidade especial',
+  ds_observacao_medica: 'Observações médicas',
   dt_criacao: 'Criação',
   dt_alteracao: 'Alteração',
 };
@@ -215,6 +227,11 @@ export function formatCellValue(key: keyof PessoaFisica, value: unknown): string
       return formatDate(stringValue);
     case 'nr_telefone':
       return formatPhone(stringValue);
+    case 'ds_alergia':
+    case 'ds_medicamento_continuo':
+    case 'ds_restricao_alimentar':
+    case 'ds_necessidade_especial':
+      return (Array.isArray(value) ? value : []).filter((v) => v && String(v).trim() !== '').join('\n');
     default:
       return stringValue;
   }

@@ -14,6 +14,12 @@ export interface Usuario {
   config_colunas_pessoa_juridica?: string;
   config_colunas_aluno?: string;
   config_colunas_colaborador?: string;
+  config_colunas_periodo_letivo?: string;
+  config_colunas_periodo_letivo_feriado?: string;
+  config_colunas_exclusoes_funcao?: string;
+  config_colunas_exclusoes_dropdown?: string;
+  /** Colunas da lista de registros excluídos: JSON { colecao: config serializada }. */
+  config_colunas_exclusoes_registro?: string;
   /* Janelas de busca (lookups) */
   config_colunas_lookup_pessoa_fisica?: string;
   config_colunas_lookup_pessoa_juridica?: string;
@@ -25,6 +31,14 @@ export interface Usuario {
   config_colunas_campos_funcao?: string;
   config_colunas_campos_campo?: string;
   config_colunas_parametros_funcao?: string;
+  config_colunas_parametros_funcao_ea?: string;
+  /* Largura dos painéis (containers lado a lado), em proporções (JSON) */
+  config_paineis_parametros_funcao?: string;
+  config_paineis_parametros_funcao_ea?: string;
+  config_paineis_avisos?: string;
+  config_paineis_regras?: string;
+  config_paineis_campos?: string;
+  config_paineis_exclusoes?: string;
   config_colunas_avisos?: string;
   config_colunas_regras?: string;
   config_colunas_as_usuario?: string;
@@ -45,7 +59,7 @@ export interface Usuario {
   config_colunas_cg_vinculo_contratual?: string;
   config_colunas_cg_localizacao?: string;
   config_colunas_cg_marca?: string;
-  config_colunas_cg_categoria_ativo?: string;
+  config_colunas_pat_categoria?: string;
   config_colunas_cg_sistema_operacional?: string;
   config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;

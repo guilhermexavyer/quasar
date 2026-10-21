@@ -8,7 +8,7 @@ import { ALUNO_COLUMNS as COLUMNS, formatCellValue } from "@/lib/alunoUtils";
 import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
-import { elementoVisivel } from "@/lib/visibilidade";
+import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
 interface ListViewProps {
   message: string;
@@ -54,6 +54,8 @@ export default function AlunoListView({
   columnLookups,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
+  // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
+  const versaoVisivel = useVersaoVisivel(tableRef);
   const savedColumns = prepararColunasSalvas(initialColumns, COLUMNS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
@@ -291,7 +293,7 @@ export default function AlunoListView({
     if (!table || !elementoVisivel(table)) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, alunos.length]);
+  }, [columnOrder, loading, alunos.length, versaoVisivel]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {

@@ -4,11 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
+import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { DIAS_LOGOUT } from "@/lib/regraUtils";
-import { obterRegra, salvarRegra, CAMPOS_REGRA, type IdRegra, type Regra } from "@/services/regraService";
+import { filtrarAuditoriaDaRegra, obterRegra, salvarRegra, CAMPOS_REGRA, type IdRegra, type Regra } from "@/services/regraService";
+import { useLogsDoItem } from "@/lib/logsDoItem";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
 
@@ -51,6 +53,8 @@ interface RegrasViewProps {
   onRegraSalva?: (regra: Regra) => void;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
+  /** Largura dos painéis (redimensionável), salva no usuário. */
+  paineis?: ConfigPaineis;
 }
 
 export default function RegrasView({
@@ -64,9 +68,12 @@ export default function RegrasView({
   onSavingChange,
   onRegraSalva,
   colunas,
+  paineis,
 }: RegrasViewProps) {
   const [regraDoc, setRegraDoc] = useState<Regra | null>(null);
   const [selecionada, setSelecionada] = useState<IdRegra | null>(null);
+  // Logs da regra selecionada (só aparecem depois que ela for salva pela primeira vez).
+  const logsRegra = useLogsDoItem("regra", regraDoc?.id, selecionada, filtrarAuditoriaDaRegra, regraDoc?.dt_alteracao);
   const [rascunho, setRascunho] = useState<Partial<Regra> | null>(null);
   const [saving, setSaving] = useState(false);
   const [infoAberto, setInfoAberto] = useState<CampoInfo | null>(null);
@@ -199,7 +206,7 @@ export default function RegrasView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Regras (1/3) ── */}
           <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             <div className="overflow-auto flex-1 min-h-0">
@@ -215,7 +222,7 @@ export default function RegrasView({
           </div>
 
           {/* ── Painel 2: Configuração da regra (2/3) ── */}
-          <div className="col-span-2 flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
+          <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             {!selecionada ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
                 Selecione uma regra para configurar.
@@ -264,17 +271,17 @@ export default function RegrasView({
 
                 {/* Auditoria + Cancelar / Salvar — padrão de Avisos */}
                 <div className="flex items-end justify-between gap-3 pt-[5px]">
-                  {regraDoc?.id && (
+                  {regraDoc?.id && logsRegra && (
                     <div className="text-[13px] text-slate-500">
                       <div className="relative group flex items-center gap-2">
-                        <span>Criado por {resolverNomeAutorExibicao(regraDoc.ds_usuario_criacao ?? "") || "-"} em {regraDoc.dt_criacao ? formatDate(regraDoc.dt_criacao) : "-"}</span>
+                        <span>Criado por {resolverNomeAutorExibicao(logsRegra.createdBy) || "-"} em {logsRegra.createdAt ? formatDate(logsRegra.createdAt) : "-"}</span>
                         <button type="button" aria-hidden="true" onClick={() => regraDoc.id && selecionada && onOpenAudit?.(regraDoc.id, selecionada)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
                         </button>
                       </div>
                       <div className="relative group flex items-center gap-2 mt-1">
-                        <span>Alterado por {resolverNomeAutorExibicao(regraDoc.ds_usuario_alteracao ?? "") || "-"} em {regraDoc.dt_alteracao ? formatDate(regraDoc.dt_alteracao) : "-"}</span>
+                        <span>Alterado por {resolverNomeAutorExibicao(logsRegra.updatedBy) || "-"} em {logsRegra.updatedAt ? formatDate(logsRegra.updatedAt) : "-"}</span>
                         <button type="button" aria-hidden="true" onClick={() => regraDoc.id && selecionada && onOpenAudit?.(regraDoc.id, selecionada)}
                           className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none">
                           <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10" /><path d="M12 8v4" /><circle cx="12" cy="16" r="0.5" /></svg>
@@ -305,7 +312,7 @@ export default function RegrasView({
               </div>
             )}
           </div>
-        </div>
+        </PaineisRedimensionaveis>
       </div>
     </div>
   );

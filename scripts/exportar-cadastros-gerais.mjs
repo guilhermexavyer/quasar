@@ -35,7 +35,7 @@ const db = getFirestore(app);
 const COLECOES_CG = [
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor",
   "cg_logradouro", "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual",
-  "cg_localizacao", "cg_marca", "cg_categoria_ativo", "cg_sistema_operacional",
+  "cg_localizacao", "cg_marca", "pat_categoria", "cg_sistema_operacional",
 ];
 const CAMPOS_CONTROLE = new Set(["id", "_firestoreId", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]);
 const ARQUIVO = "scripts/dados/cadastros-gerais.json";

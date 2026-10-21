@@ -6,7 +6,7 @@ import type { ContextMenuState } from "@/types/contextMenu";
 import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
-import { elementoVisivel } from "@/lib/visibilidade";
+import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
 export interface CadastroGeralColumn {
   key: string;
@@ -34,6 +34,8 @@ interface ListViewProps<T extends { id?: string }> {
   onSortChange: (logicalIndex: number) => void;
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
+  /** Função dona da lista (menu de contexto). Padrão: Cadastros Gerais. */
+  contextMenuSection?: ContextMenuState['section'];
 }
 
 export default function CadastroGeralListView<T extends { id?: string }>({
@@ -46,6 +48,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   manageSelection,
   onManageSelectionChange,
   allowedSubmodulos = ['sexo', 'estadoCivil', 'corRaca', 'profissao', 'orgaoEmissor', 'logradouro'],
+  contextMenuSection = 'cadastrosGerais',
   openNewForm,
   openEditForm,
   openFilter,
@@ -57,6 +60,8 @@ export default function CadastroGeralListView<T extends { id?: string }>({
   onColumnsChange,
 }: ListViewProps<T>) {
   const tableRef = useRef<HTMLTableElement>(null);
+  // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
+  const versaoVisivel = useVersaoVisivel(tableRef);
   const savedColumns = prepararColunasSalvas(initialColumns, columns);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
@@ -294,7 +299,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
     if (!table || !elementoVisivel(table)) return;
     measureAllMinWidths();
     setDefaultColumnWidths();
-  }, [columnOrder, loading, items.length]);
+  }, [columnOrder, loading, items.length, versaoVisivel]);
 
   function SortIcon({ column }: { column: number }) {
     if (sortColumn !== column) {
@@ -561,7 +566,7 @@ export default function CadastroGeralListView<T extends { id?: string }>({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(item.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'cadastrosGerais', item: item as unknown as ContextMenuState['item'] });
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: contextMenuSection, item: item as unknown as ContextMenuState['item'] });
                         }}
                       >
                         {columnOrder.map((logicalIdx) => {

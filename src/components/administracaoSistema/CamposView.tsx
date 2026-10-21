@@ -13,6 +13,7 @@ import {
 import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
+import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
@@ -63,6 +64,8 @@ interface CamposViewProps {
   colunasPerfil?: ConfigColunasTabela;
   colunasFuncao?: ConfigColunasTabela;
   colunasCampos?: ConfigColunasTabela;
+  /** Largura dos painéis (redimensionável), salva no usuário. */
+  paineis?: ConfigPaineis;
 }
 
 export default function CamposView({
@@ -81,6 +84,7 @@ export default function CamposView({
   colunasPerfil,
   colunasFuncao,
   colunasCampos,
+  paineis,
 }: CamposViewProps) {
   // Estado controlado pelo pai (persiste entre navegações dentro da mesma seção).
   // Fallback para estado local caso as props não sejam fornecidas.
@@ -265,8 +269,8 @@ export default function CamposView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        {/* Perfil e Função com 70% de 1/3 cada (7/30); Campos fica com o restante (16/30). */}
-        <div className="flex-1 min-h-0 grid gap-3" style={{ gridTemplateColumns: 'minmax(0, 7fr) minmax(0, 7fr) minmax(0, 16fr)' }}>
+        {/* Padrão: Perfil e Função com 70% de 1/3 cada (7/30); Campos fica com o restante (16/30). */}
+        <PaineisRedimensionaveis proporcoesPadrao={[7, 7, 16]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Perfis ── */}
           <div
             className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
@@ -421,7 +425,7 @@ export default function CamposView({
               </div>
             )}
           </div>
-        </div>
+        </PaineisRedimensionaveis>
       </div>
       </div>
 
