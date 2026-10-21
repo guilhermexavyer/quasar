@@ -45,6 +45,8 @@ interface ListViewProps {
   columnLookups?: Partial<Record<keyof PeriodoLetivo, Record<number, string>>>;
   /** Cor da bolinha da coluna Status, por código do status (Estrutura Acadêmica > Parâmetros). */
   coresStatus?: Record<string, string>;
+  /** Duplo clique no período: abre os feriados (como as bandas de um relatório). */
+  onOpenFeriados?: (periodo: PeriodoLetivo) => void;
 }
 
 export default function PeriodoLetivoListView({
@@ -67,6 +69,7 @@ export default function PeriodoLetivoListView({
   onColumnsChange,
   columnLookups,
   coresStatus = {},
+  onOpenFeriados,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
@@ -600,6 +603,7 @@ export default function PeriodoLetivoListView({
                         key={periodo.id}
                         className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === periodo.id ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === periodo.id ? null : periodo.id ?? null))}
+                        onDoubleClick={() => { setSelectedId(periodo.id ?? null); onOpenFeriados?.(periodo); }}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(periodo.id ?? null);

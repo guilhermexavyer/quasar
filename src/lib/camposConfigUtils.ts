@@ -130,9 +130,23 @@ export interface CampoDef {
   label: string;
   /** Identificação da coleção (ex.: Pessoa Física, Pessoa Jurídica, Usuário...). */
   tipo: string;
-  /** Nome da coleção no Firestore (usada na aplicação das regras nos forms). */
+  /** Nome da coleção no Firestore (usada na aplicação das regras nos forms).
+   *  Campos de modais usam uma "coleção" própria do modal (prefixo modal_), para
+   *  terem regra independente do mesmo campo no formulário. */
   colecao: string;
 }
+
+/**
+ * Coleções (chaves de regra) dos modais com campos configuráveis. O campo
+ * principal de cada modal (ex.: Status em "Alterar status") é fixo e não entra.
+ */
+export const MODAL_ALUNO_ALTERAR_STATUS = "modal_aluno_alterar_status";
+export const MODAL_COLABORADOR_ALTERAR_STATUS = "modal_colaborador_alterar_status";
+export const MODAL_ATIVO_OPERACIONAL = "modal_ativo_operacional";
+export const MODAL_ATIVO_ESTOQUE = "modal_ativo_estoque";
+export const MODAL_ATIVO_DESCARTAR = "modal_ativo_descartar";
+export const MODAL_ENVIAR_MANUTENCAO = "modal_enviar_manutencao";
+export const MODAL_CONCLUIR_MANUTENCAO = "modal_concluir_manutencao";
 
 /** Campos editáveis de cada função do sistema (pessoaFisica, administracaoSistema, cadastrosGerais). */
 export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
@@ -245,12 +259,26 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_categoria.ds_categoria", label: "Descrição", tipo: "Categoria", colecao: "pat_categoria" },
     { key: "pat_categoria.ds_observacao", label: "Observação", tipo: "Categoria", colecao: "pat_categoria" },
 
+    // Modais de Ativos
+    { key: "modal_ativo_operacional.dt_status", label: "Operacional > Data", tipo: "Ativos", colecao: "modal_ativo_operacional" },
+    { key: "modal_ativo_operacional.ds_motivo_status", label: "Operacional > Motivo", tipo: "Ativos", colecao: "modal_ativo_operacional" },
+    { key: "modal_ativo_estoque.dt_status", label: "Mover para o estoque > Data", tipo: "Ativos", colecao: "modal_ativo_estoque" },
+    { key: "modal_ativo_estoque.ds_motivo_status", label: "Mover para o estoque > Motivo", tipo: "Ativos", colecao: "modal_ativo_estoque" },
+    { key: "modal_ativo_descartar.dt_status", label: "Descartar > Data", tipo: "Ativos", colecao: "modal_ativo_descartar" },
+    { key: "modal_ativo_descartar.ds_motivo_status", label: "Descartar > Motivo", tipo: "Ativos", colecao: "modal_ativo_descartar" },
+    { key: "modal_enviar_manutencao.dt_envio", label: "Enviar para manutenção > Data", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
+    { key: "modal_enviar_manutencao.nr_seq_prestador_servico", label: "Enviar para manutenção > Prestador de serviço", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
+    { key: "modal_enviar_manutencao.ds_motivo_manutencao", label: "Enviar para manutenção > Motivo", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
+
     // Manutenções
     // Ativo, Prestador, Data de envio e Valor total são campos fixos (sempre desabilitados).
     { key: "pat_manutencao.dt_termino", label: "Data de término", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_motivo_manutencao", label: "Motivo da manutenção", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_correcoes", label: "Correções", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "modal_concluir_manutencao.dt_termino", label: "Concluir manutenção > Data de término", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
+    { key: "modal_concluir_manutencao.vl_total", label: "Concluir manutenção > Valor total", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
+    { key: "modal_concluir_manutencao.ds_correcoes", label: "Concluir manutenção > Correções", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
   ],
   relatorio: [
     // ── Formulário do Relatório ──
@@ -347,6 +375,18 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos", colecao: "aluno" },
+    { key: "modal_aluno_alterar_status.dt_status", label: "Alterar status > Data do status", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
+    { key: "modal_aluno_alterar_status.ds_status", label: "Alterar status > Motivo", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
+    { key: "modal_colaborador_alterar_status.dt_status", label: "Alterar status > Data do status", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
+    { key: "modal_colaborador_alterar_status.ds_motivo_status", label: "Alterar status > Motivo", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
+    // Colaboradores: Matrícula, Status, Data do status e Motivo do status são
+    // campos fixos (alterados pelas ações do menu de contexto).
+    { key: "colaborador.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_vinculo_contratual", label: "Vínculo contratual", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.dt_admissao", label: "Data de admissão", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_fornecedor", label: "Fornecedor", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_prestador_servico", label: "Prestador de serviço", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "periodo_letivo.nr_ano", label: "Ano", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.ds_periodo_letivo", label: "Descrição", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.qt_dias_letivos", label: "Dias letivos", tipo: "Período letivo", colecao: "periodo_letivo" },
@@ -354,5 +394,9 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "periodo_letivo.dt_previsao_termino", label: "Previsão de término", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.dt_termino", label: "Data de término", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.ie_status", label: "Status", tipo: "Período letivo", colecao: "periodo_letivo" },
+    // Feriados do período letivo (Sequência é preenchida pelo sistema).
+    { key: "periodo_letivo_feriado.dt_feriado", label: "Data", tipo: "Período letivo > Feriados", colecao: "periodo_letivo_feriado" },
+    { key: "periodo_letivo_feriado.ds_feriado", label: "Descrição", tipo: "Período letivo > Feriados", colecao: "periodo_letivo_feriado" },
+    { key: "periodo_letivo_feriado.ie_tipo_feriado", label: "Tipo", tipo: "Período letivo > Feriados", colecao: "periodo_letivo_feriado" },
   ],
 };

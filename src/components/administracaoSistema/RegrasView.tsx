@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
+import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
@@ -52,6 +53,8 @@ interface RegrasViewProps {
   onRegraSalva?: (regra: Regra) => void;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
+  /** Largura dos painéis (redimensionável), salva no usuário. */
+  paineis?: ConfigPaineis;
 }
 
 export default function RegrasView({
@@ -65,6 +68,7 @@ export default function RegrasView({
   onSavingChange,
   onRegraSalva,
   colunas,
+  paineis,
 }: RegrasViewProps) {
   const [regraDoc, setRegraDoc] = useState<Regra | null>(null);
   const [selecionada, setSelecionada] = useState<IdRegra | null>(null);
@@ -202,7 +206,7 @@ export default function RegrasView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Regras (1/3) ── */}
           <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             <div className="overflow-auto flex-1 min-h-0">
@@ -218,7 +222,7 @@ export default function RegrasView({
           </div>
 
           {/* ── Painel 2: Configuração da regra (2/3) ── */}
-          <div className="col-span-2 flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
+          <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             {!selecionada ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
                 Selecione uma regra para configurar.
@@ -308,7 +312,7 @@ export default function RegrasView({
               </div>
             )}
           </div>
-        </div>
+        </PaineisRedimensionaveis>
       </div>
     </div>
   );

@@ -17,6 +17,13 @@ import type { AuditAutor } from "@/services/auditService";
  * ds_regra (regra de geração de código), cd_cor (cor de status) ou ie_regra (opção Sim/Não).
  */
 export const COLECAO_PARAM_CODIGO_PATRIMONIO = "pat_param_codigo_patrimonio";
+export const COLECAO_PARAM_COR_ATIVO_DESCARTADO = "pat_param_cor_ativo_descartado";
+export const COLECAO_PARAM_COR_ATIVO_ESTOQUE = "pat_param_cor_ativo_estoque";
+export const COLECAO_PARAM_COR_ATIVO_MANUTENCAO = "pat_param_cor_ativo_manutencao";
+export const COLECAO_PARAM_COR_ATIVO_OPERACIONAL = "pat_param_cor_ativo_operacional";
+export const COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO = "pat_param_cor_manutencao_andamento";
+export const COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA = "pat_param_cor_manutencao_concluida";
+export const COLECAO_PARAM_COR_MANUTENCAO_CANCELADA = "pat_param_cor_manutencao_cancelada";
 export const COLECAO_PARAM_MATRICULA_ALUNO = "ea_param_matricula_aluno";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "ea_param_cor_periodo_letivo_andamento";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "ea_param_cor_periodo_letivo_encerrado";

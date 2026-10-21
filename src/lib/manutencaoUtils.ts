@@ -21,7 +21,7 @@ export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
   { key: "nr_seq_prestador_servico", label: "Prestador de serviço" },
   { key: "dt_envio", label: "Data de envio" },
   { key: "dt_termino", label: "Data de término" },
-  { key: "ie_status_manutencao", label: "Status" },
+  { key: "ie_status_manutencao", label: "", dataClass: "text-center" },
   { key: "vl_total", label: "Valor total" },
   { key: "dt_criacao", label: "Criação" },
   { key: "dt_alteracao", label: "Alteração" },
@@ -38,6 +38,7 @@ export const FIELD_INFOS = {
   dt_termino: { type: "string", field: "dt_termino", collection: "pat_manutencao" },
   ie_status_manutencao: { type: "string", field: "ie_status_manutencao", collection: "pat_manutencao" },
   vl_total: { type: "float64", field: "vl_total", collection: "pat_manutencao" },
+  ie_isento: { type: "string", field: "ie_isento", collection: "pat_manutencao" },
   ds_observacao: { type: "string", field: "ds_observacao", collection: "pat_manutencao" },
   ds_motivo_manutencao: { type: "string", field: "ds_motivo_manutencao", collection: "pat_manutencao" },
   ds_correcoes: { type: "string", field: "ds_correcoes", collection: "pat_manutencao" },
@@ -54,11 +55,22 @@ export const FIELD_LABELS: Record<string, string> = {
   dt_termino: "Data de término",
   ie_status_manutencao: "Status",
   vl_total: "Valor total",
+  ie_isento: "Isento",
   ds_observacao: "Observação",
   ds_motivo_manutencao: "Motivo da manutenção",
   ds_correcoes: "Correções",
   dt_criacao: "Criação",
   dt_alteracao: "Alteração",
+};
+
+/**
+ * Cores padrão da bolinha de status (coluna Status da lista), usadas enquanto
+ * a cor não for configurada em Patrimônio > Parâmetros.
+ */
+export const CORES_STATUS_MANUTENCAO_PADRAO: Record<"E" | "CO" | "CA", string> = {
+  E: "#f59e0b",
+  CO: "#2cc958",
+  CA: "#ef4444",
 };
 
 /** Formata valor para exibição na tabela. */

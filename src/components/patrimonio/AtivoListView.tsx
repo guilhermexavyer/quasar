@@ -10,6 +10,18 @@ import Select from "@/components/ui/Select";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
+/**
+ * Coluna Status (bolinha): fixa como a primeira da tabela, com largura fixa
+ * (a do ícone + padding) e sem redimensionar/arrastar — só ordena.
+ */
+const IDX_STATUS = COLUMNS.findIndex((c) => c.key === 'ie_status');
+const LARGURA_COLUNA_STATUS = 28;
+
+/** Garante a coluna Status na primeira posição (inclusive em ordens salvas antes). */
+function comStatusPrimeiro(order: number[]): number[] {
+  return [IDX_STATUS, ...order.filter((i) => i !== IDX_STATUS)];
+}
+
 interface ListViewProps {
   message: string;
   loading: boolean;
@@ -31,6 +43,8 @@ interface ListViewProps {
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
   /** Lookups opcionais por coluna: mapa sequência→nome. */
+  /** Cor da bolinha da coluna Status, por código do status (Patrimônio > Parâmetros). */
+  coresStatus?: Record<string, string>;
   columnLookups?: Partial<Record<keyof Ativo, Record<number, string>>>;
 }
 
@@ -53,17 +67,23 @@ export default function AtivoListView({
   initialColumns,
   onColumnsChange,
   columnLookups,
+  coresStatus = {},
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
   const versaoVisivel = useVersaoVisivel(tableRef);
   const savedColumns = prepararColunasSalvas(initialColumns, COLUMNS);
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  // Legenda da bolinha de status (mesmo visual da legenda das funções no menu lateral),
+  // exibida por cima do ícone. Fica em position: fixed para não ser cortada pelas células.
+  const [legendaStatus, setLegendaStatus] = useState<{ texto: string; x: number; y: number } | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
   const [columnOrder, setColumnOrder] = useState<number[]>(() =>
-    savedColumns && isValidOrder(savedColumns.order, COLUMNS.length)
-      ? [...savedColumns.order]
-      : Array.from({ length: COLUMNS.length }, (_, i) => i)
+    comStatusPrimeiro(
+      savedColumns && isValidOrder(savedColumns.order, COLUMNS.length)
+        ? [...savedColumns.order]
+        : Array.from({ length: COLUMNS.length }, (_, i) => i)
+    )
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
   const [pageSize, setPageSize] = useState<number | 'all'>(30);
@@ -182,7 +202,10 @@ export default function AtivoListView({
       const savedW = currentWidthsRef.current[logicalIdx];
       const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, ativos));
       // Largura ajustada pelo usuário (salva) ou automática (maior conteúdo / cabeçalho).
-      const finalWidth = savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
+      // A coluna Status tem largura fixa.
+      const finalWidth = logicalIdx === IDX_STATUS
+        ? LARGURA_COLUNA_STATUS
+        : savedW && savedW > 0 ? savedW : Math.max(minW, contentW);
       // eslint-disable-next-line react-hooks/immutability
       applyColumnWidth(table, ths, domIdx, finalWidth);
     });
@@ -205,6 +228,7 @@ export default function AtivoListView({
 
   function handleHeaderMouseDown(logicalIndex: number, e: ReactMouseEvent<HTMLTableCellElement>) {
     if ((e.target as HTMLElement).closest('.resizer-handle')) return;
+    if (logicalIndex === IDX_STATUS) return; // posição fixa: só ordena (clique)
     dragStartXRef.current = e.clientX;
     didDragRef.current = false;
     let currentDropIdx: number | null = null;
@@ -228,6 +252,8 @@ export default function AtivoListView({
           break;
         }
       }
+      // Nenhuma coluna pode ir antes do Status (primeira posição fixa).
+      targetIdx = Math.max(1, targetIdx);
 
       const curVisualPos = columnOrder.indexOf(logicalIndex);
       currentDropIdx = (targetIdx !== curVisualPos && targetIdx !== curVisualPos + 1) ? targetIdx : null;
@@ -532,6 +558,23 @@ export default function AtivoListView({
                       {columnOrder.map((logicalIdx, visualIdx) => {
                         const col = COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
+                        if (logicalIdx === IDX_STATUS) {
+                          return (
+                            <th
+                              key={logicalIdx}
+                              scope="col"
+                              aria-label="Status"
+                              className="sticky top-0 z-30 bg-[#bbb] px-[8px] py-[3px] text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b border-[#666] select-none cursor-pointer"
+                              style={{ borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999' }}
+                              onClick={(e) => handleHeaderClick(logicalIdx, e)}
+                              onDragStart={(e) => e.preventDefault()}
+                            >
+                              <div className="flex items-center justify-center">
+                                <SortIcon column={logicalIdx} />
+                              </div>
+                            </th>
+                          );
+                        }
                         return (
                           <th
                             key={logicalIdx}
@@ -572,10 +615,29 @@ export default function AtivoListView({
                             lookup
                               ? (value !== null && value !== undefined && value !== '' ? (lookup[Number(value)] ?? '') : '')
                               : formatCellValue(col.key, value);
-                          const baseClass = `px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
+                          const baseClass = `${col.key === 'ie_status' ? 'px-[8px]' : 'px-[10px]'} py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`;
+                          // Status: bolinha colorida, com a descrição do status como legenda (ao passar o mouse).
+                          const corStatus = col.key === 'ie_status' && value ? coresStatus[String(value)] : undefined;
                           return (
                             <td key={logicalIdx} className={baseClass} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
-                              <span className="cell-content">{displayValue}</span>
+                              {col.key === 'ie_status' ? (
+                                <span className="cell-content inline-flex items-center justify-center">
+                                  {value ? (
+                                    <span
+                                      aria-label={displayValue}
+                                      className="inline-block h-[10px] w-[10px] rounded-full cursor-pointer"
+                                      style={{ backgroundColor: corStatus ?? '#999999' }}
+                                      onMouseEnter={(e) => {
+                                        const r = e.currentTarget.getBoundingClientRect();
+                                        setLegendaStatus({ texto: displayValue, x: r.left + r.width / 2, y: r.top });
+                                      }}
+                                      onMouseLeave={() => setLegendaStatus(null)}
+                                    />
+                                  ) : null}
+                                </span>
+                              ) : (
+                                <span className="cell-content">{displayValue}</span>
+                              )}
                             </td>
                           );
                         })}
@@ -681,6 +743,15 @@ export default function AtivoListView({
           )}
         </div>
       </div>
+      {legendaStatus && (
+        <span
+          className="pointer-events-none fixed z-50 -translate-x-1/2 -translate-y-full rounded bg-slate-900 px-2 py-1 text-[11px] font-medium text-white shadow-lg shadow-black/25 whitespace-nowrap"
+          style={{ left: legendaStatus.x, top: legendaStatus.y - 8 }}
+        >
+          {legendaStatus.texto}
+          <span className="absolute left-1/2 bottom-0 -translate-x-1/2 translate-y-1/2 h-2 w-2 rotate-45 bg-slate-900" />
+        </span>
+      )}
     </>
   );
 }

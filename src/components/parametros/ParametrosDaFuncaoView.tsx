@@ -3,11 +3,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
+import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
   COLECAO_PARAM_CODIGO_PATRIMONIO,
+  COLECAO_PARAM_COR_ATIVO_DESCARTADO,
+  COLECAO_PARAM_COR_ATIVO_ESTOQUE,
+  COLECAO_PARAM_COR_ATIVO_MANUTENCAO,
+  COLECAO_PARAM_COR_ATIVO_OPERACIONAL,
+  COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO,
+  COLECAO_PARAM_COR_MANUTENCAO_CANCELADA,
+  COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
@@ -17,6 +25,8 @@ import {
 } from "@/services/parametroFuncaoService";
 import { OPCOES_SEGMENTO_REGRA } from "@/lib/regraCodigoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO } from "@/lib/periodoLetivoUtils";
+import { CORES_STATUS_ATIVO_PADRAO } from "@/lib/ativoUtils";
+import { CORES_STATUS_MANUTENCAO_PADRAO } from "@/lib/manutencaoUtils";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
 
@@ -43,6 +53,62 @@ export const PARAMETROS_PATRIMONIO: ParametroDef[] = [
     parametro: "Geração do código de patrimônio",
     colecao: COLECAO_PARAM_CODIGO_PATRIMONIO,
     tipo: "regra",
+  },
+  {
+    id: "cor_status_ativo_descartado",
+    dropdown: "Ativos",
+    parametro: "Cor do status 'Descartado'",
+    colecao: COLECAO_PARAM_COR_ATIVO_DESCARTADO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_ATIVO_PADRAO.D,
+  },
+  {
+    id: "cor_status_ativo_estoque",
+    dropdown: "Ativos",
+    parametro: "Cor do status 'Estoque'",
+    colecao: COLECAO_PARAM_COR_ATIVO_ESTOQUE,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_ATIVO_PADRAO.E,
+  },
+  {
+    id: "cor_status_ativo_manutencao",
+    dropdown: "Ativos",
+    parametro: "Cor do status 'Manutenção'",
+    colecao: COLECAO_PARAM_COR_ATIVO_MANUTENCAO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_ATIVO_PADRAO.M,
+  },
+  {
+    id: "cor_status_ativo_operacional",
+    dropdown: "Ativos",
+    parametro: "Cor do status 'Operacional'",
+    colecao: COLECAO_PARAM_COR_ATIVO_OPERACIONAL,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_ATIVO_PADRAO.O,
+  },
+  {
+    id: "cor_status_manutencao_cancelada",
+    dropdown: "Manutenções",
+    parametro: "Cor do status 'Cancelada'",
+    colecao: COLECAO_PARAM_COR_MANUTENCAO_CANCELADA,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_MANUTENCAO_PADRAO.CA,
+  },
+  {
+    id: "cor_status_manutencao_concluida",
+    dropdown: "Manutenções",
+    parametro: "Cor do status 'Concluída'",
+    colecao: COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_MANUTENCAO_PADRAO.CO,
+  },
+  {
+    id: "cor_status_manutencao_andamento",
+    dropdown: "Manutenções",
+    parametro: "Cor do status 'Em andamento'",
+    colecao: COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_MANUTENCAO_PADRAO.E,
   },
 ];
 
@@ -116,6 +182,8 @@ interface ParametrosDaFuncaoViewProps {
   resolverNomeAutor?: (nome: string) => string;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
+  /** Largura dos painéis (redimensionável), salva no usuário. */
+  paineis?: ConfigPaineis;
 }
 
 export default function ParametrosDaFuncaoView({
@@ -131,6 +199,7 @@ export default function ParametrosDaFuncaoView({
   onAfterSave,
   resolverNomeAutor = (nome) => nome,
   colunas,
+  paineis,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
@@ -309,7 +378,7 @@ export default function ParametrosDaFuncaoView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Lista de Parâmetros (1/3) ── */}
           <div
             className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
@@ -351,7 +420,7 @@ export default function ParametrosDaFuncaoView({
 
           {/* ── Painel 2: Configuração do Parâmetro (2/3) ── */}
           <div
-            className="col-span-2 flex min-h-0 flex-col overflow-hidden border p-[5px]"
+            className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
             style={{
               borderStyle: "solid",
               borderWidth: "1px",
@@ -407,7 +476,7 @@ export default function ParametrosDaFuncaoView({
                       />
                     </div>
                   ) : selectedParametro.tipo === "cor" ? (
-                    <div className="relative w-[140px]" style={{ height: 34 }}>
+                    <div className="relative w-full" style={{ height: 34 }}>
                       <input
                         type="color"
                         id={`cor-parametro-${selectedParametro.id}`}
@@ -542,7 +611,7 @@ export default function ParametrosDaFuncaoView({
               </div>
             )}
           </div>
-        </div>
+        </PaineisRedimensionaveis>
       </div>
     </div>
   );

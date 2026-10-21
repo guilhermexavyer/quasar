@@ -1,6 +1,7 @@
 "use client";
 
 import type { Dispatch, SetStateAction } from "react";
+import RotuloCampo from "@/components/ui/RotuloCampo";
 
 export interface CadastroGeralFilterForm {
   nr_sequencia: string;
@@ -15,6 +16,9 @@ interface FilterModalProps {
   setFilterForm: Dispatch<SetStateAction<CadastroGeralFilterForm>>;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onClear: () => void;
+  /** Coleção do cadastro e campo da descrição (para as informações dos campos). */
+  colecao: string;
+  campoDescricao: string;
 }
 
 export default function CadastroGeralFilterModal({
@@ -24,6 +28,8 @@ export default function CadastroGeralFilterModal({
   setFilterForm,
   onSubmit,
   onClear,
+  colecao,
+  campoDescricao,
 }: FilterModalProps) {
   if (!open) return null;
 
@@ -48,9 +54,7 @@ export default function CadastroGeralFilterModal({
 
         <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
           <div className="sm:col-span-3">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Sequência
-            </label>
+            <RotuloCampo texto="Sequência" colecao={colecao} campo="nr_sequencia" />
             <input
               inputMode="numeric"
               maxLength={10}
@@ -60,9 +64,7 @@ export default function CadastroGeralFilterModal({
             />
           </div>
           <div className="sm:col-span-9">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Descrição
-            </label>
+            <RotuloCampo texto="Descrição" colecao={colecao} campo={campoDescricao} />
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={filterForm.descricao}
@@ -70,9 +72,7 @@ export default function CadastroGeralFilterModal({
             />
           </div>
           <div className="sm:col-span-12">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Status
-            </label>
+            <RotuloCampo texto="Status" colecao={colecao} campo="ie_status" />
             <div className="flex items-center gap-4 mb-3">
               <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                 <input

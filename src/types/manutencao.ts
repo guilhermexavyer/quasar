@@ -14,6 +14,8 @@ export interface Manutencao {
   nr_seq_pessoa_fisica?: number;
   /** Valor total da manutenção. */
   vl_total?: number;
+  /** Manutenção isenta de custos (S/N): marcado ao concluir, zera o valor total. */
+  ie_isento?: string;
   /** Observação. */
   ds_observacao?: string;
   /** Motivo da manutenção. */

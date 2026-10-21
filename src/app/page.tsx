@@ -128,6 +128,13 @@ import {
 } from "@/services/ativoService";
 import {
   COLECAO_PARAM_CODIGO_PATRIMONIO,
+  COLECAO_PARAM_COR_ATIVO_DESCARTADO,
+  COLECAO_PARAM_COR_ATIVO_ESTOQUE,
+  COLECAO_PARAM_COR_ATIVO_MANUTENCAO,
+  COLECAO_PARAM_COR_ATIVO_OPERACIONAL,
+  COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO,
+  COLECAO_PARAM_COR_MANUTENCAO_CANCELADA,
+  COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
@@ -179,6 +186,9 @@ import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estr
 import ColaboradorViewModal from "@/components/estruturaAcademica/ColaboradorViewModal";
 import PeriodoLetivoListView from "@/components/estruturaAcademica/PeriodoLetivoListView";
 import PeriodoLetivoFormView, { type PeriodoLetivoFormData } from "@/components/estruturaAcademica/PeriodoLetivoFormView";
+import PeriodoLetivoFeriadosView from "@/components/estruturaAcademica/PeriodoLetivoFeriadosView";
+import { excluirFeriadosDoPeriodo } from "@/services/periodoLetivoFeriadoService";
+import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
@@ -190,7 +200,7 @@ import AtivoLookupTable from "@/components/patrimonio/AtivoLookupTable";
 import ManutencaoViewModal from "@/components/patrimonio/ManutencaoViewModal";
 import type { Manutencao } from "@/types/manutencao";
 import { obterManutencoes, criarManutencao, atualizarManutencao, excluirManutencao } from "@/services/manutencaoService";
-import { MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
+import { CORES_STATUS_MANUTENCAO_PADRAO, MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
 import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
@@ -225,6 +235,15 @@ import {
   serializeCamposAlteracao,
   campoRegrasDaColecao,
   camposObrigatoriosVazios,
+  campoKey,
+  getCampoStatus,
+  MODAL_ALUNO_ALTERAR_STATUS,
+  MODAL_ATIVO_DESCARTAR,
+  MODAL_ATIVO_ESTOQUE,
+  MODAL_ATIVO_OPERACIONAL,
+  MODAL_COLABORADOR_ALTERAR_STATUS,
+  MODAL_CONCLUIR_MANUTENCAO,
+  MODAL_ENVIAR_MANUTENCAO,
   type CampoStatus,
 } from "@/lib/camposConfigUtils";
 import {
@@ -257,6 +276,7 @@ import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/compon
 import PessoaJuridicaFilterModal, { type PessoaJuridicaFilterForm } from "@/components/pessoaJuridica/PessoaJuridicaFilterModal";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import RotuloCampo from "@/components/ui/RotuloCampo";
 import type { Sexo } from "@/types/sexo";
 import type { EstadoCivil } from "@/types/estadoCivil";
 import type { CorRaca } from "@/types/corRaca";
@@ -284,7 +304,7 @@ import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoU
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
-import { ATIVO_COLUMNS, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
+import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -879,7 +899,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'periodo_letivo' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1160,7 +1180,7 @@ export default function Home() {
   // Modal "Concluir manutenção" (menu de contexto de Ativos).
   const [concluirManutModalOpen, setConcluirManutModalOpen] = useState(false);
   const [concluirManutTarget, setConcluirManutTarget] = useState<{ ativo: Ativo | null; manutencao: Manutencao } | null>(null);
-  const [concluirManutForm, setConcluirManutForm] = useState({ dt_termino: '', vl_total: '', ds_correcoes: '', ie_status_ativo: 'O' });
+  const [concluirManutForm, setConcluirManutForm] = useState({ dt_termino: '', vl_total: '', ie_isento: false, ds_correcoes: '', ie_status_ativo: 'O' });
   const [concluirManutSaving, setConcluirManutSaving] = useState(false);
   const [cancelarManutOpen, setCancelarManutOpen] = useState(false);
   const [cancelarManutTarget, setCancelarManutTarget] = useState<Manutencao | null>(null);
@@ -1266,8 +1286,13 @@ export default function Home() {
   const [appliedAtivoFilterForm, setAppliedAtivoFilterForm] = useState<AtivoFilterFormData>(emptyAtivoFilterForm);
   const [ativoFilterModalOpen, setAtivoFilterModalOpen] = useState(false);
   const [parametrosSaving, setParametrosSaving] = useState(false);
+  const [periodoLetivoFeriadoSaving, setPeriodoLetivoFeriadoSaving] = useState(false);
   // Cores da bolinha de status do Período letivo (Estrutura Acadêmica > Parâmetros).
   const [coresStatusPeriodoLetivo, setCoresStatusPeriodoLetivo] = useState<Record<string, string>>(CORES_STATUS_PERIODO_LETIVO_PADRAO);
+  // Cores da bolinha de status dos Ativos (Patrimônio > Parâmetros).
+  const [coresStatusAtivo, setCoresStatusAtivo] = useState<Record<string, string>>(CORES_STATUS_ATIVO_PADRAO);
+  // Cores da bolinha de status das Manutenções (Patrimônio > Parâmetros).
+  const [coresStatusManutencao, setCoresStatusManutencao] = useState<Record<string, string>>(CORES_STATUS_MANUTENCAO_PADRAO);
 
   // Patrimônio > Manutenções.
   const [manutencoes, setManutencoes] = useState<Manutencao[]>([]);
@@ -1601,6 +1626,32 @@ export default function Home() {
     return ativo ? parseCamposConfig(ativo.config_campos) : {};
   }, [usuarioPerfisVinculados, activePerfilSequencia]);
 
+  // Campos dos modais (Administração > Campos: "[Modal] > [Campo]"): cada modal
+  // tem regras próprias (coleção modal_*), independentes das do formulário.
+  const [modalCampoErros, setModalCampoErros] = useState<string[]>([]);
+  function regraModal(modal: string, campo: string): CampoStatus {
+    return getCampoStatus(campoRegrasAtivas, modal, campo);
+  }
+  function asteriscoModal(modal: string, campo: string) {
+    return regraModal(modal, campo) === 'O' ? <RequiredAsterisk /> : undefined;
+  }
+  /** Classe do campo do modal: borda vermelha se for obrigatório e estiver vazio ao salvar. */
+  function classeCampoModal(modal: string, campo: string, base: string): string {
+    return modalCampoErros.includes(campoKey(modal, campo)) ? base.replace('border-slate-300', 'border-red-500') : base;
+  }
+  /** Valida os obrigatórios do modal (valores por campo); marca os vazios e avisa. */
+  function validarCamposModal(modal: string, valores: Record<string, unknown>): boolean {
+    const faltando = camposObrigatoriosVazios(valores, campoRegrasDaColecao(campoRegrasAtivas, modal));
+    setModalCampoErros(faltando.map((c) => campoKey(modal, c)));
+    if (faltando.length > 0) {
+      setMessage("Preencha os campos obrigatórios.");
+      return false;
+    }
+    return true;
+  }
+  /** Modal de status do ativo conforme o status escolhido (Operacional / Estoque / Descartar). */
+  const modalAtivoStatus = ativoStatusValue === 'E' ? MODAL_ATIVO_ESTOQUE : ativoStatusValue === 'D' ? MODAL_ATIVO_DESCARTAR : MODAL_ATIVO_OPERACIONAL;
+
   // Permissões do perfil ATIVO do usuário logado (Administração > Delegar funções).
   // Aplica a migração automática APENAS em configurações antigas (versão anterior
   // à atual): configurações atuais são autoritativas (revogações explícitas valem).
@@ -1767,6 +1818,7 @@ export default function Home() {
       verPeriodoLetivo: permitida('ver_periodo_letivo'),
       encerrarPeriodoLetivo: permitida('encerrar_periodo_letivo'),
       reativarPeriodoLetivo: permitida('reativar_periodo_letivo'),
+      feriadosPeriodoLetivo: permitida('feriados_periodo_letivo'),
       excluirPeriodoLetivo: permitida('excluir_periodo_letivo'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
@@ -2236,6 +2288,42 @@ export default function Home() {
     }
   }, []);
 
+  const loadCoresStatusAtivo = useCallback(async () => {
+    try {
+      const [descartado, estoque, manutencao, operacional] = await Promise.all([
+        obterParametro(COLECAO_PARAM_COR_ATIVO_DESCARTADO),
+        obterParametro(COLECAO_PARAM_COR_ATIVO_ESTOQUE),
+        obterParametro(COLECAO_PARAM_COR_ATIVO_MANUTENCAO),
+        obterParametro(COLECAO_PARAM_COR_ATIVO_OPERACIONAL),
+      ]);
+      setCoresStatusAtivo({
+        D: descartado?.cd_cor || CORES_STATUS_ATIVO_PADRAO.D,
+        E: estoque?.cd_cor || CORES_STATUS_ATIVO_PADRAO.E,
+        M: manutencao?.cd_cor || CORES_STATUS_ATIVO_PADRAO.M,
+        O: operacional?.cd_cor || CORES_STATUS_ATIVO_PADRAO.O,
+      });
+    } catch {
+      // mantém as cores atuais em caso de falha
+    }
+  }, []);
+
+  const loadCoresStatusManutencao = useCallback(async () => {
+    try {
+      const [andamento, concluida, cancelada] = await Promise.all([
+        obterParametro(COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO),
+        obterParametro(COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA),
+        obterParametro(COLECAO_PARAM_COR_MANUTENCAO_CANCELADA),
+      ]);
+      setCoresStatusManutencao({
+        E: andamento?.cd_cor || CORES_STATUS_MANUTENCAO_PADRAO.E,
+        CO: concluida?.cd_cor || CORES_STATUS_MANUTENCAO_PADRAO.CO,
+        CA: cancelada?.cd_cor || CORES_STATUS_MANUTENCAO_PADRAO.CA,
+      });
+    } catch {
+      // mantém as cores atuais em caso de falha
+    }
+  }, []);
+
   const loadPeriodosLetivos = useCallback(async () => {
     setLoading(true);
     try {
@@ -2531,7 +2619,9 @@ export default function Home() {
     loadPeriodosLetivos();
     loadCoresStatusPeriodoLetivo();
     loadEncerramentoAutomaticoPeriodoLetivo();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo]);
+    loadCoresStatusAtivo();
+    loadCoresStatusManutencao();
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -3654,6 +3744,7 @@ export default function Home() {
 
   function handleAlunoManageSelectionChange(value: string) {
     setAlunoInteracted(true);
+    setPeriodoLetivoFeriadosId(null);
     setAlunoManageSelection(value);
     // Ao trocar entre Alunos/Colaboradores, zera os formulários em edição
     // para nunca salvar contra a coleção errada.
@@ -3801,6 +3892,19 @@ export default function Home() {
       const logs = await fetchAuditByDocumentId('colaborador', colaboradorId);
       setAuditLogs(logs);
     } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openFeriadoAuditModal(feriadoId: string) {
+    setAuditDocumentType('periodo_letivo_feriado');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('periodo_letivo_feriado', feriadoId));
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -5020,6 +5124,20 @@ export default function Home() {
     if (!periodoLetivoEditingId) return -1;
     return filteredSortedPeriodosLetivos.findIndex((p) => p.id === periodoLetivoEditingId);
   }, [filteredSortedPeriodosLetivos, periodoLetivoEditingId]);
+  // Feriados de um período letivo (duplo clique na lista, como as bandas de um relatório).
+  const [periodoLetivoFeriadosId, setPeriodoLetivoFeriadosId] = useState<string | null>(null);
+  const periodoLetivoFeriados = periodoLetivoFeriadosId ? periodosLetivos.find((p) => p.id === periodoLetivoFeriadosId) ?? null : null;
+  const periodoLetivoFeriadosIndex = periodoLetivoFeriadosId ? filteredSortedPeriodosLetivos.findIndex((p) => p.id === periodoLetivoFeriadosId) : -1;
+  function abrirFeriadosDoPeriodo(periodo: PeriodoLetivo) {
+    if (!permissoesEA.feriadosPeriodoLetivo || !periodo.id) return;
+    setMessage("");
+    setPeriodoLetivoFeriadosId(periodo.id);
+  }
+  function navegarFeriadosDoPeriodo(direcao: -1 | 1) {
+    const alvo = filteredSortedPeriodosLetivos[periodoLetivoFeriadosIndex + direcao];
+    if (periodoLetivoFeriadosIndex >= 0 && alvo?.id) setPeriodoLetivoFeriadosId(alvo.id);
+  }
+
   const hasPrevPeriodoLetivoRecord = currentPeriodoLetivoEditIndex > 0;
   const hasNextPeriodoLetivoRecord = currentPeriodoLetivoEditIndex >= 0 && currentPeriodoLetivoEditIndex < filteredSortedPeriodosLetivos.length - 1;
 
@@ -7044,7 +7162,10 @@ export default function Home() {
   async function handlePeriodoLetivoDelete(id: string) {
     setMessage("");
     try {
+      const periodoExcluido = periodosLetivos.find((p) => p.id === id);
       await excluirPeriodoLetivo(id);
+      // Os feriados pertencem ao período: saem junto com ele.
+      if (periodoExcluido) await excluirFeriadosDoPeriodo(periodoExcluido.nr_sequencia);
       setMessage("Excluído com sucesso!");
       await loadPeriodosLetivos();
     } catch {
@@ -7144,6 +7265,7 @@ export default function Home() {
   }
 
   function openAlterarStatusModal(aluno: Aluno) {
+    setModalCampoErros([]);
     setAlterarStatusAluno(aluno);
     // Data do status já vem com a data atual; os demais campos começam vazios
     // (o status atual NÃO fica disponível no dropdown e o motivo não é
@@ -7172,6 +7294,7 @@ export default function Home() {
       setMessage("Selecione um status.");
       return;
     }
+    if (!validarCamposModal(MODAL_ALUNO_ALTERAR_STATUS, alterarStatusForm)) return;
     setAlterarStatusSaving(true);
     try {
       await atualizarAluno(
@@ -7194,6 +7317,7 @@ export default function Home() {
   }
 
   function openAtivoStatusModal(ativo: Ativo, statusValue: string) {
+    setModalCampoErros([]);
     setAtivoStatusTarget(ativo);
     setAtivoStatusValue(statusValue);
     const hoje = new Date();
@@ -7216,6 +7340,7 @@ export default function Home() {
     event.preventDefault();
     if (!ativoStatusTarget?.id || !ativoStatusValue) return;
     setMessage("");
+    if (!validarCamposModal(modalAtivoStatus, { dt_status: ativoStatusForm.dt_data, ds_motivo_status: ativoStatusForm.ds_motivo_status })) return;
     setAtivoStatusSaving(true);
     try {
       const updates: Record<string, unknown> = { ie_status: ativoStatusValue, dt_status: ativoStatusForm.dt_data, ds_motivo_status: ativoStatusForm.ds_motivo_status };
@@ -7238,6 +7363,7 @@ export default function Home() {
   /* ── Enviar para manutenção (modal) ── */
 
   function openEnviarManutModal(ativo: Ativo) {
+    setModalCampoErros([]);
     setEnviarManutTarget(ativo);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -7257,6 +7383,7 @@ export default function Home() {
   /* ── Concluir manutenção (modal) ── */
 
   function openConcluirManutModalFromAtivo(ativo: Ativo) {
+    setModalCampoErros([]);
     const manut = manutencoes.find((m) => m.nr_seq_ativo === ativo.nr_sequencia && m.ie_status_manutencao === 'E');
     if (!manut) return;
     const hoje = new Date();
@@ -7265,6 +7392,7 @@ export default function Home() {
     setConcluirManutForm({
       dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
       vl_total: '',
+      ie_isento: false,
       ds_correcoes: '',
       ie_status_ativo: 'O',
     });
@@ -7273,6 +7401,7 @@ export default function Home() {
   }
 
   function openConcluirManutModalFromManut(manut: Manutencao) {
+    setModalCampoErros([]);
     const ativo = ativos.find((a) => a.nr_sequencia === manut.nr_seq_ativo);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -7280,6 +7409,7 @@ export default function Home() {
     setConcluirManutForm({
       dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
       vl_total: '',
+      ie_isento: false,
       ds_correcoes: '',
       ie_status_ativo: 'O',
     });
@@ -7322,10 +7452,20 @@ export default function Home() {
     event.preventDefault();
     if (!concluirManutTarget) return;
     setMessage('');
+    // Isento conta como valor informado (o valor total é zerado).
+    if (!validarCamposModal(MODAL_CONCLUIR_MANUTENCAO, {
+      dt_termino: concluirManutForm.dt_termino,
+      vl_total: concluirManutForm.ie_isento ? '0,00' : concluirManutForm.vl_total,
+      ds_correcoes: concluirManutForm.ds_correcoes,
+    })) return;
     setConcluirManutSaving(true);
     try {
       const updates: Record<string, unknown> = { dt_termino: concluirManutForm.dt_termino, ie_status_manutencao: 'CO' };
-      if (concluirManutForm.vl_total) {
+      // Isento: manutenção sem custos (ex.: o prestador avaliou e não havia solução) — valor total zerado.
+      if (concluirManutForm.ie_isento) {
+        updates.ie_isento = 'S';
+        updates.vl_total = '0,00';
+      } else if (concluirManutForm.vl_total) {
         updates.vl_total = concluirManutForm.vl_total;
       }
       if (concluirManutForm.ds_correcoes) updates.ds_correcoes = concluirManutForm.ds_correcoes;
@@ -7385,6 +7525,11 @@ export default function Home() {
     event.preventDefault();
     if (!enviarManutTarget?.id) return;
     setMessage('');
+    if (!validarCamposModal(MODAL_ENVIAR_MANUTENCAO, {
+      dt_envio: enviarManutForm.dt_data,
+      nr_seq_prestador_servico: enviarManutForm.nr_seq_prestador_servico,
+      ds_motivo_manutencao: enviarManutForm.ds_motivo_manutencao,
+    })) return;
     setEnviarManutSaving(true);
     try {
       const { nr_sequencia: nrSeqManut } = await criarManutencao({
@@ -7769,6 +7914,7 @@ export default function Home() {
   }
 
   function openAlterarStatusColaboradorModal(colaborador: Colaborador) {
+    setModalCampoErros([]);
     setAlterarStatusColaborador(colaborador);
     // Igual ao modal "Alterar status" do aluno: a data já vem com a data atual,
     // os demais campos começam vazios (o status atual NÃO fica disponível no
@@ -7797,6 +7943,7 @@ export default function Home() {
       setMessage("Selecione um status.");
       return;
     }
+    if (!validarCamposModal(MODAL_COLABORADOR_ALTERAR_STATUS, alterarStatusColaboradorForm)) return;
     setAlterarStatusColaboradorSaving(true);
     try {
       await atualizarColaborador(
@@ -8342,7 +8489,8 @@ export default function Home() {
 
   /* ── Configuração de colunas por usuário (ordem e larguras ajustadas) ── */
   type ChaveColunas = Extract<keyof Usuario, `config_colunas_${string}`>;
-  function salvarConfigColunas(chave: ChaveColunas, serialized: string) {
+  type ChavePaineis = Extract<keyof Usuario, `config_paineis_${string}`>;
+  function salvarConfigColunas(chave: ChaveColunas | ChavePaineis, serialized: string) {
     if (!currentUser?.id) return;
     atualizarPreferenciasUsuario(currentUser.id, { [chave]: serialized })
       .then(() => {
@@ -8351,6 +8499,13 @@ export default function Home() {
       .catch((err) => {
         console.error(`Erro ao salvar configuração de colunas (${chave})`, err);
       });
+  }
+  /** Props de persistência da largura dos painéis (containers lado a lado redimensionáveis). */
+  function paineisPorChave(chave: ChavePaineis) {
+    return {
+      config: currentUser?.[chave],
+      onChange: (serialized: string) => salvarConfigColunas(chave, serialized),
+    };
   }
   /** Props de persistência para tabelas com colunas por índice (listas e janelas de busca). */
   function colunasPorIndice(chave: ChaveColunas) {
@@ -8707,6 +8862,7 @@ export default function Home() {
               adminManageSelection === 'avisos' ? (
                 <AvisosView
                   colunas={colunasPorChave('config_colunas_avisos')}
+                  paineis={paineisPorChave('config_paineis_avisos')}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
@@ -8719,6 +8875,7 @@ export default function Home() {
               ) : adminManageSelection === 'regras' ? (
                 <RegrasView
                   colunas={colunasPorChave('config_colunas_regras')}
+                  paineis={paineisPorChave('config_paineis_regras')}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
@@ -8730,7 +8887,7 @@ export default function Home() {
                   onRegraSalva={setRegraSistema}
                 />
               ) : adminManageSelection === 'campos' ? (
-                <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
+                <CamposView paineis={paineisPorChave('config_paineis_campos')} colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                   perfis={perfis}
                   onChangeStatus={handleCamposStatusChange}
                   manageSelection={adminManageSelection}
@@ -8801,7 +8958,7 @@ export default function Home() {
                 )
               ) : activeSection === "estruturaAcademica" ? (
                 alunoManageSelection === 'parametrosFuncao' ? (
-                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_ea')}
+                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_ea')} paineis={paineisPorChave('config_paineis_parametros_funcao_ea')}
                     parametros={PARAMETROS_ESTRUTURA_ACADEMICA}
                     manageSelection={alunoManageSelection}
                     onManageSelectionChange={handleAlunoManageSelectionChange}
@@ -8821,8 +8978,32 @@ export default function Home() {
                       }
                     }}
                   />
+                ) : alunoManageSelection === 'periodoLetivo' && periodoLetivoFeriados ? (
+                  <PeriodoLetivoFeriadosView
+                    key={periodoLetivoFeriados.id}
+                    periodo={periodoLetivoFeriados}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    onPrevRecord={() => navegarFeriadosDoPeriodo(-1)}
+                    onNextRecord={() => navegarFeriadosDoPeriodo(1)}
+                    hasPrevRecord={periodoLetivoFeriadosIndex > 0}
+                    hasNextRecord={periodoLetivoFeriadosIndex >= 0 && periodoLetivoFeriadosIndex < filteredSortedPeriodosLetivos.length - 1}
+                    onVoltar={() => { setMessage(""); setPeriodoLetivoFeriadosId(null); }}
+                    auditAutor={auditAutor}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'periodo_letivo_feriado')}
+                    onOpenAudit={openFeriadoAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onMessage={setMessage}
+                    onSavingChange={setPeriodoLetivoFeriadoSaving}
+                    confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
+                    colunas={colunasPorChave('config_colunas_periodo_letivo_feriado')}
+                    darkMode={darkMode}
+                  />
                 ) : alunoManageSelection === 'periodoLetivo' ? (
                   <PeriodoLetivoListView
+                    onOpenFeriados={abrirFeriadosDoPeriodo}
                     message={message}
                     loading={loading}
                     periodosLetivos={filteredSortedPeriodosLetivos}
@@ -8888,8 +9069,16 @@ export default function Home() {
                 )
               ) : activeSection === "patrimonio" ? (
                 ativoManageSelection === 'parametrosFuncao' ? (
-                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')}
+                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')} paineis={paineisPorChave('config_paineis_parametros_funcao')}
                     parametros={PARAMETROS_PATRIMONIO}
+                    onAfterSave={(colecao) => {
+                      if ([COLECAO_PARAM_COR_ATIVO_DESCARTADO, COLECAO_PARAM_COR_ATIVO_ESTOQUE, COLECAO_PARAM_COR_ATIVO_MANUTENCAO, COLECAO_PARAM_COR_ATIVO_OPERACIONAL].includes(colecao)) {
+                        loadCoresStatusAtivo();
+                      }
+                      if ([COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO, COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA, COLECAO_PARAM_COR_MANUTENCAO_CANCELADA].includes(colecao)) {
+                        loadCoresStatusManutencao();
+                      }
+                    }}
                     manageSelection={ativoManageSelection}
                     onManageSelectionChange={handlePatrimonioManageSelectionChange}
                     selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
@@ -8961,6 +9150,7 @@ export default function Home() {
                         )],
                       ]),
                     }}
+                    coresStatus={coresStatusManutencao}
                   />
                 ) : (
                 <AtivoListView
@@ -8986,6 +9176,7 @@ export default function Home() {
                     nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
                     nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
                   }}
+                  coresStatus={coresStatusAtivo}
                 />
                 )
               ) : activeSection === "relatorio" ? (
@@ -9182,6 +9373,7 @@ export default function Home() {
             ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'avisos' ? (
                 <AvisosView
                   colunas={colunasPorChave('config_colunas_avisos')}
+                  paineis={paineisPorChave('config_paineis_avisos')}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
@@ -9194,6 +9386,7 @@ export default function Home() {
               ) : adminManageSelection === 'regras' ? (
                 <RegrasView
                   colunas={colunasPorChave('config_colunas_regras')}
+                  paineis={paineisPorChave('config_paineis_regras')}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
@@ -9205,7 +9398,7 @@ export default function Home() {
                   onRegraSalva={setRegraSistema}
                 />
               ) : adminManageSelection === 'campos' ? (
-                  <CamposView colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
+                  <CamposView paineis={paineisPorChave('config_paineis_campos')} colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
                     perfis={perfis}
                     onChangeStatus={handleCamposStatusChange}
                     manageSelection={adminManageSelection}
@@ -10275,9 +10468,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
               <div className="sm:col-span-2">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Sequência
-                </label>
+                <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
                 <input
                   inputMode="numeric"
                   maxLength={10}
@@ -10287,9 +10478,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-7">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Nome completo
-                </label>
+                <RotuloCampo texto="Nome completo" colecao="pessoa_fisica" campo="ds_nome" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={filterForm.ds_nome}
@@ -10298,9 +10487,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  CPF
-                </label>
+                <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
                 <input
                   inputMode="numeric"
                   maxLength={14}
@@ -10311,9 +10498,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Nascimento (início)
-                </label>
+                <RotuloCampo texto="Nascimento (início)" colecao="pessoa_fisica" campo="dt_nascimento" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -10326,9 +10511,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Nascimento (fim)
-                </label>
+                <RotuloCampo texto="Nascimento (fim)" colecao="pessoa_fisica" campo="dt_nascimento" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -10341,9 +10524,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  E-mail
-                </label>
+                <RotuloCampo texto="E-mail" colecao="pessoa_fisica" campo="ds_email" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={filterForm.ds_email}
@@ -10352,9 +10533,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Telefone
-                </label>
+                <RotuloCampo texto="Telefone" colecao="pessoa_fisica" campo="nr_telefone" />
                 <input
                   inputMode="numeric"
                   maxLength={15}
@@ -10365,9 +10544,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Sexo
-                </label>
+                <RotuloCampo texto="Sexo" colecao="pessoa_fisica" campo="nr_seq_sexo" />
                 <Select
                   value={filterForm.nr_seq_sexo}
                   onChange={(v) => setFilterForm({ ...filterForm, nr_seq_sexo: v })}
@@ -10376,9 +10553,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Estado civil
-                </label>
+                <RotuloCampo texto="Estado civil" colecao="pessoa_fisica" campo="nr_seq_estado_civil" />
                 <Select
                   value={filterForm.nr_seq_estado_civil}
                   onChange={(v) => setFilterForm({ ...filterForm, nr_seq_estado_civil: v })}
@@ -10387,9 +10562,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Cor/Raça
-                </label>
+                <RotuloCampo texto="Cor/Raça" colecao="pessoa_fisica" campo="nr_seq_cor_raca" />
                 <Select
                   value={filterForm.nr_seq_cor_raca}
                   onChange={(v) => setFilterForm({ ...filterForm, nr_seq_cor_raca: v })}
@@ -10398,9 +10571,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Profissão
-                </label>
+                <RotuloCampo texto="Profissão" colecao="pessoa_fisica" campo="nr_seq_profissao" />
                 <Select
                   value={filterForm.nr_seq_profissao}
                   onChange={(v) => setFilterForm({ ...filterForm, nr_seq_profissao: v })}
@@ -10451,9 +10622,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
               <div className="sm:col-span-2">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Sequência
-                </label>
+                <RotuloCampo texto="Sequência" colecao="aluno" campo="nr_sequencia" />
                 <input
                   inputMode="numeric"
                   maxLength={10}
@@ -10463,9 +10632,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-10">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Matrícula
-                </label>
+                <RotuloCampo texto="Matrícula" colecao="aluno" campo="nr_matricula" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={alunoFilterForm.nr_matricula}
@@ -10474,9 +10641,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-12">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Pessoa física
-                </label>
+                <RotuloCampo texto="Pessoa física" colecao="aluno" campo="nr_seq_pessoa_fisica" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <label className="sr-only">Sequência da pessoa física</label>
@@ -10520,9 +10685,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de ingresso (início)
-                </label>
+                <RotuloCampo texto="Data de ingresso (início)" colecao="aluno" campo="dt_ingresso" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -10535,9 +10698,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de ingresso (fim)
-                </label>
+                <RotuloCampo texto="Data de ingresso (fim)" colecao="aluno" campo="dt_ingresso" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -10592,9 +10753,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
               <div className="sm:col-span-2">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Sequência
-                </label>
+                <RotuloCampo texto="Sequência" colecao="colaborador" campo="nr_sequencia" />
                 <input
                   inputMode="numeric"
                   maxLength={10}
@@ -10604,9 +10763,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-10">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Matrícula
-                </label>
+                <RotuloCampo texto="Matrícula" colecao="colaborador" campo="nr_matricula" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={colaboradorFilterForm.nr_matricula}
@@ -10615,9 +10772,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-12">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Pessoa física
-                </label>
+                <RotuloCampo texto="Pessoa física" colecao="colaborador" campo="nr_seq_pessoa_fisica" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <label className="sr-only">Sequência da pessoa física</label>
@@ -10661,9 +10816,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-12">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Pessoa jurídica
-                </label>
+                <RotuloCampo texto="Pessoa jurídica" colecao="colaborador" campo="nr_seq_pessoa_juridica" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <label className="sr-only">Sequência da pessoa jurídica</label>
@@ -10707,9 +10860,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de admissão (início)
-                </label>
+                <RotuloCampo texto="Data de admissão (início)" colecao="colaborador" campo="dt_admissao" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -10722,9 +10873,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-6">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de admissão (fim)
-                </label>
+                <RotuloCampo texto="Data de admissão (fim)" colecao="colaborador" campo="dt_admissao" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -10779,9 +10928,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
               <div className="sm:col-span-2">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Sequência
-                </label>
+                <RotuloCampo texto="Sequência" colecao="periodo_letivo" campo="nr_sequencia" />
                 <input
                   inputMode="numeric"
                   maxLength={10}
@@ -10791,9 +10938,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-2">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Ano
-                </label>
+                <RotuloCampo texto="Ano" colecao="periodo_letivo" campo="nr_ano" />
                 <input
                   inputMode="numeric"
                   maxLength={4}
@@ -10803,9 +10948,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-5">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Descrição
-                </label>
+                <RotuloCampo texto="Descrição" colecao="periodo_letivo" campo="ds_periodo_letivo" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={periodoLetivoFilterForm.ds_periodo_letivo}
@@ -10813,9 +10956,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Status
-                </label>
+                <RotuloCampo texto="Status" colecao="periodo_letivo" campo="ie_status" />
                 <Select
                   value={periodoLetivoFilterForm.ie_status}
                   onChange={(v) => setPeriodoLetivoFilterForm({ ...periodoLetivoFilterForm, ie_status: v })}
@@ -10882,9 +11023,7 @@ export default function Home() {
               <div className="sm:col-span-12">
                 <div className="flex flex-col gap-3 sm:flex-row">
                   <div className="shrink-0" style={{ flex: '0 0 10%' }}>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                      Sequência
-                    </label>
+                    <RotuloCampo texto="Sequência" colecao="usuario" campo="nr_sequencia" />
                     <input
                       inputMode="numeric"
                       maxLength={10}
@@ -10894,9 +11033,7 @@ export default function Home() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                      Usuário
-                    </label>
+                    <RotuloCampo texto="Usuário" colecao="usuario" campo="ds_usuario" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={adminFilterForm.ds_usuario}
@@ -10904,9 +11041,7 @@ export default function Home() {
                     />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                      Usuário alternativo
-                    </label>
+                    <RotuloCampo texto="Usuário alternativo" colecao="usuario" campo="ds_usuario_alternativo" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={adminFilterForm.ds_usuario_alternativo}
@@ -10917,9 +11052,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-12">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Pessoa física
-                </label>
+                <RotuloCampo texto="Pessoa física" colecao="usuario" campo="nr_seq_pessoa_fisica" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 72 }}>
                     <label className="sr-only">Código da pessoa física</label>
@@ -10954,9 +11087,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-12">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Status
-                </label>
+                <RotuloCampo texto="Status" colecao="usuario" campo="ie_status" />
                 <div className="flex items-center gap-4 mb-3">
                   <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                     <input
@@ -11044,9 +11175,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
               <div className="sm:col-span-3">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Sequência
-                </label>
+                <RotuloCampo texto="Sequência" colecao="perfil" campo="nr_sequencia" />
                 <input
                   inputMode="numeric"
                   maxLength={10}
@@ -11056,9 +11185,7 @@ export default function Home() {
                 />
               </div>
               <div className="sm:col-span-9">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Perfil
-                </label>
+                <RotuloCampo texto="Perfil" colecao="perfil" campo="ds_perfil" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={perfilFilterForm.ds_perfil}
@@ -11067,9 +11194,7 @@ export default function Home() {
               </div>
 
               <div className="sm:col-span-12">
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Status
-                </label>
+                <RotuloCampo texto="Status" colecao="perfil" campo="ie_status" />
                 <div className="flex items-center gap-4 mb-3">
                   <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                     <input
@@ -11140,67 +11265,67 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                  <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_sequencia} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                  <RotuloCampo texto="Patrimônio" colecao="pat_ativo" campo="cd_patrimonio" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_patrimonio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_patrimonio: e.target.value })} />
                 </div>
                 <div className="sm:col-span-6">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                  <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ativo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ativo: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Modelo</label>
+                  <RotuloCampo texto="Modelo" colecao="pat_ativo" campo="ds_modelo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_modelo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_modelo: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Nº de série</label>
+                  <RotuloCampo texto="Nº de série" colecao="pat_ativo" campo="nr_serie" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_serie} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_serie: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>QR Code</label>
+                  <RotuloCampo texto="QR Code" colecao="pat_ativo" campo="ds_qr_code" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_qr_code} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_qr_code: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Código de barras</label>
+                  <RotuloCampo texto="Código de barras" colecao="pat_ativo" campo="ds_codigo_barras" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_codigo_barras} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_codigo_barras: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data aquisição (início)</label>
+                  <RotuloCampo texto="Data aquisição (início)" colecao="pat_ativo" campo="dt_aquisicao" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_aquisicao_inicio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_aquisicao_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data aquisição (fim)</label>
+                  <RotuloCampo texto="Data aquisição (fim)" colecao="pat_ativo" campo="dt_aquisicao" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_aquisicao_fim} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_aquisicao_fim: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data garantia (início)</label>
+                  <RotuloCampo texto="Data garantia (início)" colecao="pat_ativo" campo="dt_garantia" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_garantia_inicio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_garantia_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data garantia (fim)</label>
+                  <RotuloCampo texto="Data garantia (fim)" colecao="pat_ativo" campo="dt_garantia" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_garantia_fim} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_garantia_fim: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                  <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
                   <Select value={ativoFilterForm.ie_status} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, ie_status: v })} options={[{ value: 'T', label: '---' }, ...ATIVO_STATUS_OPTIONS]} showPlaceholder={false} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Categoria</label>
+                  <RotuloCampo texto="Categoria" colecao="pat_ativo" campo="nr_seq_categoria" />
                   <Select value={ativoFilterForm.nr_seq_categoria} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_categoria: v })} options={cgFilterOptions(categoriasAtivos, (op) => op.ds_categoria)} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Localização</label>
+                  <RotuloCampo texto="Localização" colecao="pat_ativo" campo="nr_seq_localizacao" />
                   <Select value={ativoFilterForm.nr_seq_localizacao} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_localizacao: v })} options={cgFilterOptions(localizacoes, (op) => op.ds_localizacao)} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Marca</label>
+                  <RotuloCampo texto="Marca" colecao="pat_ativo" campo="nr_seq_marca" />
                   <Select value={ativoFilterForm.nr_seq_marca} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_marca: v })} options={cgFilterOptions(marcas, (op) => op.ds_marca)} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-12">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Responsável</label>
+                  <RotuloCampo texto="Responsável" colecao="pat_ativo" campo="responsaveis" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_responsavel} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_responsavel: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -11221,14 +11346,14 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Endereço MAC</label>
+                  <RotuloCampo texto="Endereço MAC" colecao="pat_ativo" campo="ds_endereco_mac" />
                   <input maxLength={12} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_endereco_mac} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_endereco_mac: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() })} />
                 </div>
-                <div className="sm:col-span-4"><label className="block text-sm mb-1" style={{ color: '#666' }}>IPv4</label>
+                <div className="sm:col-span-4"><RotuloCampo texto="IPv4" colecao="pat_ativo" campo="ds_ip" />
                    <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ip} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ip: applyIPv4Mask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Sistema operacional</label>
+                  <RotuloCampo texto="Sistema operacional" colecao="pat_ativo" campo="nr_seq_sistema_operacional" />
                   <Select value={ativoFilterForm.nr_seq_sistema_operacional} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_sistema_operacional: v })} options={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ value: String(s.nr_sequencia), label: s.ds_sistema_operacional ?? '' }))} visibleOptions={6} forceOpenUp />
                 </div>
               </div>
@@ -11255,11 +11380,11 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                  <RotuloCampo texto="Sequência" colecao="pat_manutencao" campo="nr_sequencia" />
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_sequencia} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
                 <div className="sm:col-span-9">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Ativo</label>
+                  <RotuloCampo texto="Ativo" colecao="pat_manutencao" campo="nr_seq_ativo" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_ativo} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_ativo: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -11280,7 +11405,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-12">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Prestador de serviço</label>
+                  <RotuloCampo texto="Prestador de serviço" colecao="pat_manutencao" campo="nr_seq_prestador_servico" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_prestador_servico} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_prestador_servico: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -11301,28 +11426,28 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data envio (início)</label>
+                  <RotuloCampo texto="Data envio (início)" colecao="pat_manutencao" campo="dt_envio" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_envio_inicio} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_envio_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data envio (fim)</label>
+                  <RotuloCampo texto="Data envio (fim)" colecao="pat_manutencao" campo="dt_envio" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_envio_fim} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_envio_fim: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data término (início)</label>
+                  <RotuloCampo texto="Data término (início)" colecao="pat_manutencao" campo="dt_termino" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_termino_inicio} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_termino_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>Data término (fim)</label>
+                  <RotuloCampo texto="Data término (fim)" colecao="pat_manutencao" campo="dt_termino" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_termino_fim} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_termino_fim: applyDateMask(e.target.value) })} />
                 </div><div className="sm:col-span-4">
-                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Valor total (menor)</label>
+                   <RotuloCampo texto="Valor total (menor)" colecao="pat_manutencao" campo="vl_total" />
                    <input inputMode="decimal" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.vl_total_menor} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, vl_total_menor: e.target.value.replace(/[^\d.,]/g, '') })} />
                 </div><div className="sm:col-span-4">
-                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Valor total (maior)</label>
+                   <RotuloCampo texto="Valor total (maior)" colecao="pat_manutencao" campo="vl_total" />
                    <input inputMode="decimal" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.vl_total_maior} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, vl_total_maior: e.target.value.replace(/[^\d.,]/g, '') })} />
                 </div><div className="sm:col-span-4">
-                   <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                   <RotuloCampo texto="Status" colecao="pat_manutencao" campo="ie_status_manutencao" />
                    <Select value={manutencaoFilterForm.ie_status_manutencao} onChange={(v) => setManutencaoFilterForm({ ...manutencaoFilterForm, ie_status_manutencao: v })} options={[{ value: 'T', label: '---' }, ...MANUTENCAO_STATUS_OPTIONS]} showPlaceholder={false} visibleOptions={6} forceOpenUp />
                 </div>
               </div>
@@ -11552,6 +11677,8 @@ export default function Home() {
           setFilterForm={setCgFilterForm}
           onSubmit={handleCgFilterSubmit}
           onClear={clearCgFilter}
+          colecao={cgCollection}
+          campoDescricao={cgDescKey}
         />
       )}
 
@@ -11563,6 +11690,8 @@ export default function Home() {
           setFilterForm={setCategoriaFilterForm}
           onSubmit={handleCategoriaFilterSubmit}
           onClear={clearCategoriaFilter}
+          colecao="pat_categoria"
+          campoDescricao="ds_categoria"
         />
       )}
 
@@ -11686,9 +11815,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Perfil
-                </label>
+                <RotuloCampo texto="Perfil" colecao="perfil" campo="ds_perfil" />
                 <input
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                   value={duplicatePerfilName}
@@ -11879,7 +12006,7 @@ export default function Home() {
               </button>
             </div>
             <div className="px-[15px] pt-[15px] pb-[15px]">
-              <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome do arquivo</label>
+              <RotuloCampo texto="Nome do arquivo" colecao="imagem" campo="ie_arquivo" />
               <input
                 type="text"
                 value={renomearNovoNome}
@@ -12006,9 +12133,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Senha
-                </label>
+                <RotuloCampo texto="Senha" colecao="usuario" campo="ds_senha" />
                 <input
                   type="password"
                   className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -12019,9 +12144,7 @@ export default function Home() {
               </div>
               {passwordChangeIsSelf && (
                 <div>
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                    Confirmar senha
-                  </label>
+                  <RotuloCampo texto="Confirmar senha" colecao="usuario" campo="ds_senha" />
                   <input
                     type="password"
                     className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -12078,9 +12201,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Status
-                </label>
+                <RotuloCampo texto="Status" colecao="aluno" campo="ie_status" />
                 <Select
                   value={alterarStatusForm.ie_status}
                   onChange={(v) => setAlterarStatusForm({ ...alterarStatusForm, ie_status: v })}
@@ -12095,26 +12216,24 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data do status
-                </label>
+                <RotuloCampo texto="Data do status" colecao="aluno" campo="dt_status" prefixo={asteriscoModal(MODAL_ALUNO_ALTERAR_STATUS, 'dt_status')} />
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  disabled={regraModal(MODAL_ALUNO_ALTERAR_STATUS, 'dt_status') === 'D'}
+                  className={classeCampoModal(MODAL_ALUNO_ALTERAR_STATUS, 'dt_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")}
                   value={alterarStatusForm.dt_status}
                   onChange={(e) => setAlterarStatusForm({ ...alterarStatusForm, dt_status: applyDateMask(e.target.value) })}
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Motivo
-                </label>
+                <RotuloCampo texto="Motivo" colecao="aluno" campo="ds_status" prefixo={asteriscoModal(MODAL_ALUNO_ALTERAR_STATUS, 'ds_status')} />
                 <textarea
                   rows={3}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  disabled={regraModal(MODAL_ALUNO_ALTERAR_STATUS, 'ds_status') === 'D'}
+                  className={classeCampoModal(MODAL_ALUNO_ALTERAR_STATUS, 'ds_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
                   value={alterarStatusForm.ds_status}
                   onChange={(e) => setAlterarStatusForm({ ...alterarStatusForm, ds_status: e.target.value })}
                 />
@@ -12169,9 +12288,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  {statusPeriodoModal.acao === 'encerrar' ? 'Data de término' : 'Data de reativação'}
-                </label>
+                <RotuloCampo texto={statusPeriodoModal.acao === 'encerrar' ? 'Data de término' : 'Data de reativação'} colecao="periodo_letivo" campo={statusPeriodoModal.acao === 'encerrar' ? 'dt_termino' : 'dt_reativacao'} />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -12230,9 +12347,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de ingresso
-                </label>
+                <RotuloCampo texto="Data de ingresso" colecao="aluno" campo="dt_ingresso" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -12291,9 +12406,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data de admissão
-                </label>
+                <RotuloCampo texto="Data de admissão" colecao="colaborador" campo="dt_admissao" />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -12352,9 +12465,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Status
-                </label>
+                <RotuloCampo texto="Status" colecao="colaborador" campo="ie_status" />
                 <Select
                   value={alterarStatusColaboradorForm.ie_status}
                   onChange={(v) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ie_status: v })}
@@ -12362,26 +12473,24 @@ export default function Home() {
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data do status
-                </label>
+                <RotuloCampo texto="Data do status" colecao="colaborador" campo="dt_status" prefixo={asteriscoModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'dt_status')} />
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  disabled={regraModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'dt_status') === 'D'}
+                  className={classeCampoModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'dt_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")}
                   value={alterarStatusColaboradorForm.dt_status}
                   onChange={(e) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, dt_status: applyDateMask(e.target.value) })}
                 />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Motivo
-                </label>
+                <RotuloCampo texto="Motivo" colecao="colaborador" campo="ds_motivo_status" prefixo={asteriscoModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'ds_motivo_status')} />
                 <textarea
                   rows={3}
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  disabled={regraModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'ds_motivo_status') === 'D'}
+                  className={classeCampoModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'ds_motivo_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
                   value={alterarStatusColaboradorForm.ds_motivo_status}
                   onChange={(e) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ds_motivo_status: e.target.value })}
                 />
@@ -12436,26 +12545,24 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                  Data
-                </label>
+                <RotuloCampo texto="Data" colecao="pat_ativo" campo="dt_status" prefixo={asteriscoModal(modalAtivoStatus, 'dt_status')} />
                 <input
                   type="text"
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]"
+                  disabled={regraModal(modalAtivoStatus, 'dt_status') === 'D'}
+                  className={classeCampoModal(modalAtivoStatus, 'dt_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")}
                   value={ativoStatusForm.dt_data}
                   onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, dt_data: applyDateMask(e.target.value) })}
                 />
               </div>
               <div>
-                  <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                    Motivo
-                  </label>
+                  <RotuloCampo texto="Motivo" colecao="pat_ativo" campo="ds_motivo_status" prefixo={asteriscoModal(modalAtivoStatus, 'ds_motivo_status')} />
                   <textarea
                     rows={3}
-                    className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                    disabled={regraModal(modalAtivoStatus, 'ds_motivo_status') === 'D'}
+                    className={classeCampoModal(modalAtivoStatus, 'ds_motivo_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
                     value={ativoStatusForm.ds_motivo_status}
                     onChange={(e) => setAtivoStatusForm({ ...ativoStatusForm, ds_motivo_status: e.target.value })}
                   />
@@ -12497,14 +12604,14 @@ export default function Home() {
             </div>
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Data</label>
-                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]" value={enviarManutForm.dt_data} onChange={(e) => setEnviarManutForm({ ...enviarManutForm, dt_data: applyDateMask(e.target.value) })} />
+                <RotuloCampo texto="Data" colecao="pat_manutencao" campo="dt_envio" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio')} />
+                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio') === 'D'} className={classeCampoModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} value={enviarManutForm.dt_data} onChange={(e) => setEnviarManutForm({ ...enviarManutForm, dt_data: applyDateMask(e.target.value) })} />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Prestador de serviço</label>
+                <RotuloCampo texto="Prestador de serviço" colecao="pat_manutencao" campo="nr_seq_prestador_servico" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico')} />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
-                    <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={enviarManutForm.nr_seq_prestador_servico ? String(enviarManutForm.nr_seq_prestador_servico) : ''} onChange={(e) => { const raw = e.target.value.replace(/\D/g, '').slice(0, 10); setEnviarManutForm({ ...enviarManutForm, nr_seq_prestador_servico: raw ? Number(raw) : undefined }); }} />
+                    <input inputMode="numeric" maxLength={10} disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico') === 'D'} className={classeCampoModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none")} value={enviarManutForm.nr_seq_prestador_servico ? String(enviarManutForm.nr_seq_prestador_servico) : ''} onChange={(e) => { const raw = e.target.value.replace(/\D/g, '').slice(0, 10); setEnviarManutForm({ ...enviarManutForm, nr_seq_prestador_servico: raw ? Number(raw) : undefined }); }} />
                   </div>
                   <div className="relative flex-1 min-w-0">
                     <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestadorName} />
@@ -12514,7 +12621,7 @@ export default function Home() {
                           <ViewIcon size={16} />
                         </button>
                       )}
-                      <button type="button" onClick={() => openEnviarManutPrestadorLookup('modal')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar prestador de serviço">
+                      <button type="button" disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico') === 'D'} onClick={() => openEnviarManutPrestadorLookup('modal')} className="disabled:cursor-default disabled:opacity-40 inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar prestador de serviço">
                         <SearchIcon size={16} />
                       </button>
                     </div>
@@ -12522,9 +12629,10 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo</label>
+                <RotuloCampo texto="Motivo" colecao="pat_manutencao" campo="ds_motivo_manutencao" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao')} />
                 <textarea
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao') === 'D'}
+                  className={classeCampoModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
                   rows={3}
                   value={enviarManutForm.ds_motivo_manutencao ?? ''}
                   onChange={(e) => setEnviarManutForm({ ...enviarManutForm, ds_motivo_manutencao: e.target.value })}
@@ -12555,19 +12663,19 @@ export default function Home() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                      <RotuloCampo texto="Sequência" colecao="colaborador" campo="nr_sequencia" />
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_sequencia} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_sequencia: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                      <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
                       <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.ds_nome} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, ds_nome: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                      <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
                       <input inputMode="numeric" maxLength={14} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_cpf} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_cpf: applyCpfMask(e.target.value) })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>CNPJ</label>
+                      <RotuloCampo texto="CNPJ" colecao="pessoa_juridica" campo="nr_cnpj" />
                       <input inputMode="numeric" maxLength={18} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_cnpj} onChange={(e) => {
                         const digits = e.target.value.replace(/\D/g, '').slice(0, 14);
                         let masked = digits;
@@ -12617,23 +12725,23 @@ export default function Home() {
                   </div>
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                      <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.nr_sequencia} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, nr_sequencia: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                      <RotuloCampo texto="Patrimônio" colecao="pat_ativo" campo="cd_patrimonio" />
                       <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.cd_patrimonio} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, cd_patrimonio: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                      <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
                       <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_ativo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_ativo: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Modelo</label>
+                      <RotuloCampo texto="Modelo" colecao="pat_ativo" campo="ds_modelo" />
                       <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_modelo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_modelo: e.target.value })} />
                     </div>
                     <div>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                      <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
                       <Select
                         value={manutencaoAtivoLookupForm.ie_status}
                         onChange={(v) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ie_status: v })}
@@ -12691,7 +12799,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
                     <input
                       inputMode="numeric"
                       maxLength={10}
@@ -12701,7 +12809,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                    <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={lookupForm.ds_nome}
@@ -12709,7 +12817,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                    <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
                     <input
                       inputMode="numeric"
                       maxLength={14}
@@ -12779,7 +12887,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
                     <input
                       inputMode="numeric"
                       maxLength={10}
@@ -12789,7 +12897,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                    <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={alunoLookupForm.ds_nome}
@@ -12797,7 +12905,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                    <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
                     <input
                       inputMode="numeric"
                       maxLength={14}
@@ -12867,7 +12975,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <RotuloCampo texto="Sequência" colecao="pessoa_juridica" campo="nr_sequencia" />
                     <input
                       inputMode="numeric"
                       maxLength={10}
@@ -12877,7 +12985,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Razão social</label>
+                    <RotuloCampo texto="Razão social" colecao="pessoa_juridica" campo="ds_razao_social" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={colaboradorPjLookupForm.ds_razao_social}
@@ -12885,7 +12993,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CNPJ</label>
+                    <RotuloCampo texto="CNPJ" colecao="pessoa_juridica" campo="nr_cnpj" />
                     <input
                       inputMode="numeric"
                       maxLength={18}
@@ -12955,7 +13063,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                    <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
                     <input
                       inputMode="numeric"
                       maxLength={10}
@@ -12965,7 +13073,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Nome</label>
+                    <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={adminPessoaFisicaLookupForm.ds_nome}
@@ -12973,7 +13081,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>CPF</label>
+                    <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
                     <input
                       inputMode="numeric"
                       maxLength={14}
@@ -13065,7 +13173,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Código IBGE</label>
+                    <RotuloCampo texto="Código IBGE" colecao="API do IBGE (municípios)" campo="id" tipo="int64" />
                     <input
                       inputMode="numeric"
                       maxLength={7}
@@ -13075,7 +13183,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                    <RotuloCampo texto="Descrição" colecao="API do IBGE (municípios)" campo="nome" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={cidadeLookupForm.nome}
@@ -13083,7 +13191,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Estado</label>
+                    <RotuloCampo texto="Estado" colecao="API do IBGE (municípios)" campo="microrregiao.mesorregiao.UF.sigla" />
                     <Select
                       value={cidadeLookupForm.uf}
                       onChange={(v) => setCidadeLookupForm({ ...cidadeLookupForm, uf: v })}
@@ -13155,7 +13263,7 @@ export default function Home() {
                 </div>
                 <div className="space-y-4">
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Código IBGE</label>
+                    <RotuloCampo texto="Código IBGE" colecao="API do IBGE (municípios)" campo="id" tipo="int64" />
                     <input
                       inputMode="numeric"
                       maxLength={7}
@@ -13165,7 +13273,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                    <RotuloCampo texto="Descrição" colecao="API do IBGE (municípios)" campo="nome" />
                     <input
                       className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
                       value={pjCidadeLookupForm.nome}
@@ -13173,7 +13281,7 @@ export default function Home() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>Estado</label>
+                    <RotuloCampo texto="Estado" colecao="API do IBGE (municípios)" campo="microrregiao.mesorregiao.UF.sigla" />
                     <Select
                       value={pjCidadeLookupForm.uf}
                       onChange={(v) => setPjCidadeLookupForm({ ...pjCidadeLookupForm, uf: v })}
@@ -13236,6 +13344,7 @@ export default function Home() {
         const isAluno = auditDocumentType === 'aluno';
         const isColaborador = auditDocumentType === 'colaborador';
         const isPeriodoLetivo = auditDocumentType === 'periodo_letivo';
+        const isFeriado = auditDocumentType === 'periodo_letivo_feriado';
         const isAtivo = auditDocumentType === 'pat_ativo';
         const isParametros = auditDocumentType === 'parametro';
         const isManutencao = auditDocumentType === 'pat_manutencao';
@@ -13341,6 +13450,8 @@ export default function Home() {
               'dt_criacao',
               'dt_alteracao',
             ]
+          : isFeriado
+          ? ['nr_sequencia', 'nr_seq_periodo_letivo', 'dt_feriado', 'ds_feriado', 'ie_tipo_feriado', 'dt_criacao', 'dt_alteracao']
           : isPeriodoLetivo
           ? [
               'nr_sequencia',
@@ -13513,6 +13624,10 @@ export default function Home() {
                       dt_inicio: 'Data de início',
                       dt_previsao_termino: 'Previsão de término',
                       dt_reativacao: 'Data de reativação',
+                      nr_seq_periodo_letivo: 'Período letivo',
+                      dt_feriado: 'Data',
+                      ds_feriado: 'Descrição',
+                      ie_tipo_feriado: 'Tipo',
                       ds_usuario: 'Usuário',
                       ds_usuario_alternativo: 'Usuário alternativo',
                       ie_status: 'Status',
@@ -13776,6 +13891,9 @@ export default function Home() {
                       }
                       if (field === 'pdf_orientacao') {
                         return String(normalized) === 'retrato' ? 'Retrato' : String(normalized) === 'paisagem' ? 'Paisagem' : String(normalized);
+                      }
+                      if (field === 'ie_tipo_feriado') {
+                        return rotuloTipoFeriado(String(normalized)) || String(normalized);
                       }
                       if (field === 'ie_tipo_banda') {
                         const map: Record<string, string> = { 'lista': 'Lista', 'texto_valor': 'Texto/Valor', 'cabecalho': 'Cabeçalho', 'rodape': 'Rodapé' };
@@ -14084,61 +14202,61 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Identificação</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-1 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sequência</label>
+                      <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={String(ativoView.nr_sequencia ?? '')} />
                     </div>
                     <div className="sm:col-span-4 grid gap-[15px] sm:grid-cols-2">
                       <div className="group">
-                        <label className="block text-sm mb-1" style={{ color: '#666' }}>Patrimônio</label>
+                        <RotuloCampo texto="Patrimônio" colecao="pat_ativo" campo="cd_patrimonio" />
                         <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio ?? ''} />
                       </div>
                       <div className="group">
-                        <label className="block text-sm mb-1" style={{ color: '#666' }}>Código externo</label>
+                        <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_patrimonio_externo" />
                         <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio_externo ?? ''} />
                       </div>
                     </div>
                     <div className="sm:col-span-7 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Descrição</label>
+                      <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ativo ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Modelo</label>
+                      <RotuloCampo texto="Modelo" colecao="pat_ativo" campo="ds_modelo" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_modelo ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Número de série</label>
+                      <RotuloCampo texto="Número de série" colecao="pat_ativo" campo="nr_serie" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_serie ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>QR Code</label>
+                      <RotuloCampo texto="QR Code" colecao="pat_ativo" campo="ds_qr_code" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_qr_code ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Código de barras</label>
+                      <RotuloCampo texto="Código de barras" colecao="pat_ativo" campo="ds_codigo_barras" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_codigo_barras ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de aquisição</label>
+                      <RotuloCampo texto="Data de aquisição" colecao="pat_ativo" campo="dt_aquisicao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_aquisicao ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de garantia</label>
+                      <RotuloCampo texto="Data de garantia" colecao="pat_ativo" campo="dt_garantia" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_garantia ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                      <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ATIVO_STATUS_OPTIONS.find((s) => s.value === ativoView.ie_status)?.label ?? ativoView.ie_status ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Data do status</label>
+                      <RotuloCampo texto="Data do status" colecao="pat_ativo" campo="dt_status" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_status ?? ''} />
                     </div>
                     <div className="sm:col-span-6 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Última manutenção</label>
+                      <RotuloCampo texto="Última manutenção" colecao="pat_ativo" campo="nr_seq_ultima_manutencao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_ultima_manutencao != null ? String(ativoView.nr_seq_ultima_manutencao) : ''} />
                     </div>
                     <div className="sm:col-span-12 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Motivo do status</label>
+                      <RotuloCampo texto="Motivo do status" colecao="pat_ativo" campo="ds_motivo_status" />
                       <textarea disabled readOnly rows={2} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_motivo_status ?? ''} />
                     </div>
                   </div>
@@ -14148,20 +14266,20 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Classificação</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Categoria</label>
+                      <RotuloCampo texto="Categoria" colecao="pat_ativo" campo="nr_seq_categoria" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_categoria ? (categoriasAtivos.find((c) => c.nr_sequencia === ativoView.nr_seq_categoria)?.ds_categoria ?? String(ativoView.nr_seq_categoria)) : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Localização</label>
+                      <RotuloCampo texto="Localização" colecao="pat_ativo" campo="nr_seq_localizacao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_localizacao ? (localizacoes.find((l) => l.nr_sequencia === ativoView.nr_seq_localizacao)?.ds_localizacao ?? String(ativoView.nr_seq_localizacao)) : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Marca</label>
+                      <RotuloCampo texto="Marca" colecao="pat_ativo" campo="nr_seq_marca" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_marca ? (marcas.find((m) => m.nr_sequencia === ativoView.nr_seq_marca)?.ds_marca ?? String(ativoView.nr_seq_marca)) : ''} />
                     </div>
                     {(ativoView.responsaveis ?? []).length > 0 && (
                       <div className="sm:col-span-12 group">
-                        <label className="block text-sm mb-1" style={{ color: '#666' }}>Responsável</label>
+                        <RotuloCampo texto="Responsável" colecao="pat_ativo" campo="responsaveis" />
                         {(ativoView.responsaveis ?? []).map((resp, idx) => (
                           <input key={idx} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={resp.nr_seq_responsavel ? (pessoasFisicas.find((p) => p.nr_sequencia === resp.nr_seq_responsavel)?.ds_nome ?? String(resp.nr_seq_responsavel)) : ''} />
                         ))}
@@ -14174,26 +14292,26 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dispositivo</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Processador</label>
+                      <RotuloCampo texto="Processador" colecao="pat_ativo" campo="ds_processador" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_processador ?? ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Memória RAM</label>
+                      <RotuloCampo texto="Memória RAM" colecao="pat_ativo" campo="qt_ram" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.qt_ram != null ? `${ativoView.qt_ram} ${ativoView.ie_ram ?? ''}` : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Armazenamento</label>
+                      <RotuloCampo texto="Armazenamento" colecao="pat_ativo" campo="qt_armazenamento" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.qt_armazenamento != null ? `${ativoView.qt_armazenamento} ${ativoView.ie_armazenamento ?? ''}` : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Endereço MAC</label>
+                      <RotuloCampo texto="Endereço MAC" colecao="pat_ativo" campo="ds_endereco_mac" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_endereco_mac ?? ''} />
                     </div>
-                    <div className="sm:col-span-4 group"><label className="block text-sm mb-1" style={{ color: '#666' }}>IPv4</label>
+                    <div className="sm:col-span-4 group"><RotuloCampo texto="IPv4" colecao="pat_ativo" campo="ds_ip" />
                        <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ip ?? ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Sistema operacional</label>
+                      <RotuloCampo texto="Sistema operacional" colecao="pat_ativo" campo="nr_seq_sistema_operacional" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_sistema_operacional ? (sistemasOperacionais.find((s) => s.nr_sequencia === ativoView.nr_seq_sistema_operacional)?.ds_sistema_operacional ?? String(ativoView.nr_seq_sistema_operacional)) : ''} />
                     </div>
                   </div>
@@ -14203,7 +14321,7 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Observações</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-12 group">
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>Observação</label>
+                      <RotuloCampo texto="Observação" colecao="pat_ativo" campo="ds_observacao" />
                       <textarea disabled readOnly rows={4} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_observacao ?? ''} />
                     </div>
                   </div>
@@ -14260,11 +14378,11 @@ export default function Home() {
             </div>
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Data de término</label>
-                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]" value={concluirManutForm.dt_termino} onChange={(e) => setConcluirManutForm({ ...concluirManutForm, dt_termino: applyDateMask(e.target.value) })} />
+                <RotuloCampo texto="Data de término" colecao="pat_manutencao" campo="dt_termino" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino')} />
+                <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" disabled={regraModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino') === 'D'} className={classeCampoModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} value={concluirManutForm.dt_termino} onChange={(e) => setConcluirManutForm({ ...concluirManutForm, dt_termino: applyDateMask(e.target.value) })} />
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Status</label>
+                <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
                 <Select
                   value={concluirManutForm.ie_status_ativo}
                   onChange={(v) => setConcluirManutForm({ ...concluirManutForm, ie_status_ativo: v })}
@@ -14272,14 +14390,30 @@ export default function Home() {
                   showPlaceholder={false}
                 />
               </div>
-              <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Valor total</label>
-                <input type="text" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={concluirManutForm.vl_total} onChange={(e) => { const digits = e.target.value.replace(/\D/g, ''); if (!digits) { setConcluirManutForm({ ...concluirManutForm, vl_total: '' }); return; } const num = Number(digits) / 100; setConcluirManutForm({ ...concluirManutForm, vl_total: num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }); }} />
+              {/* Isento à esquerda do Valor total, na mesma linha. */}
+              <div className="flex items-start gap-[15px]">
+              <div className="shrink-0">
+                <RotuloCampo texto="Isento" colecao="pat_manutencao" campo="ie_isento" />
+                <label className="inline-flex h-[34px] items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="cg-checkbox"
+                    checked={concluirManutForm.ie_isento}
+                    onChange={(e) => setConcluirManutForm({ ...concluirManutForm, ie_isento: e.target.checked, vl_total: '' })}
+                  />
+                  <span>Sim</span>
+                </label>
+              </div>
+              <div className="flex-1 min-w-0">
+                <RotuloCampo texto="Valor total" colecao="pat_manutencao" campo="vl_total" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total')} />
+                <input type="text" disabled={concluirManutForm.ie_isento || regraModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total') === 'D'} className={classeCampoModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-default")} value={concluirManutForm.vl_total} onChange={(e) => { const digits = e.target.value.replace(/\D/g, ''); if (!digits) { setConcluirManutForm({ ...concluirManutForm, vl_total: '' }); return; } const num = Number(digits) / 100; setConcluirManutForm({ ...concluirManutForm, vl_total: num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }); }} />
+              </div>
               </div>
               <div>
-                <label className="block text-sm mb-1" style={{ color: '#666' }}>Correções</label>
+                <RotuloCampo texto="Correções" colecao="pat_manutencao" campo="ds_correcoes" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes')} />
                 <textarea
-                  className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none"
+                  disabled={regraModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes') === 'D'}
+                  className={classeCampoModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
                   rows={3}
                   value={concluirManutForm.ds_correcoes}
                   onChange={(e) => setConcluirManutForm({ ...concluirManutForm, ds_correcoes: e.target.value })}
@@ -14373,12 +14507,12 @@ export default function Home() {
                 const rotuloParametro = (filtro.ds_label || '').trim() || `${campoLabel} ${operadorLabel}`;
                 return (
                   <div key={filtro.id}>
-                    <label className="block text-sm mb-1" style={{ color: '#666' }}>
-                      <span className="inline-flex items-center gap-1">
-                        {filtro.ie_obrigatorio && <RequiredAsterisk />}
-                        <span>{rotuloParametro}</span>
-                      </span>
-                    </label>
+                    <RotuloCampo
+                      texto={rotuloParametro}
+                      prefixo={filtro.ie_obrigatorio ? <RequiredAsterisk /> : undefined}
+                      colecao={filtro.ie_colecao || relatorioParamModal.relatorio.colecao}
+                      campo={filtro.ie_campo}
+                    />
                     {(() => {
                       const renderInput = (chave: string, ariaLabel: string) => (
                         <input
@@ -14463,7 +14597,7 @@ export default function Home() {
         perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
-        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving ||
+        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving ||
         delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving
       ) && <LoadingModal open message="Carregando..." />}
 

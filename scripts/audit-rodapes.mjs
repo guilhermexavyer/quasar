@@ -32,7 +32,7 @@ const db = getFirestore(app);
 
 const COLECOES = [
   "pessoa_fisica", "pessoa_juridica", "aluno", "colaborador", "periodo_letivo",
-  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio", "ea_param_matricula_aluno", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado", "ea_param_encerramento_automatico_periodo_letivo",
+  "pat_ativo", "pat_manutencao", "pat_param_codigo_patrimonio", "pat_param_cor_ativo_descartado", "pat_param_cor_ativo_estoque", "pat_param_cor_ativo_manutencao", "pat_param_cor_ativo_operacional", "pat_param_cor_manutencao_andamento", "pat_param_cor_manutencao_concluida", "pat_param_cor_manutencao_cancelada", "periodo_letivo_feriado", "ea_param_matricula_aluno", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado", "ea_param_encerramento_automatico_periodo_letivo",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_bandas",
   "relatorio_banda_elemento", "relatorio_parametro",

@@ -1,5 +1,6 @@
 "use client";
 
+import RotuloCampo from "@/components/ui/RotuloCampo";
 import { useEffect, useRef, useState } from "react";
 import type { Dispatch, SetStateAction } from "react";
 import { applyCnpjMask } from "@/lib/pessoaJuridicaUtils";
@@ -88,9 +89,7 @@ export default function PessoaJuridicaFilterModal({
 
         <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
           <div className="sm:col-span-3">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Sequência
-            </label>
+            <RotuloCampo texto="Sequência" colecao="pessoa_juridica" campo="nr_sequencia" />
             <input
               inputMode="numeric"
               maxLength={10}
@@ -101,9 +100,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              CNPJ
-            </label>
+            <RotuloCampo texto="CNPJ" colecao="pessoa_juridica" campo="nr_cnpj" />
             <input
               inputMode="numeric"
               maxLength={18}
@@ -114,9 +111,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Data de abertura (início)
-            </label>
+            <RotuloCampo texto="Data de abertura (início)" colecao="pessoa_juridica" campo="dt_abertura" />
             <input
               type="text"
               inputMode="numeric"
@@ -129,9 +124,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-3">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Data de abertura (fim)
-            </label>
+            <RotuloCampo texto="Data de abertura (fim)" colecao="pessoa_juridica" campo="dt_abertura" />
             <input
               type="text"
               inputMode="numeric"
@@ -144,9 +137,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Razão social
-            </label>
+            <RotuloCampo texto="Razão social" colecao="pessoa_juridica" campo="ds_razao_social" />
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={filterForm.ds_razao_social}
@@ -155,9 +146,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Nome fantasia
-            </label>
+            <RotuloCampo texto="Nome fantasia" colecao="pessoa_juridica" campo="ds_nome_fantasia" />
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={filterForm.ds_nome_fantasia}
@@ -166,9 +155,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Inscrição estadual
-            </label>
+            <RotuloCampo texto="Inscrição estadual" colecao="pessoa_juridica" campo="nr_inscricao_estadual" />
             <input
               maxLength={20}
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -178,9 +165,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Inscrição municipal
-            </label>
+            <RotuloCampo texto="Inscrição municipal" colecao="pessoa_juridica" campo="nr_inscricao_municipal" />
             <input
               maxLength={20}
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
@@ -190,9 +175,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Telefone
-            </label>
+            <RotuloCampo texto="Telefone" colecao="pessoa_juridica" campo="nr_telefone" />
             <input
               inputMode="numeric"
               maxLength={15}
@@ -203,9 +186,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              E-mail
-            </label>
+            <RotuloCampo texto="E-mail" colecao="pessoa_juridica" campo="ds_email" />
             <input
               className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
               value={filterForm.ds_email}
@@ -214,9 +195,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              UF
-            </label>
+            <RotuloCampo texto="UF" colecao="pessoa_juridica" campo="sg_estado" />
             <Select
               value={filterForm.sg_estado}
               onChange={(v) => setFilterForm({ ...filterForm, sg_estado: v })}
@@ -225,9 +204,7 @@ export default function PessoaJuridicaFilterModal({
           </div>
 
           <div className="sm:col-span-6">
-            <label className="block text-sm mb-1" style={{ color: '#666' }}>
-              Cidade
-            </label>
+            <RotuloCampo texto="Cidade" colecao="pessoa_juridica" campo="cd_ibge_cidade" />
             <div className="flex items-center gap-2 flex-nowrap">
               <div style={{ width: 100 }}>
                 <input

@@ -1,5 +1,6 @@
 "use client";
 
+import RotuloCampo from "@/components/ui/RotuloCampo";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import { formatCellValue, parsePersonDateValue } from "@/lib/pessoaFisicaUtils";
 
@@ -160,7 +161,7 @@ export default function PessoaFisicaViewModal({ pessoa, cgLookups = {}, onClose 
                 <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                   {secao.campos.map((campo) => (
                     <div key={`${secao.titulo}-${campo.label}`} className={`${SPAN_CLASS[campo.span] ?? 'sm:col-span-12'} group`}>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>{campo.label}</label>
+                      <RotuloCampo texto={campo.label} colecao="pessoa_fisica" campo={campo.computado ? 'qt_idade' : String(campo.key)} />
                       <input
                         disabled
                         value={campo.computado ? campo.computado(pessoa) : valorDoCampo(campo.key, pessoa[campo.key])}

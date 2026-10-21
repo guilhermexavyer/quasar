@@ -74,6 +74,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "ver_periodo_letivo", label: "Permite ver" },
     { key: "encerrar_periodo_letivo", label: "Permite encerrar" },
     { key: "reativar_periodo_letivo", label: "Permite reativar" },
+    { key: "feriados_periodo_letivo", label: "Permite configurar feriados" },
     { key: "excluir_periodo_letivo", label: "Permite excluir" },
   ],
   patrimonio: [
@@ -233,7 +234,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Período letivo',
-      chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'excluir_periodo_letivo'],
+      chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'feriados_periodo_letivo', 'excluir_periodo_letivo'],
     },
   ],
   patrimonio: [
@@ -359,7 +360,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 18;
+export const PERMISSOES_CONFIG_VERSION = 19;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é

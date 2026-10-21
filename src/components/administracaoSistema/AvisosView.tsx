@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
+import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
@@ -37,6 +38,8 @@ interface AvisosViewProps {
   onSavingChange?: (saving: boolean) => void;
   /** Ordem e largura das colunas salvas no usuário. */
   colunas?: ConfigColunasTabela;
+  /** Largura dos painéis (redimensionável), salva no usuário. */
+  paineis?: ConfigPaineis;
 }
 
 export default function AvisosView({
@@ -49,6 +52,7 @@ export default function AvisosView({
   onSaveSuccess,
   onSavingChange,
   colunas,
+  paineis,
 }: AvisosViewProps) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [selecionado, setSelecionado] = useState<CampoAviso | null>(null);
@@ -136,7 +140,7 @@ export default function AvisosView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <div className="flex-1 min-h-0 grid grid-cols-3 gap-3">
+        <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Avisos (1/3) ── */}
           <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             <div className="overflow-auto flex-1 min-h-0">
@@ -152,7 +156,7 @@ export default function AvisosView({
           </div>
 
           {/* ── Painel 2: Conteúdo do aviso (2/3) ── */}
-          <div className="col-span-2 flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
+          <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
             {!selecionado ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
                 Selecione um aviso para configurar.
@@ -235,7 +239,7 @@ export default function AvisosView({
               </div>
             )}
           </div>
-        </div>
+        </PaineisRedimensionaveis>
       </div>
     </div>
   );

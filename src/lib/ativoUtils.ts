@@ -32,7 +32,7 @@ export const ATIVO_COLUMNS: ColDef[] = [
   { key: 'nr_serie', label: 'Número de série' },
   { key: 'ds_qr_code', label: 'QR Code' },
   { key: 'ds_codigo_barras', label: 'Código de barras' },
-  { key: 'ie_status', label: 'Status' },
+  { key: 'ie_status', label: '', dataClass: 'text-center' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
   { key: 'ds_usuario_criacao', label: 'Usuário criação' },
@@ -114,6 +114,17 @@ export const STATUS_OPTIONS = [
   { value: 'M', label: 'Manutenção' },
   { value: 'O', label: 'Operacional' },
 ];
+
+/**
+ * Cores padrão da bolinha de status (coluna Status da lista), usadas enquanto
+ * a cor não for configurada em Patrimônio > Parâmetros.
+ */
+export const CORES_STATUS_ATIVO_PADRAO: Record<'D' | 'E' | 'M' | 'O', string> = {
+  D: '#999999',
+  E: '#3b82f6',
+  M: '#f59e0b',
+  O: '#2cc958',
+};
 
 export function formatCellValue(key: keyof Ativo, value: unknown): string {
   if (value === null || value === undefined) return '';

@@ -1,5 +1,6 @@
 "use client";
 
+import RotuloCampo from "@/components/ui/RotuloCampo";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
 import { formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
 
@@ -126,7 +127,7 @@ export default function PessoaJuridicaViewModal({
                 <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                   {secao.campos.map((campo) => (
                     <div key={`${secao.titulo}-${campo.label}`} className={`${SPAN_CLASS[campo.span] ?? 'sm:col-span-12'} group`}>
-                      <label className="block text-sm mb-1" style={{ color: '#666' }}>{campo.label}</label>
+                      <RotuloCampo texto={campo.label} colecao="pessoa_juridica" campo={String(campo.key)} />
                       <input
                         disabled
                         value={valorDoCampo(campo.key, pessoa[campo.key])}
