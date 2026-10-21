@@ -6003,16 +6003,6 @@ export default function Home() {
       return;
     }
     setPeriodoLetivoCampoErros([]);
-    // Cadastro "Em andamento" não pode começar antes de hoje.
-    if (!periodoLetivoEditingId && (periodoLetivoForm.ie_status ?? 'A') === 'A' && periodoLetivoForm.dt_inicio) {
-      const inicio = parseDateInput(periodoLetivoForm.dt_inicio);
-      const hoje = new Date();
-      const hojeNum = hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate();
-      if (inicio !== null && inicio < hojeNum) {
-        mostrarToast("Não é possível cadastrar um período letivo 'Em andamento' com a data anterior a data atual.", 'error');
-        return;
-      }
-    }
     setPeriodoLetivoSubmitting(true);
 
     try {

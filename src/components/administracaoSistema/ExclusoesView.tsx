@@ -7,6 +7,8 @@ import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
+import CampoPesquisa from "@/components/ui/CampoPesquisa";
+import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import {
   COLUNAS_LOG_EXCLUSAO,
   FILHOS_EXCLUSAO,
@@ -118,6 +120,9 @@ export default function ExclusoesView({
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   const [ordemFuncao, setOrdemFuncao] = useState<Ordem>(null);
   const [ordemDropdown, setOrdemDropdown] = useState<Ordem>(null);
+  const [pesquisaFuncao, setPesquisaFuncao] = useState("");
+  const [pesquisaDropdown, setPesquisaDropdown] = useState("");
+  const [pesquisaRegistro, setPesquisaRegistro] = useState("");
   /** Função selecionada (esquerda); começa na função da opção já selecionada. */
   const [funcaoNome, setFuncaoNome] = useState<string | null>(
     () => FUNCOES_EXCLUSAO.find((fx) => fx.colecao === colecaoSelecionada)?.funcao ?? null
@@ -221,7 +226,8 @@ export default function ExclusoesView({
   }, [funcao, lookups, resolverNomeAutor]);
 
   // Padrão: exclusão mais recente primeiro.
-  const registrosOrdenados = [...registros].sort((a, b) => {
+  const registrosFiltrados = filtrarPesquisa(registros, pesquisaRegistro, (ex) => colunasDireita.map((c) => textoCelula(ex, c.key)));
+  const registrosOrdenados = [...registrosFiltrados].sort((a, b) => {
     if (!ordemRegistro) return String(b.dt_exclusao).localeCompare(String(a.dt_exclusao));
     const cmp = comparar(valorBruto(a, ordemRegistro.coluna), valorBruto(b, ordemRegistro.coluna), ordemRegistro.coluna);
     return ordemRegistro.asc ? cmp : -cmp;
@@ -266,11 +272,12 @@ export default function ExclusoesView({
         <PaineisRedimensionaveis proporcoesPadrao={[7, 7, 16]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Funções ── */}
           <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
+            <CampoPesquisa valor={pesquisaFuncao} onChange={setPesquisaFuncao} />
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
                 {...colunasFuncoes}
                 columns={[{ key: "funcao", label: "Função", render: (nome: string) => nome }]}
-                rows={funcoesOrdenadas}
+                rows={filtrarPesquisa(funcoesOrdenadas, pesquisaFuncao, (nome) => [nome])}
                 rowKey={(nome) => nome}
                 sortColumn={ordemFuncao?.coluna ?? null}
                 sortAsc={ordemFuncao?.asc ?? true}
@@ -286,11 +293,13 @@ export default function ExclusoesView({
             {!funcaoNome ? (
               vazio("Selecione uma função.")
             ) : (
+              <>
+              <CampoPesquisa valor={pesquisaDropdown} onChange={setPesquisaDropdown} />
               <div className="overflow-auto flex-1 min-h-0">
                 <ResizableTable
                   {...colunasDropdowns}
                   columns={[{ key: "dropdown", label: "Dropdown", render: (fx: FuncaoExclusao) => fx.dropdown }]}
-                  rows={dropdownsOrdenados}
+                  rows={filtrarPesquisa(dropdownsOrdenados, pesquisaDropdown, (fx) => [fx.dropdown])}
                   rowKey={(fx) => fx.colecao}
                   sortColumn={ordemDropdown?.coluna ?? null}
                   sortAsc={ordemDropdown?.asc ?? true}
@@ -299,6 +308,7 @@ export default function ExclusoesView({
                   onRowClick={selecionarDropdown}
                 />
               </div>
+              </>
             )}
           </div>
 
@@ -355,6 +365,8 @@ export default function ExclusoesView({
 
             {pai && abaAtual?.ordenacao ? (
               linhasOrdenacao.length === 0 ? vazio("Nenhuma ordenação.") : (
+                <>
+                <CampoPesquisa valor={pesquisaRegistro} onChange={setPesquisaRegistro} />
                 <div className="overflow-auto flex-1 min-h-0">
                   <ResizableTable
                     columns={[
@@ -362,10 +374,11 @@ export default function ExclusoesView({
                       { key: "campo", label: "Campo" },
                       { key: "direcao", label: "Direção" },
                     ]}
-                    rows={linhasOrdenacao}
+                    rows={filtrarPesquisa(linhasOrdenacao, pesquisaRegistro, (o) => [o.nr_sequencia, o.campo, o.direcao])}
                     rowKey={(o) => o.id}
                   />
                 </div>
+                </>
               )
             ) : !funcao ? (
               vazio(funcaoNome ? "Selecione uma opção do dropdown para ver os registros excluídos." : "Selecione uma função.")
@@ -375,6 +388,7 @@ export default function ExclusoesView({
               vazio("Nenhum registro excluído.")
             ) : (
               <div className="flex flex-col flex-1 min-h-0">
+                <CampoPesquisa valor={pesquisaRegistro} onChange={setPesquisaRegistro} />
                 <div className="overflow-auto flex-1 min-h-0">
                   <ResizableTable
                     key={funcao.colecao}

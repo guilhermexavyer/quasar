@@ -14,6 +14,8 @@ import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
+import CampoPesquisa from "@/components/ui/CampoPesquisa";
+import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
@@ -95,6 +97,9 @@ export default function CamposView({
   const funcaoJaSelecionada = funcaoJaSelecionadaProp ?? false;
   const setFuncaoJaSelecionada = onFuncaoJaSelecionadaChange ?? (() => {});
   const [selectedCampoKey, setSelectedCampoKey] = useState<string | null>(null);
+  const [pesquisaPerfil, setPesquisaPerfil] = useState("");
+  const [pesquisaFuncao, setPesquisaFuncao] = useState("");
+  const [pesquisaCampo, setPesquisaCampo] = useState("");
 
   // Ordenação em 3 estados (mesma lógica das tabelas de registro):
   // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).
@@ -283,6 +288,7 @@ export default function CamposView({
               borderRightColor: '#ccc',
             }}
           >
+            <CampoPesquisa valor={pesquisaPerfil} onChange={setPesquisaPerfil} />
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable<Perfil>
                 {...colunasPerfil}
@@ -290,7 +296,7 @@ export default function CamposView({
                   { key: "nr_sequencia", label: "#", render: (p) => p.nr_sequencia },
                   { key: "ds_perfil", label: "Perfil", render: (p) => p.ds_perfil },
                 ]}
-                rows={sortedPerfis}
+                rows={filtrarPesquisa(sortedPerfis, pesquisaPerfil, (p) => [p.nr_sequencia, p.ds_perfil])}
                 rowKey={(p) => p.id ?? String(p.nr_sequencia)}
                 sortColumn={perfilSortKey}
                 sortAsc={perfilSortAsc ?? true}
@@ -335,13 +341,15 @@ export default function CamposView({
                 Nenhuma função liberada para este perfil.
               </div>
             ) : (
+              <>
+              <CampoPesquisa valor={pesquisaFuncao} onChange={setPesquisaFuncao} />
               <div className="overflow-auto flex-1 min-h-0">
                 <ResizableTable<string>
                   {...colunasFuncao}
                   columns={[
                     { key: "funcao", label: "Função", render: (f) => FUNCAO_LABELS[f] ?? f },
                   ]}
-                  rows={sortedFuncoes}
+                  rows={filtrarPesquisa(sortedFuncoes, pesquisaFuncao, (f) => [FUNCAO_LABELS[f] ?? f])}
                   rowKey={(f) => f}
                   sortColumn={funcaoSortKey}
                   sortAsc={funcaoSortAsc ?? true}
@@ -354,6 +362,7 @@ export default function CamposView({
                   }}
                 />
               </div>
+              </>
             )}
           </div>
 
@@ -374,6 +383,8 @@ export default function CamposView({
                 Selecione uma função.
               </div>
             ) : (
+              <>
+              <CampoPesquisa valor={pesquisaCampo} onChange={setPesquisaCampo} />
               <div className="overflow-auto flex-1 min-h-0">
                 <ResizableTable<(typeof sortedCampos)[number]>
                   {...colunasCampos}
@@ -406,7 +417,15 @@ export default function CamposView({
                       render: (c) => alteracoes[c.key]?.ds_usuario_alteracao ?? "",
                     },
                   ]}
-                  rows={sortedCampos}
+                  rows={filtrarPesquisa(sortedCampos, pesquisaCampo, (c) => [
+                  c.tipo,
+                  c.label,
+                  CAMPO_STATUS_LABELS[getCampoStatusByKey(config, c.key)],
+                  alteracoes[c.key]?.dt_criacao ? formatDate(alteracoes[c.key].dt_criacao) : "",
+                  alteracoes[c.key]?.dt_alteracao ? formatDate(alteracoes[c.key].dt_alteracao) : "",
+                  alteracoes[c.key]?.ds_usuario_criacao,
+                  alteracoes[c.key]?.ds_usuario_alteracao,
+                ])}
                   rowKey={(c) => c.key}
                   sortColumn={campoSortKey}
                   sortAsc={campoSortAsc ?? true}
@@ -423,6 +442,7 @@ export default function CamposView({
                   }}
                 />
               </div>
+              </>
             )}
           </div>
         </PaineisRedimensionaveis>

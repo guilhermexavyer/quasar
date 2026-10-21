@@ -5,6 +5,8 @@ import Select from "@/components/ui/Select";
 import ResizableTable from "@/components/ui/ResizableTable";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
+import CampoPesquisa from "@/components/ui/CampoPesquisa";
+import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
@@ -202,6 +204,7 @@ export default function ParametrosDaFuncaoView({
   paineis,
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
+  const [pesquisa, setPesquisa] = useState("");
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
   const [segmentosDraft, setSegmentosDraft] = useState<Segmento[] | null>(null);
   const [cor, setCor] = useState("");
@@ -391,6 +394,7 @@ export default function ParametrosDaFuncaoView({
               borderRightColor: "#ccc",
             }}
           >
+            <CampoPesquisa valor={pesquisa} onChange={setPesquisa} />
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
                 {...colunas}
@@ -399,7 +403,7 @@ export default function ParametrosDaFuncaoView({
                   { key: "parametro", label: "Parâmetro" },
                   // Sem colunas de auditoria: os parâmetros são padrão do sistema, não registros criados pelo usuário.
                 ]}
-                rows={parametros}
+                rows={filtrarPesquisa(parametros, pesquisa, (p) => [p.dropdown, p.parametro])}
                 rowKey={(p) => p.id}
                 rowClassName={(p) => (p.id === selectedParametroId ? "row-selected" : "")}
                 onRowClick={(p) => {

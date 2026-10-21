@@ -4,6 +4,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable from "@/components/ui/ResizableTable";
+import CampoPesquisa from "@/components/ui/CampoPesquisa";
+import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
@@ -55,6 +57,7 @@ export default function AvisosView({
   paineis,
 }: AvisosViewProps) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
+  const [pesquisa, setPesquisa] = useState("");
   const [selecionado, setSelecionado] = useState<CampoAviso | null>(null);
   const [rascunho, setRascunho] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -143,11 +146,12 @@ export default function AvisosView({
         <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
           {/* ── Painel 1: Avisos (1/3) ── */}
           <div className="flex min-h-0 flex-col overflow-hidden border p-[5px]" style={bordaPainel}>
+            <CampoPesquisa valor={pesquisa} onChange={setPesquisa} />
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
                 {...colunas}
                 columns={[{ key: "aviso", label: "Aviso" }]}
-                rows={AVISOS}
+                rows={filtrarPesquisa(AVISOS, pesquisa, (x) => [x.aviso])}
                 rowKey={(a) => a.id}
                 rowClassName={(a) => (a.id === selecionado ? "row-selected" : "")}
                 onRowClick={(a) => selecionar(a.id)}
