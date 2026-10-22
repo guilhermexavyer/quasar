@@ -308,6 +308,9 @@ import { VINCULO_CONTRATUAL_COLUMNS, VINCULO_CONTRATUAL_FIELD_INFOS } from "@/li
 import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoUtils";
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
+import { CURSO_COLUMNS, CURSO_FIELD_INFOS } from "@/lib/cursoUtils";
+import { atualizarCurso, criarCurso, excluirCurso, obterCursos } from "@/services/cursoService";
+import type { Curso } from "@/types/curso";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
@@ -357,7 +360,7 @@ const SESSION_KEY = "quasar_session";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.69.1";
+const SYSTEM_VERSION = "0.70.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -453,6 +456,7 @@ const PJ_SELECT_OPTIONS = [
 const EA_SELECT_OPTIONS = [
   { value: 'alunos', label: 'Alunos' },
   { value: 'colaboradores', label: 'Colaboradores' },
+  { value: 'cursos', label: 'Cursos' },
   { value: 'parametrosFuncao', label: 'Parâmetros' },
   { value: 'periodoLetivo', label: 'Período letivo' },
 ];
@@ -904,7 +908,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1028,6 +1032,19 @@ export default function Home() {
      de Cadastros Gerais, mas com estado próprio — as duas funções podem estar
      abertas ao mesmo tempo sem uma interferir na edição da outra. */
   const [categoriaForm, setCategoriaForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  /* Estrutura Acadêmica > Cursos (coleção curso): mesmos componentes genéricos da Categoria. */
+  const [cursos, setCursos] = useState<Curso[]>([]);
+  const [cursoForm, setCursoForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [cursoEditingId, setCursoEditingId] = useState<string | null>(null);
+  const [cursoSubmitting, setCursoSubmitting] = useState(false);
+  const [cursoAuditInfo, setCursoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditCursoIdRef = useRef<string | null>(null);
+  const [cursoCampoErros, setCursoCampoErros] = useState<string[]>([]);
+  const [cursoSortColumn, setCursoSortColumn] = useState<number | null>(null);
+  const [cursoSortAsc, setCursoSortAsc] = useState<boolean | null>(null);
+  const [cursoFilterModalOpen, setCursoFilterModalOpen] = useState(false);
+  const [cursoFilterForm, setCursoFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedCursoFilterForm, setAppliedCursoFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [categoriaEditingId, setCategoriaEditingId] = useState<string | null>(null);
   const [categoriaSubmitting, setCategoriaSubmitting] = useState(false);
   const [categoriaAuditInfo, setCategoriaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1291,6 +1308,7 @@ export default function Home() {
   const [appliedAtivoFilterForm, setAppliedAtivoFilterForm] = useState<AtivoFilterFormData>(emptyAtivoFilterForm);
   const [ativoFilterModalOpen, setAtivoFilterModalOpen] = useState(false);
   const [parametrosSaving, setParametrosSaving] = useState(false);
+  const [imagemCampoErros, setImagemCampoErros] = useState<string[]>([]);
   const [periodoLetivoFeriadoSaving, setPeriodoLetivoFeriadoSaving] = useState(false);
   // Cores da bolinha de status do Período letivo (Estrutura Acadêmica > Parâmetros).
   const [coresStatusPeriodoLetivo, setCoresStatusPeriodoLetivo] = useState<Record<string, string>>(CORES_STATUS_PERIODO_LETIVO_PADRAO);
@@ -1377,7 +1395,7 @@ export default function Home() {
   const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => a.nr_sequencia - b.nr_sequencia); /* Ordem padrão: coluna # */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
-  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
+  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
   async function handleImagemDelete(id: string) { setMessage(''); try { const img = imagens.find((i) => i.id === id); if (img?.ie_arquivo) { await excluirArquivoImagem(img.ie_arquivo); } await excluirImagem(id); setMessage('Excluído com sucesso!'); await loadImagens(); } catch { setMessage('Erro ao excluir.'); } if (view === 'form') setView('list'); }
   const imagemAuditInfo = useMemo(() => { const img = imagens.find((i) => i.id === imagemEditingId); return { createdAt: img?.dt_criacao || '', updatedAt: img?.dt_alteracao || '', createdBy: img?.ds_usuario_criacao || '', updatedBy: img?.ds_usuario_alteracao || '' }; }, [imagens, imagemEditingId]);
   const imagemIndex = useMemo(() => { if (!imagemEditingId) return -1; return filteredSortedImagens.findIndex((i) => i.id === imagemEditingId); }, [filteredSortedImagens, imagemEditingId]);
@@ -1795,7 +1813,7 @@ export default function Home() {
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'parametrosFuncao', 'periodoLetivo'];
+    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'cursos', 'parametrosFuncao', 'periodoLetivo'];
     return eaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1825,6 +1843,9 @@ export default function Home() {
       reativarPeriodoLetivo: permitida('reativar_periodo_letivo'),
       feriadosPeriodoLetivo: permitida('feriados_periodo_letivo'),
       excluirPeriodoLetivo: permitida('excluir_periodo_letivo'),
+      adicionarCurso: permitida('adicionar_curso'),
+      verCurso: permitida('ver_curso'),
+      excluirCurso: permitida('excluir_curso'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2522,6 +2543,17 @@ export default function Home() {
     }
   }, []);
 
+  const loadCursos = useCallback(async () => {
+    setLoading(true);
+    try {
+      setCursos(await obterCursos());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCategoriasAtivos = useCallback(async () => {
     setLoading(true);
     try {
@@ -2627,6 +2659,7 @@ export default function Home() {
     loadLocalizacoes();
     loadMarcas();
     loadCategoriasAtivos();
+    loadCursos();
     loadSistemasOperacionais();
     loadAtivos();
     loadManutencoes();
@@ -2639,7 +2672,7 @@ export default function Home() {
     loadEncerramentoAutomaticoPeriodoLetivo();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -2873,7 +2906,7 @@ export default function Home() {
           setPjManageSelection(session.pjManageSelection);
           setPjInteracted(true);
         }
-        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao' || session.alunoManageSelection === 'periodoLetivo')) {
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao' || session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos')) {
           setAlunoManageSelection(session.alunoManageSelection);
           setAlunoInteracted(true);
         }
@@ -3627,6 +3660,7 @@ export default function Home() {
     if (s === 'estruturaAcademica') {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.verColaborador;
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.verPeriodoLetivo;
+      if (alunoManageSelection === 'cursos') return permissoesEA.verCurso;
       return permissoesEA.verAluno;
     }
     if (s === 'patrimonio') {
@@ -3662,6 +3696,7 @@ export default function Home() {
     if (s === 'estruturaAcademica') {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.excluirPeriodoLetivo;
+      if (alunoManageSelection === 'cursos') return permissoesEA.excluirCurso;
       return permissoesEA.excluirAluno;
     }
     if (s === 'patrimonio') {
@@ -3777,6 +3812,9 @@ export default function Home() {
     setPeriodoLetivoEditingId(null);
     setPeriodoLetivoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setPeriodoLetivoFilterModalOpen(false);
+    setCursoForm(emptyCgForm);
+    setCursoEditingId(null);
+    setCursoFilterModalOpen(false);
     setMessage("");
     setView("list");
   }
@@ -5696,6 +5734,206 @@ export default function Home() {
     if (view === 'form') goToCategoriaList();
   }
 
+  /* ── Estrutura Acadêmica > Cursos ── */
+  const filteredSortedCursos = useMemo(() => {
+    const filtro = appliedCursoFilterForm;
+    const lista = cursos.filter((c) => {
+      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+      if (filtro.descricao && !String(c.ds_curso ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+      if (filtro.ie_status && filtro.ie_status.toUpperCase() !== 'T' && String(c.ie_status ?? '').toUpperCase() !== filtro.ie_status.toUpperCase()) return false;
+      return true;
+    });
+    if (cursoSortColumn === null || cursoSortAsc === null) {
+      // Ordem padrão: coluna # (nr_sequencia).
+      return lista.sort((a, b) => Number(a.nr_sequencia) - Number(b.nr_sequencia));
+    }
+    const key = CURSO_COLUMNS[cursoSortColumn].key;
+    return lista.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') return cursoSortAsc ? valA - valB : valB - valA;
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return cursoSortAsc ? -1 : 1;
+      if (strA > strB) return cursoSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [cursos, appliedCursoFilterForm, cursoSortColumn, cursoSortAsc]);
+
+  const currentCursoEditIndex = cursoEditingId ? filteredSortedCursos.findIndex((c) => c.id === cursoEditingId) : -1;
+  const hasPrevCursoRecord = currentCursoEditIndex > 0;
+  const hasNextCursoRecord = currentCursoEditIndex >= 0 && currentCursoEditIndex < filteredSortedCursos.length - 1;
+
+  function handleCursoSortChange(logicalIndex: number) {
+    if (cursoSortColumn === logicalIndex) {
+      if (cursoSortAsc) {
+        setCursoSortAsc(false);
+      } else {
+        setCursoSortColumn(null);
+        setCursoSortAsc(null);
+      }
+    } else {
+      setCursoSortColumn(logicalIndex);
+      setCursoSortAsc(true);
+    }
+  }
+
+  // Botão "Adicionar": sem a permissão, mostra aviso.
+  function handleCursoNewForm() {
+    if (!permissoesEA.adicionarCurso) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    setCursoForm(emptyCgForm);
+    setCursoEditingId(null);
+    setCursoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setCursoCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  async function carregarAutorAuditoriaCurso(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('curso', id);
+      if (auditCursoIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
+      setCursoAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  function openCursoEditForm(curso: Curso) {
+    setCursoForm({
+      descricao: curso.ds_curso ?? '',
+      ie_status: curso.ie_status ?? 'A',
+      nr_cbo: '',
+      sg_sigla: '',
+      ds_observacao: curso.ds_observacao ?? '',
+    });
+    setCursoEditingId(curso.id ?? null);
+    setCursoAuditInfo({
+      createdAt: curso.dt_criacao ?? '',
+      updatedAt: curso.dt_alteracao ?? '',
+      createdBy: curso.ds_usuario_criacao ?? '',
+      updatedBy: curso.ds_usuario_alteracao ?? '',
+    });
+    auditCursoIdRef.current = curso.id ?? null;
+    setMessage("");
+    setCursoCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+    if (curso.id) carregarAutorAuditoriaCurso(curso.id);
+  }
+
+  function goToCursoList() {
+    setCursoForm(emptyCgForm);
+    setCursoEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
+  }
+
+  function goToPrevCursoRecord() {
+    const anterior = hasPrevCursoRecord ? filteredSortedCursos[currentCursoEditIndex - 1] : undefined;
+    if (anterior) openCursoEditForm(anterior);
+  }
+
+  function goToNextCursoRecord() {
+    const proximo = hasNextCursoRecord ? filteredSortedCursos[currentCursoEditIndex + 1] : undefined;
+    if (proximo) openCursoEditForm(proximo);
+  }
+
+  async function openCursoAuditModal(cursoId?: string | null) {
+    if (!cursoId) return;
+    setAuditDocumentType('curso');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('curso', cursoId));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openCursoFilterModal() {
+    setCursoFilterForm(appliedCursoFilterForm);
+    setCursoFilterModalOpen(true);
+  }
+
+  function clearCursoFilter() {
+    setCursoFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedCursoFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  }
+
+  function handleCursoFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedCursoFilterForm({ ...cursoFilterForm, ie_status: cursoFilterForm.ie_status || 'T' });
+    setCursoFilterModalOpen(false);
+  }
+
+  async function handleCursoSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const payload = {
+      ds_curso: cursoForm.descricao,
+      ie_status: cursoForm.ie_status,
+      ds_observacao: cursoForm.ds_observacao ?? '',
+    };
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'curso'));
+    if (faltantes.length > 0) {
+      setCursoCampoErros(faltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setCursoCampoErros([]);
+    setCursoSubmitting(true);
+    try {
+      if (cursoEditingId) {
+        const atual = cursos.find((c) => c.id === cursoEditingId);
+        const mudou = !atual || (Object.keys(payload) as (keyof typeof payload)[]).some((k) => String(atual[k] ?? '') !== String(payload[k] ?? ''));
+        if (!mudou) {
+          setMessage("Nenhuma alteração detectada.");
+        } else {
+          await atualizarCurso(cursoEditingId, payload, auditAutor);
+          setMessage("Atualizado com sucesso!");
+        }
+      } else {
+        await criarCurso(payload, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+      setCursoForm(emptyCgForm);
+      setCursoEditingId(null);
+      await loadCursos();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setCursoSubmitting(false);
+    }
+  }
+
+  async function handleCursoDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirCurso(id);
+      setMessage("Excluído com sucesso!");
+      await loadCursos();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToCursoList();
+  }
+
   function goToPrevPjRecord() {
     if (!hasPrevPjRecord) return;
     const previous = filteredSortedPessoasJuridicas[currentPjEditIndex - 1];
@@ -6055,7 +6293,13 @@ export default function Home() {
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo');
-    const ativoFaltantes = camposObrigatoriosVazios(ativoForm as unknown as Record<string, any>, ativoRegras);
+    const { nr_seq_responsavel: regraResponsavel, ...ativoRegrasPlanas } = ativoRegras;
+    const ativoFaltantes = camposObrigatoriosVazios(ativoForm as unknown as Record<string, unknown>, ativoRegrasPlanas);
+    // Responsável: obrigatório = ao menos um responsável e nenhuma linha vazia.
+    const linhasResponsaveisAtivo = ativoForm.responsaveis ?? [];
+    if (regraResponsavel === 'O' && (linhasResponsaveisAtivo.length === 0 || linhasResponsaveisAtivo.some((r) => !r.nr_seq_responsavel))) {
+      ativoFaltantes.push('nr_seq_responsavel');
+    }
     if (ativoFaltantes.length > 0) {
       setAtivoCampoErros(ativoFaltantes);
       setMessage("Preencha os campos obrigatórios.");
@@ -7047,6 +7291,8 @@ export default function Home() {
         item = colaboradores.find((c) => c.id === colaboradorEditingId) ?? null;
       } else if (alunoManageSelection === 'periodoLetivo') {
         item = periodosLetivos.find((p) => p.id === periodoLetivoEditingId) ?? null;
+      } else if (alunoManageSelection === 'cursos') {
+        item = cursos.find((c) => c.id === cursoEditingId) ?? null;
       } else {
         item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
@@ -7758,7 +8004,7 @@ export default function Home() {
     event.preventDefault();
     setMessage('');
     setManutencaoCampoErros([]);
-    const obrigatorios: string[] = [];
+    const obrigatorios = camposObrigatoriosVazios(manutencaoForm as unknown as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao'));
     if (obrigatorios.length > 0) {
       setManutencaoCampoErros(obrigatorios);
       setMessage('Preencha os campos obrigatórios.');
@@ -8462,7 +8708,7 @@ export default function Home() {
     } else if (secao === 'cadastrosGerais') {
       setCgManageSelection(''); setCgInteracted(false); setCgEditingId(null);
     } else if (secao === 'estruturaAcademica') {
-      setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null);
+      setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
     } else if (secao === 'patrimonio') {
       setAtivoManageSelection(''); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
@@ -8613,6 +8859,8 @@ export default function Home() {
         return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} selectOptions={[]} />;
       case 'pat_categoria':
         return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS} descFieldKey="ds_categoria" collectionName="pat_categoria" showObservacao />;
+      case 'curso':
+        return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_curso ?? '', ie_status: dados.ie_status ?? 'A', nr_cbo: '', sg_sigla: '', ds_observacao: dados.ds_observacao ?? '' }} selectOptions={[]} fieldInfos={CURSO_FIELD_INFOS} descFieldKey="ds_curso" collectionName="curso" showObservacao />;
       case 'pat_manutencao':
         return <ManutencaoFormView {...comuns} ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))} ativoName={exclusoesLookups.nr_seq_ativo[dados.nr_seq_ativo] ?? ''} onOpenAtivoLookup={nada} onViewAtivo={nada} prestadorName={exclusoesLookups.nr_seq_prestador_servico[dados.nr_seq_prestador_servico] ?? nomePf(dados.nr_seq_prestador_servico)} onOpenPrestadorLookup={nada} onViewPrestador={nada} selectOptions={[]} />;
       case 'pat_ativo':
@@ -9138,6 +9386,27 @@ export default function Home() {
                       }
                     }}
                   />
+                ) : alunoManageSelection === 'cursos' ? (
+                  <CadastroGeralListView
+                    loading={loading}
+                    items={filteredSortedCursos}
+                    columns={CURSO_COLUMNS}
+                    formatCellValue={formatCadastroGeralCellValue}
+                    emptyMessage='Clique em "Adicionar" para cadastrar um curso.'
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    openNewForm={handleCursoNewForm}
+                    openEditForm={openCursoEditForm}
+                    openFilter={openCursoFilterModal}
+                    setContextMenu={setContextMenu}
+                    contextMenuSection="estruturaAcademica"
+                    sortColumn={cursoSortColumn}
+                    sortAsc={cursoSortAsc}
+                    onSortChange={handleCursoSortChange}
+                    {...colunasPorIndice('config_colunas_curso')}
+                  />
                 ) : alunoManageSelection === 'periodoLetivo' && periodoLetivoFeriados ? (
                   <PeriodoLetivoFeriadosView
                     key={periodoLetivoFeriados.id}
@@ -9605,6 +9874,8 @@ export default function Home() {
                 />
               ) : adminManageSelection === 'imagens' ? (
                 <ImagemFormView
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'imagem')}
+                  campoErros={imagemCampoErros}
                   message={message}
                   editingId={imagemEditingId}
                   imagem={imagemForm}
@@ -9652,7 +9923,36 @@ export default function Home() {
                   campoErros={perfilCampoErros}
                 />
               )            ) : activeSection === "estruturaAcademica" ? (
-                alunoManageSelection === 'periodoLetivo' ? (
+                alunoManageSelection === 'cursos' ? (
+                  <CadastroGeralFormView
+                    editingId={cursoEditingId}
+                    sequence={cursoEditingId ? (cursos.find((c) => c.id === cursoEditingId)?.nr_sequencia ?? null) : null}
+                    form={cursoForm}
+                    setForm={setCursoForm}
+                    submitting={cursoSubmitting}
+                    handleSubmit={handleCursoSubmit}
+                    goToList={goToCursoList}
+                    createdAt={cursoAuditInfo.createdAt}
+                    updatedAt={cursoAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(cursoAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(cursoAuditInfo.updatedBy)}
+                    onPrevRecord={goToPrevCursoRecord}
+                    onNextRecord={goToNextCursoRecord}
+                    hasPrevRecord={hasPrevCursoRecord}
+                    hasNextRecord={hasNextCursoRecord}
+                    onOpenAudit={openCursoAuditModal}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    fieldInfos={CURSO_FIELD_INFOS}
+                    descFieldKey="ds_curso"
+                    collectionName="curso"
+                    showObservacao
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'curso')}
+                    campoErros={cursoCampoErros}
+                  />
+                ) : alunoManageSelection === 'periodoLetivo' ? (
                   <PeriodoLetivoFormView
                     message={message}
                     editingId={periodoLetivoEditingId}
@@ -9915,6 +10215,8 @@ export default function Home() {
                 openColaboradorEditForm(contextMenu.item as unknown as Colaborador);
               } else if (alunoManageSelection === 'periodoLetivo') {
                 openPeriodoLetivoEditForm(contextMenu.item as PeriodoLetivo);
+              } else if (alunoManageSelection === 'cursos') {
+                openCursoEditForm(contextMenu.item as Curso);
               } else {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
@@ -10168,6 +10470,13 @@ export default function Home() {
                 if (periodo.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${periodo.nr_sequencia}?`);
                   setConfirmDeleteAction(() => () => handlePeriodoLetivoDelete(periodo.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (alunoManageSelection === 'cursos') {
+                const curso = contextMenu.item as Curso;
+                if (curso.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${curso.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleCursoDelete(curso.id as string));
                   setConfirmDeleteOpen(true);
                 }
               } else {
@@ -11841,6 +12150,19 @@ export default function Home() {
           onClear={clearCgFilter}
           colecao={cgCollection}
           campoDescricao={cgDescKey}
+        />
+      )}
+
+      {cursoFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'cursos' && (
+        <CadastroGeralFilterModal
+          open={cursoFilterModalOpen}
+          onClose={() => setCursoFilterModalOpen(false)}
+          filterForm={cursoFilterForm}
+          setFilterForm={setCursoFilterForm}
+          onSubmit={handleCursoFilterSubmit}
+          onClear={clearCursoFilter}
+          colecao="curso"
+          campoDescricao="ds_curso"
         />
       )}
 
@@ -13554,7 +13876,7 @@ export default function Home() {
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'curso';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -13716,9 +14038,9 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
-              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' ? ['ds_observacao'] : []),
+              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : []),
               'ie_status',
               'dt_criacao',
               'dt_alteracao',
@@ -13865,6 +14187,7 @@ export default function Home() {
                       ds_localizacao: 'Descrição',
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
+                      ds_curso: 'Descrição',
                       ds_regra: 'Regra',
                       ie_regra: 'Regra',
                       ie_logout_dia: 'Dia',
@@ -14756,7 +15079,7 @@ export default function Home() {
       {(
         gerandoCodigoPatrimonio || gerandoMatricula || parametrosSaving || relatorioGerando ||
         submitting || pjSubmitting || adminSubmitting || cgSubmitting ||
-        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting ||
+        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
         ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving ||

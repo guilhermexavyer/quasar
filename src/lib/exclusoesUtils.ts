@@ -6,6 +6,7 @@ import { PERIODO_LETIVO_COLUMNS, formatCellValue as formatPeriodoLetivo } from "
 import { ATIVO_COLUMNS, formatCellValue as formatAtivo } from "@/lib/ativoUtils";
 import { MANUTENCAO_COLUMNS, formatCellValue as formatManutencao } from "@/lib/manutencaoUtils";
 import { CATEGORIA_ATIVO_COLUMNS } from "@/lib/categoriaAtivoUtils";
+import { CURSO_COLUMNS } from "@/lib/cursoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
@@ -87,6 +88,7 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   CG("cg_sistema_operacional", "Sistema operacional", SISTEMA_OPERACIONAL_COLUMNS),
   CG("cg_vinculo_contratual", "Vínculo contratual", VINCULO_CONTRATUAL_COLUMNS),
   { colecao: "aluno", funcao: "Estrutura Acadêmica", dropdown: "Alunos", colunas: proprias(ALUNO_COLUMNS), formatar: f(formatAluno) },
+  { colecao: "curso", funcao: "Estrutura Acadêmica", dropdown: "Cursos", colunas: proprias(CURSO_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "colaborador", funcao: "Estrutura Acadêmica", dropdown: "Colaboradores", colunas: proprias(COLABORADOR_COLUMNS), formatar: f(formatColaborador) },
   { colecao: "periodo_letivo", funcao: "Estrutura Acadêmica", dropdown: "Período letivo", colunas: proprias(PERIODO_LETIVO_COLUMNS), formatar: f(formatPeriodoLetivo) },
   {

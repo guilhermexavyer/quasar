@@ -15,6 +15,7 @@ export interface Usuario {
   config_colunas_aluno?: string;
   config_colunas_colaborador?: string;
   config_colunas_periodo_letivo?: string;
+  config_colunas_curso?: string;
   config_colunas_periodo_letivo_feriado?: string;
   config_colunas_exclusoes_funcao?: string;
   config_colunas_exclusoes_dropdown?: string;

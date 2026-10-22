@@ -346,7 +346,7 @@ export default function AdministracaoSistemaFormView({
                   <input
                     type="checkbox"
                     className="cg-checkbox"
-                    disabled={readOnly}
+                    disabled={readOnly || statusDe('ie_base_conhecimento') === 'D'}
                     checked={form.ie_base_conhecimento === 'S'}
                     onChange={() => setForm({ ...form, ie_base_conhecimento: form.ie_base_conhecimento === 'S' ? 'N' : 'S' })}
                   />
@@ -359,7 +359,7 @@ export default function AdministracaoSistemaFormView({
                   <input
                     type="checkbox"
                     className="cg-checkbox"
-                    disabled={readOnly}
+                    disabled={readOnly || statusDe('ie_central_suporte') === 'D'}
                     checked={form.ie_central_suporte === 'S'}
                     onChange={() => setForm({ ...form, ie_central_suporte: form.ie_central_suporte === 'S' ? 'N' : 'S' })}
                   />

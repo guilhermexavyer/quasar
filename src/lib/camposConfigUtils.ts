@@ -201,12 +201,15 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "usuario.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Usuários", colecao: "usuario" },
     { key: "usuario.ds_email", label: "E-mail", tipo: "Usuários", colecao: "usuario" },
     { key: "usuario.ds_observacao", label: "Observação", tipo: "Usuários", colecao: "usuario" },
+    { key: "usuario.ie_status", label: "Status", tipo: "Usuários", colecao: "usuario" },
+    { key: "usuario.ie_base_conhecimento", label: "Base de Conhecimento", tipo: "Usuários", colecao: "usuario" },
+    { key: "usuario.ie_central_suporte", label: "Central de Suporte", tipo: "Usuários", colecao: "usuario" },
 
     { key: "perfil.ds_perfil", label: "Perfil", tipo: "Perfis", colecao: "perfil" },
     { key: "perfil.ds_observacao", label: "Observação", tipo: "Perfis", colecao: "perfil" },
+    { key: "perfil.ie_status", label: "Status", tipo: "Perfis", colecao: "perfil" },
 
     { key: "imagem.ds_imagem", label: "Descrição", tipo: "Imagens", colecao: "imagem" },
-    { key: "imagem.ie_arquivo", label: "Arquivo", tipo: "Imagens", colecao: "imagem" },
   ],
   cadastrosGerais: [
     { key: "cg_sexo.ds_sexo", label: "Descrição", tipo: "Sexo", colecao: "cg_sexo" },
@@ -227,6 +230,19 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_localizacao.ds_localizacao", label: "Descrição", tipo: "Localização", colecao: "cg_localizacao" },
     { key: "cg_cargo.ds_cargo", label: "Descrição", tipo: "Cargo", colecao: "cg_cargo" },
     { key: "cg_vinculo_contratual.ds_vinculo_contratual", label: "Descrição", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
+    { key: "cg_sistema_operacional.ds_sistema_operacional", label: "Descrição", tipo: "Sistema operacional", colecao: "cg_sistema_operacional" },
+    { key: "cg_sexo.ie_status", label: "Status", tipo: "Sexo", colecao: "cg_sexo" },
+    { key: "cg_estado_civil.ie_status", label: "Status", tipo: "Estado civil", colecao: "cg_estado_civil" },
+    { key: "cg_cor_raca.ie_status", label: "Status", tipo: "Cor/Raça", colecao: "cg_cor_raca" },
+    { key: "cg_profissao.ie_status", label: "Status", tipo: "Profissão", colecao: "cg_profissao" },
+    { key: "cg_orgao_emissor.ie_status", label: "Status", tipo: "Órgão emissor", colecao: "cg_orgao_emissor" },
+    { key: "cg_logradouro.ie_status", label: "Status", tipo: "Logradouro", colecao: "cg_logradouro" },
+    { key: "cg_marca.ie_status", label: "Status", tipo: "Marca", colecao: "cg_marca" },
+    { key: "cg_grau_parentesco.ie_status", label: "Status", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
+    { key: "cg_localizacao.ie_status", label: "Status", tipo: "Localização", colecao: "cg_localizacao" },
+    { key: "cg_cargo.ie_status", label: "Status", tipo: "Cargo", colecao: "cg_cargo" },
+    { key: "cg_vinculo_contratual.ie_status", label: "Status", tipo: "Vínculo contratual", colecao: "cg_vinculo_contratual" },
+    { key: "cg_sistema_operacional.ie_status", label: "Status", tipo: "Sistema operacional", colecao: "cg_sistema_operacional" },
   ],
   patrimonio: [
     { key: "pat_ativo.cd_patrimonio_externo", label: "Código externo", tipo: "Ativos", colecao: "pat_ativo" },
@@ -240,9 +256,8 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativo.ds_codigo_barras", label: "Código de barras", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_aquisicao", label: "Data de aquisição", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_garantia", label: "Data de garantia", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.dt_ultima_manutencao", label: "Última manutenção", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.dt_status", label: "Data do status", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.ds_motivo_status", label: "Motivo do status", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.ie_status", label: "Status", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.nr_seq_responsavel", label: "Responsável", tipo: "Ativos", colecao: "pat_ativo" },
 
     { key: "pat_ativo.ds_processador", label: "Processador", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.qt_ram", label: "Memória RAM", tipo: "Ativos", colecao: "pat_ativo" },
@@ -258,6 +273,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     // Categoria
     { key: "pat_categoria.ds_categoria", label: "Descrição", tipo: "Categoria", colecao: "pat_categoria" },
     { key: "pat_categoria.ds_observacao", label: "Observação", tipo: "Categoria", colecao: "pat_categoria" },
+    { key: "pat_categoria.ie_status", label: "Status", tipo: "Categoria", colecao: "pat_categoria" },
 
     // Modais de Ativos
     { key: "modal_ativo_operacional.dt_status", label: "Operacional > Data", tipo: "Ativos", colecao: "modal_ativo_operacional" },
@@ -271,10 +287,8 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "modal_enviar_manutencao.ds_motivo_manutencao", label: "Enviar para manutenção > Motivo", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
 
     // Manutenções
-    // Ativo, Prestador, Data de envio e Valor total são campos fixos (sempre desabilitados).
-    { key: "pat_manutencao.dt_termino", label: "Data de término", tipo: "Manutenções", colecao: "pat_manutencao" },
-    { key: "pat_manutencao.ds_motivo_manutencao", label: "Motivo da manutenção", tipo: "Manutenções", colecao: "pat_manutencao" },
-    { key: "pat_manutencao.ds_correcoes", label: "Correções", tipo: "Manutenções", colecao: "pat_manutencao" },
+    // Ativo, Prestador, Data de envio, Status, Data de término, Valor total, Motivo e
+    // Correções são campos fixos no formulário (preenchidos pelos modais de enviar/concluir).
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "modal_concluir_manutencao.dt_termino", label: "Concluir manutenção > Data de término", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
     { key: "modal_concluir_manutencao.vl_total", label: "Concluir manutenção > Valor total", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
@@ -387,12 +401,14 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "colaborador.dt_admissao", label: "Data de admissão", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.ie_fornecedor", label: "Fornecedor", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.ie_prestador_servico", label: "Prestador de serviço", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "curso.ds_curso", label: "Descrição", tipo: "Cursos", colecao: "curso" },
+    { key: "curso.ie_status", label: "Status", tipo: "Cursos", colecao: "curso" },
+    { key: "curso.ds_observacao", label: "Observação", tipo: "Cursos", colecao: "curso" },
     { key: "periodo_letivo.nr_ano", label: "Ano", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.ds_periodo_letivo", label: "Descrição", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.qt_dias_letivos", label: "Dias letivos", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.dt_inicio", label: "Data de início", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.dt_previsao_termino", label: "Previsão de término", tipo: "Período letivo", colecao: "periodo_letivo" },
-    { key: "periodo_letivo.dt_termino", label: "Data de término", tipo: "Período letivo", colecao: "periodo_letivo" },
     { key: "periodo_letivo.ie_status", label: "Status", tipo: "Período letivo", colecao: "periodo_letivo" },
     // Feriados do período letivo (Sequência é preenchida pelo sistema).
     { key: "periodo_letivo_feriado.dt_feriado", label: "Data", tipo: "Período letivo > Feriados", colecao: "periodo_letivo_feriado" },

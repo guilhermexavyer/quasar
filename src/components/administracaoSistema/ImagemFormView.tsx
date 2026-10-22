@@ -6,6 +6,8 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import type { ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
+import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import type { CampoStatus } from "@/lib/camposConfigUtils";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { elementoVisivel } from "@/lib/visibilidade";
 
@@ -35,6 +37,10 @@ interface ImagemFormViewProps {
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   allowedSubmodulos?: string[];
+  /** Regras de campos do perfil ativo (coleção imagem): campo → status. */
+  campoRegras?: Record<string, CampoStatus>;
+  /** Campos obrigatórios vazios no último submit (borda vermelha). */
+  campoErros?: string[];
 }
 
 export default function ImagemFormView({
@@ -57,6 +63,8 @@ export default function ImagemFormView({
   manageSelection,
   onManageSelectionChange,
   allowedSubmodulos = ['campos', 'perfis', 'usuarios', 'imagens'],
+  campoRegras = {},
+  campoErros = [],
 }: ImagemFormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -92,6 +100,7 @@ export default function ImagemFormView({
       <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
         <div className="group inline-flex items-center gap-2 w-full">
           <span className="inline-flex items-center gap-1">
+            {campoRegras[fieldKey] === 'O' && <RequiredAsterisk />}
             <span>{label}</span>
           </span>
           <button
@@ -217,7 +226,8 @@ export default function ImagemFormView({
               type="text"
               value={imagem.ds_imagem ?? ''}
               onChange={(e) => setImagem((prev) => ({ ...prev, ds_imagem: e.target.value }))}
-              className={inputClass}
+              disabled={campoRegras.ds_imagem === 'D'}
+              className={`${inputClass} ${campoErros.includes('ds_imagem') ? '!border-red-500' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
             />
           </div>
 

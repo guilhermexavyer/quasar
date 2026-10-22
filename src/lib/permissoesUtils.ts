@@ -69,6 +69,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "alterar_data_admissao_colaborador", label: "Permite alterar data de admissão" },
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
     { key: "excluir_colaborador", label: "Permite excluir" },
+    // Cursos
+    { key: "acessar_curso", label: "Permite acessar Cursos" },
+    { key: "adicionar_curso", label: "Permite adicionar" },
+    { key: "ver_curso", label: "Permite ver" },
+    { key: "excluir_curso", label: "Permite excluir" },
     // Período letivo
     { key: "acessar_periodo_letivo", label: "Permite acessar Período letivo" },
     { key: "adicionar_periodo_letivo", label: "Permite adicionar" },
@@ -234,6 +239,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
     },
     {
+      titulo: 'Cursos',
+      chaves: ['acessar_curso', 'adicionar_curso', 'ver_curso', 'excluir_curso'],
+    },
+    {
       titulo: 'Parâmetros',
       chaves: ['acessar_parametros_funcao'],
     },
@@ -353,6 +362,7 @@ export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: strin
 export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
   { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
+  { value: 'cursos', label: 'Cursos', permissao: 'acessar_curso' },
   { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
   { value: 'periodoLetivo', label: 'Período letivo', permissao: 'acessar_periodo_letivo' },
 ];
@@ -366,7 +376,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 20;
+export const PERMISSOES_CONFIG_VERSION = 21;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
