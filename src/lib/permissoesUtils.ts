@@ -66,6 +66,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_colaborador", label: "Permite acessar Colaboradores" },
     { key: "adicionar_colaborador", label: "Permite adicionar" },
     { key: "ver_colaborador", label: "Permite ver" },
+    { key: "gerar_matricula_colaborador", label: "Permite gerar matrícula" },
     { key: "alterar_data_admissao_colaborador", label: "Permite alterar data de admissão" },
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
     { key: "excluir_colaborador", label: "Permite excluir" },
@@ -176,6 +177,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_vinculo_contratual", label: "Permite adicionar" },
     { key: "ver_vinculo_contratual", label: "Permite ver" },
     { key: "excluir_vinculo_contratual", label: "Permite excluir" },
+    // Combustível
+    { key: "acessar_combustivel", label: "Permite acessar Combustível" },
+    { key: "adicionar_combustivel", label: "Permite adicionar" },
+    { key: "ver_combustivel", label: "Permite ver" },
+    { key: "excluir_combustivel", label: "Permite excluir" },
     // Sistema operacional
     { key: "acessar_sistema_operacional", label: "Permite acessar Sistema operacional" },
     { key: "adicionar_sistema_operacional", label: "Permite adicionar" },
@@ -236,7 +242,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Colaboradores',
-      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
+      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'gerar_matricula_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
     },
     {
       titulo: 'Cursos',
@@ -319,6 +325,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     {
       titulo: 'Vínculo contratual',
       chaves: ['acessar_vinculo_contratual', 'adicionar_vinculo_contratual', 'ver_vinculo_contratual', 'excluir_vinculo_contratual'],
+    },
+    {
+      titulo: 'Combustível',
+      chaves: ['acessar_combustivel', 'adicionar_combustivel', 'ver_combustivel', 'excluir_combustivel'],
     },
     {
       titulo: 'Sistema operacional',
@@ -553,6 +563,7 @@ export function patrimonioSubmodulosPermitidos(config: PermissoesConfig | undefi
  */
 export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'cargo', label: 'Cargo', permissao: 'acessar_cargo' },
+  { value: 'combustivel', label: 'Combustível', permissao: 'acessar_combustivel' },
   { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
   { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco', permissao: 'acessar_grau_parentesco' },

@@ -12,6 +12,8 @@ interface ColaboradorViewModalProps {
   pessoaJuridicaName?: string;
   /** Descrição do vínculo contratual. */
   vinculoContratualName?: string;
+  /** Descrição do cargo. */
+  cargoName?: string;
   onClose: () => void;
 }
 
@@ -36,6 +38,7 @@ export default function ColaboradorViewModal({
   pessoaFisicaName = "",
   pessoaJuridicaName = "",
   vinculoContratualName = "",
+  cargoName = "",
   onClose,
 }: ColaboradorViewModalProps) {
   if (!colaborador) return null;
@@ -48,6 +51,7 @@ export default function ColaboradorViewModal({
     if (key === "nr_seq_pessoa_fisica") return pessoaFisicaName || String(raw);
     if (key === "nr_seq_pessoa_juridica") return pessoaJuridicaName || String(raw);
     if (key === "nr_seq_vinculo_contratual") return vinculoContratualName || String(raw);
+    if (key === "nr_seq_cargo") return cargoName || String(raw);
     if (key === "ie_status") return formatStatus(raw);
     return String(raw);
   }
@@ -93,24 +97,42 @@ export default function ColaboradorViewModal({
                     <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 pr-[38px] py-1.5 text-sm" value={inputVal("nr_seq_pessoa_juridica")} />
                   </div>
                 </div>
-                <div className="sm:col-span-4 group">
+                <div className="sm:col-span-3 group">
                   <RotuloCampo texto="Vínculo contratual" colecao="colaborador" campo="nr_seq_vinculo_contratual" />
                   <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={inputVal("nr_seq_vinculo_contratual")} />
+                </div>
+                <div className="sm:col-span-3 group">
+                  <RotuloCampo texto="Cargo" colecao="colaborador" campo="nr_seq_cargo" />
+                  <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={inputVal("nr_seq_cargo")} />
                 </div>
                 <div className="sm:col-span-2 group">
                   <RotuloCampo texto="Matrícula" colecao="colaborador" campo="nr_matricula" />
                   <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={inputVal("nr_matricula")} />
                 </div>
-                <div className="sm:col-span-3 group">
+                <div className="sm:col-span-2 group">
                   <RotuloCampo texto="Data de admissão" colecao="colaborador" campo="dt_admissao" />
                   <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={inputVal("dt_admissao")} />
                 </div>
-                <div className="sm:col-span-3 group">
+                <div className="sm:col-span-2 group">
                   <RotuloCampo texto="Status" colecao="colaborador" campo="ie_status" />
                   <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={inputVal("ie_status")} />
                 </div>
                 <div className="sm:col-span-12 group">
                   <div className="flex gap-8">
+                    <div>
+                      <RotuloCampo texto="Coordenador" colecao="colaborador" campo="ie_coordenador" />
+                      <label className="inline-flex items-center gap-2 text-sm opacity-50">
+                        <input type="checkbox" className="cg-checkbox" disabled checked={colaborador.ie_coordenador === "S"} readOnly />
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                    <div>
+                      <RotuloCampo texto="Professor" colecao="colaborador" campo="ie_professor" />
+                      <label className="inline-flex items-center gap-2 text-sm opacity-50">
+                        <input type="checkbox" className="cg-checkbox" disabled checked={colaborador.ie_professor === "S"} readOnly />
+                        <span>Sim</span>
+                      </label>
+                    </div>
                     <div>
                       <RotuloCampo texto="Fornecedor" colecao="colaborador" campo="ie_fornecedor" />
                       <label className="inline-flex items-center gap-2 text-sm opacity-50">

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { Ativo } from "@/types/ativo";
-import { FIELD_INFOS, STATUS_OPTIONS, formatDate, applyDateMask, applyIPv4Mask } from "@/lib/ativoUtils";
+import { FIELD_INFOS, STATUS_OPTIONS, formatDate, applyDateMask, applyIPv4Mask, applyMoneyMask } from "@/lib/ativoUtils";
 import { CAMPOS_POR_FUNCAO, type CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
@@ -44,6 +44,7 @@ interface FormViewProps {
   localizacoes?: { nr_sequencia: number; descricao: string; ie_status?: string }[];
   marcas?: { nr_sequencia: number; descricao: string; ie_status?: string }[];
   sistemasOperacionais?: { nr_sequencia: number; descricao: string }[];
+  combustiveis?: { nr_sequencia: number; descricao: string; ie_status?: string }[];
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -87,6 +88,7 @@ export default function AtivoFormView({
   localizacoes = [],
   marcas = [],
   sistemasOperacionais = [],
+  combustiveis = [],
   selectOptions,
   manageSelection,
   onManageSelectionChange,
@@ -330,7 +332,21 @@ export default function AtivoFormView({
                 />
               </div>
 
-              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-5">
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-6">
+                <div className="group">
+                  {renderFieldLabel('vl_aquisicao', 'Valor de aquisição')}
+                  <input
+                    type="text"
+                    inputMode="numeric"
+                    maxLength={17}
+                    placeholder="0,00"
+                    disabled={statusDe('vl_aquisicao') === 'D'}
+                    className={`${inputClass('vl_aquisicao')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                    value={form.vl_aquisicao ?? ''}
+                    onChange={(e) => setForm({ ...form, vl_aquisicao: applyMoneyMask(e.target.value) })}
+                  />
+                </div>
+
                 <div className="group">
                   {renderFieldLabel('dt_aquisicao', 'Data de aquisição')}
                   <input
@@ -622,12 +638,12 @@ export default function AtivoFormView({
               <div className="sm:col-span-4 group">
                 {renderFieldLabel('ds_endereco_mac', 'Endereço MAC')}
                 <input
-                  maxLength={12}
+                  maxLength={17}
                   disabled={statusDe('ds_endereco_mac') === 'D'}
                   className={`${inputClass('ds_endereco_mac')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_endereco_mac ?? ''}
                   onChange={(e) => {
-                    const v = e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
+                    const v = e.target.value.replace(/[^a-zA-Z0-9:-]/g, '').toUpperCase();
                     setForm({ ...form, ds_endereco_mac: v });
                   }}
                 />
@@ -652,6 +668,71 @@ export default function AtivoFormView({
                   value={form.nr_seq_sistema_operacional ? String(form.nr_seq_sistema_operacional) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_sistema_operacional: v ? Number(v) : undefined })}
                   options={sistemasOperacionais.map((s) => ({ value: String(s.nr_sequencia), label: s.descricao }))}
+                />
+              </div>
+            </div>
+          </section>
+
+          {/* ── Veículo ── */}
+          <section>
+            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Veículo</h2>
+            <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+              <div className="sm:col-span-3 group">
+                {renderFieldLabel('cd_placa', 'Placa')}
+                <input
+                  maxLength={8}
+                  disabled={statusDe('cd_placa') === 'D'}
+                  className={`${inputClass('cd_placa')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  value={form.cd_placa ?? ''}
+                  onChange={(e) => setForm({ ...form, cd_placa: e.target.value.replace(/[^a-zA-Z0-9-]/g, '').toUpperCase() })}
+                />
+              </div>
+
+              <div className="sm:col-span-3 group">
+                {renderFieldLabel('cd_renavam', 'Renavam')}
+                <input
+                  inputMode="numeric"
+                  maxLength={11}
+                  disabled={statusDe('cd_renavam') === 'D'}
+                  className={`${inputClass('cd_renavam')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  value={form.cd_renavam ?? ''}
+                  onChange={(e) => setForm({ ...form, cd_renavam: e.target.value.replace(/\D/g, '').slice(0, 11) })}
+                />
+              </div>
+
+              <div className="sm:col-span-2 group">
+                {renderFieldLabel('nr_ano', 'Ano')}
+                <input
+                  inputMode="numeric"
+                  maxLength={4}
+                  disabled={statusDe('nr_ano') === 'D'}
+                  className={`${inputClass('nr_ano')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  value={form.nr_ano ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value.replace(/\D/g, '').slice(0, 4);
+                    setForm({ ...form, nr_ano: v ? Number(v) : undefined });
+                  }}
+                />
+              </div>
+
+              <div className="sm:col-span-2 group">
+                {renderFieldLabel('ds_cor', 'Cor')}
+                <input
+                  disabled={statusDe('ds_cor') === 'D'}
+                  className={`${inputClass('ds_cor')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  value={form.ds_cor ?? ''}
+                  onChange={(e) => setForm({ ...form, ds_cor: e.target.value })}
+                />
+              </div>
+
+              <div className="sm:col-span-2 group">
+                {renderFieldLabel('nr_seq_combustivel', 'Combustível')}
+                <Select
+                  disabled={statusDe('nr_seq_combustivel') === 'D'}
+                  error={campoErros.includes('nr_seq_combustivel')}
+                  value={form.nr_seq_combustivel ? String(form.nr_seq_combustivel) : ''}
+                  onChange={(v) => setForm({ ...form, nr_seq_combustivel: v ? Number(v) : undefined })}
+                  options={cgOptions(combustiveis).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
             </div>

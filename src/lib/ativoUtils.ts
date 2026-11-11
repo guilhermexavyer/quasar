@@ -3,6 +3,14 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 
 export { formatDate, applyDateMask } from "@/lib/pessoaFisicaUtils";
 
+/** Máscara de valor monetário pt-BR: dígitos viram centavos (ex.: 123456 → 1.234,56). */
+export function applyMoneyMask(value: string): string {
+  const digits = value.replace(/\D/g, '').slice(0, 13);
+  // Sem dígitos ou só zeros (ex.: apagando "0,00") → campo vazio, permitindo limpar o valor.
+  if (!digits || Number(digits) === 0) return '';
+  return (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+}
+
 /** Máscara IPv4: ###.###.###.### — aceita apenas dígitos e insere pontos automaticamente. */
 export function applyIPv4Mask(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 12);
@@ -53,6 +61,7 @@ export const FIELD_INFOS = {
   nr_serie: { type: 'string', field: 'nr_serie', collection: 'pat_ativo' },
   ds_qr_code: { type: 'string', field: 'ds_qr_code', collection: 'pat_ativo' },
   ds_codigo_barras: { type: 'string', field: 'ds_codigo_barras', collection: 'pat_ativo' },
+  vl_aquisicao: { type: 'string', field: 'vl_aquisicao', collection: 'pat_ativo' },
   dt_aquisicao: { type: 'string', field: 'dt_aquisicao', collection: 'pat_ativo' },
   dt_garantia: { type: 'string', field: 'dt_garantia', collection: 'pat_ativo' },
   ie_status: { type: 'string', field: 'ie_status', collection: 'pat_ativo' },
@@ -68,6 +77,11 @@ export const FIELD_INFOS = {
   ds_endereco_mac: { type: 'string', field: 'ds_endereco_mac', collection: 'pat_ativo' },
   ds_ip: { type: 'string', field: 'ds_ip', collection: 'pat_ativo' },
   nr_seq_sistema_operacional: { type: 'int64', field: 'nr_seq_sistema_operacional', collection: 'pat_ativo' },
+  cd_placa: { type: 'string', field: 'cd_placa', collection: 'pat_ativo' },
+  cd_renavam: { type: 'string', field: 'cd_renavam', collection: 'pat_ativo' },
+  nr_ano: { type: 'int64', field: 'nr_ano', collection: 'pat_ativo' },
+  ds_cor: { type: 'string', field: 'ds_cor', collection: 'pat_ativo' },
+  nr_seq_combustivel: { type: 'int64', field: 'nr_seq_combustivel', collection: 'pat_ativo' },
   responsaveis: { type: 'array', field: 'responsaveis', collection: 'pat_ativo' },
   ds_observacao: { type: 'string', field: 'ds_observacao', collection: 'pat_ativo' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'pat_ativo' },
@@ -86,6 +100,7 @@ export const FIELD_LABELS: Record<string, string> = {
   nr_serie: 'Número de série',
   ds_qr_code: 'QR Code',
   ds_codigo_barras: 'Código de barras',
+  vl_aquisicao: 'Valor de aquisição',
   dt_aquisicao: 'Data de aquisição',
   dt_garantia: 'Data de garantia',
   ie_status: 'Status',
@@ -101,6 +116,11 @@ export const FIELD_LABELS: Record<string, string> = {
   ds_endereco_mac: 'Endereço MAC',
   ds_ip: 'IP',
   nr_seq_sistema_operacional: 'Sistema operacional',
+  cd_placa: 'Placa',
+  cd_renavam: 'Renavam',
+  nr_ano: 'Ano',
+  ds_cor: 'Cor',
+  nr_seq_combustivel: 'Combustível',
   responsaveis: 'Responsável',
   ds_observacao: 'Observação',
   dt_criacao: 'Criação',

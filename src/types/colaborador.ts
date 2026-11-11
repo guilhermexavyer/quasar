@@ -8,6 +8,12 @@ export interface Colaborador {
   nr_seq_pessoa_juridica?: number;
   /** Vínculo contratual (Cadastros Gerais > Vínculo contratual). */
   nr_seq_vinculo_contratual?: number;
+  /** Cargo (Cadastros Gerais > Cargo). */
+  nr_seq_cargo?: number;
+  /** Indica se o colaborador é coordenador (S/N). */
+  ie_coordenador?: string;
+  /** Indica se o colaborador é professor (S/N). */
+  ie_professor?: string;
   /** Indica se o colaborador é fornecedor (S/N). */
   ie_fornecedor?: string;
   /** Indica se o colaborador é prestador de serviço (S/N). */

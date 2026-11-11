@@ -224,6 +224,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_logradouro.sg_logradouro", label: "Sigla", tipo: "Logradouro", colecao: "cg_logradouro" },
     { key: "cg_logradouro.ds_logradouro", label: "Descrição", tipo: "Logradouro", colecao: "cg_logradouro" },
 
+    { key: "cg_combustivel.ds_combustivel", label: "Descrição", tipo: "Combustível", colecao: "cg_combustivel" },
     { key: "cg_marca.ds_marca", label: "Descrição", tipo: "Marca", colecao: "cg_marca" },
 
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
@@ -254,6 +255,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativo.nr_serie", label: "Número de série", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.ds_qr_code", label: "QR Code", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.ds_codigo_barras", label: "Código de barras", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.vl_aquisicao", label: "Valor de aquisição", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_aquisicao", label: "Data de aquisição", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_garantia", label: "Data de garantia", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.ie_status", label: "Status", tipo: "Ativos", colecao: "pat_ativo" },
@@ -267,6 +269,12 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativo.ds_endereco_mac", label: "Endereço MAC", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.ds_ip", label: "IPv4", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.nr_seq_sistema_operacional", label: "Sistema operacional", tipo: "Ativos", colecao: "pat_ativo" },
+
+    { key: "pat_ativo.cd_placa", label: "Placa", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.cd_renavam", label: "Renavam", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.nr_ano", label: "Ano", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.ds_cor", label: "Cor", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.nr_seq_combustivel", label: "Combustível", tipo: "Ativos", colecao: "pat_ativo" },
 
     { key: "pat_ativo.ds_observacao", label: "Observação", tipo: "Ativos", colecao: "pat_ativo" },
 
@@ -398,7 +406,10 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "colaborador.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.nr_seq_vinculo_contratual", label: "Vínculo contratual", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_cargo", label: "Cargo", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.dt_admissao", label: "Data de admissão", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_coordenador", label: "Coordenador", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_professor", label: "Professor", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.ie_fornecedor", label: "Fornecedor", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "colaborador.ie_prestador_servico", label: "Prestador de serviço", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "curso.ds_curso", label: "Descrição", tipo: "Cursos", colecao: "curso" },

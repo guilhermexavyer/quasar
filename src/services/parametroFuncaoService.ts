@@ -25,6 +25,7 @@ export const COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO = "pat_param_cor_manutencao_
 export const COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA = "pat_param_cor_manutencao_concluida";
 export const COLECAO_PARAM_COR_MANUTENCAO_CANCELADA = "pat_param_cor_manutencao_cancelada";
 export const COLECAO_PARAM_MATRICULA_ALUNO = "ea_param_matricula_aluno";
+export const COLECAO_PARAM_MATRICULA_COLABORADOR = "ea_param_matricula_colaborador";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "ea_param_cor_periodo_letivo_andamento";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "ea_param_cor_periodo_letivo_encerrado";
 export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "ea_param_encerramento_automatico_periodo_letivo";

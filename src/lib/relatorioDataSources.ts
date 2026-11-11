@@ -23,6 +23,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_serie', label: 'Número de série', tipo: 'string' },
       { key: 'ds_qr_code', label: 'QR Code', tipo: 'string' },
       { key: 'ds_codigo_barras', label: 'Código de barras', tipo: 'string' },
+      { key: 'vl_aquisicao', label: 'Valor de aquisição', tipo: 'string' },
       { key: 'dt_aquisicao', label: 'Data de aquisição', tipo: 'date' },
       { key: 'dt_garantia', label: 'Data de garantia', tipo: 'date' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
@@ -38,6 +39,11 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'ds_endereco_mac', label: 'Endereço MAC', tipo: 'string' },
       { key: 'ds_ip', label: 'IPv4', tipo: 'string' },
       { key: 'nr_seq_sistema_operacional', label: 'Sistema operacional', tipo: 'number', isFK: true, fkColecao: 'cg_sistema_operacional', fkLabel: 'ds_sistema_operacional' },
+      { key: 'cd_placa', label: 'Placa', tipo: 'string' },
+      { key: 'cd_renavam', label: 'Renavam', tipo: 'string' },
+      { key: 'nr_ano', label: 'Ano', tipo: 'number' },
+      { key: 'ds_cor', label: 'Cor', tipo: 'string' },
+      { key: 'nr_seq_combustivel', label: 'Combustível', tipo: 'number', isFK: true, fkColecao: 'cg_combustivel', fkLabel: 'ds_combustivel' },
       { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
@@ -152,11 +158,14 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'nr_seq_pessoa_juridica', label: 'Pessoa jurídica', tipo: 'number', isFK: true, fkColecao: 'pessoa_juridica', fkLabel: 'ds_razao_social' },
       { key: 'nr_seq_vinculo_contratual', label: 'Vínculo contratual', tipo: 'number', isFK: true, fkColecao: 'cg_vinculo_contratual', fkLabel: 'ds_vinculo_contratual' },
+      { key: 'nr_seq_cargo', label: 'Cargo', tipo: 'number', isFK: true, fkColecao: 'cg_cargo', fkLabel: 'ds_cargo' },
       { key: 'nr_matricula', label: 'Matrícula', tipo: 'string' },
       { key: 'dt_admissao', label: 'Data de admissão', tipo: 'date' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
       { key: 'dt_status', label: 'Data do status', tipo: 'date' },
       { key: 'ds_motivo_status', label: 'Motivo do status', tipo: 'string' },
+      { key: 'ie_coordenador', label: 'Coordenador', tipo: 'string' },
+      { key: 'ie_professor', label: 'Professor', tipo: 'string' },
       { key: 'ie_fornecedor', label: 'Fornecedor', tipo: 'string' },
       { key: 'ie_prestador_servico', label: 'Prestador de serviço', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
@@ -362,6 +371,17 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
+    value: 'cg_combustivel',
+    label: 'Combustíveis',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_combustivel', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
     value: 'cg_sistema_operacional',
     label: 'Sistemas Operacionais',
     campos: [
@@ -416,6 +436,7 @@ export const STATUS_LABEL_MAP: Record<string, Record<string, string>> = {
   cg_marca: { A: 'Ativo', I: 'Inativo' },
   cg_cargo: { A: 'Ativo', I: 'Inativo' },
   cg_sistema_operacional: { A: 'Ativo', I: 'Inativo' },
+  cg_combustivel: { A: 'Ativo', I: 'Inativo' },
 };
 
 /**

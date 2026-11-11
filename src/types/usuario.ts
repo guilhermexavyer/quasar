@@ -62,6 +62,7 @@ export interface Usuario {
   config_colunas_cg_marca?: string;
   config_colunas_pat_categoria?: string;
   config_colunas_cg_sistema_operacional?: string;
+  config_colunas_cg_combustivel?: string;
   config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;
   config_colunas_relatorio?: string;

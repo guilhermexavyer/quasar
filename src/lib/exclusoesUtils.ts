@@ -16,6 +16,7 @@ import { ESTADO_CIVIL_COLUMNS } from "@/lib/estadoCivilUtils";
 import { GRAU_PARENTESCO_COLUMNS } from "@/lib/grauParentescoUtils";
 import { LOCALIZACAO_COLUMNS } from "@/lib/localizacaoUtils";
 import { LOGRADOURO_COLUMNS } from "@/lib/logradouroUtils";
+import { COMBUSTIVEL_COLUMNS } from "@/lib/combustivelUtils";
 import { MARCA_COLUMNS } from "@/lib/marcaUtils";
 import { ORGAO_EMISSOR_COLUMNS } from "@/lib/orgaoEmissorUtils";
 import { PROFISSAO_COLUMNS } from "@/lib/profissaoUtils";
@@ -76,6 +77,7 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   { colecao: "pessoa_fisica", funcao: "Cadastro de Pessoas", dropdown: "Pessoas Físicas", colunas: proprias(PF_COLUMNS), formatar: f(formatPf) },
   { colecao: "pessoa_juridica", funcao: "Cadastro de Pessoas", dropdown: "Pessoas Jurídicas", colunas: proprias(PJ_COLUMNS), formatar: f(formatCellValuePj) },
   CG("cg_cargo", "Cargo", CARGO_COLUMNS),
+  CG("cg_combustivel", "Combustível", COMBUSTIVEL_COLUMNS),
   CG("cg_cor_raca", "Cor/Raça", COR_RACA_COLUMNS),
   CG("cg_estado_civil", "Estado civil", ESTADO_CIVIL_COLUMNS),
   CG("cg_grau_parentesco", "Grau de parentesco", GRAU_PARENTESCO_COLUMNS),
