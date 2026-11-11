@@ -22,6 +22,8 @@ export interface Ativo {
   ds_qr_code?: string;
   /** Código de barras. */
   ds_codigo_barras?: string;
+  /** Valor de aquisição (formato pt-BR, ex.: 1.234,56). */
+  vl_aquisicao?: string;
   /** Data de aquisição. */
   dt_aquisicao?: string;
   /** Data de garantia. */
@@ -52,6 +54,16 @@ export interface Ativo {
   ds_ip?: string;
   /** Sistema operacional (Cadastros Gerais > Sistema operacional). */
   nr_seq_sistema_operacional?: number;
+  /** Veículo: placa. */
+  cd_placa?: string;
+  /** Veículo: Renavam. */
+  cd_renavam?: string;
+  /** Veículo: ano. */
+  nr_ano?: number;
+  /** Veículo: cor. */
+  ds_cor?: string;
+  /** Veículo: combustível (Cadastros Gerais > Combustível). */
+  nr_seq_combustivel?: number;
   /** Responsáveis (Pessoa física). */
   responsaveis?: { nr_seq_responsavel?: number }[];
   /** Observação. */

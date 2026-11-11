@@ -20,6 +20,7 @@ import {
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
+  COLECAO_PARAM_MATRICULA_COLABORADOR,
   obterParametro,
   salvarParametro,
 } from "@/services/parametroFuncaoService";
@@ -119,6 +120,13 @@ export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
     dropdown: "Alunos",
     parametro: "Geração da matrícula de alunos",
     colecao: COLECAO_PARAM_MATRICULA_ALUNO,
+    tipo: "regra",
+  },
+  {
+    id: "geracao_matricula_colaborador",
+    dropdown: "Colaboradores",
+    parametro: "Geração da matrícula de colaboradores",
+    colecao: COLECAO_PARAM_MATRICULA_COLABORADOR,
     tipo: "regra",
   },
   {

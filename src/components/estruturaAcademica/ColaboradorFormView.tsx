@@ -43,6 +43,8 @@ interface FormViewProps {
   onViewPessoaJuridica?: (nrSequencia: number | undefined) => void;
   /** Opções de Cadastros Gerais > Vínculo contratual. */
   vinculosContratuais?: { nr_sequencia: number; descricao: string; ie_status?: string }[];
+  /** Opções de Cadastros Gerais > Cargo. */
+  cargos?: { nr_sequencia: number; descricao: string; ie_status?: string }[];
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -79,6 +81,7 @@ export default function ColaboradorFormView({
   onOpenPessoaJuridicaLookup,
   onViewPessoaJuridica,
   vinculosContratuais = [],
+  cargos = [],
   selectOptions,
   manageSelection,
   onManageSelectionChange,
@@ -343,7 +346,7 @@ export default function ColaboradorFormView({
                 </div>
               </div>
 
-              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-5">
+              <div className="sm:col-span-12 grid gap-[15px] sm:grid-cols-6">
                 <div className="group">
                   {renderFieldLabel('nr_seq_vinculo_contratual', 'Vínculo contratual')}
                   <Select
@@ -352,6 +355,17 @@ export default function ColaboradorFormView({
                     value={form.nr_seq_vinculo_contratual ? String(form.nr_seq_vinculo_contratual) : ''}
                     onChange={(v) => setForm({ ...form, nr_seq_vinculo_contratual: v ? Number(v) : undefined })}
                     options={cgOptions(vinculosContratuais).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
+                  />
+                </div>
+
+                <div className="group">
+                  {renderFieldLabel('nr_seq_cargo', 'Cargo')}
+                  <Select
+                    disabled={statusDe('nr_seq_cargo') === 'D'}
+                    error={campoErros.includes('nr_seq_cargo')}
+                    value={form.nr_seq_cargo ? String(form.nr_seq_cargo) : ''}
+                    onChange={(v) => setForm({ ...form, nr_seq_cargo: v ? Number(v) : undefined })}
+                    options={cgOptions(cargos).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                   />
                 </div>
 
@@ -418,6 +432,32 @@ export default function ColaboradorFormView({
 
               <div className="sm:col-span-12">
                 <div className="flex gap-8">
+                  <div className="group">
+                    {renderFieldLabel('ie_coordenador', 'Coordenador')}
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="cg-checkbox"
+                        disabled={statusDe('ie_coordenador') === 'D'}
+                        checked={form.ie_coordenador === 'S'}
+                        onChange={() => setForm({ ...form, ie_coordenador: form.ie_coordenador === 'S' ? 'N' : 'S' })}
+                      />
+                      <span>Sim</span>
+                    </label>
+                  </div>
+                  <div className="group">
+                    {renderFieldLabel('ie_professor', 'Professor')}
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="cg-checkbox"
+                        disabled={statusDe('ie_professor') === 'D'}
+                        checked={form.ie_professor === 'S'}
+                        onChange={() => setForm({ ...form, ie_professor: form.ie_professor === 'S' ? 'N' : 'S' })}
+                      />
+                      <span>Sim</span>
+                    </label>
+                  </div>
                   <div className="group">
                     {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
                     <label className="inline-flex items-center gap-2 text-sm cursor-pointer">

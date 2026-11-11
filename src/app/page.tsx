@@ -121,6 +121,12 @@ import {
   atualizarSistemaOperacional,
 } from "@/services/sistemaOperacionalService";
 import {
+  criarCombustivel,
+  excluirCombustivel,
+  obterCombustiveis,
+  atualizarCombustivel,
+} from "@/services/combustivelService";
+import {
   criarAtivo,
   excluirAtivo,
   obterAtivos,
@@ -139,6 +145,7 @@ import {
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
+  COLECAO_PARAM_MATRICULA_COLABORADOR,
   obterParametro,
 } from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
@@ -295,6 +302,7 @@ import type { Localizacao } from "@/types/localizacao";
 import type { Marca } from "@/types/marca";
 import type { CategoriaAtivo } from "@/types/categoriaAtivo";
 import type { SistemaOperacional } from "@/types/sistemaOperacional";
+import type { Combustivel } from "@/types/combustivel";
 import type { Ativo } from "@/types/ativo";
 import { SEXO_COLUMNS, SEXO_FIELD_INFOS } from "@/lib/sexoUtils";
 import { ESTADO_CIVIL_COLUMNS, ESTADO_CIVIL_FIELD_INFOS } from "@/lib/estadoCivilUtils";
@@ -309,6 +317,7 @@ import { LOCALIZACAO_COLUMNS, LOCALIZACAO_FIELD_INFOS } from "@/lib/localizacaoU
 import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
+import { COMBUSTIVEL_COLUMNS, COMBUSTIVEL_FIELD_INFOS } from "@/lib/combustivelUtils";
 import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
@@ -430,6 +439,7 @@ const emptyCgForm: CadastroGeralFormData = {
 
 const CG_SELECT_OPTIONS = [
   { value: 'cargo', label: 'Cargo' },
+  { value: 'combustivel', label: 'Combustível' },
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'estadoCivil', label: 'Estado civil' },
   { value: 'grauParentesco', label: 'Grau de parentesco' },
@@ -496,6 +506,9 @@ const emptyColaboradorForm: ColaboradorFormData = {
   nr_seq_pessoa_fisica: undefined,
   nr_seq_pessoa_juridica: undefined,
   nr_seq_vinculo_contratual: undefined,
+  nr_seq_cargo: undefined,
+  ie_coordenador: 'N',
+  ie_professor: 'N',
   ie_fornecedor: 'N',
   ie_prestador_servico: 'N',
   nr_matricula: "",
@@ -521,6 +534,7 @@ const emptyAtivoForm: AtivoFormData = {
   nr_seq_ultima_manutencao: undefined,
   dt_status: '',
   ds_motivo_status: '',
+  vl_aquisicao: '',
   dt_aquisicao: '',
   dt_garantia: '',
   ds_processador: "",
@@ -531,6 +545,11 @@ const emptyAtivoForm: AtivoFormData = {
   ds_endereco_mac: "",
   ds_ip: "",
   nr_seq_sistema_operacional: undefined,
+  cd_placa: '',
+  cd_renavam: '',
+  nr_ano: undefined,
+  ds_cor: '',
+  nr_seq_combustivel: undefined,
   responsaveis: [{ nr_seq_responsavel: undefined }],
   ds_observacao: "",
 };
@@ -618,7 +637,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional | Combustivel;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -904,7 +923,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -976,6 +995,7 @@ export default function Home() {
   const [marcas, setMarcas] = useState<Marca[]>([]);
   const [categoriasAtivos, setCategoriasAtivos] = useState<CategoriaAtivo[]>([]);
   const [sistemasOperacionais, setSistemasOperacionais] = useState<SistemaOperacional[]>([]);
+  const [combustiveis, setCombustiveis] = useState<Combustivel[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -1744,6 +1764,7 @@ export default function Home() {
       orgaoEmissor: 'orgao_emissor',
       logradouro: 'logradouro',
       sistemaOperacional: 'sistema_operacional',
+      combustivel: 'combustivel',
     };
     const resultado: Record<string, { adicionar: boolean; ver: boolean; excluir: boolean }> = {};
     for (const [chave, sufixo] of Object.entries(secoes)) {
@@ -1760,7 +1781,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional'];
+    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional', 'combustivel'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1816,6 +1837,7 @@ export default function Home() {
       acessarColaborador: permitida('acessar_colaborador'),
       adicionarColaborador: permitida('adicionar_colaborador'),
       verColaborador: permitida('ver_colaborador'),
+      gerarMatriculaColaborador: permitida('gerar_matricula_colaborador'),
       alterarDataAdmissao: permitida('alterar_data_admissao_colaborador'),
       alterarStatusColaborador: permitida('alterar_status_colaborador'),
       excluirColaborador: permitida('excluir_colaborador'),
@@ -2117,9 +2139,18 @@ export default function Home() {
       items: (): CgItem[] => sistemasOperacionais,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um sistema operacional.',
     },
+    combustivel: {
+      descKey: 'ds_combustivel',
+      collection: 'cg_combustivel',
+      configKey: 'config_colunas_cg_combustivel',
+      columns: COMBUSTIVEL_COLUMNS,
+      fieldInfos: COMBUSTIVEL_FIELD_INFOS,
+      items: (): CgItem[] => combustiveis,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um combustível.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : cgManageSelection === 'combustivel' ? 'combustivel' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -2181,6 +2212,12 @@ export default function Home() {
       ds_usuario_alteracao: resolverNomeAutorExibicao(registro.ds_usuario_alteracao ?? ''),
     };
   }
+
+  /* ── Opções de Cadastros Gerais para o dropdown de Cargo (Colaborador) ── */
+  const colaboradorCargosOptions = useMemo(
+    () => cargos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_cargo, ie_status: c.ie_status })),
+    [cargos]
+  );
 
   /* ── Opções de Cadastros Gerais para o dropdown de Vínculo contratual (Colaborador) ── */
   const colaboradorVinculosOptions = useMemo(
@@ -2546,6 +2583,18 @@ export default function Home() {
     }
   }, []);
 
+  const loadCombustiveis = useCallback(async () => {
+    setLoading(true);
+    try {
+      const data = await obterCombustiveis();
+      setCombustiveis(data);
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadAtivos = useCallback(async () => {
     setLoading(true);
     try {
@@ -2605,10 +2654,38 @@ export default function Home() {
       await loadLogradouros();
     } else if (cgKind === 'sistemaOperacional') {
       await loadSistemasOperacionais();
+    } else if (cgKind === 'combustivel') {
+      await loadCombustiveis();
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais, loadCombustiveis]);
+
+  /* Enter em qualquer modal de filtro aciona o botão "Filtrar". Os filtros
+   * dentro de <form> já disparam o submit nativamente; aqui cobrimos os
+   * modais de busca (lookup) cujo botão Filtrar é type="button". */
+  useEffect(() => {
+    function onEnterFiltrar(e: KeyboardEvent) {
+      if (e.key !== 'Enter' || e.isComposing || e.defaultPrevented) return;
+      const alvo = e.target;
+      if (!(alvo instanceof HTMLInputElement)) return;
+      if (['button', 'checkbox', 'radio', 'submit', 'file'].includes(alvo.type)) return;
+      if (alvo.closest('form')) return;
+      let el: HTMLElement | null = alvo.parentElement;
+      while (el && el !== document.body) {
+        const botao = Array.from(el.querySelectorAll<HTMLButtonElement>('button[type="button"]'))
+          .find((b) => b.textContent?.trim() === 'Filtrar');
+        if (botao) {
+          e.preventDefault();
+          if (!botao.disabled) botao.click();
+          return;
+        }
+        el = el.parentElement;
+      }
+    }
+    document.addEventListener('keydown', onEnterFiltrar);
+    return () => document.removeEventListener('keydown', onEnterFiltrar);
+  }, []);
 
   useEffect(() => {
     loadPessoasFisicas();
@@ -2628,6 +2705,7 @@ export default function Home() {
     loadMarcas();
     loadCategoriasAtivos();
     loadSistemasOperacionais();
+    loadCombustiveis();
     loadAtivos();
     loadManutencoes();
     loadRelatorios();
@@ -2639,7 +2717,7 @@ export default function Home() {
     loadEncerramentoAutomaticoPeriodoLetivo();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -3873,7 +3951,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -4675,6 +4753,9 @@ export default function Home() {
       nr_seq_pessoa_fisica: colaborador.nr_seq_pessoa_fisica,
       nr_seq_pessoa_juridica: colaborador.nr_seq_pessoa_juridica,
       nr_seq_vinculo_contratual: colaborador.nr_seq_vinculo_contratual,
+      nr_seq_cargo: colaborador.nr_seq_cargo,
+      ie_coordenador: colaborador.ie_coordenador ?? 'N',
+      ie_professor: colaborador.ie_professor ?? 'N',
       ie_fornecedor: colaborador.ie_fornecedor ?? 'N',
       ie_prestador_servico: colaborador.ie_prestador_servico ?? 'N',
       nr_matricula: colaborador.nr_matricula ?? '',
@@ -4714,6 +4795,7 @@ export default function Home() {
       nr_seq_ultima_manutencao: ativo.nr_seq_ultima_manutencao,
       dt_status: ativo.dt_status ?? '',
       ds_motivo_status: ativo.ds_motivo_status ?? '',
+      vl_aquisicao: ativo.vl_aquisicao ?? '',
       dt_aquisicao: ativo.dt_aquisicao ?? '',
       dt_garantia: ativo.dt_garantia ?? '',
       ds_processador: ativo.ds_processador ?? '',
@@ -4724,6 +4806,11 @@ export default function Home() {
       ds_endereco_mac: ativo.ds_endereco_mac ?? '',
       ds_ip: ativo.ds_ip ?? '',
       nr_seq_sistema_operacional: ativo.nr_seq_sistema_operacional,
+      cd_placa: ativo.cd_placa ?? '',
+      cd_renavam: ativo.cd_renavam ?? '',
+      nr_ano: ativo.nr_ano,
+      ds_cor: ativo.ds_cor ?? '',
+      nr_seq_combustivel: ativo.nr_seq_combustivel,
       responsaveis: ativo.responsaveis?.length ? ativo.responsaveis : [{ nr_seq_responsavel: undefined }],
       ds_observacao: ativo.ds_observacao ?? '',
     });
@@ -5954,6 +6041,9 @@ export default function Home() {
           'nr_seq_pessoa_fisica',
           'nr_seq_pessoa_juridica',
           'nr_seq_vinculo_contratual',
+          'nr_seq_cargo',
+          'ie_coordenador',
+          'ie_professor',
           'ie_fornecedor',
           'ie_prestador_servico',
           'nr_matricula',
@@ -6080,9 +6170,10 @@ export default function Home() {
         const formKeys: Array<keyof AtivoFormData> = [
           'cd_patrimonio', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
           'nr_seq_marca', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
-          'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
+          'vl_aquisicao', 'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
           'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
           'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional', 'ds_observacao',
+          'cd_placa', 'cd_renavam', 'nr_ano', 'ds_cor', 'nr_seq_combustivel',
         ];
         const hasChanges = currentAtivo
           ? formKeys.some((key) => String(currentAtivo[key] ?? '') !== String(ativoForm[key] ?? ''))
@@ -6525,6 +6616,8 @@ export default function Home() {
           await atualizarMarca(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'sistemaOperacional') {
           await atualizarSistemaOperacional(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'combustivel') {
+          await atualizarCombustivel(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -6552,6 +6645,8 @@ export default function Home() {
           await criarMarca(payload as any, auditAutor);
         } else if (cgKind === 'sistemaOperacional') {
           await criarSistemaOperacional(payload as any, auditAutor);
+        } else if (cgKind === 'combustivel') {
+          await criarCombustivel(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -7276,6 +7371,44 @@ export default function Home() {
       setMessage(regerando ? "Matrícula regerada." : "Matrícula gerada.");
     } catch (e) {
       console.error("Erro ao gerar matrícula", e);
+      setMessage("Erro ao gerar matrícula.");
+    } finally {
+      setGerandoMatricula(false);
+    }
+  }
+
+  /** Gera a matrícula de um colaborador com base na regra salva (Estrutura Acadêmica > Parâmetros). */
+  async function handleGerarMatriculaColaborador(colaborador: Colaborador) {
+    setMessage("");
+    setGerandoMatricula(true);
+    try {
+      const doc = await obterParametro(COLECAO_PARAM_MATRICULA_COLABORADOR);
+      if (!doc?.ds_regra) {
+        setMessage("Nenhuma regra de geração de matrícula configurada.");
+        return;
+      }
+      if (doc.ds_regra.split("-").every((v) => v.trim() === "")) {
+        setMessage("Regra de matrícula vazia.");
+        return;
+      }
+      if (!colaborador.id) {
+        setMessage("Erro: colaborador sem ID.");
+        return;
+      }
+
+      // Ao regerar, a matrícula atual do próprio colaborador não conta para o Sequencial.
+      const regerando = !!colaborador.nr_matricula?.trim();
+      const matricula = gerarCodigoPorRegra(
+        doc.ds_regra,
+        colaborador.nr_sequencia,
+        colaboradores.filter((c) => c.id !== colaborador.id).map((c) => c.nr_matricula ?? "")
+      );
+
+      await atualizarColaborador(colaborador.id, { nr_matricula: matricula }, auditAutor);
+      await loadColaboradores();
+      setMessage(regerando ? "Matrícula regerada." : "Matrícula gerada.");
+    } catch (e) {
+      console.error("Erro ao gerar matrícula de colaborador", e);
       setMessage("Erro ao gerar matrícula.");
     } finally {
       setGerandoMatricula(false);
@@ -8277,6 +8410,8 @@ export default function Home() {
         await excluirLogradouro(id);
       } else if (cgKind === 'sistemaOperacional') {
         await excluirSistemaOperacional(id);
+      } else if (cgKind === 'combustivel') {
+        await excluirCombustivel(id);
       } else {
         await excluirOrgaoEmissor(id);
       }
@@ -8540,13 +8675,15 @@ export default function Home() {
       nr_seq_pessoa_juridica: nomePj,
       nr_seq_prestador_servico: nomeColaborador,
       nr_seq_vinculo_contratual: Object.fromEntries(vinculosContratuais.map((v) => [v.nr_sequencia, v.ds_vinculo_contratual ?? ''])),
+      nr_seq_cargo: Object.fromEntries(cargos.map((c) => [c.nr_sequencia, c.ds_cargo ?? ''])),
       nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria ?? ''])),
       nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao ?? ''])),
       nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca ?? ''])),
       nr_seq_sistema_operacional: Object.fromEntries(sistemasOperacionais.map((s) => [s.nr_sequencia, s.ds_sistema_operacional ?? ''])),
+      nr_seq_combustivel: Object.fromEntries(combustiveis.map((c) => [c.nr_sequencia, c.ds_combustivel ?? ''])),
       nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? ''])),
     } as Record<string, Record<number, string>>;
-  }, [pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, ativos]);
+  }, [pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos]);
 
   /** Colunas da lista de registros excluídos: uma configuração por função, salvas juntas no usuário. */
   function colunasExclusoesRegistro(colecao: string) {
@@ -8620,13 +8757,13 @@ export default function Home() {
       case 'aluno':
         return <AlunoFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} grauParentescoOptions={alunoGrauParentescoOptions} selectOptions={[]} />;
       case 'colaborador':
-        return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} selectOptions={[]} />;
+        return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} cargos={colaboradorCargosOptions} selectOptions={[]} />;
       case 'pat_categoria':
         return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS} descFieldKey="ds_categoria" collectionName="pat_categoria" showObservacao />;
       case 'pat_manutencao':
         return <ManutencaoFormView {...comuns} ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))} ativoName={exclusoesLookups.nr_seq_ativo[dados.nr_seq_ativo] ?? ''} onOpenAtivoLookup={nada} onViewAtivo={nada} prestadorName={exclusoesLookups.nr_seq_prestador_servico[dados.nr_seq_prestador_servico] ?? nomePf(dados.nr_seq_prestador_servico)} onOpenPrestadorLookup={nada} onViewPrestador={nada} selectOptions={[]} />;
       case 'pat_ativo':
-        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} selectOptions={[]} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} />;
+        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} />;
       default:
         if (cg) {
           return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
@@ -9747,6 +9884,7 @@ export default function Home() {
                     onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
                     onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
                     vinculosContratuais={colaboradorVinculosOptions}
+                    cargos={colaboradorCargosOptions}
                     selectOptions={EA_SELECT_OPTIONS}
                     manageSelection={alunoManageSelection}
                     onManageSelectionChange={handleAlunoManageSelectionChange}
@@ -9836,6 +9974,7 @@ export default function Home() {
                   onNextRecord={goToNextAtivoRecord}
                   hasPrevRecord={hasPrevAtivoRecord}
                   hasNextRecord={hasNextAtivoRecord}
+                  combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))}
                   categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))}
                   localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
                   marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
@@ -10061,6 +10200,21 @@ export default function Home() {
             }
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores') {
               const items: { label: string; onClick: () => void }[] = [];
+              if (permissoesEA.gerarMatriculaColaborador) {
+                const colaboradorGerar = contextMenu.item as unknown as Colaborador;
+                const regerarMatricula = !!colaboradorGerar.nr_matricula?.trim();
+                items.push({
+                  label: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
+                  onClick: () => {
+                    setConfirmAcao({
+                      titulo: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
+                      mensagem: `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
+                      acao: () => handleGerarMatriculaColaborador(colaboradorGerar),
+                    });
+                    setContextMenu(null);
+                  },
+                });
+              }
               if (permissoesEA.alterarDataAdmissao) {
                 items.push({ label: 'Alterar data de admissão', onClick: () => { openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador); setContextMenu(null); } });
               }
@@ -13564,7 +13718,7 @@ export default function Home() {
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'cg_combustivel';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -13649,6 +13803,9 @@ export default function Home() {
               'ie_status',
               'dt_status',
               'ds_motivo_status',
+              'nr_seq_cargo',
+              'ie_coordenador',
+              'ie_professor',
               'ie_fornecedor',
               'ie_prestador_servico',
               'dt_criacao',
@@ -13671,10 +13828,11 @@ export default function Home() {
           ? [
               'nr_sequencia', 'cd_patrimonio', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
-              'ds_qr_code', 'ds_codigo_barras', 'dt_aquisicao', 'dt_garantia',
+              'ds_qr_code', 'ds_codigo_barras', 'vl_aquisicao', 'dt_aquisicao', 'dt_garantia',
               'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status',
               'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
               'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional',
+              'cd_placa', 'cd_renavam', 'nr_ano', 'ds_cor', 'nr_seq_combustivel',
               'responsaveis', 'ds_observacao',
               'dt_criacao', 'dt_alteracao',
             ]
@@ -13726,7 +13884,7 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' ? ['ds_observacao'] : []),
               'ie_status',
@@ -13836,6 +13994,9 @@ export default function Home() {
                       ds_politica_privacidade: 'Conteúdo',
                       ie_arquivo: 'Arquivo',
                       nr_seq_vinculo_contratual: 'Vínculo contratual',
+                      nr_seq_cargo: 'Cargo',
+                      ie_coordenador: 'Coordenador',
+                      ie_professor: 'Professor',
                       ie_fornecedor: 'Fornecedor',
                       ie_prestador_servico: 'Prestador de serviço',
 
@@ -13968,6 +14129,7 @@ export default function Home() {
                       nr_serie: 'Número de série',
                       ds_qr_code: 'QR Code',
                       ds_codigo_barras: 'Código de barras',
+                      vl_aquisicao: 'Valor de aquisição',
                       dt_aquisicao: 'Data de aquisição',
                       dt_garantia: 'Data de garantia',
                       ds_processador: 'Processador',
@@ -13978,6 +14140,10 @@ export default function Home() {
                       ds_endereco_mac: 'Endereço MAC',
                       ds_ip: 'IPv4',
                       nr_seq_sistema_operacional: 'Sistema operacional',
+                      cd_placa: 'Placa',
+                      cd_renavam: 'Renavam',
+                      ds_cor: 'Cor',
+                      nr_seq_combustivel: 'Combustível',
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
                     };
@@ -14013,11 +14179,13 @@ export default function Home() {
                         nr_seq_logradouro: () => pfCgLookups.nr_seq_logradouro[seq],
                         nr_seq_pessoa_fisica: () => pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome,
                         nr_seq_pessoa_juridica: () => pessoasJuridicas.find((p) => p.nr_sequencia === seq)?.ds_razao_social,
+                        nr_seq_cargo: () => cargos.find((c) => c.nr_sequencia === seq)?.ds_cargo,
                         nr_seq_vinculo_contratual: () => vinculosContratuais.find((v) => v.nr_sequencia === seq)?.ds_vinculo_contratual,
                         nr_seq_categoria: () => categoriasAtivos.find((c) => c.nr_sequencia === seq)?.ds_categoria,
                         nr_seq_localizacao: () => localizacoes.find((l) => l.nr_sequencia === seq)?.ds_localizacao,
                         nr_seq_marca: () => marcas.find((m) => m.nr_sequencia === seq)?.ds_marca,
                         nr_seq_sistema_operacional: () => sistemasOperacionais.find((s) => s.nr_sequencia === seq)?.ds_sistema_operacional,
+                        nr_seq_combustivel: () => combustiveis.find((c) => c.nr_sequencia === seq)?.ds_combustivel,
                         nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
                         nr_seq_prestador_servico: () => {
                           // O campo guarda a sequência do colaborador (prestador).
@@ -14034,7 +14202,7 @@ export default function Home() {
                         const descricao = Number.isFinite(seq) ? descricaoPorSeq[field]() : undefined;
                         return descricao ? `${seq} - ${descricao}` : String(normalized);
                       }
-                      if (field === 'ie_fornecedor' || field === 'ie_prestador_servico' || field === 'ie_badge_teste') {
+                      if (field === 'ie_coordenador' || field === 'ie_professor' || field === 'ie_fornecedor' || field === 'ie_prestador_servico' || field === 'ie_badge_teste') {
                         return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : String(normalized);
                       }
                       if (field === 'ie_logout_dia') {
@@ -14408,6 +14576,10 @@ export default function Home() {
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_codigo_barras ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
+                      <RotuloCampo texto="Valor de aquisição" colecao="pat_ativo" campo="vl_aquisicao" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.vl_aquisicao ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
                       <RotuloCampo texto="Data de aquisição" colecao="pat_ativo" campo="dt_aquisicao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_aquisicao ?? ''} />
                     </div>
@@ -14485,6 +14657,32 @@ export default function Home() {
                     <div className="sm:col-span-4 group">
                       <RotuloCampo texto="Sistema operacional" colecao="pat_ativo" campo="nr_seq_sistema_operacional" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_sistema_operacional ? (sistemasOperacionais.find((s) => s.nr_sequencia === ativoView.nr_seq_sistema_operacional)?.ds_sistema_operacional ?? String(ativoView.nr_seq_sistema_operacional)) : ''} />
+                    </div>
+                  </div>
+                </section>
+                {/* ── Veículo ── */}
+                <section>
+                  <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Veículo</h2>
+                  <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
+                    <div className="sm:col-span-3 group">
+                      <RotuloCampo texto="Placa" colecao="pat_ativo" campo="cd_placa" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_placa ?? ''} />
+                    </div>
+                    <div className="sm:col-span-3 group">
+                      <RotuloCampo texto="Renavam" colecao="pat_ativo" campo="cd_renavam" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_renavam ?? ''} />
+                    </div>
+                    <div className="sm:col-span-2 group">
+                      <RotuloCampo texto="Ano" colecao="pat_ativo" campo="nr_ano" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_ano ?? ''} />
+                    </div>
+                    <div className="sm:col-span-2 group">
+                      <RotuloCampo texto="Cor" colecao="pat_ativo" campo="ds_cor" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_cor ?? ''} />
+                    </div>
+                    <div className="sm:col-span-2 group">
+                      <RotuloCampo texto="Combustível" colecao="pat_ativo" campo="nr_seq_combustivel" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_combustivel ? (combustiveis.find((c) => c.nr_sequencia === ativoView.nr_seq_combustivel)?.ds_combustivel ?? String(ativoView.nr_seq_combustivel)) : ''} />
                     </div>
                   </div>
                 </section>
@@ -14649,6 +14847,7 @@ export default function Home() {
         pessoaFisicaName={colaboradorView?.nr_seq_pessoa_fisica ? (pessoasFisicas.find((p) => p.nr_sequencia === colaboradorView.nr_seq_pessoa_fisica)?.ds_nome ?? '') : ''}
         pessoaJuridicaName={colaboradorView?.nr_seq_pessoa_juridica ? (pessoasJuridicas.find((p) => p.nr_sequencia === colaboradorView.nr_seq_pessoa_juridica)?.ds_razao_social ?? '') : ''}
         vinculoContratualName={colaboradorView?.nr_seq_vinculo_contratual ? (vinculosContratuais.find((v) => v.nr_sequencia === colaboradorView!.nr_seq_vinculo_contratual)?.ds_vinculo_contratual ?? '') : ''}
+        cargoName={colaboradorView?.nr_seq_cargo ? (cargos.find((c) => c.nr_sequencia === colaboradorView!.nr_seq_cargo)?.ds_cargo ?? '') : ''}
         onClose={() => setColaboradorView(null)}
       />
 
