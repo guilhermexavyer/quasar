@@ -13,7 +13,6 @@ export const DATA_SOURCES: DataSourceDef[] = [
     label: 'Ativos (Patrimônio)',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
-      { key: 'cd_patrimonio', label: 'Patrimônio', tipo: 'string' },
       { key: 'cd_patrimonio_externo', label: 'Código externo', tipo: 'string' },
       { key: 'ds_ativo', label: 'Descrição', tipo: 'string' },
       { key: 'nr_seq_categoria', label: 'Categoria', tipo: 'number', isFK: true, fkColecao: 'pat_categoria', fkLabel: 'ds_categoria' },
@@ -63,18 +62,6 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'vl_total', label: 'Valor total', tipo: 'string' },
       { key: 'ds_motivo_manutencao', label: 'Motivo da manutenção', tipo: 'string' },
       { key: 'ds_correcoes', label: 'Correções', tipo: 'string' },
-      { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
-      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
-      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
-    ],
-  },
-  {
-    value: 'pat_param_codigo_patrimonio',
-    label: 'Parâmetros do Código de Patrimônio',
-    campos: [
-      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
-      { key: 'ds_parametro', label: 'Parâmetro', tipo: 'string' },
-      { key: 'ds_valor', label: 'Valor', tipo: 'string' },
       { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },

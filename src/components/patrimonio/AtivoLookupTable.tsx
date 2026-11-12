@@ -24,7 +24,6 @@ interface LookupColumn {
 
 const LOOKUP_COLUMNS: LookupColumn[] = [
   { key: "nr_sequencia", label: "#", dataClass: "text-right" },
-  { key: "cd_patrimonio", label: "Patrimônio" },
   { key: "ds_ativo", label: "Descrição" },
   { key: "ds_modelo", label: "Modelo" },
   { key: "ds_categoria", label: "Categoria" },

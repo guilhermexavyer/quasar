@@ -1,5 +1,6 @@
 import type { Ativo } from "@/types/ativo";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
+import { isValidOrder, parseColunasConfig, serializeColunasConfig, type ColunasConfig } from "@/lib/colunasUtils";
 
 export { formatDate, applyDateMask } from "@/lib/pessoaFisicaUtils";
 
@@ -31,7 +32,6 @@ export interface ColDef {
 
 export const ATIVO_COLUMNS: ColDef[] = [
   { key: 'nr_sequencia', label: '#', dataClass: 'text-right' },
-  { key: 'cd_patrimonio', label: 'Patrimônio' },
   { key: 'ds_ativo', label: 'Descrição' },
   { key: 'nr_seq_categoria', label: 'Categoria' },
   { key: 'nr_seq_localizacao', label: 'Localização' },
@@ -51,7 +51,6 @@ export const ATIVO_COLUMNS: ColDef[] = [
 
 export const FIELD_INFOS = {
   nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'pat_ativo' },
-  cd_patrimonio: { type: 'string', field: 'cd_patrimonio', collection: 'pat_ativo' },
   cd_patrimonio_externo: { type: 'string', field: 'cd_patrimonio_externo', collection: 'pat_ativo' },
   ds_ativo: { type: 'string', field: 'ds_ativo', collection: 'pat_ativo' },
   nr_seq_categoria: { type: 'int64', field: 'nr_seq_categoria', collection: 'pat_ativo' },
@@ -90,7 +89,6 @@ export const FIELD_INFOS = {
 
 export const FIELD_LABELS: Record<string, string> = {
   nr_sequencia: 'Sequência',
-  cd_patrimonio: 'Patrimônio',
   cd_patrimonio_externo: 'Código externo',
   ds_ativo: 'Descrição',
   nr_seq_categoria: 'Categoria',
@@ -171,4 +169,31 @@ export function formatCellValue(key: keyof Ativo, value: unknown): string {
     default:
       return stringValue;
   }
+}
+
+/**
+ * Configuração de colunas de Ativos (por índice). A coluna Patrimônio
+ * (cd_patrimonio), que ficava no índice 1, foi removida: configurações salvas
+ * antes disso (sem a marca semPatrimonio) têm esse índice retirado ao carregar,
+ * preservando a ordem e as larguras das demais colunas.
+ */
+export function lerColunasAtivo(raw?: string | null): ColunasConfig | null {
+  const config = parseColunasConfig(raw);
+  if (!config) return null;
+  let semPatrimonio = false;
+  try {
+    semPatrimonio = (JSON.parse(raw as string) as { semPatrimonio?: unknown }).semPatrimonio === true;
+  } catch {
+    return null;
+  }
+  if (semPatrimonio) return config;
+  if (config.order.length < 2 || !isValidOrder(config.order, config.order.length)) return null;
+  const order = config.order.filter((i) => i !== 1).map((i) => (i > 1 ? i - 1 : i));
+  const widths = config.widths.length === config.order.length ? config.widths.filter((_, i) => i !== 1) : [];
+  return { order, widths, v: config.v };
+}
+
+/** Serializa a configuração de colunas de Ativos já no formato sem Patrimônio. */
+export function serializarColunasAtivo(order: number[], widths: number[]): string {
+  return JSON.stringify({ ...JSON.parse(serializeColunasConfig(order, widths)), semPatrimonio: true });
 }

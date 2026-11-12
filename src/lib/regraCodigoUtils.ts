@@ -1,6 +1,6 @@
 /**
- * Regras de geração de código (Parâmetros das funções): código de patrimônio
- * dos ativos, matrícula dos alunos etc. A regra é salva como uma string de
+ * Regras de geração de código (Parâmetros das funções): matrícula dos alunos
+ * e dos colaboradores. A regra é salva como uma string de
  * segmentos separados por "-" (ex.: "ano_atual-hifen-texto:ESCOLA-sequencial").
  */
 

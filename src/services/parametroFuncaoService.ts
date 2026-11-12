@@ -16,7 +16,6 @@ import type { AuditAutor } from "@/services/auditService";
  * coleção com um único documento e a subcoleção auditoria. O valor fica em
  * ds_regra (regra de geração de código), cd_cor (cor de status) ou ie_regra (opção Sim/Não).
  */
-export const COLECAO_PARAM_CODIGO_PATRIMONIO = "pat_param_codigo_patrimonio";
 export const COLECAO_PARAM_COR_ATIVO_DESCARTADO = "pat_param_cor_ativo_descartado";
 export const COLECAO_PARAM_COR_ATIVO_ESTOQUE = "pat_param_cor_ativo_estoque";
 export const COLECAO_PARAM_COR_ATIVO_MANUTENCAO = "pat_param_cor_ativo_manutencao";

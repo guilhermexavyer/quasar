@@ -10,7 +10,6 @@ import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
 import {
-  COLECAO_PARAM_CODIGO_PATRIMONIO,
   COLECAO_PARAM_COR_ATIVO_DESCARTADO,
   COLECAO_PARAM_COR_ATIVO_ESTOQUE,
   COLECAO_PARAM_COR_ATIVO_MANUTENCAO,
@@ -50,13 +49,6 @@ export interface ParametroDef {
 
 /** Parâmetros de configuração da função Patrimônio. */
 export const PARAMETROS_PATRIMONIO: ParametroDef[] = [
-  {
-    id: "geracao_codigo_patrimonio",
-    dropdown: "Ativos",
-    parametro: "Geração do código de patrimônio",
-    colecao: COLECAO_PARAM_CODIGO_PATRIMONIO,
-    tipo: "regra",
-  },
   {
     id: "cor_status_ativo_descartado",
     dropdown: "Ativos",

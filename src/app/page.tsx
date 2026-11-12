@@ -133,7 +133,6 @@ import {
   atualizarAtivo,
 } from "@/services/ativoService";
 import {
-  COLECAO_PARAM_CODIGO_PATRIMONIO,
   COLECAO_PARAM_COR_ATIVO_DESCARTADO,
   COLECAO_PARAM_COR_ATIVO_ESTOQUE,
   COLECAO_PARAM_COR_ATIVO_MANUTENCAO,
@@ -321,7 +320,7 @@ import { atualizarCurso, criarCurso, excluirCurso, obterCursos } from "@/service
 import type { Curso } from "@/types/curso";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { COMBUSTIVEL_COLUMNS, COMBUSTIVEL_FIELD_INFOS } from "@/lib/combustivelUtils";
-import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
+import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, lerColunasAtivo, serializarColunasAtivo, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -374,7 +373,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.70.1";
+const SYSTEM_VERSION = "0.70.2";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -528,7 +527,6 @@ const emptyColaboradorForm: ColaboradorFormData = {
 };
 
 const emptyAtivoForm: AtivoFormData = {
-  cd_patrimonio: "",
   cd_patrimonio_externo: "",
   ds_ativo: "",
   nr_seq_categoria: undefined,
@@ -1293,16 +1291,14 @@ export default function Home() {
   const [ativoAuditInfo, setAtivoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditAtivoIdRef = useRef<string | null>(null);
   const [ativoSubmitting, setAtivoSubmitting] = useState(false);
-  const [gerandoCodigoPatrimonio, setGerandoCodigoPatrimonio] = useState(false);
   const [gerandoMatricula, setGerandoMatricula] = useState(false);
-  // Confirmação de ações do menu de contexto (Gerar/Regerar código ou matrícula, Reativar período letivo).
+  // Confirmação de ações do menu de contexto (Gerar/Regerar matrícula, Reativar período letivo).
   const [confirmAcao, setConfirmAcao] = useState<{ titulo: string; mensagem: string; acao: () => void } | null>(null);
 
   // Filtro de Ativos.
   type AtivoFilterFormData = {
     // Identificação
     nr_sequencia: string;
-    cd_patrimonio: string;
     ds_ativo: string;
     ds_modelo: string;
     nr_serie: string;
@@ -1324,7 +1320,7 @@ export default function Home() {
     nr_seq_sistema_operacional: string;
   };
   const emptyAtivoFilterForm: AtivoFilterFormData = {
-    nr_sequencia: '', cd_patrimonio: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
+    nr_sequencia: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
     dt_aquisicao_inicio: '', dt_aquisicao_fim: '', dt_garantia_inicio: '', dt_garantia_fim: '', ie_status: 'T',
     nr_seq_categoria: '', nr_seq_localizacao: '', nr_seq_marca: '', nr_seq_responsavel: '',
     ds_endereco_mac: '', ds_ip: '', nr_seq_sistema_operacional: '',
@@ -1558,8 +1554,8 @@ export default function Home() {
   // Lookup de ativo no formulário de manutenção.
   const [manutencaoAtivoLookupOpen, setManutencaoAtivoLookupOpen] = useState(false);
   const manutencaoAtivoLookupTargetRef = useRef<'manutencao' | 'manutencaoFilter'>('manutencao');
-  const [manutencaoAtivoLookupForm, setManutencaoAtivoLookupForm] = useState({ nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' });
-  const [manutencaoAtivoLookupFilter, setManutencaoAtivoLookupFilter] = useState({ nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' });
+  const [manutencaoAtivoLookupForm, setManutencaoAtivoLookupForm] = useState({ nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' });
+  const [manutencaoAtivoLookupFilter, setManutencaoAtivoLookupFilter] = useState({ nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' });
   const [manutencaoAtivoLookupApplied, setManutencaoAtivoLookupApplied] = useState(false);
   const manutencaoAtivoName = useMemo(() => {
     if (!manutencaoForm.nr_seq_ativo) return '';
@@ -1586,7 +1582,6 @@ export default function Home() {
     return ativos.filter((a) => {
       if (manutencaoAtivoLookupFilter.nr_sequencia && String(a.nr_sequencia) !== manutencaoAtivoLookupFilter.nr_sequencia.trim()) return false;
       if (manutencaoAtivoLookupFilter.ds_ativo && !a.ds_ativo?.toLowerCase().includes(manutencaoAtivoLookupFilter.ds_ativo.toLowerCase())) return false;
-      if (manutencaoAtivoLookupFilter.cd_patrimonio && !a.cd_patrimonio?.toLowerCase().includes(manutencaoAtivoLookupFilter.cd_patrimonio.toLowerCase())) return false;
       if (manutencaoAtivoLookupFilter.ds_modelo && !a.ds_modelo?.toLowerCase().includes(manutencaoAtivoLookupFilter.ds_modelo.toLowerCase())) return false;
       if (manutencaoAtivoLookupFilter.ie_status) {
         if (a.ie_status !== manutencaoAtivoLookupFilter.ie_status) return false;
@@ -1907,8 +1902,6 @@ export default function Home() {
       moverParaEstoque: permitida('mover_para_estoque'),
       descartarAtivo: permitida('descartar_ativo'),
       excluirAtivo: permitida('excluir_ativo'),
-      gerarCodigoPatrimonio: permitida('gerar_codigo_patrimonio'),
-      gerarCodigoPatrimonioDescartado: permitida('gerar_codigo_patrimonio_descartado'),
       alterarStatusDescartado: permitida('alterar_status_descartado'),
       acessarParametrosFuncao: permitida('acessar_parametros_funcao'),
       acessarManutencao: permitida('acessar_manutencao'),
@@ -2013,7 +2006,7 @@ export default function Home() {
     [currentUser?.config_colunas_aluno]
   );
   const ativoColunasConfig = useMemo(
-    () => parseColunasConfig(currentUser?.config_colunas_pat_ativo),
+    () => lerColunasAtivo(currentUser?.config_colunas_pat_ativo),
     [currentUser?.config_colunas_pat_ativo]
   );
   const manutencaoColunasConfig = useMemo(
@@ -4855,7 +4848,6 @@ export default function Home() {
 
   function openAtivoEditForm(ativo: Ativo) {
     setAtivoForm({
-      cd_patrimonio: ativo.cd_patrimonio ?? '',
       cd_patrimonio_externo: ativo.cd_patrimonio_externo ?? '',
       ds_ativo: ativo.ds_ativo ?? '',
       nr_seq_categoria: ativo.nr_seq_categoria,
@@ -5328,7 +5320,6 @@ export default function Home() {
         const q = appliedAtivoFilterForm.nr_sequencia.replace(/\D/g, '');
         if (q && String(a.nr_sequencia) !== q) return false;
       }
-      if (appliedAtivoFilterForm.cd_patrimonio && !(a.cd_patrimonio ?? '').toLowerCase().includes(appliedAtivoFilterForm.cd_patrimonio.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_ativo && !(a.ds_ativo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ativo.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_modelo && !(a.ds_modelo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_modelo.toLowerCase())) return false;
       if (appliedAtivoFilterForm.nr_serie && !(a.nr_serie ?? '').toLowerCase().includes(appliedAtivoFilterForm.nr_serie.toLowerCase())) return false;
@@ -6439,7 +6430,7 @@ export default function Home() {
       if (ativoEditingId) {
         const currentAtivo = ativos.find((a) => a.id === ativoEditingId);
         const formKeys: Array<keyof AtivoFormData> = [
-          'cd_patrimonio', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
+          'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
           'nr_seq_marca', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
           'vl_aquisicao', 'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
           'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
@@ -7572,45 +7563,6 @@ export default function Home() {
     if (view === 'form') goToAtivoList();
   }
 
-  /** Gera o código de patrimônio de um ativo com base na regra salva. */
-  async function handleGerarCodigoPatrimonio(ativo: Ativo) {
-    setMessage("");
-    setGerandoCodigoPatrimonio(true);
-    try {
-      const doc = await obterParametro(COLECAO_PARAM_CODIGO_PATRIMONIO);
-      if (!doc?.ds_regra) {
-        setMessage("Nenhuma regra de geração de patrimônio configurada.");
-        return;
-      }
-      if (doc.ds_regra.split("-").every((v) => v.trim() === "")) {
-        setMessage("Regra de patrimônio vazia.");
-        return;
-      }
-
-      // Ao regerar, o código atual do próprio ativo não conta para o Sequencial.
-      const regerando = !!ativo.cd_patrimonio?.trim();
-      const codigo = gerarCodigoPorRegra(
-        doc.ds_regra,
-        ativo.nr_sequencia,
-        ativos.filter((a) => a.id !== ativo.id).map((a) => a.cd_patrimonio ?? "")
-      );
-
-      if (!ativo.id) {
-        setMessage("Erro: ativo sem ID.");
-        return;
-      }
-
-      await atualizarAtivo(ativo.id, { cd_patrimonio: codigo }, auditAutor);
-      await loadAtivos();
-      setMessage(regerando ? "Código de patrimônio regerado." : "Código de patrimônio gerado.");
-    } catch (e) {
-      console.error("Erro ao gerar código de patrimônio", e);
-      setMessage("Erro ao gerar código de patrimônio.");
-    } finally {
-      setGerandoCodigoPatrimonio(false);
-    }
-  }
-
   /** Gera a matrícula de um aluno com base na regra salva (Estrutura Acadêmica > Parâmetros). */
   async function handleGerarMatricula(aluno: Aluno) {
     setMessage("");
@@ -8040,7 +7992,7 @@ export default function Home() {
     setManutencaoAtivoLookupApplied(true);
   }
   function clearManutencaoAtivoLookup() {
-    const empty = { nr_sequencia: '', ds_ativo: '', cd_patrimonio: '', ds_modelo: '', ie_status: '' };
+    const empty = { nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' };
     setManutencaoAtivoLookupForm(empty);
     setManutencaoAtivoLookupFilter(empty);
     setManutencaoAtivoLookupApplied(false);
@@ -9146,7 +9098,7 @@ export default function Home() {
 
   function handleAtivoColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
-    const serialized = serializeColunasConfig(config.order, config.widths);
+    const serialized = serializarColunasAtivo(config.order, config.widths);
     atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_ativo: serialized })
       .then(() => {
         setCurrentUser((u) => (u ? { ...u, config_colunas_pat_ativo: serialized } : u));
@@ -10446,22 +10398,6 @@ export default function Home() {
             if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'ativos') {
               const currentStatus = (contextMenu.item as Ativo)?.ie_status ?? '';
               const items: { label: string; onClick?: () => void; children?: { label: string; onClick: () => void }[] }[] = [];
-              const isDescartadoForGerar = currentStatus === 'D';
-              if (isDescartadoForGerar ? permissoesPatrimonio.gerarCodigoPatrimonioDescartado : permissoesPatrimonio.gerarCodigoPatrimonio) {
-                const ativoGerar = contextMenu.item as Ativo;
-                const regerarCodigo = !!ativoGerar.cd_patrimonio?.trim();
-                items.push({
-                  label: regerarCodigo ? 'Regerar código de patrimônio' : 'Gerar código de patrimônio',
-                  onClick: () => {
-                    setConfirmAcao({
-                      titulo: regerarCodigo ? 'Regerar código de patrimônio' : 'Gerar código de patrimônio',
-                      mensagem: `Deseja ${regerarCodigo ? 'regerar' : 'gerar'} o código de patrimônio?`,
-                      acao: () => handleGerarCodigoPatrimonio(ativoGerar),
-                    });
-                    setContextMenu(null);
-                  },
-                });
-              }
               const isDescartado = currentStatus === 'D';
               const podeAlterarStatus = !isDescartado || permissoesPatrimonio.alterarStatusDescartado;
               if (currentStatus === 'M' && permissoesPatrimonio.concluirManutencao) {
@@ -11937,11 +11873,7 @@ export default function Home() {
                   <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_sequencia} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
-                <div className="sm:col-span-3">
-                  <RotuloCampo texto="Patrimônio" colecao="pat_ativo" campo="cd_patrimonio" />
-                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_patrimonio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_patrimonio: e.target.value })} />
-                </div>
-                <div className="sm:col-span-6">
+                <div className="sm:col-span-9">
                   <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ativo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ativo: e.target.value })} />
                 </div>
@@ -13411,10 +13343,6 @@ export default function Home() {
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.nr_sequencia} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, nr_sequencia: e.target.value })} />
                     </div>
                     <div>
-                      <RotuloCampo texto="Patrimônio" colecao="pat_ativo" campo="cd_patrimonio" />
-                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.cd_patrimonio} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, cd_patrimonio: e.target.value })} />
-                    </div>
-                    <div>
                       <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
                       <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_ativo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_ativo: e.target.value })} />
                     </div>
@@ -14182,7 +14110,7 @@ export default function Home() {
             ]
           : isAtivo
           ? [
-              'nr_sequencia', 'cd_patrimonio', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria',
+              'nr_sequencia', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'vl_aquisicao', 'dt_aquisicao', 'dt_garantia',
               'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status',
@@ -14476,7 +14404,6 @@ export default function Home() {
                       ie_obrigatorio: 'Obrigatório',
                       ds_usuario_criacao: 'Usuário criação',
                       ds_usuario_alteracao: 'Usuário alteração',
-                      cd_patrimonio: 'Patrimônio',
                       cd_patrimonio_externo: 'Código externo',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
@@ -14902,15 +14829,9 @@ export default function Home() {
                       <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={String(ativoView.nr_sequencia ?? '')} />
                     </div>
-                    <div className="sm:col-span-4 grid gap-[15px] sm:grid-cols-2">
-                      <div className="group">
-                        <RotuloCampo texto="Patrimônio" colecao="pat_ativo" campo="cd_patrimonio" />
-                        <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio ?? ''} />
-                      </div>
-                      <div className="group">
-                        <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_patrimonio_externo" />
-                        <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio_externo ?? ''} />
-                      </div>
+                    <div className="sm:col-span-4 group">
+                      <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_patrimonio_externo" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio_externo ?? ''} />
                     </div>
                     <div className="sm:col-span-7 group">
                       <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
@@ -15320,7 +15241,7 @@ export default function Home() {
 
       {/* Modal "Carregando..." exibido durante qualquer gravação. Ativo e Manutenção exibem o próprio modal no FormView. */}
       {(
-        gerandoCodigoPatrimonio || gerandoMatricula || parametrosSaving || relatorioGerando ||
+        gerandoMatricula || parametrosSaving || relatorioGerando ||
         submitting || pjSubmitting || adminSubmitting || cgSubmitting ||
         perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||

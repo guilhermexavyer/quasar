@@ -91,8 +91,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_ativo", label: "Permite acessar Ativos" },
     { key: "adicionar_ativo", label: "Permite adicionar" },
     { key: "ver_ativo", label: "Permite ver" },
-    { key: "gerar_codigo_patrimonio", label: "Permite gerar código de patrimônio" },
-    { key: "gerar_codigo_patrimonio_descartado", label: "Permite gerar código de patrimônio de ativo descartado" },
     { key: "mudar_para_operacional", label: "Permite mudar para Operacional" },
     { key: "enviar_para_manutencao", label: "Permite enviar para manutenção" },
     { key: "mover_para_estoque", label: "Permite mover para o estoque" },
@@ -260,7 +258,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   patrimonio: [
     {
       titulo: 'Ativos',
-      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'gerar_codigo_patrimonio', 'gerar_codigo_patrimonio_descartado', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
+      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
     },
     {
       titulo: 'Categoria',
