@@ -147,7 +147,7 @@ export default function PeriodoLetivoFeriadosView({
     });
   }, [feriados, sortColumn, sortAsc]);
 
-  const paginacao = usePagination(ordenados.length);
+  const paginacao = usePagination(ordenados.length, `feriados:${periodo.id ?? ""}`);
 
   const columns: ResizableTableColumn<PeriodoLetivoFeriado>[] = useMemo(() => [
     { key: 'nr_sequencia', label: '#', cellClassName: 'text-right', render: (f) => <span className="text-sm">{f.nr_sequencia}</span> },

@@ -326,6 +326,8 @@ import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
 import type { ContextMenuState } from "@/types/contextMenu";
+import { SecaoPaginacaoContext, limparPaginacaoDaSecao } from "@/lib/paginacaoPersistida";
+import { useAtalhoSalvarModal } from "@/lib/atalhoSalvarModal";
 import { PERFIL_COLUMNS, parseFuncoesConfig } from "@/lib/perfilUtils";
 import { obterPerfis, criarPerfil, atualizarPerfil, excluirPerfil } from "@/services/perfilService";
 
@@ -365,11 +367,14 @@ const emptyForm: Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_a
 /* Chave da sessão persistida no localStorage */
 const SESSION_KEY = "quasar_session";
 
+/* Chave da navegação de cada aba do navegador no sessionStorage */
+const SESSION_NAV_KEY = "quasar_session_nav";
+
 /* Chave base da preferência de tema no localStorage (uma por usuário) */
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.70.0";
+const SYSTEM_VERSION = "0.70.1";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -2801,22 +2806,38 @@ export default function Home() {
     };
   }, []);
 
-  /* ── Persistir sessão: sobrevive à recarga; só quebra no Sair ── */
+  /* ── Ctrl+S nos modais com campos (aciona o botão principal do modal do topo) ── */
+  useAtalhoSalvarModal(isAuthenticated);
+
+  /* ── Persistir sessão: sobrevive à recarga; só quebra no Sair ──
+     O login fica no localStorage (compartilhado entre as abas do navegador).
+     A navegação (função ativa, funções abertas, dropdowns PAI) também vai para o
+     sessionStorage, que é de cada aba: assim o F5 numa aba restaura a função
+     dela, e não a última usada em outra aba. O localStorage só serve de ponto
+     de partida para abas novas. */
   useEffect(() => {
     if (!isAuthenticated || !currentUser?.id) return;
+    const navegacao = {
+      activeSection,
+      secoesAbertas,
+      adminManageSelection,
+      cgManageSelection,
+      pjManageSelection,
+      alunoManageSelection,
+      patrimonioManageSelection: ativoManageSelection,
+      relatorioManageSelection,
+    };
+    try {
+      window.sessionStorage.setItem(SESSION_NAV_KEY, JSON.stringify(navegacao));
+    } catch {
+      /* storage indisponível — navegação da aba não persiste */
+    }
     try {
       window.localStorage.setItem(
         SESSION_KEY,
         JSON.stringify({
           userId: currentUser.id,
-          activeSection,
-          secoesAbertas,
-          adminManageSelection,
-          cgManageSelection,
-          pjManageSelection,
-          alunoManageSelection,
-          patrimonioManageSelection: ativoManageSelection,
-          relatorioManageSelection,
+          ...navegacao,
           sessaoInicio,
         })
       );
@@ -2937,7 +2958,7 @@ export default function Home() {
         const raw = window.localStorage.getItem(SESSION_KEY);
         if (!raw) return;
 
-        const session = JSON.parse(raw) as {
+        const sessionLocal = JSON.parse(raw) as {
           userId?: string;
           activeSection?: SectionType;
           secoesAbertas?: unknown;
@@ -2949,6 +2970,22 @@ export default function Home() {
           relatorioManageSelection?: string;
           sessaoInicio?: number;
         };
+
+        // A navegação salva nesta aba (sessionStorage) tem prioridade sobre a do
+        // localStorage, que reflete a última aba usada.
+        let navegacaoDaAba: Partial<typeof sessionLocal> = {};
+        try {
+          const rawNav = window.sessionStorage.getItem(SESSION_NAV_KEY);
+          const parsed = rawNav ? JSON.parse(rawNav) : null;
+          if (parsed && typeof parsed === "object") {
+            const { userId: _u, sessaoInicio: _s, ...resto } = parsed as typeof sessionLocal;
+            void _u; void _s;
+            navegacaoDaAba = resto;
+          }
+        } catch {
+          /* navegação da aba corrompida — usa a do localStorage */
+        }
+        const session = sessionLocal ? { ...sessionLocal, ...navegacaoDaAba } : sessionLocal;
 
         if (!session?.userId) return;
 
@@ -8770,6 +8807,7 @@ export default function Home() {
 
         window.setTimeout(() => {
           // Ao entrar, nenhuma função vem selecionada (inclusive após a sessão ter sido encerrada).
+          limparPaginacaoDaSecao();
           setActiveSection(null);
           setSecoesAbertas([]);
           setSectionViews({});
@@ -8795,9 +8833,11 @@ export default function Home() {
   function handleLogout() {
     try {
       window.localStorage.removeItem(SESSION_KEY);
+      window.sessionStorage.removeItem(SESSION_NAV_KEY);
     } catch {
       /* ignora */
     }
+    limparPaginacaoDaSecao();
     setIsAuthenticated(false);
     setSessaoInicio(null);
     setIsLoginLoading(false);
@@ -8833,6 +8873,8 @@ export default function Home() {
    * nenhuma fica selecionada.
    */
   function fecharSecao(secao: SectionType) {
+    // Rodapé de paginação (página e quantidade por página) volta ao padrão.
+    limparPaginacaoDaSecao(secao);
     setSecoesAbertas((prev) => prev.filter((s) => s !== secao));
     setSectionViews((prev) => Object.fromEntries(Object.entries(prev).filter(([chave]) => chave !== secao)) as typeof prev);
     if (secao === 'pessoaFisica') {
@@ -11064,7 +11106,9 @@ export default function Home() {
                   o usuário continua exatamente de onde parou. Fechar (x no menu) desmonta. */}
               {secoesAbertas.filter((secao) => allowedSections.includes(secao)).map((secao) => (
                 <div key={secao} className={secao === activeSection ? "flex-1 flex flex-col min-h-0" : "hidden"}>
-                  {renderConteudoSecao(secao, secao === activeSection ? view : (sectionViews[secao] ?? 'list'))}
+                  <SecaoPaginacaoContext.Provider value={secao}>
+                    {renderConteudoSecao(secao, secao === activeSection ? view : (sectionViews[secao] ?? 'list'))}
+                  </SecaoPaginacaoContext.Provider>
                 </div>
               ))}
             </>

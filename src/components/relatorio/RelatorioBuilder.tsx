@@ -840,6 +840,7 @@ export default function RelatorioBuilder({
               setInfoAnchor(event.currentTarget);
               setInfoPopupField((current) => (current === popupKey ? null : popupKey));
             }}
+            tabIndex={-1}
             aria-label={`Informações do campo ${label}`}
             className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === popupKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
           >
@@ -1803,6 +1804,7 @@ export default function RelatorioBuilder({
                           setInfoAnchor(event.currentTarget);
                           setInfoPopupField((current) => (current === `relatorio_banda.${key}` ? null : `relatorio_banda.${key}`));
                         }}
+                        tabIndex={-1}
                         aria-label={`Informações do campo ${label}`}
                         className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === `relatorio_banda.${key}` ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
                       >

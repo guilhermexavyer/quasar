@@ -40,6 +40,7 @@ export default function RotuloCampo({ texto, colecao, campo, tipo, prefixo }: Ro
             const alvo = event.currentTarget;
             setAnchor((atual) => (atual ? null : alvo));
           }}
+          tabIndex={-1}
           aria-label={`Informações do campo ${descricao}`}
           className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${anchor ? "opacity-100" : "opacity-0 group-hover/rotulo:opacity-100"}`}
         >

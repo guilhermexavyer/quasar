@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Select from "@/components/ui/Select";
+import { usePaginacaoPersistida } from "@/lib/paginacaoPersistida";
 
 export type PageSize = number | "all";
 
@@ -13,21 +14,33 @@ interface PaginationState {
   slice: <T>(rows: T[]) => T[];
 }
 
-/** Estado de paginação compartilhado: página atual, registros por página e recorte da lista. */
-export function usePagination(totalRecords: number): PaginationState {
-  const [currentPage, setCurrentPage] = useState(1);
-  const [pageSize, setPageSize] = useState<PageSize>(30);
+/**
+ * Estado de paginação compartilhado: página atual, registros por página e recorte da lista.
+ * Com `idPersistencia`, a página e a quantidade por página sobrevivem à desmontagem da
+ * tela (ex.: abrir um formulário e voltar) e só voltam ao padrão ao fechar a função.
+ */
+export function usePagination(totalRecords: number, idPersistencia?: string): PaginationState {
+  const [localPage, setLocalPage] = useState(1);
+  const [localPageSize, setLocalPageSize] = useState<PageSize>(30);
+  const persistida = usePaginacaoPersistida(idPersistencia ?? "");
+  const persistir = idPersistencia !== undefined;
+
+  const currentPage = persistir ? persistida.currentPage : localPage;
+  const pageSize = persistir ? persistida.pageSize : localPageSize;
+  const setCurrentPage = persistir ? persistida.setCurrentPage : setLocalPage;
+  const setPageSize = persistir ? persistida.setPageSize : setLocalPageSize;
 
   const pageCount = pageSize === "all" ? 1 : Math.max(1, Math.ceil(totalRecords / pageSize));
   const currentPageSafe = Math.min(currentPage, pageCount);
 
+  // Sem persistência: mantém o comportamento original (volta à página 1 ao mudar a lista).
   useEffect(() => {
-    if (currentPage > pageCount) setCurrentPage(pageCount);
-  }, [currentPage, pageCount]);
+    if (!persistir && localPage > pageCount) setLocalPage(pageCount);
+  }, [persistir, localPage, pageCount]);
 
   useEffect(() => {
-    setCurrentPage(1);
-  }, [pageSize, totalRecords]);
+    if (!persistir) setLocalPage(1);
+  }, [persistir, localPageSize, totalRecords]);
 
   const slice = <T,>(rows: T[]): T[] =>
     pageSize === "all" ? rows : rows.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);

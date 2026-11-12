@@ -178,6 +178,7 @@ export default function RegrasView({
               setInfoAnchor(event.currentTarget);
               setInfoAberto((v) => (v === campo ? null : campo));
             }}
+            tabIndex={-1}
             aria-label={`Informações do campo ${texto}`}
             className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoAberto === campo ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
           >

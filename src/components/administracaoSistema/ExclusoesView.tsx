@@ -233,7 +233,7 @@ export default function ExclusoesView({
     return ordemRegistro.asc ? cmp : -cmp;
   });
 
-  const paginacao = usePagination(registrosOrdenados.length);
+  const paginacao = usePagination(registrosOrdenados.length, `exclusoes:${colecaoTabela ?? ""}`);
 
   // Ordenação da banda (fica dentro do próprio registro da banda).
   const ordenacaoDaBanda = pai && abaAtual?.ordenacao && Array.isArray(pai.dados.ordenacao) ? (pai.dados.ordenacao as Record<string, unknown>[]) : [];

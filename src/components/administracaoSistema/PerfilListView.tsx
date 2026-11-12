@@ -7,6 +7,7 @@ import type { Perfil } from "@/types/perfil";
 import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
 import { isValidOrder, prepararColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia, type ColunasConfig } from "@/lib/colunasUtils";
 import Select from "@/components/ui/Select";
+import { usePaginacaoPersistida } from "@/lib/paginacaoPersistida";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
@@ -59,9 +60,9 @@ export default function PerfilListView({
       : PERFIL_COLUMNS.map((_, i) => i)
   );
   const [dragCol, setDragCol] = useState<number | null>(null);
-  const [pageSize, setPageSize] = useState<number | 'all'>(30);
-  const [currentPage, setCurrentPage] = useState<number>(1);
-  const [pageInput, setPageInput] = useState<string>('1');
+  // Página e quantidade por página persistem até fechar a função (X no menu lateral).
+  const { pageSize, setPageSize, currentPage, setCurrentPage } = usePaginacaoPersistida(manageSelection);
+  const [pageInput, setPageInput] = useState<string>(() => String(currentPage));
   const minWidthsRef = useRef<number[]>([]);
   const dragStartXRef = useRef(0);
   const didDragRef = useRef(false);
@@ -269,17 +270,10 @@ export default function PerfilListView({
     ? perfis
     : perfis.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
 
+  // O campo de página acompanha a página exibida (já limitada ao total de páginas).
   useEffect(() => {
-    setCurrentPage(1);
-    setPageInput('1');
-  }, [pageSize, totalRecords]);
-
-  useEffect(() => {
-    if (currentPage > pageCount) {
-      setCurrentPage(pageCount);
-      setPageInput(String(pageCount));
-    }
-  }, [pageCount, currentPage]);
+    setPageInput(String(currentPageSafe));
+  }, [currentPageSafe]);
 
   useLayoutEffect(() => {
     const table = tableRef.current;
@@ -615,7 +609,7 @@ export default function PerfilListView({
                         <button
                           type="button"
                           onClick={() => {
-                            const next = Math.min(pageCount, currentPage + 1);
+                            const next = Math.min(pageCount, currentPageSafe + 1);
                             setCurrentPage(next);
                             setPageInput(String(next));
                           }}
@@ -629,7 +623,7 @@ export default function PerfilListView({
                         <button
                           type="button"
                           onClick={() => {
-                            const prevPage = Math.max(1, currentPage - 1);
+                            const prevPage = Math.max(1, currentPageSafe - 1);
                             setCurrentPage(prevPage);
                             setPageInput(String(prevPage));
                           }}

@@ -110,7 +110,7 @@ export default function RelatorioListView({
     qtdOrdenacao: rel.ordenacao?.length ?? 0,
   }));
 
-  const pagination = usePagination(rows.length);
+  const pagination = usePagination(rows.length, manageSelection);
   const paginatedRows = pagination.slice(rows);
 
   const showPlaceholder = !manageSelection;
