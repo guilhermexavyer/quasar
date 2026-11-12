@@ -12,11 +12,22 @@ import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
 
 /**
- * Coluna Status (bolinha): fixa como a primeira da tabela, com largura fixa
+ * Coluna Status (bolinha): fixa como a primeira coluna de dados (a segunda da
+ * tabela, logo após a coluna de seleção), com largura fixa
  * (a do ícone + padding) e sem redimensionar/arrastar — só ordena.
  */
 const IDX_STATUS = COLUMNS.findIndex((c) => c.key === 'ie_status');
 const LARGURA_COLUNA_STATUS = 28;
+
+/**
+ * Coluna de seleção (checkbox): sempre a primeira da tabela, antes do Status.
+ * Não faz parte de COLUMNS (nem da ordem/larguras salvas por índice): é uma
+ * coluna extra no DOM, por isso os seletores das colunas de dados a descontam.
+ */
+const LARGURA_COLUNA_SELECAO = 32;
+const SELETOR_TH_DADOS = 'thead tr th:not(.col-selecao)';
+/** Células da coluna de dados na posição visual domIdx (a 1ª célula da linha é a seleção). */
+const seletorTdsDaColuna = (domIdx: number) => `tbody tr td:nth-child(${domIdx + 2})`;
 
 /** Garante a coluna Status na primeira posição (inclusive em ordens salvas antes). */
 function comStatusPrimeiro(order: number[]): number[] {
@@ -47,6 +58,9 @@ interface ListViewProps {
   /** Cor da bolinha da coluna Status, por código do status (Patrimônio > Parâmetros). */
   coresStatus?: Record<string, string>;
   columnLookups?: Partial<Record<keyof Ativo, Record<number, string>>>;
+  /** Ids dos ativos marcados na coluna de seleção. */
+  selecionados?: string[];
+  onSelecionadosChange?: (ids: string[]) => void;
 }
 
 export default function AtivoListView({
@@ -69,6 +83,8 @@ export default function AtivoListView({
   onColumnsChange,
   columnLookups,
   coresStatus = {},
+  selecionados = [],
+  onSelecionadosChange,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
@@ -137,7 +153,7 @@ export default function AtivoListView({
     const table = tableRef.current;
     if (!table) return [];
 
-    const ths = table.querySelectorAll<HTMLElement>("thead tr th");
+    const ths = table.querySelectorAll<HTMLElement>(SELETOR_TH_DADOS);
     if (ths.length === 0) return [];
 
     const widths = new Array(COLUMNS.length).fill(0);
@@ -152,7 +168,7 @@ export default function AtivoListView({
 
   function measureColumnContentWidth(table: HTMLTableElement, domIdx: number): number {
     const cells = table.querySelectorAll<HTMLElement>(
-      `tbody tr td:nth-child(${domIdx + 1})`
+      seletorTdsDaColuna(domIdx)
     );
     let maxWidth = 0;
 
@@ -201,7 +217,7 @@ export default function AtivoListView({
       const logicalIdx = columnOrder[domIdx];
       const minW = minWidthsRef.current[logicalIdx] || 0;
       const savedW = currentWidthsRef.current[logicalIdx];
-      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx, ativos));
+      const contentW = Math.max(measureColumnContentWidth(table, domIdx), larguraColunaSequencia(table, domIdx + 1, ativos));
       // Largura ajustada pelo usuário (salva) ou automática (maior conteúdo / cabeçalho).
       // A coluna Status tem largura fixa.
       const finalWidth = logicalIdx === IDX_STATUS
@@ -243,7 +259,7 @@ export default function AtivoListView({
       if (!didDragRef.current) return;
 
       const wrapper = tableRef.current.closest<HTMLElement>('.overflow-x-auto');
-      const ths = tableRef.current.querySelectorAll<HTMLElement>("thead tr th");
+      const ths = tableRef.current.querySelectorAll<HTMLElement>(SELETOR_TH_DADOS);
       let targetIdx = ths.length;
       for (let i = 0; i < ths.length; i++) {
         const rect = ths[i].getBoundingClientRect();
@@ -303,6 +319,19 @@ export default function AtivoListView({
     ? ativos
     : ativos.slice((currentPageSafe - 1) * pageSize, currentPageSafe * pageSize);
 
+  // Seleção: o checkbox do cabeçalho marca todos os registros da página exibida
+  // (conforme o dropdown do rodapé) e, ao desmarcar, desmarca todos.
+  const idsDaPagina = paginatedAtivos.map((a) => a.id).filter((id): id is string => !!id);
+  const todosDaPaginaMarcados = idsDaPagina.length > 0 && idsDaPagina.every((id) => selecionados.includes(id));
+  function alternarTodosDaPagina(marcar: boolean) {
+    if (!onSelecionadosChange) return;
+    onSelecionadosChange(marcar ? [...new Set([...selecionados, ...idsDaPagina])] : []);
+  }
+  function alternarRegistro(id: string | undefined, marcar: boolean) {
+    if (!id || !onSelecionadosChange) return;
+    onSelecionadosChange(marcar ? [...new Set([...selecionados, id])] : selecionados.filter((s) => s !== id));
+  }
+
   // O campo de página acompanha a página exibida (já limitada ao total de páginas).
   useEffect(() => {
     setPageInput(String(currentPageSafe));
@@ -339,7 +368,7 @@ export default function AtivoListView({
   }
 
   function freezeTableColumns(table: HTMLTableElement) {
-    const ths = table.querySelectorAll<HTMLElement>("thead tr th");
+    const ths = table.querySelectorAll<HTMLElement>(SELETOR_TH_DADOS);
     ths.forEach((th) => {
       th.style.boxSizing = "border-box";
       th.style.width = `${th.offsetWidth}px`;
@@ -347,7 +376,8 @@ export default function AtivoListView({
       th.style.minWidth = "0px";
     });
 
-    const totalWidth = Array.from(ths).reduce((sum, th) => sum + th.offsetWidth, 0);
+    // A coluna de seleção tem largura fixa e entra na largura total da tabela.
+    const totalWidth = LARGURA_COLUNA_SELECAO + Array.from(ths).reduce((sum, th) => sum + th.offsetWidth, 0);
     table.style.width = `${totalWidth}px`;
     setFrozenWidth(`${totalWidth}px`);
     return ths;
@@ -365,7 +395,7 @@ export default function AtivoListView({
     th.style.minWidth = "0px";
 
     table.querySelectorAll<HTMLElement>(
-      `tbody tr td:nth-child(${domIdx + 1})`
+      seletorTdsDaColuna(domIdx)
     ).forEach((td) => {
       td.style.width = `${width}px`;
       td.style.maxWidth = `${width}px`;
@@ -375,7 +405,7 @@ export default function AtivoListView({
     const totalWidth = Array.from(ths).reduce((sum, thEl, i) => {
       if (i === domIdx) return sum + width;
       return sum + (parseFloat(thEl.style.width) || thEl.offsetWidth);
-    }, 0);
+    }, LARGURA_COLUNA_SELECAO);
     table.style.width = `${totalWidth}px`;
     return totalWidth;
   }
@@ -392,7 +422,7 @@ export default function AtivoListView({
 
     const ths = freezeTableColumns(table);
     const cells = table.querySelectorAll<HTMLElement>(
-      `tbody tr td:nth-child(${domIdx + 1})`
+      seletorTdsDaColuna(domIdx)
     );
 
     let maxWidth = 0;
@@ -419,7 +449,7 @@ export default function AtivoListView({
     });
 
     const minW = minWidthsRef.current[logicalIdx] || 0;
-    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx, ativos));
+    const finalWidth = Math.max(minW, Math.ceil(maxWidth), larguraColunaSequencia(table, domIdx + 1, ativos));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
     // O auto-ajuste (duplo clique) também é salvo, como o arrastar da borda.
@@ -549,6 +579,22 @@ export default function AtivoListView({
                 <table ref={tableRef} className="text-sm" style={{ tableLayout: "fixed", width: frozenWidth || "100%", borderCollapse: "separate", borderSpacing: 0 }}>
                   <thead>
                     <tr className="bg-[#bbb]">
+                      <th
+                        scope="col"
+                        className="col-selecao sticky top-0 z-30 bg-[#bbb] px-[8px] py-[3px] min-w-0 align-middle border-r border-b border-[#666] select-none"
+                        style={{ width: LARGURA_COLUNA_SELECAO, maxWidth: LARGURA_COLUNA_SELECAO, borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999' }}
+                        onDragStart={(e) => e.preventDefault()}
+                      >
+                        <div className="flex items-center justify-center">
+                          <input
+                            type="checkbox"
+                            className="cg-checkbox"
+                            aria-label="Selecionar todos os registros da página"
+                            checked={todosDaPaginaMarcados}
+                            onChange={(e) => alternarTodosDaPagina(e.target.checked)}
+                          />
+                        </div>
+                      </th>
                       {columnOrder.map((logicalIdx, visualIdx) => {
                         const col = COLUMNS[logicalIdx];
                         const isDragSource = dragCol === logicalIdx;
@@ -590,10 +636,12 @@ export default function AtivoListView({
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200">
-                    {paginatedAtivos.map((ativo) => (
+                    {paginatedAtivos.map((ativo) => {
+                      const marcado = !!ativo.id && selecionados.includes(ativo.id);
+                      return (
                       <tr
                         key={ativo.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === ativo.id ? 'row-selected' : ''}`}
+                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === ativo.id || marcado ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === ativo.id ? null : ativo.id ?? null))}
                         onContextMenu={(e) => {
                           e.preventDefault();
@@ -601,6 +649,21 @@ export default function AtivoListView({
                           setContextMenu({ x: e.clientX, y: e.clientY, section: 'patrimonio', item: ativo });
                         }}
                       >
+                        <td
+                          className="col-selecao px-[8px] py-[3px] min-w-0 align-middle"
+                          style={{ width: LARGURA_COLUNA_SELECAO, maxWidth: LARGURA_COLUNA_SELECAO, borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <span className="flex items-center justify-center">
+                            <input
+                              type="checkbox"
+                              className="cg-checkbox"
+                              aria-label={`Selecionar o registro ${ativo.nr_sequencia}`}
+                              checked={marcado}
+                              onChange={(e) => alternarRegistro(ativo.id, e.target.checked)}
+                            />
+                          </span>
+                        </td>
                         {columnOrder.map((logicalIdx) => {
                           const col = COLUMNS[logicalIdx];
                           const value = ativo[col.key];
@@ -636,7 +699,8 @@ export default function AtivoListView({
                           );
                         })}
                       </tr>
-                    ))}
+                      );
+                    })}
                   </tbody>
                 </table>
                 <div

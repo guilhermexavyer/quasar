@@ -373,7 +373,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.70.3";
+const SYSTEM_VERSION = "0.71.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1205,15 +1205,23 @@ export default function Home() {
   const [alterarStatusColaborador, setAlterarStatusColaborador] = useState<Colaborador | null>(null);
   const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_motivo_status: '' });
   const [alterarStatusColaboradorSaving, setAlterarStatusColaboradorSaving] = useState(false);
+  // Ativos marcados na coluna de seleção (checkbox) da lista de Ativos, por id.
+  // As ações do menu de contexto valem para todos eles quando o registro clicado
+  // com o botão direito está entre os marcados.
+  const [ativosSelecionados, setAtivosSelecionados] = useState<string[]>([]);
   // Modal "Alterar status" do ativo (menu de contexto de Patrimônio).
   const [ativoStatusModalOpen, setAtivoStatusModalOpen] = useState(false);
   const [ativoStatusTarget, setAtivoStatusTarget] = useState<Ativo | null>(null);
+  /** Todos os ativos que recebem o novo status (um ou vários, pela seleção). */
+  const [ativoStatusLote, setAtivoStatusLote] = useState<Ativo[]>([]);
   const [ativoStatusValue, setAtivoStatusValue] = useState('');
   const [ativoStatusForm, setAtivoStatusForm] = useState({ dt_data: '', ds_motivo_status: '' });
   const [ativoStatusSaving, setAtivoStatusSaving] = useState(false);
   // Modal "Enviar para manutenção" (menu de contexto de Ativos).
   const [enviarManutModalOpen, setEnviarManutModalOpen] = useState(false);
   const [enviarManutTarget, setEnviarManutTarget] = useState<Ativo | null>(null);
+  /** Todos os ativos enviados para manutenção (uma manutenção é criada para cada um). */
+  const [enviarManutLote, setEnviarManutLote] = useState<Ativo[]>([]);
   const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_prestador_servico: undefined as number | undefined, ds_motivo_manutencao: '' });
   const [enviarManutSaving, setEnviarManutSaving] = useState(false);
   // Lookup de prestador de serviço (filtra colaboradores com ie_prestador_servico='S').
@@ -1225,6 +1233,8 @@ export default function Home() {
   // Modal "Concluir manutenção" (menu de contexto de Ativos).
   const [concluirManutModalOpen, setConcluirManutModalOpen] = useState(false);
   const [concluirManutTarget, setConcluirManutTarget] = useState<{ ativo: Ativo | null; manutencao: Manutencao } | null>(null);
+  /** Todas as manutenções concluídas de uma vez (seleção de vários ativos em manutenção). */
+  const [concluirManutLote, setConcluirManutLote] = useState<{ ativo: Ativo | null; manutencao: Manutencao }[]>([]);
   const [concluirManutForm, setConcluirManutForm] = useState({ dt_termino: '', vl_total: '', ie_isento: false, ds_correcoes: '', ie_status_ativo: 'O' });
   const [concluirManutSaving, setConcluirManutSaving] = useState(false);
   const [cancelarManutOpen, setCancelarManutOpen] = useState(false);
@@ -3774,6 +3784,8 @@ export default function Home() {
     if (s === 'patrimonio') {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
       if (ativoManageSelection === 'categoria') return permissoesPatrimonio.verCategoria;
+      // "Ver" abre um único formulário: não aparece com vários ativos selecionados.
+      if (contextMenu?.item && ativosAlvoDoContexto(contextMenu.item as Ativo).length > 1) return false;
       return permissoesPatrimonio.verAtivo;
     }
     if (s === 'relatorio') return permissoesRelatorio.ver;
@@ -7692,9 +7704,45 @@ export default function Home() {
     }
   }
 
-  function openAtivoStatusModal(ativo: Ativo, statusValue: string) {
+  /**
+   * Ativos alvo de uma ação do menu de contexto: se o registro clicado com o
+   * botão direito está marcado na coluna de seleção, a ação vale para todos os
+   * marcados (visíveis na lista); senão, só para o registro clicado.
+   */
+  function ativosAlvoDoContexto(item: Ativo): Ativo[] {
+    if (!item.id || !ativosSelecionados.includes(item.id)) return [item];
+    const marcados = filteredSortedAtivos.filter((a) => a.id && ativosSelecionados.includes(a.id));
+    return marcados.length > 0 ? marcados : [item];
+  }
+
+  /** Executa uma operação em cada ativo do lote, na ordem; para no primeiro erro. */
+  async function aplicarEmLote<T>(lote: T[], operacao: (item: T) => Promise<unknown>): Promise<number> {
+    let feitos = 0;
+    for (const item of lote) {
+      await operacao(item);
+      feitos++;
+    }
+    return feitos;
+  }
+
+  /** Exclui de uma vez os ativos selecionados (confirmado no modal "Excluir registro"). */
+  async function handleAtivosDeleteLote(ids: string[]) {
+    setMessage("");
+    let excluidos = 0;
+    try {
+      excluidos = await aplicarEmLote(ids, (id) => excluirAtivo(id));
+      setMessage(`${ids.length} registros excluídos com sucesso!`);
+      setAtivosSelecionados([]);
+    } catch {
+      setMessage(excluidos > 0 ? `Erro ao excluir: ${excluidos} de ${ids.length} registros foram excluídos.` : "Erro ao excluir.");
+    }
+    await loadAtivos();
+  }
+
+  function openAtivoStatusModal(ativo: Ativo, statusValue: string, lote: Ativo[] = [ativo]) {
     setModalCampoErros([]);
     setAtivoStatusTarget(ativo);
+    setAtivoStatusLote(lote);
     setAtivoStatusValue(statusValue);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -7709,6 +7757,7 @@ export default function Home() {
   function closeAtivoStatusModal() {
     setAtivoStatusModalOpen(false);
     setAtivoStatusTarget(null);
+    setAtivoStatusLote([]);
     setAtivoStatusValue('');
   }
 
@@ -7717,7 +7766,9 @@ export default function Home() {
     if (!ativoStatusTarget?.id || !ativoStatusValue) return;
     setMessage("");
     if (!validarCamposModal(modalAtivoStatus, { dt_status: ativoStatusForm.dt_data, ds_motivo_status: ativoStatusForm.ds_motivo_status })) return;
+    const lote = (ativoStatusLote.length > 0 ? ativoStatusLote : [ativoStatusTarget]).filter((a) => a.id);
     setAtivoStatusSaving(true);
+    let alterados = 0;
     try {
       const updates: Record<string, unknown> = { ie_status: ativoStatusValue, dt_status: ativoStatusForm.dt_data, ds_motivo_status: ativoStatusForm.ds_motivo_status };
       if (ativoStatusValue === 'O') {
@@ -7725,12 +7776,14 @@ export default function Home() {
       } else if (ativoStatusValue === 'M') {
         updates.dt_ultima_manutencao = ativoStatusForm.dt_data;
       }
-      await atualizarAtivo(ativoStatusTarget.id, updates as any, auditAutor);
-      setMessage("Status alterado com sucesso!");
+      alterados = await aplicarEmLote(lote, (a) => atualizarAtivo(a.id as string, updates as any, auditAutor));
+      setMessage(lote.length > 1 ? `Status de ${lote.length} ativos alterado com sucesso!` : "Status alterado com sucesso!");
+      if (lote.length > 1) setAtivosSelecionados([]);
       closeAtivoStatusModal();
       await loadAtivos();
     } catch {
-      setMessage("Erro ao alterar o status.");
+      setMessage(alterados > 0 ? `Erro ao alterar o status: ${alterados} de ${lote.length} ativos foram alterados.` : "Erro ao alterar o status.");
+      if (alterados > 0) await loadAtivos();
     } finally {
       setAtivoStatusSaving(false);
     }
@@ -7738,9 +7791,10 @@ export default function Home() {
 
   /* ── Enviar para manutenção (modal) ── */
 
-  function openEnviarManutModal(ativo: Ativo) {
+  function openEnviarManutModal(ativo: Ativo, lote: Ativo[] = [ativo]) {
     setModalCampoErros([]);
     setEnviarManutTarget(ativo);
+    setEnviarManutLote(lote);
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_prestador_servico: undefined, ds_motivo_manutencao: '' });
@@ -7754,17 +7808,23 @@ export default function Home() {
   function closeEnviarManutModal() {
     setEnviarManutModalOpen(false);
     setEnviarManutTarget(null);
+    setEnviarManutLote([]);
   }
 
   /* ── Concluir manutenção (modal) ── */
 
-  function openConcluirManutModalFromAtivo(ativo: Ativo) {
+  function openConcluirManutModalFromAtivo(ativo: Ativo, lote: Ativo[] = [ativo]) {
     setModalCampoErros([]);
-    const manut = manutencoes.find((m) => m.nr_seq_ativo === ativo.nr_sequencia && m.ie_status_manutencao === 'E');
-    if (!manut) return;
+    // Manutenção em andamento de cada ativo do lote (ativos sem manutenção aberta ficam de fora).
+    const alvos = lote
+      .map((a) => ({ ativo: a, manutencao: manutencoes.find((m) => m.nr_seq_ativo === a.nr_sequencia && m.ie_status_manutencao === 'E') }))
+      .filter((x): x is { ativo: Ativo; manutencao: Manutencao } => !!x.manutencao);
+    const principal = alvos.find((x) => x.ativo.id === ativo.id) ?? alvos[0];
+    if (!principal) return;
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    setConcluirManutTarget({ ativo, manutencao: manut });
+    setConcluirManutTarget(principal);
+    setConcluirManutLote(alvos);
     setConcluirManutForm({
       dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
       vl_total: '',
@@ -7782,6 +7842,7 @@ export default function Home() {
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setConcluirManutTarget({ ativo: ativo ?? null, manutencao: manut });
+    setConcluirManutLote([]);
     setConcluirManutForm({
       dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
       vl_total: '',
@@ -7796,6 +7857,7 @@ export default function Home() {
   function closeConcluirManutModal() {
     setConcluirManutModalOpen(false);
     setConcluirManutTarget(null);
+    setConcluirManutLote([]);
   }
 
   function openCancelarManutModal(manut: Manutencao) {
@@ -7834,7 +7896,9 @@ export default function Home() {
       vl_total: concluirManutForm.ie_isento ? '0,00' : concluirManutForm.vl_total,
       ds_correcoes: concluirManutForm.ds_correcoes,
     })) return;
+    const lote = concluirManutLote.length > 0 ? concluirManutLote : [concluirManutTarget];
     setConcluirManutSaving(true);
+    let concluidas = 0;
     try {
       const updates: Record<string, unknown> = { dt_termino: concluirManutForm.dt_termino, ie_status_manutencao: 'CO' };
       // Isento: manutenção sem custos (ex.: o prestador avaliou e não havia solução) — valor total zerado.
@@ -7845,20 +7909,22 @@ export default function Home() {
         updates.vl_total = concluirManutForm.vl_total;
       }
       if (concluirManutForm.ds_correcoes) updates.ds_correcoes = concluirManutForm.ds_correcoes;
-      await atualizarManutencao(concluirManutTarget.manutencao.id!, updates as any, auditAutor);
-      if (concluirManutTarget.ativo) {
-        const ativoUpdates: Record<string, unknown> = { ie_status: concluirManutForm.ie_status_ativo || 'O' };
-        if (concluirManutForm.ie_status_ativo === 'O') {
-          ativoUpdates.dt_status = concluirManutForm.dt_termino;
-        }
-        await atualizarAtivo(concluirManutTarget.ativo.id!, ativoUpdates as any, auditAutor);
+      const ativoUpdates: Record<string, unknown> = { ie_status: concluirManutForm.ie_status_ativo || 'O' };
+      if (concluirManutForm.ie_status_ativo === 'O') {
+        ativoUpdates.dt_status = concluirManutForm.dt_termino;
       }
-      setMessage('Manutenção concluída com sucesso!');
+      concluidas = await aplicarEmLote(lote, async (alvo) => {
+        await atualizarManutencao(alvo.manutencao.id!, updates as any, auditAutor);
+        if (alvo.ativo) await atualizarAtivo(alvo.ativo.id!, ativoUpdates as any, auditAutor);
+      });
+      setMessage(lote.length > 1 ? `${lote.length} manutenções concluídas com sucesso!` : 'Manutenção concluída com sucesso!');
+      if (lote.length > 1) setAtivosSelecionados([]);
       closeConcluirManutModal();
       await loadAtivos();
       await loadManutencoes();
     } catch {
-      setMessage('Erro ao concluir manutenção.');
+      setMessage(concluidas > 0 ? `Erro ao concluir manutenção: ${concluidas} de ${lote.length} foram concluídas.` : 'Erro ao concluir manutenção.');
+      if (concluidas > 0) { await loadAtivos(); await loadManutencoes(); }
     } finally {
       setConcluirManutSaving(false);
     }
@@ -7906,25 +7972,32 @@ export default function Home() {
       nr_seq_prestador_servico: enviarManutForm.nr_seq_prestador_servico,
       ds_motivo_manutencao: enviarManutForm.ds_motivo_manutencao,
     })) return;
+    const lote = (enviarManutLote.length > 0 ? enviarManutLote : [enviarManutTarget]).filter((a) => a.id);
     setEnviarManutSaving(true);
+    let enviados = 0;
     try {
-      const { nr_sequencia: nrSeqManut } = await criarManutencao({
-        nr_seq_ativo: enviarManutTarget.nr_sequencia,
-        nr_seq_prestador_servico: enviarManutForm.nr_seq_prestador_servico,
-        dt_envio: enviarManutForm.dt_data,
-        dt_termino: '',
-        ie_status_manutencao: 'E',
-        vl_total: undefined,
-        ds_observacao: '',
-        ds_motivo_manutencao: enviarManutForm.ds_motivo_manutencao,
-      }, auditAutor);
-      await atualizarAtivo(enviarManutTarget.id, { ie_status: 'M', dt_status: enviarManutForm.dt_data, dt_ultima_manutencao: enviarManutForm.dt_data, nr_seq_ultima_manutencao: nrSeqManut, ds_motivo_status: enviarManutForm.ds_motivo_manutencao } as any, auditAutor);
-      setMessage('Ativo enviado para manutenção com sucesso.');
+      // Uma manutenção para cada ativo, com os mesmos dados do modal.
+      enviados = await aplicarEmLote(lote, async (ativo) => {
+        const { nr_sequencia: nrSeqManut } = await criarManutencao({
+          nr_seq_ativo: ativo.nr_sequencia,
+          nr_seq_prestador_servico: enviarManutForm.nr_seq_prestador_servico,
+          dt_envio: enviarManutForm.dt_data,
+          dt_termino: '',
+          ie_status_manutencao: 'E',
+          vl_total: undefined,
+          ds_observacao: '',
+          ds_motivo_manutencao: enviarManutForm.ds_motivo_manutencao,
+        }, auditAutor);
+        await atualizarAtivo(ativo.id as string, { ie_status: 'M', dt_status: enviarManutForm.dt_data, dt_ultima_manutencao: enviarManutForm.dt_data, nr_seq_ultima_manutencao: nrSeqManut, ds_motivo_status: enviarManutForm.ds_motivo_manutencao } as any, auditAutor);
+      });
+      setMessage(lote.length > 1 ? `${lote.length} ativos enviados para manutenção com sucesso.` : 'Ativo enviado para manutenção com sucesso.');
+      if (lote.length > 1) setAtivosSelecionados([]);
       closeEnviarManutModal();
       await loadAtivos();
       await loadManutencoes();
     } catch {
-      setMessage('Erro ao enviar para manutenção.');
+      setMessage(enviados > 0 ? `Erro ao enviar para manutenção: ${enviados} de ${lote.length} ativos foram enviados.` : 'Erro ao enviar para manutenção.');
+      if (enviados > 0) { await loadAtivos(); await loadManutencoes(); }
     } finally {
       setEnviarManutSaving(false);
     }
@@ -8789,6 +8862,7 @@ export default function Home() {
     } catch {
       /* ignora */
     }
+    setAtivosSelecionados([]);
     limparPaginacaoDaSecao();
     setIsAuthenticated(false);
     setSessaoInicio(null);
@@ -8839,7 +8913,7 @@ export default function Home() {
     } else if (secao === 'estruturaAcademica') {
       setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
     } else if (secao === 'patrimonio') {
-      setAtivoManageSelection(''); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
+      setAtivoManageSelection(''); setAtivosSelecionados([]); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
       setRelatorioManageSelection(''); setRelatorioInteracted(false); setRelatorioView('list'); setRelatorioEditingId(null); setRelatorioForm(null); setRelatorioBandasMode(false);
     }
@@ -9717,6 +9791,8 @@ export default function Home() {
                   message={message}
                   loading={loading}
                   ativos={filteredSortedAtivos}
+                  selecionados={ativosSelecionados}
+                  onSelecionadosChange={setAtivosSelecionados}
                   openNewForm={handleAtivoNewForm}
                   openEditForm={openAtivoEditForm}
                   handleDelete={handleAtivoDelete}
@@ -10396,27 +10472,31 @@ export default function Home() {
           }}
           customItems={(() => {
             if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'ativos') {
-              const currentStatus = (contextMenu.item as Ativo)?.ie_status ?? '';
+              // Com vários ativos marcados, cada opção só aparece se valer para todos eles.
+              const ativoClicado = contextMenu.item as Ativo;
+              const alvos = ativosAlvoDoContexto(ativoClicado);
+              const statusAlvos = alvos.map((a) => a.ie_status ?? '');
+              const todos = (cond: (s: string) => boolean) => statusAlvos.every(cond);
               const items: { label: string; onClick?: () => void; children?: { label: string; onClick: () => void }[] }[] = [];
-              const isDescartado = currentStatus === 'D';
-              const podeAlterarStatus = !isDescartado || permissoesPatrimonio.alterarStatusDescartado;
-              if (currentStatus === 'M' && permissoesPatrimonio.concluirManutencao) {
-                items.push({ label: 'Concluir manutenção', onClick: () => { openConcluirManutModalFromAtivo(contextMenu.item as Ativo); setContextMenu(null); } });
+              const algumDescartado = statusAlvos.includes('D');
+              const podeAlterarStatus = !algumDescartado || permissoesPatrimonio.alterarStatusDescartado;
+              if (todos((s) => s === 'M') && permissoesPatrimonio.concluirManutencao) {
+                items.push({ label: 'Concluir manutenção', onClick: () => { openConcluirManutModalFromAtivo(ativoClicado, alvos); setContextMenu(null); } });
               }
               const statusChildren: { label: string; onClick: () => void }[] = [];
-              if (podeAlterarStatus && permissoesPatrimonio.mudarParaOperacional && currentStatus !== 'O') {
-                statusChildren.push({ label: 'Operacional', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'O'); setContextMenu(null); } });
+              if (podeAlterarStatus && permissoesPatrimonio.mudarParaOperacional && todos((s) => s !== 'O')) {
+                statusChildren.push({ label: 'Operacional', onClick: () => { openAtivoStatusModal(ativoClicado, 'O', alvos); setContextMenu(null); } });
               }
-              if (podeAlterarStatus && permissoesPatrimonio.enviarParaManutencao && currentStatus !== 'M') {
-                statusChildren.push({ label: 'Enviar para manutenção', onClick: () => { openEnviarManutModal(contextMenu.item as Ativo); setContextMenu(null); } });
+              if (podeAlterarStatus && permissoesPatrimonio.enviarParaManutencao && todos((s) => s !== 'M')) {
+                statusChildren.push({ label: 'Enviar para manutenção', onClick: () => { openEnviarManutModal(ativoClicado, alvos); setContextMenu(null); } });
               }
-              if (podeAlterarStatus && permissoesPatrimonio.moverParaEstoque && currentStatus !== 'E') {
-                statusChildren.push({ label: 'Mover para o estoque', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'E'); setContextMenu(null); } });
+              if (podeAlterarStatus && permissoesPatrimonio.moverParaEstoque && todos((s) => s !== 'E')) {
+                statusChildren.push({ label: 'Mover para o estoque', onClick: () => { openAtivoStatusModal(ativoClicado, 'E', alvos); setContextMenu(null); } });
               }
-              if (permissoesPatrimonio.descartarAtivo && !isDescartado) {
-                statusChildren.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(contextMenu.item as Ativo, 'D'); setContextMenu(null); } });
+              if (permissoesPatrimonio.descartarAtivo && !algumDescartado) {
+                statusChildren.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(ativoClicado, 'D', alvos); setContextMenu(null); } });
               }
-              if (statusChildren.length > 0 && currentStatus !== 'M') {
+              if (statusChildren.length > 0 && todos((s) => s !== 'M')) {
                 items.push({ label: 'Status', children: statusChildren });
               }
               return items.length > 0 ? items : undefined;
@@ -10628,7 +10708,12 @@ export default function Home() {
               }
             } else if (contextMenu.section === 'patrimonio') {
               const ativo = contextMenu.item as Ativo;
-              if (ativo.id) {
+              const alvos = ativosAlvoDoContexto(ativo).filter((a) => a.id);
+              if (alvos.length > 1) {
+                setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
+                setConfirmDeleteAction(() => () => handleAtivosDeleteLote(alvos.map((a) => a.id as string)));
+                setConfirmDeleteOpen(true);
+              } else if (ativo.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${ativo.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleAtivoDelete(ativo.id as string));
                 setConfirmDeleteOpen(true);
@@ -13142,7 +13227,7 @@ export default function Home() {
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>
-                {ativoStatusValue === 'O' ? 'Operacional' : ativoStatusValue === 'M' ? 'Enviar para manutenção' : ativoStatusValue === 'E' ? 'Mover para o estoque' : 'Descartar'}
+                {ativoStatusValue === 'O' ? 'Operacional' : ativoStatusValue === 'M' ? 'Enviar para manutenção' : ativoStatusValue === 'E' ? 'Mover para o estoque' : 'Descartar'}{ativoStatusLote.length > 1 ? ` (${ativoStatusLote.length} ativos)` : ''}
               </h2>
               <button
                 type="button"
@@ -13211,7 +13296,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeEnviarManutModal} />
           <form onSubmit={handleEnviarManutSubmit} className="relative w-full max-w-[560px] min-h-[280px] bg-white modal-dark p-0 shadow-xl shadow-black/20 flex flex-col">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Enviar para manutenção</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Enviar para manutenção{enviarManutLote.length > 1 ? ` (${enviarManutLote.length} ativos)` : ''}</h2>
               <button type="button" onClick={closeEnviarManutModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
               </button>
@@ -15019,7 +15104,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeConcluirManutModal} />
           <form onSubmit={handleConcluirManutSubmit} className="relative w-full max-w-[560px] min-h-[280px] bg-white modal-dark p-0 shadow-xl shadow-black/20 flex flex-col">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Concluir manutenção</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Concluir manutenção{concluirManutLote.length > 1 ? ` (${concluirManutLote.length} ativos)` : ''}</h2>
               <button type="button" onClick={closeConcluirManutModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
               </button>
