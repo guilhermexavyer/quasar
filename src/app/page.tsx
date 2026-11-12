@@ -373,7 +373,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.71.0";
+const SYSTEM_VERSION = "0.72.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1239,6 +1239,10 @@ export default function Home() {
   const [concluirManutSaving, setConcluirManutSaving] = useState(false);
   const [cancelarManutOpen, setCancelarManutOpen] = useState(false);
   const [cancelarManutTarget, setCancelarManutTarget] = useState<Manutencao | null>(null);
+  /** Todas as manutenções canceladas de uma vez (seleção de várias manutenções). */
+  const [cancelarManutLote, setCancelarManutLote] = useState<Manutencao[]>([]);
+  // Manutenções marcadas na coluna de seleção (checkbox) da lista de Manutenções, por id.
+  const [manutencoesSelecionadas, setManutencoesSelecionadas] = useState<string[]>([]);
   const [cancelarManutSaving, setCancelarManutSaving] = useState(false);
   const enviarManutPrestadores = useMemo(() => {
     // Apenas colaboradores com ie_prestador_servico === 'S'.
@@ -7836,13 +7840,38 @@ export default function Home() {
     setConcluirManutModalOpen(true);
   }
 
-  function openConcluirManutModalFromManut(manut: Manutencao) {
+  /**
+   * Manutenções alvo de uma ação do menu de contexto: se a clicada com o botão
+   * direito está marcada, a ação vale para todas as marcadas (visíveis na
+   * lista); senão, só para a clicada.
+   */
+  function manutencoesAlvoDoContexto(item: Manutencao): Manutencao[] {
+    if (!item.id || !manutencoesSelecionadas.includes(item.id)) return [item];
+    const marcadas = filteredSortedManutencoes.filter((m) => m.id && manutencoesSelecionadas.includes(m.id));
+    return marcadas.length > 0 ? marcadas : [item];
+  }
+
+  /** Exclui de uma vez as manutenções selecionadas (confirmado no modal "Excluir registro"). */
+  async function handleManutencoesDeleteLote(ids: string[]) {
+    setMessage('');
+    let excluidas = 0;
+    try {
+      excluidas = await aplicarEmLote(ids, (id) => excluirManutencao(id));
+      setMessage(`${ids.length} registros excluídos com sucesso!`);
+      setManutencoesSelecionadas([]);
+    } catch {
+      setMessage(excluidas > 0 ? `Erro ao excluir: ${excluidas} de ${ids.length} registros foram excluídos.` : 'Erro ao excluir.');
+    }
+    await loadManutencoes();
+  }
+
+  function openConcluirManutModalFromManut(manut: Manutencao, lote: Manutencao[] = [manut]) {
     setModalCampoErros([]);
-    const ativo = ativos.find((a) => a.nr_sequencia === manut.nr_seq_ativo);
+    const alvoDe = (m: Manutencao) => ({ ativo: ativos.find((a) => a.nr_sequencia === m.nr_seq_ativo) ?? null, manutencao: m });
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    setConcluirManutTarget({ ativo: ativo ?? null, manutencao: manut });
-    setConcluirManutLote([]);
+    setConcluirManutTarget(alvoDe(manut));
+    setConcluirManutLote(lote.length > 1 ? lote.map(alvoDe) : []);
     setConcluirManutForm({
       dt_termino: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`,
       vl_total: '',
@@ -7860,27 +7889,35 @@ export default function Home() {
     setConcluirManutLote([]);
   }
 
-  function openCancelarManutModal(manut: Manutencao) {
+  function openCancelarManutModal(manut: Manutencao, lote: Manutencao[] = [manut]) {
     setCancelarManutTarget(manut);
+    setCancelarManutLote(lote);
     setCancelarManutOpen(true);
   }
 
   async function handleCancelarManutSubmit() {
     if (!cancelarManutTarget || cancelarManutSaving) return;
+    const lote = cancelarManutLote.length > 0 ? cancelarManutLote : [cancelarManutTarget];
     setCancelarManutSaving(true);
+    let canceladas = 0;
     try {
-      await atualizarManutencao(cancelarManutTarget.id!, { ie_status_manutencao: 'CA', dt_termino: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
-      const ativo = ativos.find((a) => a.nr_sequencia === cancelarManutTarget.nr_seq_ativo);
-      if (ativo && ativo.id) {
-        await atualizarAtivo(ativo.id, { ie_status: 'O', dt_status: cancelarManutTarget.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
-      }
-      setMessage('Manutenção cancelada com sucesso.');
+      canceladas = await aplicarEmLote(lote, async (manut) => {
+        await atualizarManutencao(manut.id!, { ie_status_manutencao: 'CA', dt_termino: manut.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
+        const ativo = ativos.find((a) => a.nr_sequencia === manut.nr_seq_ativo);
+        if (ativo && ativo.id) {
+          await atualizarAtivo(ativo.id, { ie_status: 'O', dt_status: manut.dt_termino || new Date().toISOString().slice(0, 10) } as any, auditAutor);
+        }
+      });
+      setMessage(lote.length > 1 ? `${lote.length} manutenções canceladas com sucesso.` : 'Manutenção cancelada com sucesso.');
+      if (lote.length > 1) setManutencoesSelecionadas([]);
       setCancelarManutOpen(false);
       setCancelarManutTarget(null);
+      setCancelarManutLote([]);
       await loadAtivos();
       await loadManutencoes();
     } catch {
-      setMessage('Erro ao cancelar manutenção.');
+      setMessage(canceladas > 0 ? `Erro ao cancelar manutenção: ${canceladas} de ${lote.length} foram canceladas.` : 'Erro ao cancelar manutenção.');
+      if (canceladas > 0) { await loadAtivos(); await loadManutencoes(); }
     } finally {
       setCancelarManutSaving(false);
     }
@@ -7918,7 +7955,7 @@ export default function Home() {
         if (alvo.ativo) await atualizarAtivo(alvo.ativo.id!, ativoUpdates as any, auditAutor);
       });
       setMessage(lote.length > 1 ? `${lote.length} manutenções concluídas com sucesso!` : 'Manutenção concluída com sucesso!');
-      if (lote.length > 1) setAtivosSelecionados([]);
+      if (lote.length > 1) { setAtivosSelecionados([]); setManutencoesSelecionadas([]); }
       closeConcluirManutModal();
       await loadAtivos();
       await loadManutencoes();
@@ -8863,6 +8900,7 @@ export default function Home() {
       /* ignora */
     }
     setAtivosSelecionados([]);
+    setManutencoesSelecionadas([]);
     limparPaginacaoDaSecao();
     setIsAuthenticated(false);
     setSessaoInicio(null);
@@ -8913,7 +8951,7 @@ export default function Home() {
     } else if (secao === 'estruturaAcademica') {
       setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
     } else if (secao === 'patrimonio') {
-      setAtivoManageSelection(''); setAtivosSelecionados([]); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
+      setAtivoManageSelection(''); setAtivosSelecionados([]); setManutencoesSelecionadas([]); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
       setRelatorioManageSelection(''); setRelatorioInteracted(false); setRelatorioView('list'); setRelatorioEditingId(null); setRelatorioForm(null); setRelatorioBandasMode(false);
     }
@@ -9749,6 +9787,8 @@ export default function Home() {
                     message={message}
                     loading={loading}
                     manutencoes={filteredSortedManutencoes}
+                    selecionados={manutencoesSelecionadas}
+                    onSelecionadosChange={setManutencoesSelecionadas}
                     openNewForm={handleManutencaoNewForm}
                     openEditForm={openManutencaoEditForm}
                     handleDelete={handleManutencaoDelete}
@@ -10502,19 +10542,36 @@ export default function Home() {
               return items.length > 0 ? items : undefined;
             }
             if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'manutencoes') {
+              // Com várias manutenções marcadas, cada opção só aparece se valer para todas.
               const items: { label: string; onClick: () => void }[] = [];
-              if (permissoesPatrimonio.verManutencao) {
-                items.push({ label: 'Ver', onClick: () => { openManutencaoEditForm(contextMenu.item as Manutencao); setContextMenu(null); } });
-              }
               const manutItem = contextMenu.item as Manutencao;
-              if (manutItem.ie_status_manutencao === 'E' && permissoesPatrimonio.concluirManutencaoRegistro) {
-                items.push({ label: 'Concluir manutenção', onClick: () => { openConcluirManutModalFromManut(manutItem); setContextMenu(null); } });
+              const alvos = manutencoesAlvoDoContexto(manutItem);
+              const todasEmAndamento = alvos.every((m) => m.ie_status_manutencao === 'E');
+              // "Ver" abre um único formulário: não aparece com várias manutenções selecionadas.
+              if (permissoesPatrimonio.verManutencao && alvos.length === 1) {
+                items.push({ label: 'Ver', onClick: () => { openManutencaoEditForm(manutItem); setContextMenu(null); } });
               }
-              if (manutItem.ie_status_manutencao === 'E' && permissoesPatrimonio.cancelarManutencao) {
-                items.push({ label: 'Cancelar manutenção', onClick: () => { openCancelarManutModal(manutItem); setContextMenu(null); } });
+              if (todasEmAndamento && permissoesPatrimonio.concluirManutencaoRegistro) {
+                items.push({ label: 'Concluir manutenção', onClick: () => { openConcluirManutModalFromManut(manutItem, alvos); setContextMenu(null); } });
+              }
+              if (todasEmAndamento && permissoesPatrimonio.cancelarManutencao) {
+                items.push({ label: 'Cancelar manutenção', onClick: () => { openCancelarManutModal(manutItem, alvos); setContextMenu(null); } });
               }
               if (permissoesPatrimonio.excluirManutencao) {
-                items.push({ label: 'Excluir', onClick: () => { handleManutencaoDelete((contextMenu.item as Manutencao).id!); setContextMenu(null); } });
+                items.push({
+                  label: 'Excluir',
+                  onClick: () => {
+                    const ids = alvos.map((m) => m.id).filter((id): id is string => !!id);
+                    if (ids.length > 1) {
+                      setConfirmDeleteMessage(`Deseja mesmo excluir os ${ids.length} registros selecionados?`);
+                      setConfirmDeleteAction(() => () => handleManutencoesDeleteLote(ids));
+                      setConfirmDeleteOpen(true);
+                    } else {
+                      handleManutencaoDelete(manutItem.id!);
+                    }
+                    setContextMenu(null);
+                  },
+                });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -15164,19 +15221,19 @@ export default function Home() {
       {/* ── Modal: Cancelar manutenção ── */}
       {cancelarManutOpen && cancelarManutTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} />
+          <div className="absolute inset-0 bg-black/40" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); setCancelarManutLote([]); }} />
           <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cancelar manutenção</h2>
-              <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cancelar manutenção{cancelarManutLote.length > 1 ? ` (${cancelarManutLote.length} manutenções)` : ''}</h2>
+              <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); setCancelarManutLote([]); }} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
               </button>
             </div>
             <div className="px-[15px] pt-[15px]">
-              <p className="text-sm text-slate-900">Deseja mesmo cancelar a manutenção {cancelarManutTarget.nr_sequencia}?</p>
+              <p className="text-sm text-slate-900">{cancelarManutLote.length > 1 ? `Deseja mesmo cancelar as ${cancelarManutLote.length} manutenções selecionadas?` : `Deseja mesmo cancelar a manutenção ${cancelarManutTarget.nr_sequencia}?`}</p>
             </div>
             <div className="flex justify-end gap-2 px-[15px] pt-20 pb-[15px]">
-              <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
+              <button type="button" onClick={() => { setCancelarManutOpen(false); setCancelarManutTarget(null); setCancelarManutLote([]); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Não</button>
               <button type="button" onClick={handleCancelarManutSubmit} disabled={cancelarManutSaving} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Sim</button>
             </div>
           </div>
