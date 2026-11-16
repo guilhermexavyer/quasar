@@ -1313,6 +1313,7 @@ export default function Home() {
   type AtivoFilterFormData = {
     // Identificação
     nr_sequencia: string;
+    cd_patrimonio_externo: string;
     ds_ativo: string;
     ds_modelo: string;
     nr_serie: string;
@@ -1334,7 +1335,7 @@ export default function Home() {
     nr_seq_sistema_operacional: string;
   };
   const emptyAtivoFilterForm: AtivoFilterFormData = {
-    nr_sequencia: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
+    nr_sequencia: '', cd_patrimonio_externo: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
     dt_aquisicao_inicio: '', dt_aquisicao_fim: '', dt_garantia_inicio: '', dt_garantia_fim: '', ie_status: 'T',
     nr_seq_categoria: '', nr_seq_localizacao: '', nr_seq_marca: '', nr_seq_responsavel: '',
     ds_endereco_mac: '', ds_ip: '', nr_seq_sistema_operacional: '',
@@ -5337,6 +5338,7 @@ export default function Home() {
         if (q && String(a.nr_sequencia) !== q) return false;
       }
       if (appliedAtivoFilterForm.ds_ativo && !(a.ds_ativo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ativo.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.cd_patrimonio_externo && !(a.cd_patrimonio_externo ?? '').toLowerCase().includes(appliedAtivoFilterForm.cd_patrimonio_externo.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_modelo && !(a.ds_modelo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_modelo.toLowerCase())) return false;
       if (appliedAtivoFilterForm.nr_serie && !(a.nr_serie ?? '').toLowerCase().includes(appliedAtivoFilterForm.nr_serie.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_qr_code && !(a.ds_qr_code ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_qr_code.toLowerCase())) return false;
@@ -12015,7 +12017,11 @@ export default function Home() {
                   <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_sequencia} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
-                <div className="sm:col-span-9">
+                <div className="sm:col-span-3">
+                  <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_patrimonio_externo" />
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_patrimonio_externo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_patrimonio_externo: e.target.value })} />
+                </div>
+                <div className="sm:col-span-6">
                   <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ativo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ativo: e.target.value })} />
                 </div>
