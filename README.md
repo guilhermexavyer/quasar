@@ -67,6 +67,22 @@ node --env-file=.env.producao scripts/migrar-categoria-patrimonio.mjs --confirma
 - A coleção antiga continua no banco. Depois de conferir o sistema, apague-a com `--apagar-antiga --confirmar`.
 - Para a homologação, use `--env-file=.env.local`. Ela já foi migrada (só a cópia).
 
+## Migração: Responsáveis do ativo
+
+Os responsáveis saíram do formulário do ativo e passaram para a tela aberta com duplo clique no ativo (abas Responsáveis e Manutenções). Os dados mudaram do campo `responsaveis` de `pat_ativo` para a coleção `pat_ativo_responsavel`. Rode a migração uma vez em cada base, **antes de publicar o código nela**. Sem a migração, os ativos aparecem sem responsáveis.
+
+```bash
+node --env-file=.env.producao scripts/migrar-responsaveis-ativo.mjs               # simula
+node --env-file=.env.producao scripts/migrar-responsaveis-ativo.mjs --confirmar   # migra
+```
+
+- O responsável agora é um **colaborador** (`nr_seq_colaborador`), não mais a pessoa física. A migração converte cada pessoa física no colaborador dela; se houver mais de um, prefere o sem pessoa jurídica e ativo.
+- Cria um registro por colaborador (sem repetir), com sequência própria e auditoria, e remove o campo antigo do ativo. Também converte registros que já estavam na coleção no formato antigo. Rodar de novo não duplica.
+- Pessoa física **sem colaborador** não é convertida: a simulação lista quais são. Cadastre o colaborador e rode de novo, ou use `--excluir-sem-colaborador` para descartar esses vínculos (ficam em Administração do Sistema > Exclusões).
+- Também move o status do campo Responsável nos perfis para `pat_ativo_responsavel.nr_seq_colaborador`.
+- A tela nova depende da permissão **"Permite acessar responsáveis e manutenções do ativo"** (Patrimônio > Ativos). Ligue-a nos perfis que devem usá-la (o administrador já tem).
+- Para a homologação, use `--env-file=.env.local`.
+
 ## Começar do zero (apagar a base e recriar o básico)
 
 **Apaga todos os dados do Firestore** da base escolhida e recria o mínimo para usar o sistema: o perfil `Administrador`, o usuário `administrador` (senha definida em `scripts/seed.mjs`) e os Cadastros Gerais de `scripts/dados/cadastros-gerais.json`. Rode na ordem.

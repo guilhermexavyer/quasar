@@ -146,6 +146,7 @@ export const MODAL_ATIVO_OPERACIONAL = "modal_ativo_operacional";
 export const MODAL_ATIVO_ESTOQUE = "modal_ativo_estoque";
 export const MODAL_ATIVO_DESCARTAR = "modal_ativo_descartar";
 export const MODAL_ENVIAR_MANUTENCAO = "modal_enviar_manutencao";
+export const MODAL_ATIVO_TRANSFERIR = "modal_ativo_transferir";
 export const MODAL_CONCLUIR_MANUTENCAO = "modal_concluir_manutencao";
 
 /** Campos editáveis de cada função do sistema (pessoaFisica, administracaoSistema, cadastrosGerais). */
@@ -259,7 +260,6 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pat_ativo.dt_aquisicao", label: "Data de aquisição", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.dt_garantia", label: "Data de garantia", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.ie_status", label: "Status", tipo: "Ativos", colecao: "pat_ativo" },
-    { key: "pat_ativo.nr_seq_responsavel", label: "Responsável", tipo: "Ativos", colecao: "pat_ativo" },
 
     { key: "pat_ativo.ds_processador", label: "Processador", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.qt_ram", label: "Memória RAM", tipo: "Ativos", colecao: "pat_ativo" },
@@ -293,11 +293,15 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "modal_enviar_manutencao.dt_envio", label: "Enviar para manutenção > Data", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
     { key: "modal_enviar_manutencao.nr_seq_prestador_servico", label: "Enviar para manutenção > Prestador de serviço", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
     { key: "modal_enviar_manutencao.ds_motivo_manutencao", label: "Enviar para manutenção > Motivo", tipo: "Ativos", colecao: "modal_enviar_manutencao" },
+    // Transferir: a Localização é o campo principal (fixo, sempre obrigatório).
+    { key: "modal_ativo_transferir.ds_motivo_transferencia", label: "Transferir > Motivo", tipo: "Ativos", colecao: "modal_ativo_transferir" },
 
     // Manutenções
     // Ativo, Prestador, Data de envio, Status, Data de término, Valor total, Motivo e
     // Correções são campos fixos no formulário (preenchidos pelos modais de enviar/concluir).
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
+    // Responsáveis do ativo (duplo clique em Ativos; Sequência é preenchida pelo sistema).
+    { key: "pat_ativo_responsavel.nr_seq_colaborador", label: "Colaborador", tipo: "Ativos > Responsáveis", colecao: "pat_ativo_responsavel" },
     { key: "modal_concluir_manutencao.dt_termino", label: "Concluir manutenção > Data de término", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
     { key: "modal_concluir_manutencao.vl_total", label: "Concluir manutenção > Valor total", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
     { key: "modal_concluir_manutencao.ds_correcoes", label: "Concluir manutenção > Correções", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },

@@ -36,6 +36,8 @@ export interface Ativo {
   nr_seq_ultima_manutencao?: number;
   /** Motivo do status. */
   ds_motivo_status?: string;
+  /** Motivo da última transferência de localização (modal "Transferir"; o histórico fica na auditoria). */
+  ds_motivo_transferencia?: string;
   /** Processador. */
   ds_processador?: string;
   /** Memória RAM. */
@@ -62,7 +64,11 @@ export interface Ativo {
   ds_cor?: string;
   /** Veículo: combustível (Cadastros Gerais > Combustível). */
   nr_seq_combustivel?: number;
-  /** Responsáveis (Pessoa física). */
+  /**
+   * @deprecated Os responsáveis ficam em pat_ativo_responsavel (duplo clique no ativo).
+   * Mantido só para ler documentos antigos ainda não migrados
+   * (scripts/migrar-responsaveis-ativo.mjs).
+   */
   responsaveis?: { nr_seq_responsavel?: number }[];
   /** Observação. */
   ds_observacao?: string;

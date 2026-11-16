@@ -17,6 +17,10 @@ export interface Usuario {
   config_colunas_periodo_letivo?: string;
   config_colunas_curso?: string;
   config_colunas_periodo_letivo_feriado?: string;
+  /* Patrimônio > Ativos > duplo clique (Responsáveis / Manutenções) */
+  config_colunas_ativo_responsavel?: string;
+  config_colunas_ativo_manutencao?: string;
+  config_colunas_ativo_transferencia?: string;
   config_colunas_exclusoes_funcao?: string;
   config_colunas_exclusoes_dropdown?: string;
   /** Colunas da lista de registros excluídos: JSON { colecao: config serializada }. */

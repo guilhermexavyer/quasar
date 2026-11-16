@@ -9,7 +9,6 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import LoadingModal from "@/components/ui/LoadingModal";
 import ViewIcon from "@/components/ui/ViewIcon";
-import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
 
 export type AtivoFormData = Omit<Ativo, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -54,12 +53,6 @@ interface FormViewProps {
   campoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
   campoErros?: string[];
-  /** Nomes dos responsáveis (Pessoa física) selecionados. */
-  responsaveisNames?: string[];
-  /** Abre o lookup de Pessoa Física (Responsável) pelo índice. */
-  onOpenResponsavelLookup?: (index: number) => void;
-  /** Abre o modal de visualização de uma pessoa física. */
-  onViewResponsavel?: (nrSequencia: number | undefined) => void;
   /** Nr. sequência da última manutenção do ativo. */
   ultimaManutencaoSeq?: number | null;
   /** Abre o modal de visualização de uma manutenção. */
@@ -95,9 +88,6 @@ export default function AtivoFormView({
   allowedSubmodulos = ['ativos'],
   campoRegras = {},
   campoErros = [],
-  responsaveisNames = [],
-  onOpenResponsavelLookup,
-  onViewResponsavel,
   ultimaManutencaoSeq,
   onViewManutencao,
 }: FormViewProps) {
@@ -438,7 +428,9 @@ export default function AtivoFormView({
               <div className="sm:col-span-4 group">
                 {renderFieldLabel('nr_seq_localizacao', 'Localização')}
                 <Select
-                  disabled={statusDe('nr_seq_localizacao') === 'D'}
+                  // Só no cadastro: depois, a troca é feita por "Transferir" (menu de contexto),
+                  // que registra a transferência no histórico do ativo.
+                  disabled={statusDe('nr_seq_localizacao') === 'D' || !!editingId}
                   error={campoErros.includes('nr_seq_localizacao')}
                   value={form.nr_seq_localizacao ? String(form.nr_seq_localizacao) : ''}
                   onChange={(v) => setForm({ ...form, nr_seq_localizacao: v ? Number(v) : undefined })}
@@ -456,101 +448,6 @@ export default function AtivoFormView({
                   options={cgOptions(marcas).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
               </div>
-
-              {(form.responsaveis ?? []).map((resp, index) => (
-                <div key={index} className="sm:col-span-12 group">
-                  {index === 0 && renderFieldLabel('responsaveis', 'Responsável')}
-                  <div className="flex items-center gap-2 flex-nowrap">
-                    <div className="flex-1 min-w-0 flex items-center gap-2">
-                      <div style={{ width: 110 }}>
-                        <label className="sr-only">Sequência do responsável</label>
-                        <input
-                          inputMode="numeric"
-                          maxLength={10}
-                          disabled={statusDe('nr_seq_responsavel') === 'D'}
-                          className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${campoErros.includes('nr_seq_responsavel') ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                          value={resp.nr_seq_responsavel ? String(resp.nr_seq_responsavel) : ''}
-                          onChange={(e) => {
-                            const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
-                            setForm((prev) => {
-                              const responsaveis = [...(prev.responsaveis ?? [])];
-                              responsaveis[index] = { ...(responsaveis[index] ?? {}), nr_seq_responsavel: raw ? Number(raw) : undefined };
-                              return { ...prev, responsaveis };
-                            });
-                          }}
-                        />
-                      </div>
-                      <div className="relative flex-1 min-w-0">
-                        <label className="sr-only">Nome do responsável</label>
-                        <input
-                          readOnly
-                          className={`w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${campoErros.includes('nr_seq_responsavel') ? 'border-red-500' : ''}`}
-                          value={responsaveisNames[index] ?? ''}
-                        />
-                        <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                          {resp.nr_seq_responsavel && (
-                            <button
-                              type="button"
-                              onClick={() => onViewResponsavel?.(resp.nr_seq_responsavel)}
-                              className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
-                              aria-label="Visualizar responsável"
-                            >
-                              <ViewIcon />
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => onOpenResponsavelLookup?.(index)}
-                            disabled={statusDe('nr_seq_responsavel') === 'D'}
-                            className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
-                            aria-label="Localizar responsável"
-                          >
-                            <SearchIcon />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const responsaveis = [...(form.responsaveis ?? [])];
-                          responsaveis.splice(index + 1, 0, { nr_seq_responsavel: undefined });
-                          setForm({ ...form, responsaveis });
-                        }}
-                        className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]"
-                        aria-label={`Adicionar responsável após o ${index + 1}`}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                          <path d="M12 5v14" />
-                          <path d="M5 12h14" />
-                        </svg>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          const responsaveis = [...(form.responsaveis ?? [])];
-                          responsaveis.splice(index, 1);
-                          if (responsaveis.length === 0) {
-                            responsaveis.push({ nr_seq_responsavel: undefined });
-                          }
-                          setForm({ ...form, responsaveis });
-                        }}
-                        disabled={(form.responsaveis ?? []).length <= 1}
-                        className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
-                        aria-label={`Remover responsável ${index + 1}`}
-                      >
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                          <path d="M5 12h14" />
-                        </svg>
-                      </button>
-                    </div>
-                  </div>
-                </div>
-              ))}
-              {(form.responsaveis ?? []).length === 0 && (
-                <p className="sm:col-span-12 text-sm text-slate-500">Nenhum responsável cadastrado.</p>
-              )}
             </div>
           </section>
 

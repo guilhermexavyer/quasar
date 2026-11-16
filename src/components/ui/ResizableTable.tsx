@@ -16,6 +16,27 @@ export interface ResizableTableColumn<T = unknown> {
   width?: number;
   /** Coluna fixa: não pode ser reordenada, redimensionada ou ordenada. */
   fixed?: boolean;
+  /**
+   * Coluna Status (bolinha), como nas listas de registros: sempre a primeira à
+   * esquerda, largura fixa, sem nome no cabeçalho (só o ícone de ordenação) e
+   * sem arrastar/redimensionar — só ordena.
+   */
+  status?: boolean;
+}
+
+/** Largura fixa da coluna Status (ícone + padding), igual às listas de registros. */
+export const LARGURA_COLUNA_STATUS = 28;
+
+/**
+ * Próxima ordenação ao clicar no cabeçalho (três cliques, como nas listas):
+ * crescente → decrescente → padrão (coluna null).
+ */
+export function proximaOrdenacao(
+  atual: { coluna: string | null; asc: boolean },
+  key: string
+): { coluna: string | null; asc: boolean } {
+  if (atual.coluna !== key) return { coluna: key, asc: true };
+  return atual.asc ? { coluna: key, asc: false } : { coluna: null, asc: true };
 }
 
 /** Persistência de ordem/largura das colunas (configuração do usuário). */
@@ -82,6 +103,8 @@ export default function ResizableTable<T>({
   const dropLineRef = useRef<HTMLDivElement | null>(null);
 
   const columnsKey = columns.map((c) => c.key).join("|");
+  /** Colunas presas à esquerda: as informadas e as de Status. */
+  const fixadas = [...columns.filter((c) => c.status).map((c) => c.key), ...pinnedColumns];
   const storageKey = `rt-cols:${columnsKey}${storageKeySuffix ? ':' + storageKeySuffix : ''}`;
 
   function loadSaved(): { order: string[]; widths: Record<string, number> } | null {
@@ -114,8 +137,8 @@ export default function ResizableTable<T>({
   // remontagens (ex.: trocar de perfil) e até a recarregar a página.
   useLayoutEffect(() => {
     const keys = columns.map((c) => c.key);
-    const pinned = keys.filter((k) => pinnedColumns.includes(k));
-    const unpinned = keys.filter((k) => !pinnedColumns.includes(k));
+    const pinned = keys.filter((k) => fixadas.includes(k));
+    const unpinned = keys.filter((k) => !fixadas.includes(k));
     const saved = prepararStringColunasSalvas(initialColumns ?? loadSaved());
     if (saved) {
       const savedOrder = saved.order.filter((k) => unpinned.includes(k));
@@ -130,7 +153,7 @@ export default function ResizableTable<T>({
     }
     minWidthsRef.current = {};
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [columnsKey, pinnedColumns.join(','), storageKeySuffix]);
+  }, [columnsKey, fixadas.join(','), storageKeySuffix]);
 
   function measureHeaderMinWidth(th: HTMLElement): number {
     const clone = th.cloneNode(true) as HTMLElement;
@@ -235,7 +258,9 @@ export default function ResizableTable<T>({
       const defW = colDef?.width ?? 0;
       // Coluna fixa (ex.: ícone de pré-visualização): o usuário não altera a
       // largura, então ela sempre acompanha o conteúdo e ignora a salva.
-      widths[key] = colDef?.fixed
+      widths[key] = colDef?.status
+        ? LARGURA_COLUNA_STATUS
+        : colDef?.fixed
         ? Math.max(minW, contentW, defW)
         : savedW && savedW > 0 ? savedW : (defW > 0 ? Math.max(defW, minW) : Math.max(minW, contentW));
     });
@@ -304,7 +329,7 @@ export default function ResizableTable<T>({
   function handleHeaderMouseDown(key: string, e: ReactMouseEvent<HTMLTableCellElement>) {
     if ((e.target as HTMLElement).closest(".rt-resizer-handle")) return;
     const col = columns.find((c) => c.key === key);
-    if (col?.fixed) return;
+    if (col?.fixed || col?.status) return;
     dragStartXRef.current = e.clientX;
     didDragRef.current = false;
     let currentDropIdx: number | null = null;
@@ -331,7 +356,7 @@ export default function ResizableTable<T>({
       }
 
       // Não permitir dropar colunas na seção de colunas fixas (pinned no início).
-      const pinnedCount = columnOrder.filter((k) => pinnedColumns.includes(k)).length;
+      const pinnedCount = columnOrder.filter((k) => fixadas.includes(k)).length;
       targetIdx = Math.max(targetIdx, pinnedCount);
 
       const curVisualPos = columnOrder.indexOf(key);
@@ -432,6 +457,23 @@ export default function ResizableTable<T>({
                 const col = columns.find((c) => c.key === key);
                 if (!col) return null;
                 const isDragSource = dragCol === key;
+                if (col.status) {
+                  return (
+                    <th
+                      key={key}
+                      scope="col"
+                      aria-label={col.label}
+                      className="sticky top-0 z-30 bg-[#bbb] px-[8px] py-[3px] text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b border-[#666] select-none cursor-pointer"
+                      style={{ borderRightColor: "#666", borderBottomColor: "#999", backgroundClip: "padding-box", boxShadow: "inset 0 -1px 0 #999" }}
+                      onClick={(e) => handleHeaderClick(key, e)}
+                      onDragStart={(e) => e.preventDefault()}
+                    >
+                      <div className="flex items-center justify-center">
+                        <SortIcon active={sortColumn === key} asc={sortAsc} />
+                      </div>
+                    </th>
+                  );
+                }
                 return (
                   <th
                     key={key}
@@ -484,7 +526,7 @@ export default function ResizableTable<T>({
                     return (
                       <td
                         key={key}
-                        className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.cellClassName || ""} ${col.key === "nr_sequencia" ? "text-right" : col.align === "center" ? "text-center" : ""}`}
+                        className={`${col.status ? "px-[8px] text-center" : "px-[10px]"} py-[3px] min-w-0 align-middle font-normal ${col.cellClassName || ""} ${col.key === "nr_sequencia" ? "text-right" : col.align === "center" ? "text-center" : ""}`}
                         style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)" }}
                       >
                         <span className="rt-cell-content">{content}</span>

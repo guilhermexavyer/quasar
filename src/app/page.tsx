@@ -203,6 +203,9 @@ import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
+import AtivoDetalheView from "@/components/patrimonio/AtivoDetalheView";
+import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
+import type { AtivoResponsavel } from "@/types/ativoResponsavel";
 import ParametrosDaFuncaoView, { PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
@@ -255,6 +258,7 @@ import {
   MODAL_COLABORADOR_ALTERAR_STATUS,
   MODAL_CONCLUIR_MANUTENCAO,
   MODAL_ENVIAR_MANUTENCAO,
+  MODAL_ATIVO_TRANSFERIR,
   type CampoStatus,
 } from "@/lib/camposConfigUtils";
 import {
@@ -373,7 +377,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.72.0";
+const SYSTEM_VERSION = "0.73.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -557,7 +561,6 @@ const emptyAtivoForm: AtivoFormData = {
   nr_ano: undefined,
   ds_cor: '',
   nr_seq_combustivel: undefined,
-  responsaveis: [{ nr_seq_responsavel: undefined }],
   ds_observacao: "",
 };
 
@@ -930,7 +933,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1153,16 +1156,21 @@ export default function Home() {
   const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
-  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo' | 'ativoFilter' | 'manutencaoFilter'>('aluno');
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter'>('aluno');
   const alunoResponsavelLookupIndexRef = useRef(0);
+  /** Quem recebe o colaborador escolhido no lookup aberto pelos responsáveis do ativo. */
+  const ativoResponsavelLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
   const [alterarStatusAluno, setAlterarStatusAluno] = useState<Aluno | null>(null);
+  /** Todos os alunos que recebem o novo status (um ou vários, pela seleção). */
+  const [alterarStatusAlunoLote, setAlterarStatusAlunoLote] = useState<Aluno[]>([]);
   const [alterarStatusForm, setAlterarStatusForm] = useState({ dt_status: '', ie_status: '', ds_status: '' });
   const [alterarStatusSaving, setAlterarStatusSaving] = useState(false);
   // Modal "Alterar data de ingresso" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarIngressoModalOpen, setAlterarIngressoModalOpen] = useState(false);
   const [alterarIngressoAluno, setAlterarIngressoAluno] = useState<Aluno | null>(null);
+  const [alterarIngressoLote, setAlterarIngressoLote] = useState<Aluno[]>([]);
   const [alterarIngressoForm, setAlterarIngressoForm] = useState({ dt_ingresso: '' });
   const [alterarIngressoSaving, setAlterarIngressoSaving] = useState(false);
 
@@ -1198,11 +1206,27 @@ export default function Home() {
   // Modal "Alterar data de admissão" do colaborador (menu de contexto de Estrutura Acadêmica).
   const [alterarAdmissaoModalOpen, setAlterarAdmissaoModalOpen] = useState(false);
   const [alterarAdmissaoColaborador, setAlterarAdmissaoColaborador] = useState<Colaborador | null>(null);
+  const [alterarAdmissaoLote, setAlterarAdmissaoLote] = useState<Colaborador[]>([]);
   const [alterarAdmissaoForm, setAlterarAdmissaoForm] = useState({ dt_admissao: '' });
   const [alterarAdmissaoSaving, setAlterarAdmissaoSaving] = useState(false);
   // Modal "Alterar status" do colaborador (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusColaboradorModalOpen, setAlterarStatusColaboradorModalOpen] = useState(false);
   const [alterarStatusColaborador, setAlterarStatusColaborador] = useState<Colaborador | null>(null);
+  const [alterarStatusColaboradorLote, setAlterarStatusColaboradorLote] = useState<Colaborador[]>([]);
+  // Alunos e colaboradores marcados na coluna de seleção (checkbox), por id.
+  // As ações do menu de contexto valem para todos eles quando o registro clicado
+  // com o botão direito está entre os marcados (como em Patrimônio > Ativos).
+  const [alunosSelecionados, setAlunosSelecionados] = useState<string[]>([]);
+  const [colaboradoresSelecionados, setColaboradoresSelecionados] = useState<string[]>([]);
+  // Modal "Assumir ativos de" (menu de contexto de Colaboradores): o colaborador
+  // clicado (destino) assume os ativos do colaborador escolhido no lookup (origem).
+  const [assumirAtivosDestino, setAssumirAtivosDestino] = useState<Colaborador | null>(null);
+  const [assumirAtivosOrigem, setAssumirAtivosOrigem] = useState('');
+  /** Modo (obrigatório): começa vazio. */
+  const [assumirAtivosModo, setAssumirAtivosModo] = useState<'' | 'adicionar' | 'substituir'>('');
+  const [assumirAtivosModoErro, setAssumirAtivosModoErro] = useState(false);
+  const [assumirAtivosErro, setAssumirAtivosErro] = useState(false);
+  const [assumirAtivosSaving, setAssumirAtivosSaving] = useState(false);
   const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_motivo_status: '' });
   const [alterarStatusColaboradorSaving, setAlterarStatusColaboradorSaving] = useState(false);
   // Ativos marcados na coluna de seleção (checkbox) da lista de Ativos, por id.
@@ -1217,6 +1241,13 @@ export default function Home() {
   const [ativoStatusValue, setAtivoStatusValue] = useState('');
   const [ativoStatusForm, setAtivoStatusForm] = useState({ dt_data: '', ds_motivo_status: '' });
   const [ativoStatusSaving, setAtivoStatusSaving] = useState(false);
+  // Modal "Transferir" (menu de contexto de Ativos): troca a localização de um ou vários ativos.
+  /** Ativos a transferir (vazio = modal fechado). */
+  const [ativoTransferirLote, setAtivoTransferirLote] = useState<Ativo[]>([]);
+  const [ativoTransferirLocal, setAtivoTransferirLocal] = useState('');
+  const [ativoTransferirMotivo, setAtivoTransferirMotivo] = useState('');
+  const [ativoTransferirErro, setAtivoTransferirErro] = useState(false);
+  const [ativoTransferirSaving, setAtivoTransferirSaving] = useState(false);
   // Modal "Enviar para manutenção" (menu de contexto de Ativos).
   const [enviarManutModalOpen, setEnviarManutModalOpen] = useState(false);
   const [enviarManutTarget, setEnviarManutTarget] = useState<Ativo | null>(null);
@@ -1229,7 +1260,9 @@ export default function Home() {
   const [enviarManutPrestLookupForm, setEnviarManutPrestLookupForm] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
-  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form'>('modal');
+  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos'>('modal');
+  /** O lookup lista todos os colaboradores (Responsável do ativo), não só os prestadores de serviço. */
+  const [lookupColaboradorTodos, setLookupColaboradorTodos] = useState(false);
   // Modal "Concluir manutenção" (menu de contexto de Ativos).
   const [concluirManutModalOpen, setConcluirManutModalOpen] = useState(false);
   const [concluirManutTarget, setConcluirManutTarget] = useState<{ ativo: Ativo | null; manutencao: Manutencao } | null>(null);
@@ -1245,9 +1278,9 @@ export default function Home() {
   const [manutencoesSelecionadas, setManutencoesSelecionadas] = useState<string[]>([]);
   const [cancelarManutSaving, setCancelarManutSaving] = useState(false);
   const enviarManutPrestadores = useMemo(() => {
-    // Apenas colaboradores com ie_prestador_servico === 'S'.
-    return colaboradores.filter((c) => c.ie_prestador_servico === 'S');
-  }, [colaboradores]);
+    // Apenas colaboradores com ie_prestador_servico === 'S' (ou todos, no Responsável do ativo).
+    return lookupColaboradorTodos ? colaboradores : colaboradores.filter((c) => c.ie_prestador_servico === 'S');
+  }, [colaboradores, lookupColaboradorTodos]);
   const enviarManutFilteredPrestadores = useMemo(() => {
     if (!enviarManutPrestLookupApplied) return [];
     return enviarManutPrestadores.filter((c) => {
@@ -1300,6 +1333,8 @@ export default function Home() {
   const [ativoManageSelection, setAtivoManageSelection] = useState<string>('');
   const [ativoInteracted, setAtivoInteracted] = useState(false);
   const [ativos, setAtivos] = useState<Ativo[]>([]);
+  /** Responsáveis de todos os ativos (filtro e visualização do ativo). */
+  const [responsaveisAtivos, setResponsaveisAtivos] = useState<AtivoResponsavel[]>([]);
   const [ativoForm, setAtivoForm] = useState<AtivoFormData>(emptyAtivoForm);
   const [ativoEditingId, setAtivoEditingId] = useState<string | null>(null);
   const [ativoAuditInfo, setAtivoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1346,6 +1381,7 @@ export default function Home() {
   const [parametrosSaving, setParametrosSaving] = useState(false);
   const [imagemCampoErros, setImagemCampoErros] = useState<string[]>([]);
   const [periodoLetivoFeriadoSaving, setPeriodoLetivoFeriadoSaving] = useState(false);
+  const [ativoResponsavelSaving, setAtivoResponsavelSaving] = useState(false);
   // Cores da bolinha de status do Período letivo (Estrutura Acadêmica > Parâmetros).
   const [coresStatusPeriodoLetivo, setCoresStatusPeriodoLetivo] = useState<Record<string, string>>(CORES_STATUS_PERIODO_LETIVO_PADRAO);
   // Cores da bolinha de status dos Ativos (Patrimônio > Parâmetros).
@@ -1873,6 +1909,7 @@ export default function Home() {
       gerarMatriculaColaborador: permitida('gerar_matricula_colaborador'),
       alterarDataAdmissao: permitida('alterar_data_admissao_colaborador'),
       alterarStatusColaborador: permitida('alterar_status_colaborador'),
+      assumirAtivosColaborador: permitida('assumir_ativos_colaborador'),
       excluirColaborador: permitida('excluir_colaborador'),
       adicionarPeriodoLetivo: permitida('adicionar_periodo_letivo'),
       verPeriodoLetivo: permitida('ver_periodo_letivo'),
@@ -1917,6 +1954,8 @@ export default function Home() {
       moverParaEstoque: permitida('mover_para_estoque'),
       descartarAtivo: permitida('descartar_ativo'),
       excluirAtivo: permitida('excluir_ativo'),
+      detalhesAtivo: permitida('detalhes_ativo'),
+      transferirAtivo: permitida('transferir_ativo'),
       alterarStatusDescartado: permitida('alterar_status_descartado'),
       acessarParametrosFuncao: permitida('acessar_parametros_funcao'),
       acessarManutencao: permitida('acessar_manutencao'),
@@ -2643,8 +2682,12 @@ export default function Home() {
   const loadAtivos = useCallback(async () => {
     setLoading(true);
     try {
-      const data = await obterAtivos();
+      const [data, responsaveis] = await Promise.all([
+        obterAtivos(),
+        obterResponsaveisAtivos().catch(() => [] as AtivoResponsavel[]),
+      ]);
       setAtivos(data);
+      setResponsaveisAtivos(responsaveis);
     } catch {
       setMessage("Erro ao carregar registros.");
     } finally {
@@ -3781,9 +3824,14 @@ export default function Home() {
       return permissoesCg[cgKind]?.ver ?? true;
     }
     if (s === 'estruturaAcademica') {
-      if (alunoManageSelection === 'colaboradores') return permissoesEA.verColaborador;
+      // "Ver" abre um único formulário: não aparece com vários registros selecionados.
+      if (alunoManageSelection === 'colaboradores') {
+        if (contextMenu?.item && colaboradoresAlvoDoContexto(contextMenu.item as unknown as Colaborador).length > 1) return false;
+        return permissoesEA.verColaborador;
+      }
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.verPeriodoLetivo;
       if (alunoManageSelection === 'cursos') return permissoesEA.verCurso;
+      if (contextMenu?.item && alunosAlvoDoContexto(contextMenu.item as Aluno).length > 1) return false;
       return permissoesEA.verAluno;
     }
     if (s === 'patrimonio') {
@@ -3946,6 +3994,7 @@ export default function Home() {
 
   function handlePatrimonioManageSelectionChange(value: string) {
     setAtivoInteracted(true);
+    setAtivoDetalheId(null);
     setAtivoManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
     // para nunca salvar contra a coleção errada.
@@ -4116,6 +4165,19 @@ export default function Home() {
       const logs = await fetchAuditByDocumentId('pat_ativo', ativoId);
       setAuditLogs(logs);
     } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openAtivoResponsavelAuditModal(responsavelId: string) {
+    setAuditDocumentType('pat_ativo_responsavel');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('pat_ativo_responsavel', responsavelId));
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -4895,7 +4957,6 @@ export default function Home() {
       nr_ano: ativo.nr_ano,
       ds_cor: ativo.ds_cor ?? '',
       nr_seq_combustivel: ativo.nr_seq_combustivel,
-      responsaveis: ativo.responsaveis?.length ? ativo.responsaveis : [{ nr_seq_responsavel: undefined }],
       ds_observacao: ativo.ds_observacao ?? '',
     });
     setAtivoEditingId(ativo.id ?? null);
@@ -5363,7 +5424,7 @@ export default function Home() {
       }
       if (appliedAtivoFilterForm.nr_seq_responsavel) {
         const q = appliedAtivoFilterForm.nr_seq_responsavel.replace(/\D/g, '');
-        if (q && !(a.responsaveis ?? []).some((r) => String(r.nr_seq_responsavel ?? '') === q)) return false;
+        if (q && !responsaveisAtivos.some((r) => r.nr_seq_ativo === a.nr_sequencia && String(r.nr_seq_colaborador ?? '') === q)) return false;
       }
       // Dispositivo
       if (appliedAtivoFilterForm.ds_endereco_mac && !(a.ds_endereco_mac ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_endereco_mac.toLowerCase())) return false;
@@ -5392,7 +5453,27 @@ export default function Home() {
       if (strA > strB) return ativoSortAsc ? 1 : -1;
       return 0;
     });
-  }, [ativos, ativoSortColumn, ativoSortAsc, appliedAtivoFilterForm]);
+  }, [ativos, ativoSortColumn, ativoSortAsc, appliedAtivoFilterForm, responsaveisAtivos]);
+
+  // Responsáveis e manutenções de um ativo (duplo clique na lista, como os feriados de um período letivo).
+  const [ativoDetalheId, setAtivoDetalheId] = useState<string | null>(null);
+  const ativoDetalhe = ativoDetalheId ? ativos.find((a) => a.id === ativoDetalheId) ?? null : null;
+  const ativoDetalheIndex = ativoDetalheId ? filteredSortedAtivos.findIndex((a) => a.id === ativoDetalheId) : -1;
+  function abrirDetalheDoAtivo(ativo: Ativo) {
+    if (!permissoesPatrimonio.detalhesAtivo || !ativo.id) return;
+    setMessage("");
+    setAtivoDetalheId(ativo.id);
+  }
+  function navegarDetalheDoAtivo(direcao: -1 | 1) {
+    const alvo = filteredSortedAtivos[ativoDetalheIndex + direcao];
+    if (ativoDetalheIndex >= 0 && alvo?.id) setAtivoDetalheId(alvo.id);
+  }
+  function fecharDetalheDoAtivo() {
+    setMessage("");
+    setAtivoDetalheId(null);
+    // Atualiza o filtro por responsável com o que foi alterado na tela.
+    obterResponsaveisAtivos().then(setResponsaveisAtivos).catch(() => {});
+  }
 
   const filteredPessoasJuridicas = useMemo(() => {
     return pessoasJuridicas.filter((pessoa) => {
@@ -6429,13 +6510,10 @@ export default function Home() {
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo');
-    const { nr_seq_responsavel: regraResponsavel, ...ativoRegrasPlanas } = ativoRegras;
+    // nr_seq_responsavel ficou em pat_ativo_responsavel; regra antiga salva no perfil não vale aqui.
+    const { nr_seq_responsavel: _regraResponsavelLegada, ...ativoRegrasPlanas } = ativoRegras;
+    void _regraResponsavelLegada;
     const ativoFaltantes = camposObrigatoriosVazios(ativoForm as unknown as Record<string, unknown>, ativoRegrasPlanas);
-    // Responsável: obrigatório = ao menos um responsável e nenhuma linha vazia.
-    const linhasResponsaveisAtivo = ativoForm.responsaveis ?? [];
-    if (regraResponsavel === 'O' && (linhasResponsaveisAtivo.length === 0 || linhasResponsaveisAtivo.some((r) => !r.nr_seq_responsavel))) {
-      ativoFaltantes.push('nr_seq_responsavel');
-    }
     if (ativoFaltantes.length > 0) {
       setAtivoCampoErros(ativoFaltantes);
       setMessage("Preencha os campos obrigatórios.");
@@ -6457,7 +6535,6 @@ export default function Home() {
         ];
         const hasChanges = currentAtivo
           ? formKeys.some((key) => String(currentAtivo[key] ?? '') !== String(ativoForm[key] ?? ''))
-            || JSON.stringify(ativoForm.responsaveis ?? []) !== JSON.stringify(currentAtivo.responsaveis ?? [])
           : true;
 
         if (!hasChanges) {
@@ -7010,7 +7087,7 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'ativo' | 'ativoFilter' | 'manutencaoFilter', responsavelIndex = 0) {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter', responsavelIndex = 0) {
     alunoPessoaFisicaLookupTargetRef.current = target;
     alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
@@ -7037,15 +7114,6 @@ export default function Home() {
         responsaveis[index] = { ...(responsaveis[index] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
         return { ...prev, responsaveis };
       });
-    } else if (target === 'ativo') {
-      const idx = alunoResponsavelLookupIndexRef.current;
-      setAtivoForm((prev) => {
-        const responsaveis = [...(prev.responsaveis ?? [])];
-        responsaveis[idx] = { ...(responsaveis[idx] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
-        return { ...prev, responsaveis };
-      });
-    } else if (target === 'ativoFilter') {
-      setAtivoFilterForm((prev) => ({ ...prev, nr_seq_responsavel: String(pessoa.nr_sequencia) }));
     } else if (target === 'manutencaoFilter') {
       setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_prestador_servico: String(pessoa.nr_sequencia) }));
     } else {
@@ -7075,7 +7143,7 @@ export default function Home() {
   }
 
   function openAtivoFilterResponsavelLookup() {
-    openAlunoPessoaFisicaLookup('ativoFilter');
+    openEnviarManutPrestadorLookup('ativoFilter');
   }
 
   // Abre o lookup de Pessoa Física a partir do filtro de Manutenções (Prestador de serviço).
@@ -7116,6 +7184,15 @@ export default function Home() {
   }
 
   // Abre o modal de visualização de um colaborador pelo nr_sequencia.
+  /** Nome do colaborador: razão social da pessoa jurídica ou nome da pessoa física. */
+  function nomeColaboradorPorSeq(nrSequencia?: number): string {
+    if (!nrSequencia) return '';
+    const col = colaboradores.find((c) => c.nr_sequencia === nrSequencia);
+    if (!col) return '';
+    const pj = col.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica) : undefined;
+    return pj ? pj.ds_razao_social ?? '' : pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica)?.ds_nome ?? '';
+  }
+
   function openColaboradorView(nrSequencia: number | undefined) {
     if (!nrSequencia) return;
     const col = colaboradores.find((c) => c.nr_sequencia === nrSequencia);
@@ -7218,14 +7295,6 @@ export default function Home() {
       return pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_responsavel)?.ds_nome ?? "";
     });
   }, [alunoForm.responsaveis, pessoasFisicas]);
-
-  // Nomes exibidos nos campos "Responsável" do formulário de Ativo (Classificação).
-  const selectedAtivoResponsaveisNames = useMemo(() => {
-    return (ativoForm.responsaveis ?? []).map((r) => {
-      if (!r.nr_seq_responsavel) return "";
-      return pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_responsavel)?.ds_nome ?? "";
-    });
-  }, [ativoForm.responsaveis, pessoasFisicas]);
 
   // Opções do dropdown "Grau de parentesco" (Responsáveis) — apenas os ativos,
   // em ordem alfabética (pt-BR).
@@ -7495,6 +7564,50 @@ export default function Home() {
     if (view === 'form') goToAlunoList();
   }
 
+  /**
+   * Alunos/colaboradores alvo de uma ação do menu de contexto: se o registro
+   * clicado com o botão direito está marcado na coluna de seleção, a ação vale
+   * para todos os marcados (visíveis na lista); senão, só para o clicado.
+   */
+  function alunosAlvoDoContexto(item: Aluno): Aluno[] {
+    if (!item.id || !alunosSelecionados.includes(item.id)) return [item];
+    const marcados = filteredSortedAlunos.filter((a) => a.id && alunosSelecionados.includes(a.id));
+    return marcados.length > 0 ? marcados : [item];
+  }
+  function colaboradoresAlvoDoContexto(item: Colaborador): Colaborador[] {
+    if (!item.id || !colaboradoresSelecionados.includes(item.id)) return [item];
+    const marcados = filteredSortedColaboradores.filter((c) => c.id && colaboradoresSelecionados.includes(c.id));
+    return marcados.length > 0 ? marcados : [item];
+  }
+
+  /** Exclui de uma vez os alunos selecionados (confirmado no modal "Excluir registro"). */
+  async function handleAlunosDeleteLote(ids: string[]) {
+    setMessage("");
+    let excluidos = 0;
+    try {
+      excluidos = await aplicarEmLote(ids, (id) => excluirAluno(id));
+      setMessage(`${ids.length} registros excluídos com sucesso!`);
+      setAlunosSelecionados([]);
+    } catch {
+      setMessage(excluidos > 0 ? `Erro ao excluir: ${excluidos} de ${ids.length} registros foram excluídos.` : "Erro ao excluir.");
+    }
+    await loadAlunos();
+  }
+
+  /** Exclui de uma vez os colaboradores selecionados. */
+  async function handleColaboradoresDeleteLote(ids: string[]) {
+    setMessage("");
+    let excluidos = 0;
+    try {
+      excluidos = await aplicarEmLote(ids, (id) => excluirColaborador(id));
+      setMessage(`${ids.length} registros excluídos com sucesso!`);
+      setColaboradoresSelecionados([]);
+    } catch {
+      setMessage(excluidos > 0 ? `Erro ao excluir: ${excluidos} de ${ids.length} registros foram excluídos.` : "Erro ao excluir.");
+    }
+    await loadColaboradores();
+  }
+
   async function handleColaboradorDelete(id: string) {
     setMessage("");
     try {
@@ -7572,7 +7685,10 @@ export default function Home() {
   async function handleAtivoDelete(id: string) {
     setMessage("");
     try {
+      const ativoExcluido = ativos.find((a) => a.id === id);
       await excluirAtivo(id);
+      // Os responsáveis pertencem ao ativo: saem junto com ele.
+      if (ativoExcluido) await excluirResponsaveisDoAtivo(ativoExcluido.nr_sequencia);
       setMessage("Excluído com sucesso!");
       await loadAtivos();
     } catch {
@@ -7582,7 +7698,7 @@ export default function Home() {
   }
 
   /** Gera a matrícula de um aluno com base na regra salva (Estrutura Acadêmica > Parâmetros). */
-  async function handleGerarMatricula(aluno: Aluno) {
+  async function handleGerarMatricula(aluno: Aluno, lote: Aluno[] = [aluno]) {
     setMessage("");
     setGerandoMatricula(true);
     try {
@@ -7596,22 +7712,33 @@ export default function Home() {
         return;
       }
 
-      // Ao regerar, a matrícula atual do próprio aluno não conta para o Sequencial.
-      const regerando = !!aluno.nr_matricula?.trim();
-      const matricula = gerarCodigoPorRegra(
-        doc.ds_regra,
-        aluno.nr_sequencia,
-        alunos.filter((a) => a.id !== aluno.id).map((a) => a.nr_matricula ?? "")
-      );
-
-      if (!aluno.id) {
+      const alvos = lote.filter((a) => a.id);
+      if (alvos.length === 0) {
         setMessage("Erro: aluno sem ID.");
         return;
       }
-
-      await atualizarAluno(aluno.id, { nr_matricula: matricula }, auditAutor);
-      await loadAlunos();
-      setMessage(regerando ? "Matrícula regerada." : "Matrícula gerada.");
+      const regra = doc.ds_regra;
+      const regerando = alvos.every((a) => !!a.nr_matricula?.trim());
+      // Matrículas geradas neste lote: entram no Sequencial dos próximos.
+      const geradas = new Map<string, string>();
+      try {
+        await aplicarEmLote(alvos, async (alvo) => {
+          // Ao regerar, a matrícula atual do próprio aluno não conta para o Sequencial.
+          const matricula = gerarCodigoPorRegra(
+            regra,
+            alvo.nr_sequencia,
+            alunos.filter((a) => a.id !== alvo.id).map((a) => geradas.get(a.id ?? '') ?? a.nr_matricula ?? "")
+          );
+          await atualizarAluno(alvo.id as string, { nr_matricula: matricula }, auditAutor);
+          geradas.set(alvo.id as string, matricula);
+        });
+      } finally {
+        if (geradas.size > 0) await loadAlunos();
+      }
+      if (alvos.length > 1) setAlunosSelecionados([]);
+      setMessage(alvos.length > 1
+        ? `${alvos.length} matrículas ${regerando ? 'regeradas' : 'geradas'}.`
+        : (regerando ? "Matrícula regerada." : "Matrícula gerada."));
     } catch (e) {
       console.error("Erro ao gerar matrícula", e);
       setMessage("Erro ao gerar matrícula.");
@@ -7621,7 +7748,7 @@ export default function Home() {
   }
 
   /** Gera a matrícula de um colaborador com base na regra salva (Estrutura Acadêmica > Parâmetros). */
-  async function handleGerarMatriculaColaborador(colaborador: Colaborador) {
+  async function handleGerarMatriculaColaborador(colaborador: Colaborador, lote: Colaborador[] = [colaborador]) {
     setMessage("");
     setGerandoMatricula(true);
     try {
@@ -7634,22 +7761,33 @@ export default function Home() {
         setMessage("Regra de matrícula vazia.");
         return;
       }
-      if (!colaborador.id) {
+      const alvos = lote.filter((c) => c.id);
+      if (alvos.length === 0) {
         setMessage("Erro: colaborador sem ID.");
         return;
       }
-
-      // Ao regerar, a matrícula atual do próprio colaborador não conta para o Sequencial.
-      const regerando = !!colaborador.nr_matricula?.trim();
-      const matricula = gerarCodigoPorRegra(
-        doc.ds_regra,
-        colaborador.nr_sequencia,
-        colaboradores.filter((c) => c.id !== colaborador.id).map((c) => c.nr_matricula ?? "")
-      );
-
-      await atualizarColaborador(colaborador.id, { nr_matricula: matricula }, auditAutor);
-      await loadColaboradores();
-      setMessage(regerando ? "Matrícula regerada." : "Matrícula gerada.");
+      const regra = doc.ds_regra;
+      const regerando = alvos.every((c) => !!c.nr_matricula?.trim());
+      // Matrículas geradas neste lote: entram no Sequencial dos próximos.
+      const geradas = new Map<string, string>();
+      try {
+        await aplicarEmLote(alvos, async (alvo) => {
+          // Ao regerar, a matrícula atual do próprio colaborador não conta para o Sequencial.
+          const matricula = gerarCodigoPorRegra(
+            regra,
+            alvo.nr_sequencia,
+            colaboradores.filter((c) => c.id !== alvo.id).map((c) => geradas.get(c.id ?? '') ?? c.nr_matricula ?? "")
+          );
+          await atualizarColaborador(alvo.id as string, { nr_matricula: matricula }, auditAutor);
+          geradas.set(alvo.id as string, matricula);
+        });
+      } finally {
+        if (geradas.size > 0) await loadColaboradores();
+      }
+      if (alvos.length > 1) setColaboradoresSelecionados([]);
+      setMessage(alvos.length > 1
+        ? `${alvos.length} matrículas ${regerando ? 'regeradas' : 'geradas'}.`
+        : (regerando ? "Matrícula regerada." : "Matrícula gerada."));
     } catch (e) {
       console.error("Erro ao gerar matrícula de colaborador", e);
       setMessage("Erro ao gerar matrícula.");
@@ -7658,9 +7796,10 @@ export default function Home() {
     }
   }
 
-  function openAlterarStatusModal(aluno: Aluno) {
+  function openAlterarStatusModal(aluno: Aluno, lote: Aluno[] = [aluno]) {
     setModalCampoErros([]);
     setAlterarStatusAluno(aluno);
+    setAlterarStatusAlunoLote(lote);
     // Data do status já vem com a data atual; os demais campos começam vazios
     // (o status atual NÃO fica disponível no dropdown e o motivo não é
     // preenchido mesmo se houver valor salvo no banco).
@@ -7678,6 +7817,7 @@ export default function Home() {
   function closeAlterarStatusModal() {
     setAlterarStatusModalOpen(false);
     setAlterarStatusAluno(null);
+    setAlterarStatusAlunoLote([]);
   }
 
   async function handleAlterarStatusSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -7689,22 +7829,26 @@ export default function Home() {
       return;
     }
     if (!validarCamposModal(MODAL_ALUNO_ALTERAR_STATUS, alterarStatusForm)) return;
+    const lote = (alterarStatusAlunoLote.length > 0 ? alterarStatusAlunoLote : [alterarStatusAluno]).filter((a) => a.id);
     setAlterarStatusSaving(true);
+    let alterados = 0;
     try {
-      await atualizarAluno(
-        alterarStatusAluno.id,
+      alterados = await aplicarEmLote(lote, (a) => atualizarAluno(
+        a.id as string,
         {
           dt_status: alterarStatusForm.dt_status,
           ie_status: alterarStatusForm.ie_status,
           ds_status: alterarStatusForm.ds_status,
         },
         auditAutor
-      );
-      setMessage("Status alterado com sucesso!");
+      ));
+      setMessage(lote.length > 1 ? `Status de ${lote.length} alunos alterado com sucesso!` : "Status alterado com sucesso!");
+      if (lote.length > 1) setAlunosSelecionados([]);
       closeAlterarStatusModal();
       await loadAlunos();
     } catch {
-      setMessage("Erro ao alterar o status.");
+      setMessage(alterados > 0 ? `Erro ao alterar o status: ${alterados} de ${lote.length} alunos foram alterados.` : "Erro ao alterar o status.");
+      if (alterados > 0) await loadAlunos();
     } finally {
       setAlterarStatusSaving(false);
     }
@@ -7736,7 +7880,11 @@ export default function Home() {
     setMessage("");
     let excluidos = 0;
     try {
-      excluidos = await aplicarEmLote(ids, (id) => excluirAtivo(id));
+      excluidos = await aplicarEmLote(ids, async (id) => {
+        const ativoExcluido = ativos.find((a) => a.id === id);
+        await excluirAtivo(id);
+        if (ativoExcluido) await excluirResponsaveisDoAtivo(ativoExcluido.nr_sequencia);
+      });
       setMessage(`${ids.length} registros excluídos com sucesso!`);
       setAtivosSelecionados([]);
     } catch {
@@ -7792,6 +7940,62 @@ export default function Home() {
       if (alterados > 0) await loadAtivos();
     } finally {
       setAtivoStatusSaving(false);
+    }
+  }
+
+  function openAtivoTransferirModal(lote: Ativo[]) {
+    setMessage("");
+    setModalCampoErros([]);
+    setAtivoTransferirErro(false);
+    setAtivoTransferirMotivo('');
+    // Um ativo (ou todos na mesma localização): já vem a atual selecionada.
+    const locais = new Set(lote.map((a) => a.nr_seq_localizacao ?? ''));
+    setAtivoTransferirLocal(locais.size === 1 ? String([...locais][0] ?? '') : '');
+    setAtivoTransferirLote(lote);
+  }
+
+  function closeAtivoTransferirModal() {
+    setAtivoTransferirLote([]);
+    setAtivoTransferirLocal('');
+    setAtivoTransferirMotivo('');
+    setAtivoTransferirErro(false);
+  }
+
+  async function handleAtivoTransferirSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (ativoTransferirSaving) return;
+    setMessage("");
+    const destino = Number(ativoTransferirLocal);
+    // Localização: campo principal, sempre obrigatório. Motivo: conforme Campos.
+    const motivoOk = validarCamposModal(MODAL_ATIVO_TRANSFERIR, { ds_motivo_transferencia: ativoTransferirMotivo });
+    if (!destino) {
+      setAtivoTransferirErro(true);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    if (!motivoOk) return;
+    setAtivoTransferirErro(false);
+    // Só transfere quem está em outra localização.
+    const lote = ativoTransferirLote.filter((a) => a.id && a.nr_seq_localizacao !== destino);
+    if (lote.length === 0) {
+      setMessage(ativoTransferirLote.length > 1 ? "Os ativos já estão nesta localização." : "O ativo já está nesta localização.");
+      return;
+    }
+    setAtivoTransferirSaving(true);
+    let transferidos = 0;
+    try {
+      // O motivo vai junto (mesmo vazio, para não herdar o da transferência anterior):
+      // o log de auditoria desta alteração é o registro da transferência.
+      transferidos = await aplicarEmLote(lote, (a) => atualizarAtivo(a.id as string, { nr_seq_localizacao: destino, ds_motivo_transferencia: ativoTransferirMotivo.trim() }, auditAutor));
+      setMessage(lote.length > 1 ? `${lote.length} ativos transferidos com sucesso!` : "Ativo transferido com sucesso!");
+      if (ativoTransferirLote.length > 1) setAtivosSelecionados([]);
+      closeAtivoTransferirModal();
+      await loadAtivos();
+    } catch {
+      setMessage(transferidos > 0 ? `Erro ao transferir: ${transferidos} de ${lote.length} ativos foram transferidos.` : "Erro ao transferir.");
+      if (transferidos > 0) await loadAtivos();
+    } finally {
+      setAtivoTransferirSaving(false);
     }
   }
 
@@ -7969,8 +8173,9 @@ export default function Home() {
     }
   }
 
-  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' = 'modal') {
+  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' = 'modal') {
     enviarManutPrestadorLookupTargetRef.current = target;
+    setLookupColaboradorTodos(target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos');
     setEnviarManutPrestLookupForm(enviarManutPrestLookupFilter);
     setEnviarManutPrestLookupApplied(false);
     setEnviarManutPrestadorLookupOpen(true);
@@ -7996,6 +8201,14 @@ export default function Home() {
     const target = enviarManutPrestadorLookupTargetRef.current;
     if (target === 'form') {
       setManutencaoForm((prev) => ({ ...prev, nr_seq_prestador_servico: colaborador.nr_sequencia }));
+    } else if (target === 'ativoResponsavel') {
+      ativoResponsavelLookupCallbackRef.current?.(colaborador.nr_sequencia);
+      ativoResponsavelLookupCallbackRef.current = null;
+    } else if (target === 'ativoFilter') {
+      setAtivoFilterForm((prev) => ({ ...prev, nr_seq_responsavel: String(colaborador.nr_sequencia) }));
+    } else if (target === 'assumirAtivos') {
+      setAssumirAtivosOrigem(String(colaborador.nr_sequencia));
+      setAssumirAtivosErro(false);
     } else {
       setEnviarManutForm((prev) => ({ ...prev, nr_seq_prestador_servico: colaborador.nr_sequencia }));
     }
@@ -8317,8 +8530,9 @@ export default function Home() {
     }
   }
 
-  function openAlterarIngressoModal(aluno: Aluno) {
+  function openAlterarIngressoModal(aluno: Aluno, lote: Aluno[] = [aluno]) {
     setAlterarIngressoAluno(aluno);
+    setAlterarIngressoLote(lote);
     // Igual ao modal "Alterar status": a data já vem preenchida com a data atual.
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -8332,6 +8546,7 @@ export default function Home() {
   function closeAlterarIngressoModal() {
     setAlterarIngressoModalOpen(false);
     setAlterarIngressoAluno(null);
+    setAlterarIngressoLote([]);
   }
 
   async function handleAlterarIngressoSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -8342,25 +8557,30 @@ export default function Home() {
       setMessage("Informe a data de ingresso.");
       return;
     }
+    const lote = (alterarIngressoLote.length > 0 ? alterarIngressoLote : [alterarIngressoAluno]).filter((a) => a.id);
     setAlterarIngressoSaving(true);
+    let alterados = 0;
     try {
-      await atualizarAluno(
-        alterarIngressoAluno.id,
+      alterados = await aplicarEmLote(lote, (a) => atualizarAluno(
+        a.id as string,
         { dt_ingresso: alterarIngressoForm.dt_ingresso },
         auditAutor
-      );
-      setMessage("Data de ingresso alterada com sucesso!");
+      ));
+      setMessage(lote.length > 1 ? `Data de ingresso de ${lote.length} alunos alterada com sucesso!` : "Data de ingresso alterada com sucesso!");
+      if (lote.length > 1) setAlunosSelecionados([]);
       closeAlterarIngressoModal();
       await loadAlunos();
     } catch {
-      setMessage("Erro ao alterar a data de ingresso.");
+      setMessage(alterados > 0 ? `Erro ao alterar a data de ingresso: ${alterados} de ${lote.length} alunos foram alterados.` : "Erro ao alterar a data de ingresso.");
+      if (alterados > 0) await loadAlunos();
     } finally {
       setAlterarIngressoSaving(false);
     }
   }
 
-  function openAlterarAdmissaoModal(colaborador: Colaborador) {
+  function openAlterarAdmissaoModal(colaborador: Colaborador, lote: Colaborador[] = [colaborador]) {
     setAlterarAdmissaoColaborador(colaborador);
+    setAlterarAdmissaoLote(lote);
     // Igual ao modal "Alterar data de ingresso": já vem preenchido com a data atual.
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
@@ -8374,6 +8594,7 @@ export default function Home() {
   function closeAlterarAdmissaoModal() {
     setAlterarAdmissaoModalOpen(false);
     setAlterarAdmissaoColaborador(null);
+    setAlterarAdmissaoLote([]);
   }
 
   async function handleAlterarAdmissaoSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -8384,26 +8605,31 @@ export default function Home() {
       setMessage("Informe a data de admissão.");
       return;
     }
+    const lote = (alterarAdmissaoLote.length > 0 ? alterarAdmissaoLote : [alterarAdmissaoColaborador]).filter((c) => c.id);
     setAlterarAdmissaoSaving(true);
+    let alterados = 0;
     try {
-      await atualizarColaborador(
-        alterarAdmissaoColaborador.id,
+      alterados = await aplicarEmLote(lote, (c) => atualizarColaborador(
+        c.id as string,
         { dt_admissao: alterarAdmissaoForm.dt_admissao },
         auditAutor
-      );
-      setMessage("Data de admissão alterada com sucesso!");
+      ));
+      setMessage(lote.length > 1 ? `Data de admissão de ${lote.length} colaboradores alterada com sucesso!` : "Data de admissão alterada com sucesso!");
+      if (lote.length > 1) setColaboradoresSelecionados([]);
       closeAlterarAdmissaoModal();
       await loadColaboradores();
     } catch {
-      setMessage("Erro ao alterar a data de admissão.");
+      setMessage(alterados > 0 ? `Erro ao alterar a data de admissão: ${alterados} de ${lote.length} colaboradores foram alterados.` : "Erro ao alterar a data de admissão.");
+      if (alterados > 0) await loadColaboradores();
     } finally {
       setAlterarAdmissaoSaving(false);
     }
   }
 
-  function openAlterarStatusColaboradorModal(colaborador: Colaborador) {
+  function openAlterarStatusColaboradorModal(colaborador: Colaborador, lote: Colaborador[] = [colaborador]) {
     setModalCampoErros([]);
     setAlterarStatusColaborador(colaborador);
+    setAlterarStatusColaboradorLote(lote);
     // Igual ao modal "Alterar status" do aluno: a data já vem com a data atual,
     // os demais campos começam vazios (o status atual NÃO fica disponível no
     // dropdown e o motivo não é preenchido mesmo se houver valor salvo no banco).
@@ -8421,6 +8647,68 @@ export default function Home() {
   function closeAlterarStatusColaboradorModal() {
     setAlterarStatusColaboradorModalOpen(false);
     setAlterarStatusColaborador(null);
+    setAlterarStatusColaboradorLote([]);
+  }
+
+  function openAssumirAtivosModal(colaborador: Colaborador) {
+    setMessage("");
+    setAssumirAtivosDestino(colaborador);
+    setAssumirAtivosOrigem('');
+    setAssumirAtivosModo('');
+    setAssumirAtivosErro(false);
+    setAssumirAtivosModoErro(false);
+  }
+
+  function closeAssumirAtivosModal() {
+    setAssumirAtivosDestino(null);
+    setAssumirAtivosOrigem('');
+    setAssumirAtivosModo('');
+    setAssumirAtivosErro(false);
+    setAssumirAtivosModoErro(false);
+  }
+
+  async function handleAssumirAtivosSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!assumirAtivosDestino || assumirAtivosSaving) return;
+    setMessage("");
+    const origem = Number(assumirAtivosOrigem);
+    const modo = assumirAtivosModo;
+    // Colaborador e Modo são obrigatórios: marca os dois de uma vez.
+    setAssumirAtivosErro(!origem);
+    setAssumirAtivosModoErro(!modo);
+    if (!origem || !modo) {
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    if (!colaboradores.some((c) => c.nr_sequencia === origem)) {
+      setAssumirAtivosErro(true);
+      setMessage("Colaborador não encontrado.");
+      return;
+    }
+    if (origem === assumirAtivosDestino.nr_sequencia) {
+      setAssumirAtivosErro(true);
+      setMessage("Selecione um colaborador diferente do que vai assumir os ativos.");
+      return;
+    }
+    setAssumirAtivosErro(false);
+    setAssumirAtivosSaving(true);
+    try {
+      const { assumidos, jaResponsavel } = await assumirAtivosDoColaborador(origem, assumirAtivosDestino.nr_sequencia, modo, auditAutor);
+      if (assumidos === 0 && jaResponsavel === 0) {
+        setMessage("O colaborador selecionado não é responsável por nenhum ativo.");
+        return;
+      }
+      const partes = [`${assumidos} ativo(s) assumido(s) com sucesso!`];
+      if (jaResponsavel > 0) partes.push(`${jaResponsavel} já era(m) do colaborador.`);
+      setMessage(partes.join(' '));
+      closeAssumirAtivosModal();
+      setResponsaveisAtivos(await obterResponsaveisAtivos());
+    } catch {
+      setMessage("Erro ao assumir os ativos.");
+      obterResponsaveisAtivos().then(setResponsaveisAtivos).catch(() => {});
+    } finally {
+      setAssumirAtivosSaving(false);
+    }
   }
 
   async function handleAlterarStatusColaboradorSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -8432,22 +8720,26 @@ export default function Home() {
       return;
     }
     if (!validarCamposModal(MODAL_COLABORADOR_ALTERAR_STATUS, alterarStatusColaboradorForm)) return;
+    const lote = (alterarStatusColaboradorLote.length > 0 ? alterarStatusColaboradorLote : [alterarStatusColaborador]).filter((c) => c.id);
     setAlterarStatusColaboradorSaving(true);
+    let alterados = 0;
     try {
-      await atualizarColaborador(
-        alterarStatusColaborador.id,
+      alterados = await aplicarEmLote(lote, (c) => atualizarColaborador(
+        c.id as string,
         {
           dt_status: alterarStatusColaboradorForm.dt_status,
           ie_status: alterarStatusColaboradorForm.ie_status,
           ds_motivo_status: alterarStatusColaboradorForm.ds_motivo_status,
         },
         auditAutor
-      );
-      setMessage("Status alterado com sucesso!");
+      ));
+      setMessage(lote.length > 1 ? `Status de ${lote.length} colaboradores alterado com sucesso!` : "Status alterado com sucesso!");
+      if (lote.length > 1) setColaboradoresSelecionados([]);
       closeAlterarStatusColaboradorModal();
       await loadColaboradores();
     } catch {
-      setMessage("Erro ao alterar o status.");
+      setMessage(alterados > 0 ? `Erro ao alterar o status: ${alterados} de ${lote.length} colaboradores foram alterados.` : "Erro ao alterar o status.");
+      if (alterados > 0) await loadColaboradores();
     } finally {
       setAlterarStatusColaboradorSaving(false);
     }
@@ -8903,6 +9195,8 @@ export default function Home() {
     }
     setAtivosSelecionados([]);
     setManutencoesSelecionadas([]);
+    setAlunosSelecionados([]);
+    setColaboradoresSelecionados([]);
     limparPaginacaoDaSecao();
     setIsAuthenticated(false);
     setSessaoInicio(null);
@@ -8951,7 +9245,7 @@ export default function Home() {
     } else if (secao === 'cadastrosGerais') {
       setCgManageSelection(''); setCgInteracted(false); setCgEditingId(null);
     } else if (secao === 'estruturaAcademica') {
-      setAlunoManageSelection(''); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
+      setAlunoManageSelection(''); setAlunosSelecionados([]); setColaboradoresSelecionados([]); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
     } else if (secao === 'patrimonio') {
       setAtivoManageSelection(''); setAtivosSelecionados([]); setManutencoesSelecionadas([]); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
@@ -9016,6 +9310,7 @@ export default function Home() {
     return {
       ...pfCgLookups,
       nr_seq_pessoa_fisica: nomePf,
+      nr_seq_colaborador: nomeColaborador,
       nr_seq_pessoa_juridica: nomePj,
       nr_seq_prestador_servico: nomeColaborador,
       nr_seq_vinculo_contratual: Object.fromEntries(vinculosContratuais.map((v) => [v.nr_sequencia, v.ds_vinculo_contratual ?? ''])),
@@ -9109,7 +9404,7 @@ export default function Home() {
       case 'pat_manutencao':
         return <ManutencaoFormView {...comuns} ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))} ativoName={exclusoesLookups.nr_seq_ativo[dados.nr_seq_ativo] ?? ''} onOpenAtivoLookup={nada} onViewAtivo={nada} prestadorName={exclusoesLookups.nr_seq_prestador_servico[dados.nr_seq_prestador_servico] ?? nomePf(dados.nr_seq_prestador_servico)} onOpenPrestadorLookup={nada} onViewPrestador={nada} selectOptions={[]} />;
       case 'pat_ativo':
-        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} />;
+        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} />;
       default:
         if (cg) {
           return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
@@ -9701,6 +9996,8 @@ export default function Home() {
                     message={message}
                     loading={loading}
                     alunos={filteredSortedAlunos}
+                    selecionados={alunosSelecionados}
+                    onSelecionadosChange={setAlunosSelecionados}
                     openNewForm={handleAlunoNewForm}
                     openEditForm={openAlunoEditForm}
                     openFilter={openAlunoFilterModal}
@@ -9722,6 +10019,8 @@ export default function Home() {
                     message={message}
                     loading={loading}
                     colaboradores={filteredSortedColaboradores}
+                    selecionados={colaboradoresSelecionados}
+                    onSelecionadosChange={setColaboradoresSelecionados}
                     openNewForm={handleColaboradorNewForm}
                     openEditForm={openColaboradorEditForm}
                     openFilter={openColaboradorFilterModal}
@@ -9828,8 +10127,53 @@ export default function Home() {
                     }}
                     coresStatus={coresStatusManutencao}
                   />
+                ) : ativoDetalhe ? (
+                  <AtivoDetalheView
+                    key={ativoDetalhe.id}
+                    ativo={ativoDetalhe}
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    manageSelection={ativoManageSelection}
+                    onManageSelectionChange={handlePatrimonioManageSelectionChange}
+                    allowedSubmodulos={allowedPatrimonioSubmodulos}
+                    onPrevRecord={() => navegarDetalheDoAtivo(-1)}
+                    onNextRecord={() => navegarDetalheDoAtivo(1)}
+                    hasPrevRecord={ativoDetalheIndex > 0}
+                    hasNextRecord={ativoDetalheIndex >= 0 && ativoDetalheIndex < filteredSortedAtivos.length - 1}
+                    onVoltar={fecharDetalheDoAtivo}
+                    auditAutor={auditAutor}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo_responsavel')}
+                    onOpenAudit={openAtivoResponsavelAuditModal}
+                    onOpenAuditAtivo={() => openAtivoAuditModal(ativoDetalhe.id)}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onMessage={setMessage}
+                    onSavingChange={setAtivoResponsavelSaving}
+                    confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
+                    colaboradores={colaboradores}
+                    nomeColaborador={nomeColaboradorPorSeq}
+                    onOpenColaboradorLookup={(aoSelecionar) => {
+                      ativoResponsavelLookupCallbackRef.current = aoSelecionar;
+                      openEnviarManutPrestadorLookup('ativoResponsavel');
+                    }}
+                    onViewColaborador={(seq) => openColaboradorView(seq)}
+                    manutencoes={manutencoes}
+                    nomePrestador={(seq) => {
+                      if (!seq) return '';
+                      const col = colaboradores.find((c) => c.nr_sequencia === seq);
+                      if (!col) return '';
+                      const pj = col.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica) : undefined;
+                      return pj ? pj.ds_razao_social ?? '' : pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica)?.ds_nome ?? '';
+                    }}
+                    onViewManutencao={(m) => setManutencaoView(m)}
+                    coresStatusManutencao={coresStatusManutencao}
+                    colunasResponsaveis={colunasPorChave('config_colunas_ativo_responsavel')}
+                    colunasManutencoes={colunasPorChave('config_colunas_ativo_manutencao')}
+                    localizacoes={localizacoes}
+                    colunasTransferencias={colunasPorChave('config_colunas_ativo_transferencia')}
+                    darkMode={darkMode}
+                  />
                 ) : (
                 <AtivoListView
+                  onOpenDetalhe={abrirDetalheDoAtivo}
                   message={message}
                   loading={loading}
                   ativos={filteredSortedAtivos}
@@ -10387,9 +10731,6 @@ export default function Home() {
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
                   campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo')}
                   campoErros={ativoCampoErros}
-                  responsaveisNames={selectedAtivoResponsaveisNames}
-                  onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('ativo', index)}
-                  onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
                   ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
                   onViewManutencao={(seq) => openManutencaoView(seq)}
                 />
@@ -10499,7 +10840,7 @@ export default function Home() {
           showChangeIngresso={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarDataIngresso}
           onChangeIngresso={() => {
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
-              openAlterarIngressoModal(contextMenu.item as Aluno);
+              openAlterarIngressoModal(contextMenu.item as Aluno, alunosAlvoDoContexto(contextMenu.item as Aluno));
             }
             setContextMenu(null);
           }}
@@ -10508,7 +10849,7 @@ export default function Home() {
           }
           onChangeStatus={() => {
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
-              openAlterarStatusModal(contextMenu.item as Aluno);
+              openAlterarStatusModal(contextMenu.item as Aluno, alunosAlvoDoContexto(contextMenu.item as Aluno));
             }
             setContextMenu(null);
           }}
@@ -10537,6 +10878,9 @@ export default function Home() {
               }
               if (permissoesPatrimonio.descartarAtivo && !algumDescartado) {
                 statusChildren.push({ label: 'Descartar', onClick: () => { openAtivoStatusModal(ativoClicado, 'D', alvos); setContextMenu(null); } });
+              }
+              if (permissoesPatrimonio.transferirAtivo) {
+                items.push({ label: 'Transferir', onClick: () => { openAtivoTransferirModal(alvos); setContextMenu(null); } });
               }
               if (statusChildren.length > 0 && todos((s) => s !== 'M')) {
                 items.push({ label: 'Status', children: statusChildren });
@@ -10579,16 +10923,23 @@ export default function Home() {
             }
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
               const items: { label: string; onClick: () => void }[] = [];
-              if (permissoesEA.gerarMatricula) {
-                const alunoGerar = contextMenu.item as Aluno;
-                const regerarMatricula = !!alunoGerar.nr_matricula?.trim();
+              // Com vários alunos marcados, "Gerar"/"Regerar" só aparece se valer para todos
+              // (todos sem matrícula ou todos com matrícula).
+              const alunoGerar = contextMenu.item as Aluno;
+              const alvosGerar = alunosAlvoDoContexto(alunoGerar);
+              const comMatricula = alvosGerar.filter((a) => !!a.nr_matricula?.trim()).length;
+              if (permissoesEA.gerarMatricula && (comMatricula === 0 || comMatricula === alvosGerar.length)) {
+                const regerarMatricula = comMatricula > 0;
+                const varios = alvosGerar.length > 1;
                 items.push({
                   label: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
                   onClick: () => {
                     setConfirmAcao({
                       titulo: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
-                      mensagem: `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
-                      acao: () => handleGerarMatricula(alunoGerar),
+                      mensagem: varios
+                        ? `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula dos ${alvosGerar.length} alunos selecionados?`
+                        : `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
+                      acao: () => handleGerarMatricula(alunoGerar, alvosGerar),
                     });
                     setContextMenu(null);
                   },
@@ -10609,26 +10960,36 @@ export default function Home() {
             }
             if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores') {
               const items: { label: string; onClick: () => void }[] = [];
-              if (permissoesEA.gerarMatriculaColaborador) {
-                const colaboradorGerar = contextMenu.item as unknown as Colaborador;
-                const regerarMatricula = !!colaboradorGerar.nr_matricula?.trim();
+              // Com vários colaboradores marcados, cada opção só aparece se valer para todos.
+              const colaboradorClicado = contextMenu.item as unknown as Colaborador;
+              const alvosColab = colaboradoresAlvoDoContexto(colaboradorClicado);
+              const comMatricula = alvosColab.filter((c) => !!c.nr_matricula?.trim()).length;
+              if (permissoesEA.gerarMatriculaColaborador && (comMatricula === 0 || comMatricula === alvosColab.length)) {
+                const regerarMatricula = comMatricula > 0;
+                const varios = alvosColab.length > 1;
                 items.push({
                   label: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
                   onClick: () => {
                     setConfirmAcao({
                       titulo: regerarMatricula ? 'Regerar matrícula' : 'Gerar matrícula',
-                      mensagem: `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
-                      acao: () => handleGerarMatriculaColaborador(colaboradorGerar),
+                      mensagem: varios
+                        ? `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula dos ${alvosColab.length} colaboradores selecionados?`
+                        : `Deseja ${regerarMatricula ? 'regerar' : 'gerar'} a matrícula?`,
+                      acao: () => handleGerarMatriculaColaborador(colaboradorClicado, alvosColab),
                     });
                     setContextMenu(null);
                   },
                 });
               }
               if (permissoesEA.alterarDataAdmissao) {
-                items.push({ label: 'Alterar data de admissão', onClick: () => { openAlterarAdmissaoModal(contextMenu.item as unknown as Colaborador); setContextMenu(null); } });
+                items.push({ label: 'Alterar data de admissão', onClick: () => { openAlterarAdmissaoModal(colaboradorClicado, alvosColab); setContextMenu(null); } });
               }
               if (permissoesEA.alterarStatusColaborador) {
-                items.push({ label: 'Alterar status', onClick: () => { openAlterarStatusColaboradorModal(contextMenu.item as unknown as Colaborador); setContextMenu(null); } });
+                items.push({ label: 'Alterar status', onClick: () => { openAlterarStatusColaboradorModal(colaboradorClicado, alvosColab); setContextMenu(null); } });
+              }
+              // Um colaborador assume os ativos de outro: só com um selecionado e não desligado.
+              if (permissoesEA.assumirAtivosColaborador && alvosColab.length === 1 && colaboradorClicado.ie_status !== 'D') {
+                items.push({ label: 'Assumir ativos de', onClick: () => { openAssumirAtivosModal(colaboradorClicado); setContextMenu(null); } });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -10731,7 +11092,12 @@ export default function Home() {
             } else if (contextMenu.section === 'estruturaAcademica') {
               if (alunoManageSelection === 'colaboradores') {
                 const colaborador = contextMenu.item as unknown as Colaborador;
-                if (colaborador.id) {
+                const alvos = colaboradoresAlvoDoContexto(colaborador).filter((c) => c.id);
+                if (alvos.length > 1) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
+                  setConfirmDeleteAction(() => () => handleColaboradoresDeleteLote(alvos.map((c) => c.id as string)));
+                  setConfirmDeleteOpen(true);
+                } else if (colaborador.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${colaborador.nr_sequencia}?`);
                   setConfirmDeleteAction(() => () => handleColaboradorDelete(colaborador.id as string));
                   setConfirmDeleteOpen(true);
@@ -10752,7 +11118,12 @@ export default function Home() {
                 }
               } else {
                 const aluno = contextMenu.item as Aluno;
-                if (aluno.id) {
+                const alvos = alunosAlvoDoContexto(aluno).filter((a) => a.id);
+                if (alvos.length > 1) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
+                  setConfirmDeleteAction(() => () => handleAlunosDeleteLote(alvos.map((a) => a.id as string)));
+                  setConfirmDeleteOpen(true);
+                } else if (aluno.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${aluno.nr_sequencia}?`);
                   setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
                   setConfirmDeleteOpen(true);
@@ -12080,10 +12451,10 @@ export default function Home() {
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_responsavel} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_responsavel: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                     </div>
                     <div className="relative flex-1 min-w-0">
-                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_responsavel ? (pessoasFisicas.find((p) => String(p.nr_sequencia) === ativoFilterForm.nr_seq_responsavel)?.ds_nome ?? '') : ''} />
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={nomeColaboradorPorSeq(Number(ativoFilterForm.nr_seq_responsavel) || undefined)} />
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                         {ativoFilterForm.nr_seq_responsavel && (
-                          <button type="button" onClick={() => openPessoaFisicaView(Number(ativoFilterForm.nr_seq_responsavel))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar responsável">
+                          <button type="button" onClick={() => openColaboradorView(Number(ativoFilterForm.nr_seq_responsavel))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar responsável">
                             <ViewIcon size={16} />
                           </button>
                         )}
@@ -12947,7 +13318,7 @@ export default function Home() {
             className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status{alterarStatusAlunoLote.length > 1 ? ` (${alterarStatusAlunoLote.length} alunos)` : ''}</h2>
               <button
                 type="button"
                 onClick={closeAlterarStatusModal}
@@ -12973,8 +13344,8 @@ export default function Home() {
                     { value: 'I', label: 'Inativo' },
                     { value: 'C', label: 'Cancelado' },
                     { value: 'T', label: 'Transferido' },
-                    // A opção do status atual do aluno fica fora da lista.
-                  ].filter((o) => o.value !== (alterarStatusAluno?.ie_status ?? ''))}
+                    // O status atual do aluno (de qualquer um dos selecionados) fica fora da lista.
+                  ].filter((o) => !(alterarStatusAlunoLote.length > 0 ? alterarStatusAlunoLote : [alterarStatusAluno]).some((a) => (a?.ie_status ?? '') === o.value))}
                 />
               </div>
               <div>
@@ -13093,7 +13464,7 @@ export default function Home() {
             className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar data de ingresso</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar data de ingresso{alterarIngressoLote.length > 1 ? ` (${alterarIngressoLote.length} alunos)` : ''}</h2>
               <button
                 type="button"
                 onClick={closeAlterarIngressoModal}
@@ -13152,7 +13523,7 @@ export default function Home() {
             className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar data de admissão</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar data de admissão{alterarAdmissaoLote.length > 1 ? ` (${alterarAdmissaoLote.length} colaboradores)` : ''}</h2>
               <button
                 type="button"
                 onClick={closeAlterarAdmissaoModal}
@@ -13203,6 +13574,97 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── Modal: Assumir ativos de (Colaboradores) ── */}
+      {assumirAtivosDestino && (() => {
+        const nrOrigem = Number(assumirAtivosOrigem) || undefined;
+        const nomeOrigem = nomeColaboradorPorSeq(nrOrigem);
+        return (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+            <div className="absolute inset-0 bg-black/40" onClick={closeAssumirAtivosModal} />
+            <form
+              onSubmit={handleAssumirAtivosSubmit}
+              className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+            >
+              <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+                <h2 className="text-base font-semibold" style={{ color: '#000' }}>Assumir ativos de</h2>
+                <button
+                  type="button"
+                  onClick={closeAssumirAtivosModal}
+                  className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                  aria-label="Fechar"
+                >
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M18 6 6 18" />
+                    <path d="M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+
+              <div className="grid gap-[15px] p-[15px]">
+                <div>
+                  <RotuloCampo texto="Colaborador" colecao="pat_ativo_responsavel" campo="nr_seq_colaborador" prefixo={<RequiredAsterisk />} />
+                  <div className="flex items-center gap-2 flex-nowrap">
+                    <div style={{ width: 110 }}>
+                      <input
+                        inputMode="numeric"
+                        maxLength={10}
+                        className={`w-full rounded-[3px] border ${assumirAtivosErro ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none`}
+                        value={assumirAtivosOrigem}
+                        onChange={(e) => { setAssumirAtivosOrigem(e.target.value.replace(/\D/g, '').slice(0, 10)); setAssumirAtivosErro(false); }}
+                      />
+                    </div>
+                    <div className="relative flex-1 min-w-0">
+                      <input readOnly className={`w-full rounded-[3px] border ${assumirAtivosErro ? 'border-red-500' : 'border-slate-300'} bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none`} value={nomeOrigem} />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {nrOrigem && nomeOrigem && (
+                          <button type="button" onClick={() => openColaboradorView(nrOrigem)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar colaborador">
+                            <ViewIcon size={16} />
+                          </button>
+                        )}
+                        <button type="button" onClick={() => openEnviarManutPrestadorLookup('assumirAtivos')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar colaborador">
+                          <SearchIcon size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <RotuloCampo texto="Modo" colecao="pat_ativo_responsavel" campo="ie_modo" tipo="string" prefixo={<RequiredAsterisk />} />
+                  <Select
+                    value={assumirAtivosModo}
+                    onChange={(v) => { setAssumirAtivosModo(v as '' | 'adicionar' | 'substituir'); setAssumirAtivosModoErro(false); }}
+                    options={[
+                      { value: 'adicionar', label: 'Adicionar' },
+                      { value: 'substituir', label: 'Substituir' },
+                    ]}
+                    error={assumirAtivosModoErro}
+                  />
+                </div>
+              </div>
+
+              <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+                <button
+                  type="button"
+                  onClick={closeAssumirAtivosModal}
+                  className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                  style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={assumirAtivosSaving}
+                  className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                  style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+                >
+                  Salvar
+                </button>
+              </div>
+            </form>
+          </div>
+        );
+      })()}
+
       {alterarStatusColaboradorModalOpen && alterarStatusColaborador && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAlterarStatusColaboradorModal} />
@@ -13211,7 +13673,7 @@ export default function Home() {
             className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
           >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status</h2>
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status{alterarStatusColaboradorLote.length > 1 ? ` (${alterarStatusColaboradorLote.length} colaboradores)` : ''}</h2>
               <button
                 type="button"
                 onClick={closeAlterarStatusColaboradorModal}
@@ -13231,7 +13693,7 @@ export default function Home() {
                 <Select
                   value={alterarStatusColaboradorForm.ie_status}
                   onChange={(v) => setAlterarStatusColaboradorForm({ ...alterarStatusColaboradorForm, ie_status: v })}
-                  options={STATUS_OPTIONS.filter((o) => o.value !== (alterarStatusColaborador?.ie_status ?? ''))}
+                  options={STATUS_OPTIONS.filter((o) => !(alterarStatusColaboradorLote.length > 0 ? alterarStatusColaboradorLote : [alterarStatusColaborador]).some((c) => (c?.ie_status ?? '') === o.value))}
                 />
               </div>
               <div>
@@ -13353,6 +13815,76 @@ export default function Home() {
         </div>
       )}
 
+      {/* ── Modal: Transferir (localização do ativo) ── */}
+      {ativoTransferirLote.length > 0 && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAtivoTransferirModal} />
+          <form
+            onSubmit={handleAtivoTransferirSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>
+                Transferir{ativoTransferirLote.length > 1 ? ` (${ativoTransferirLote.length} ativos)` : ''}
+              </h2>
+              <button
+                type="button"
+                onClick={closeAtivoTransferirModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <RotuloCampo texto="Localização" colecao="pat_ativo" campo="nr_seq_localizacao" prefixo={<RequiredAsterisk />} />
+                <Select
+                  value={ativoTransferirLocal}
+                  onChange={(v) => { setAtivoTransferirLocal(v); setAtivoTransferirErro(false); }}
+                  options={cgFilterOptions(localizacoes, (op) => op.ds_localizacao)}
+                  error={ativoTransferirErro}
+                  visibleOptions={6}
+                />
+              </div>
+              <div>
+                <RotuloCampo texto="Motivo" colecao="pat_ativo" campo="ds_motivo_transferencia" prefixo={asteriscoModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia')} />
+                <textarea
+                  disabled={regraModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia') === 'D'}
+                  className={classeCampoModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
+                  rows={3}
+                  value={ativoTransferirMotivo}
+                  onChange={(e) => setAtivoTransferirMotivo(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAtivoTransferirModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={ativoTransferirSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {/* ── Modal: Enviar para manutenção ── */}
       {enviarManutModalOpen && enviarManutTarget && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
@@ -13418,7 +13950,7 @@ export default function Home() {
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                   <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar prestador de serviço</h2>
+                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>{lookupColaboradorTodos ? 'Localizar colaborador' : 'Localizar prestador de serviço'}</h2>
                     <button type="button" onClick={closeEnviarManutPrestadorLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar prestador">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
                     </button>
@@ -14104,6 +14636,7 @@ export default function Home() {
         const isPeriodoLetivo = auditDocumentType === 'periodo_letivo';
         const isFeriado = auditDocumentType === 'periodo_letivo_feriado';
         const isAtivo = auditDocumentType === 'pat_ativo';
+        const isAtivoResponsavel = auditDocumentType === 'pat_ativo_responsavel';
         const isParametros = auditDocumentType === 'parametro';
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
@@ -14210,6 +14743,8 @@ export default function Home() {
             ]
           : isFeriado
           ? ['nr_sequencia', 'nr_seq_periodo_letivo', 'dt_feriado', 'ds_feriado', 'ie_tipo_feriado', 'dt_criacao', 'dt_alteracao']
+          : isAtivoResponsavel
+          ? ['nr_sequencia', 'nr_seq_ativo', 'nr_seq_colaborador', 'dt_criacao', 'dt_alteracao']
           : isPeriodoLetivo
           ? [
               'nr_sequencia',
@@ -14261,7 +14796,7 @@ export default function Home() {
               'nr_sequencia', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'vl_aquisicao', 'dt_aquisicao', 'dt_garantia',
-              'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status',
+              'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status', 'ds_motivo_transferencia',
               'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
               'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional',
               'cd_placa', 'cd_renavam', 'nr_ano', 'ds_cor', 'nr_seq_combustivel',
@@ -14446,6 +14981,7 @@ export default function Home() {
                       dt_ultima_manutencao: 'Última manutenção',
                       nr_seq_ultima_manutencao: 'Última manutenção (seq.)',
                       ds_motivo_status: 'Motivo do status',
+                      ds_motivo_transferencia: 'Motivo da transferência',
                       responsaveis: 'Responsáveis',
                       ds_tipo_sanguineo: 'Tipo sanguíneo',
                       ds_alergia: 'Alergia',
@@ -14475,6 +15011,7 @@ export default function Home() {
                       hr_logout: 'Horário',
                       ie_badge_teste: 'Badge de teste',
                       nr_seq_ativo: 'Ativo',
+                      nr_seq_colaborador: 'Colaborador',
                       dt_envio: 'Data de envio',
                       dt_termino: 'Data de término',
                       ie_status_manutencao: 'Status',
@@ -14619,6 +15156,7 @@ export default function Home() {
                         nr_seq_sistema_operacional: () => sistemasOperacionais.find((s) => s.nr_sequencia === seq)?.ds_sistema_operacional,
                         nr_seq_combustivel: () => combustiveis.find((c) => c.nr_sequencia === seq)?.ds_combustivel,
                         nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
+                        nr_seq_colaborador: () => nomeColaboradorPorSeq(seq),
                         nr_seq_prestador_servico: () => {
                           // O campo guarda a sequência do colaborador (prestador).
                           const col = colaboradores.find((c) => c.nr_sequencia === seq);
@@ -15047,11 +15585,11 @@ export default function Home() {
                       <RotuloCampo texto="Marca" colecao="pat_ativo" campo="nr_seq_marca" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_marca ? (marcas.find((m) => m.nr_sequencia === ativoView.nr_seq_marca)?.ds_marca ?? String(ativoView.nr_seq_marca)) : ''} />
                     </div>
-                    {(ativoView.responsaveis ?? []).length > 0 && (
+                    {responsaveisAtivos.some((r) => r.nr_seq_ativo === ativoView.nr_sequencia) && (
                       <div className="sm:col-span-12 group">
-                        <RotuloCampo texto="Responsável" colecao="pat_ativo" campo="responsaveis" />
-                        {(ativoView.responsaveis ?? []).map((resp, idx) => (
-                          <input key={idx} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={resp.nr_seq_responsavel ? (pessoasFisicas.find((p) => p.nr_sequencia === resp.nr_seq_responsavel)?.ds_nome ?? String(resp.nr_seq_responsavel)) : ''} />
+                        <RotuloCampo texto="Responsável" colecao="pat_ativo_responsavel" campo="nr_seq_colaborador" />
+                        {responsaveisAtivos.filter((r) => r.nr_seq_ativo === ativoView.nr_sequencia).sort((a, b) => a.nr_sequencia - b.nr_sequencia).map((resp) => (
+                          <input key={resp.id ?? resp.nr_sequencia} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={nomeColaboradorPorSeq(resp.nr_seq_colaborador) || (resp.nr_seq_colaborador ? String(resp.nr_seq_colaborador) : '')} />
                         ))}
                       </div>
                     )}
@@ -15394,7 +15932,7 @@ export default function Home() {
         perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
-        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving ||
+        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || ativoTransferirSaving || assumirAtivosSaving ||
         delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving
       ) && <LoadingModal open message="Carregando..." />}
 

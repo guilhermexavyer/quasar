@@ -69,6 +69,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "gerar_matricula_colaborador", label: "Permite gerar matrícula" },
     { key: "alterar_data_admissao_colaborador", label: "Permite alterar data de admissão" },
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
+    { key: "assumir_ativos_colaborador", label: "Permite assumir ativos de outro colaborador" },
     { key: "excluir_colaborador", label: "Permite excluir" },
     // Cursos
     { key: "acessar_curso", label: "Permite acessar Cursos" },
@@ -96,6 +97,8 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "mover_para_estoque", label: "Permite mover para o estoque" },
     { key: "descartar_ativo", label: "Permite descartar" },
     { key: "alterar_status_descartado", label: "Permite alterar status de um ativo descartado" },
+    { key: "transferir_ativo", label: "Permite transferir de localização" },
+    { key: "detalhes_ativo", label: "Permite acessar responsáveis e manutenções do ativo" },
     { key: "excluir_ativo", label: "Permite excluir" },
     // Categoria
     { key: "acessar_categoria", label: "Permite acessar Categoria" },
@@ -240,7 +243,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Colaboradores',
-      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'gerar_matricula_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'excluir_colaborador'],
+      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'gerar_matricula_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'assumir_ativos_colaborador', 'excluir_colaborador'],
     },
     {
       titulo: 'Cursos',
@@ -258,7 +261,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   patrimonio: [
     {
       titulo: 'Ativos',
-      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'excluir_ativo'],
+      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'transferir_ativo', 'detalhes_ativo', 'excluir_ativo'],
     },
     {
       titulo: 'Categoria',

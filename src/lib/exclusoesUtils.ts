@@ -115,6 +115,10 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
     colunas: [SEQ, { key: "nr_seq_relatorio", label: "Relatório", alinharDireita: true }, { key: "ie_colecao", label: "Coleção" }, { key: "ie_campo", label: "Campo" }, { key: "ds_label", label: "Label" }],
   },
   { colecao: "pat_ativo", funcao: "Patrimônio", dropdown: "Ativos", colunas: proprias(ATIVO_COLUMNS), formatar: f(formatAtivo) },
+  {
+    colecao: "pat_ativo_responsavel", funcao: "Patrimônio", dropdown: "Ativos > Responsáveis",
+    colunas: [SEQ, { key: "nr_seq_ativo", label: "Ativo", alinharDireita: true }, { key: "nr_seq_colaborador", label: "Colaborador" }],
+  },
   { colecao: "pat_categoria", funcao: "Patrimônio", dropdown: "Categoria", colunas: proprias(CATEGORIA_ATIVO_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "pat_manutencao", funcao: "Patrimônio", dropdown: "Manutenções", colunas: proprias(MANUTENCAO_COLUMNS), formatar: formatManutencao },
 ];
@@ -145,10 +149,15 @@ export interface AbaFilhosExclusao {
 }
 
 /**
- * Registros que abrem outra tela com duplo clique: período letivo (feriados),
+ * Registros que abrem outra tela com duplo clique: período letivo (feriados), ativo (responsáveis),
  * relatório (bandas e parâmetros) e banda (elementos e ordenação).
  */
 export const FILHOS_EXCLUSAO: Record<string, { rotulo: string; campoDescricao: string; abas: AbaFilhosExclusao[] }> = {
+  pat_ativo: {
+    rotulo: "Ativo",
+    campoDescricao: "ds_ativo",
+    abas: [{ aba: "Responsáveis", colecao: "pat_ativo_responsavel", campoPai: "nr_seq_ativo" }],
+  },
   periodo_letivo: {
     rotulo: "Período letivo",
     campoDescricao: "ds_periodo_letivo",

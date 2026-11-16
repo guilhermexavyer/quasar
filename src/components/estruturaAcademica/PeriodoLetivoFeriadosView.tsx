@@ -10,7 +10,7 @@ import { FIELD_INFOS, TIPO_FERIADO_OPTIONS, rotuloTipoFeriado } from "@/lib/peri
 import { applyDateMask, formatDate, parseDateInput } from "@/lib/pessoaFisicaUtils";
 import { atualizarFeriado, criarFeriado, excluirFeriado, observarFeriadosDoPeriodo } from "@/services/periodoLetivoFeriadoService";
 import Select from "@/components/ui/Select";
-import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
+import ResizableTable, { proximaOrdenacao, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
@@ -93,7 +93,8 @@ export default function PeriodoLetivoFeriadosView({
   const [carregando, setCarregando] = useState(true);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [sortColumn, setSortColumn] = useState<string | null>('dt_feriado');
+  // Três cliques: crescente → decrescente → padrão (coluna null = por data).
+  const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
   /** Formulário aberto (null = lista de feriados). */
   const [form, setForm] = useState<FormFeriado | null>(null);
@@ -135,15 +136,15 @@ export default function PeriodoLetivoFeriadosView({
   const feriadoAberto = form?.id ? feriados.find((f) => f.id === form.id) : undefined;
 
   const ordenados = useMemo(() => {
-    const lista = [...feriados];
-    if (!sortColumn) return lista;
-    return lista.sort((a, b) => {
+    const coluna = sortColumn ?? 'dt_feriado';
+    const asc = sortColumn ? sortAsc : true;
+    return [...feriados].sort((a, b) => {
       let cmp: number;
-      if (sortColumn === 'dt_feriado') cmp = chaveData(a.dt_feriado) - chaveData(b.dt_feriado);
-      else if (sortColumn === 'nr_sequencia') cmp = (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0);
-      else if (sortColumn === 'ie_tipo_feriado') cmp = rotuloTipoFeriado(a.ie_tipo_feriado).localeCompare(rotuloTipoFeriado(b.ie_tipo_feriado), 'pt-BR');
-      else cmp = String(a[sortColumn as keyof PeriodoLetivoFeriado] ?? '').localeCompare(String(b[sortColumn as keyof PeriodoLetivoFeriado] ?? ''), 'pt-BR');
-      return sortAsc ? cmp : -cmp;
+      if (coluna === 'dt_feriado') cmp = chaveData(a.dt_feriado) - chaveData(b.dt_feriado);
+      else if (coluna === 'nr_sequencia') cmp = (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0);
+      else if (coluna === 'ie_tipo_feriado') cmp = rotuloTipoFeriado(a.ie_tipo_feriado).localeCompare(rotuloTipoFeriado(b.ie_tipo_feriado), 'pt-BR');
+      else cmp = String(a[coluna as keyof PeriodoLetivoFeriado] ?? '').localeCompare(String(b[coluna as keyof PeriodoLetivoFeriado] ?? ''), 'pt-BR');
+      return asc ? cmp : -cmp;
     });
   }, [feriados, sortColumn, sortAsc]);
 
@@ -156,9 +157,9 @@ export default function PeriodoLetivoFeriadosView({
     { key: 'ie_tipo_feriado', label: 'Tipo', render: (f) => <span className="text-sm">{rotuloTipoFeriado(f.ie_tipo_feriado)}</span> },
     { key: 'dt_criacao', label: 'Criação', render: (f) => <span className="text-sm">{formatDate(String(f.dt_criacao ?? ''))}</span> },
     { key: 'dt_alteracao', label: 'Alteração', render: (f) => <span className="text-sm">{formatDate(String(f.dt_alteracao ?? ''))}</span> },
-    { key: 'ds_usuario_criacao', label: 'Usuário criação', render: (f) => <span className="text-sm">{resolverNomeAutor(f.ds_usuario_criacao ?? '')}</span> },
-    { key: 'ds_usuario_alteracao', label: 'Usuário alteração', render: (f) => <span className="text-sm">{resolverNomeAutor(f.ds_usuario_alteracao ?? '')}</span> },
-  ], [resolverNomeAutor]);
+    { key: 'ds_usuario_criacao', label: 'Usuário criação', render: (f) => <span className="text-sm">{f.ds_usuario_criacao ?? ''}</span> },
+    { key: 'ds_usuario_alteracao', label: 'Usuário alteração', render: (f) => <span className="text-sm">{f.ds_usuario_alteracao ?? ''}</span> },
+  ], []);
 
   function abrirFeriado(f: PeriodoLetivoFeriado) {
     setSelecionadoId(f.id ?? null);
@@ -284,7 +285,7 @@ export default function PeriodoLetivoFeriadosView({
 
       {form ? (
         /* ── Formulário do feriado ── */
-        <form ref={formRef} onSubmit={salvar} className="mt-4 flex-1 flex flex-col min-h-0">
+        <form ref={formRef} onSubmit={salvar} className="mt-6 flex-1 flex flex-col min-h-0">
           <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
             <div className="sm:col-span-1">
               <RotuloCampo texto="Sequência" colecao={FIELD_INFOS.nr_sequencia.collection} campo="nr_sequencia" />
@@ -374,7 +375,7 @@ export default function PeriodoLetivoFeriadosView({
         </form>
       ) : (
         /* ── Lista de feriados ── */
-        <div className="mt-4 flex-1 flex flex-col min-h-0">
+        <div className="mt-6 flex-1 flex flex-col min-h-0">
           {!carregando && feriados.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
@@ -390,8 +391,9 @@ export default function PeriodoLetivoFeriadosView({
                   sortColumn={sortColumn}
                   sortAsc={sortAsc}
                   onSortChange={(key) => {
-                    if (sortColumn === key) setSortAsc((v) => !v);
-                    else { setSortColumn(key); setSortAsc(true); }
+                    const proxima = proximaOrdenacao({ coluna: sortColumn, asc: sortAsc }, key);
+                    setSortColumn(proxima.coluna);
+                    setSortAsc(proxima.asc);
                   }}
                   onRowClick={(f) => setSelecionadoId((atual) => (atual === f.id ? null : f.id ?? null))}
                   onRowDoubleClick={abrirFeriado}

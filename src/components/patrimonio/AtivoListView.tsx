@@ -61,6 +61,8 @@ interface ListViewProps {
   /** Ids dos ativos marcados na coluna de seleção. */
   selecionados?: string[];
   onSelecionadosChange?: (ids: string[]) => void;
+  /** Duplo clique no ativo: abre os responsáveis e as manutenções (como os feriados de um período letivo). */
+  onOpenDetalhe?: (ativo: Ativo) => void;
 }
 
 export default function AtivoListView({
@@ -85,6 +87,7 @@ export default function AtivoListView({
   coresStatus = {},
   selecionados = [],
   onSelecionadosChange,
+  onOpenDetalhe,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
@@ -643,6 +646,7 @@ export default function AtivoListView({
                         key={ativo.id}
                         className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === ativo.id || marcado ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === ativo.id ? null : ativo.id ?? null))}
+                        onDoubleClick={() => { setSelectedId(ativo.id ?? null); onOpenDetalhe?.(ativo); }}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(ativo.id ?? null);
