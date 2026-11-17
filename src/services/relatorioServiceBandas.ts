@@ -1,162 +1,64 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  getDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
-  runTransaction,
-  query,
-  where,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { removerUndefined, removerUndefinedProfundo, temAlteracoes } from "@/lib/firestoreUtils";
+import { atualizarCopiaEmbutida, atualizarDado, criarDado, excluirDado, listarDados, obterDado } from "@/lib/apiCliente";
+import { removerUndefined, removerUndefinedProfundo } from "@/lib/firestoreUtils";
 import type { AuditAutor } from "@/services/auditService";
-import { registrarExclusao } from "@/services/exclusaoService";
 
-/* ═══════════════════════════════════════════════ */
-/* ── Contadores de sequência ──                  */
-/* ═══════════════════════════════════════════════ */
+/**
+ * Bandas e elementos do construtor de relatórios (tabelas relatorio_banda e
+ * relatorio_banda_elemento), acessados pelas rotas /api/dados. O servidor gera
+ * nr_sequencia, datas de controle e auditoria; o autor vem da sessão (o
+ * parâmetro `autor` é mantido só pela assinatura).
+ */
 
-const bandaContadorDoc = doc(db, "_counters", "relatorio_banda_sequence");
-const elementoContadorDoc = doc(db, "_counters", "relatorio_banda_elemento_sequence");
+// Registros do construtor de relatórios têm forma livre (como já era no Firestore).
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+type Reg = Record<string, any>;
+type Controle = { id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string };
 
-async function obterProximoSequenciaBanda(): Promise<number> {
-  try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(bandaContadorDoc);
-      const proximo = (snap.exists() ? (snap.data().current ?? 0) : 0) + 1;
-      tx.set(bandaContadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-  } catch {
-    return Date.now();
-  }
+function controleDe(registro: Reg): Controle {
+  return {
+    id: String(registro.id),
+    nr_sequencia: Number(registro.nr_sequencia),
+    dt_criacao: registro.dt_criacao ?? '',
+    dt_alteracao: registro.dt_alteracao ?? '',
+    ds_usuario_criacao: registro.ds_usuario_criacao ?? '',
+    ds_usuario_alteracao: registro.ds_usuario_alteracao ?? '',
+  };
 }
 
-async function obterProximoSequenciaElemento(): Promise<number> {
-  try {
-    return await runTransaction(db, async (tx) => {
-      const snap = await tx.get(elementoContadorDoc);
-      const proximo = (snap.exists() ? (snap.data().current ?? 0) : 0) + 1;
-      tx.set(elementoContadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-  } catch {
-    return Date.now();
-  }
+async function atualizarRegistro(colecao: string, id: string, dados: Reg): Promise<{ dt_alteracao: string; ds_usuario_alteracao: string }> {
+  // Como antes, campo undefined é ignorado (não limpa o valor gravado).
+  const { registro } = await atualizarDado<Reg>(colecao, id, removerUndefined(dados));
+  return { dt_alteracao: registro?.dt_alteracao ?? '', ds_usuario_alteracao: registro?.ds_usuario_alteracao ?? '' };
 }
 
 /* ═══════════════════════════════════════════════ */
 /* ── relatorio_banda ──                          */
 /* ═══════════════════════════════════════════════ */
 
-const bandaColecao = collection(db, "relatorio_banda");
-
 /** Retorna todas as bandas de um relatório (por nr_seq_relatorio). */
-export async function obterBandasPorRelatorio(nrSeqRelatorio: number): Promise<Record<string, any>[]> {
-  const q = query(bandaColecao, where("nr_seq_relatorio", "==", nrSeqRelatorio));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, ...rest }; });
+export async function obterBandasPorRelatorio(nrSeqRelatorio: number): Promise<Reg[]> {
+  return listarDados<Reg>("relatorio_banda", { nr_seq_relatorio: nrSeqRelatorio });
 }
 
-/** Retorna todas as bandas de um relatório (por docId do relatório). */
-export async function obterBandasPorRelatorioId(relatorioId: string): Promise<Record<string, any>[]> {
-  // Busca o relatório para obter nr_sequencia
-  const relDoc = await getDoc(doc(db, "relatorio", relatorioId));
-  if (!relDoc.exists()) return [];
-  const nrSeq = relDoc.data().nr_sequencia;
-  return obterBandasPorRelatorio(nrSeq);
+/** Retorna todas as bandas de um relatório (pelo id do relatório). */
+export async function obterBandasPorRelatorioId(relatorioId: string): Promise<Reg[]> {
+  const relatorio = await obterDado<Reg>("relatorio", relatorioId);
+  if (!relatorio) return [];
+  return obterBandasPorRelatorio(Number(relatorio.nr_sequencia));
 }
 
 /** Cria uma nova banda. */
-export async function criarBanda(
-  banda: Record<string, any>,
-  autor?: AuditAutor
-): Promise<{ id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string }> {
-  const agora = new Date().toISOString();
-  const nr_sequencia = await obterProximoSequenciaBanda();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
-
-  const { id: _bid, ...bandaSemId } = banda as Record<string, any>;
-  const dados = removerUndefined({
-    ...bandaSemId,
-    nr_sequencia,
-    dt_criacao: agora,
-    dt_alteracao: agora,
-    ds_usuario_criacao: nomeAutor,
-    ds_usuario_alteracao: nomeAutor,
-  });
-
-  const docRef = await addDoc(bandaColecao, dados);
-
-  // Auditoria
-  try {
-    const auditCol = collection(db, "relatorio_banda", docRef.id, "auditoria");
-    await addDoc(auditCol, {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: nomeAutor,
-      acao: "create",
-      timestamp: agora,
-      detalhes: dados,
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de banda (criação)", e);
-  }
-
-  return { id: docRef.id, nr_sequencia, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: nomeAutor, ds_usuario_alteracao: nomeAutor };
+export async function criarBanda(banda: Reg, _autor?: AuditAutor): Promise<Controle> {
+  return controleDe(await criarDado<Reg>("relatorio_banda", banda));
 }
 
-/** Atualiza uma banda existente. */
+/** Atualiza uma banda existente. Sem alteração, devolve a data e o usuário atuais. */
 export async function atualizarBanda(
   id: string,
-  banda: Record<string, any>,
-  autor?: AuditAutor
+  banda: Reg,
+  _autor?: AuditAutor
 ): Promise<{ dt_alteracao: string; ds_usuario_alteracao: string }> {
-  const docRef = doc(db, "relatorio_banda", id);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return { dt_alteracao: '', ds_usuario_alteracao: '' };
-
-  const currentData = snap.data();
-  if (!temAlteracoes(currentData, banda)) {
-    return { dt_alteracao: currentData.dt_alteracao ?? '', ds_usuario_alteracao: currentData.ds_usuario_alteracao ?? '' };
-  }
-  const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
-
-  // Mapear campos do form para o banco
-  const dadosParaSalvar: Record<string, any> = removerUndefined({
-    ...banda,
-    dt_alteracao: agora,
-    ds_usuario_alteracao: nomeAutor,
-  });
-
-  // Remover campos que não devem ser alterados
-  delete dadosParaSalvar.id;
-  delete dadosParaSalvar.dt_criacao;
-  delete dadosParaSalvar.ds_usuario_criacao;
-
-  await updateDoc(docRef, dadosParaSalvar);
-
-  // Auditoria
-  try {
-    const auditCol = collection(db, "relatorio_banda", id, "auditoria");
-    const { id: _id, ...detalhes } = dadosParaSalvar;
-    const { id: _aid, ...antes } = currentData;
-    await addDoc(auditCol, {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: nomeAutor,
-      acao: "update",
-      timestamp: agora,
-      detalhes,
-      antes,
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de banda (atualização)", e);
-  }
-
-  return { dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+  return atualizarRegistro("relatorio_banda", id, banda);
 }
 
 /** Exclui uma banda e seus elementos. */
@@ -166,156 +68,74 @@ export async function excluirBanda(id: string): Promise<void> {
   for (const el of elementos) {
     await excluirElemento(el.id);
   }
-  await registrarExclusao("relatorio_banda", id);
-  await deleteDoc(doc(db, "relatorio_banda", id));
+  await excluirDado("relatorio_banda", id);
 }
 
 /* ═══════════════════════════════════════════════ */
 /* ── relatorio_banda_elemento ──                 */
 /* ═══════════════════════════════════════════════ */
 
-const elementoColecao = collection(db, "relatorio_banda_elemento");
-
-/** Retorna todos os elementos de uma banda. */
-export async function obterElementosPorBanda(nrSeqBanda: string): Promise<Record<string, any>[]> {
-  // Busca banda para obter nr_sequencia
-  const bandaDoc = await getDoc(doc(db, "relatorio_banda", nrSeqBanda));
-  if (!bandaDoc.exists()) return [];
-  const nrSeq = bandaDoc.data().nr_sequencia;
-  const q = query(elementoColecao, where("nr_seq_banda", "==", nrSeq));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, ...rest }; });
+/** Retorna todos os elementos de uma banda (pelo id da banda). */
+export async function obterElementosPorBanda(nrSeqBanda: string): Promise<Reg[]> {
+  const banda = await obterDado<Reg>("relatorio_banda", nrSeqBanda);
+  if (!banda) return [];
+  return obterElementosPorBandaSeq(Number(banda.nr_sequencia));
 }
 
 /** Retorna todos os elementos de uma banda pelo nr_sequencia da banda. */
-export async function obterElementosPorBandaSeq(nrSeqBanda: number): Promise<Record<string, any>[]> {
-  const q = query(elementoColecao, where("nr_seq_banda", "==", nrSeqBanda));
-  const snap = await getDocs(q);
-  return snap.docs.map((d) => { const { id: _fid, ...rest } = d.data() as any; return { id: d.id, ...rest }; });
+export async function obterElementosPorBandaSeq(nrSeqBanda: number): Promise<Reg[]> {
+  return listarDados<Reg>("relatorio_banda_elemento", { nr_seq_banda: nrSeqBanda });
 }
 
 /** Cria um novo elemento. */
-export async function criarElemento(
-  elemento: Record<string, any>,
-  autor?: AuditAutor
-): Promise<{ id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string }> {
-  const agora = new Date().toISOString();
-  const nr_sequencia = await obterProximoSequenciaElemento();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
-
-  // Excluir 'id' do payload para não salvar UUID do cliente no Firestore
-  const { id: _clientid, ...elementoSemId } = elemento as Record<string, any>;
-  const dados = removerUndefined({
-    ...elementoSemId,
-    nr_sequencia,
-    dt_criacao: agora,
-    dt_alteracao: agora,
-    ds_usuario_criacao: nomeAutor,
-    ds_usuario_alteracao: nomeAutor,
-  });
-
-  const docRef = await addDoc(elementoColecao, dados);
-
-  // Auditoria
-  try {
-    const auditCol = collection(db, "relatorio_banda_elemento", docRef.id, "auditoria");
-    await addDoc(auditCol, {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: nomeAutor,
-      acao: "create",
-      timestamp: agora,
-      detalhes: dados,
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de elemento (criação)", e);
-  }
-
-  return { id: docRef.id, nr_sequencia, dt_criacao: agora, dt_alteracao: agora, ds_usuario_criacao: nomeAutor, ds_usuario_alteracao: nomeAutor };
+export async function criarElemento(elemento: Reg, _autor?: AuditAutor): Promise<Controle> {
+  return controleDe(await criarDado<Reg>("relatorio_banda_elemento", elemento));
 }
 
-/** Atualiza um elemento existente. */
+/** Atualiza um elemento existente. Sem alteração, devolve a data e o usuário atuais. */
 export async function atualizarElemento(
   id: string,
-  elemento: Record<string, any>,
-  autor?: AuditAutor
+  elemento: Reg,
+  _autor?: AuditAutor
 ): Promise<{ dt_alteracao: string; ds_usuario_alteracao: string }> {
-  const docRef = doc(db, "relatorio_banda_elemento", id);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return { dt_alteracao: '', ds_usuario_alteracao: '' };
-
-  const currentData = snap.data();
-  if (!temAlteracoes(currentData, elemento)) {
-    return { dt_alteracao: currentData.dt_alteracao ?? '', ds_usuario_alteracao: currentData.ds_usuario_alteracao ?? '' };
-  }
-  const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
-
-  const { id: _eid, ...elementoSemId2 } = elemento as Record<string, any>;
-  const dadosParaSalvar: Record<string, any> = removerUndefined({
-    ...elementoSemId2,
-    dt_alteracao: agora,
-    ds_usuario_alteracao: nomeAutor,
-  });
-
-  delete dadosParaSalvar.dt_criacao;
-  delete dadosParaSalvar.ds_usuario_criacao;
-
-  await updateDoc(docRef, dadosParaSalvar);
-
-  // Auditoria
-  try {
-    const auditCol = collection(db, "relatorio_banda_elemento", id, "auditoria");
-    const { id: _id, ...detalhes } = dadosParaSalvar;
-    const { id: _aid, ...antes } = currentData;
-    await addDoc(auditCol, {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: nomeAutor,
-      acao: "update",
-      timestamp: agora,
-      detalhes,
-      antes,
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de elemento (atualização)", e);
-  }
-
-  return { dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
+  return atualizarRegistro("relatorio_banda_elemento", id, elemento);
 }
 
 /** Exclui um elemento. */
 export async function excluirElemento(id: string): Promise<void> {
-  await registrarExclusao("relatorio_banda_elemento", id);
-  await deleteDoc(doc(db, "relatorio_banda_elemento", id));
+  await excluirDado("relatorio_banda_elemento", id);
 }
 
 /**
  * Exclui um elemento e o remove das cópias embutidas (relatorio_banda.campos e
  * relatorio.bandas[].campos). Sem isso, ao excluir o último elemento de uma
- * banda, a cópia embutida (usada como fallback quando a coleção vem vazia)
+ * banda, a cópia embutida (usada como fallback quando a tabela vem vazia)
  * fazia o elemento reaparecer ao reabrir a banda e no PDF.
  */
 export async function excluirElementoComCopias(id: string, relatorioDocId?: string | null): Promise<void> {
-  const elSnap = await getDoc(doc(db, "relatorio_banda_elemento", id));
-  const nrSeqBanda = elSnap.exists() ? elSnap.data().nr_seq_banda : undefined;
+  const elemento = await obterDado<Reg>("relatorio_banda_elemento", id);
+  const nrSeqBanda = elemento?.nr_seq_banda;
   await excluirElemento(id);
+
   type Embutido = { id?: string; _firestoreId?: string };
   const semElemento = (campos: Embutido[] | undefined) =>
     (campos ?? []).filter((c) => c?.id !== id && c?._firestoreId !== id);
+
   if (nrSeqBanda !== undefined && nrSeqBanda !== null) {
-    const bandasSnap = await getDocs(query(bandaColecao, where("nr_sequencia", "==", nrSeqBanda)));
-    for (const b of bandasSnap.docs) {
-      const campos = b.data().campos;
+    const bandas = await listarDados<Reg>("relatorio_banda", { nr_sequencia: Number(nrSeqBanda) });
+    for (const b of bandas) {
+      const campos = b.campos;
       if (Array.isArray(campos) && campos.length !== semElemento(campos).length) {
-        await updateDoc(b.ref, { campos: removerUndefinedProfundo(semElemento(campos)) });
+        await atualizarCopiaEmbutida("relatorio_banda", String(b.id), { campos: removerUndefinedProfundo(semElemento(campos)) });
       }
     }
   }
+
   if (relatorioDocId) {
-    const relRef = doc(db, "relatorio", relatorioDocId);
-    const relSnap = await getDoc(relRef);
-    const bandas = relSnap.exists() ? relSnap.data().bandas : undefined;
+    const relatorio = await obterDado<Reg>("relatorio", relatorioDocId);
+    const bandas = relatorio?.bandas;
     if (Array.isArray(bandas)) {
-      await updateDoc(relRef, { bandas: removerUndefinedProfundo(bandas.map((b: { campos?: Embutido[] }) => ({ ...b, campos: semElemento(b?.campos) }))) });
+      await atualizarCopiaEmbutida("relatorio", relatorioDocId, { bandas: removerUndefinedProfundo(bandas.map((b: { campos?: Embutido[] }) => ({ ...b, campos: semElemento(b?.campos) }))) });
     }
   }
 }
@@ -324,8 +144,8 @@ export async function excluirElementoComCopias(id: string, relatorioDocId?: stri
 export async function syncElementos(
   bandaId: string,
   nrSeqBanda: number,
-  elementosExistentes: Record<string, any>[],
-  elementosNovos: Record<string, any>[],
+  elementosExistentes: Reg[],
+  elementosNovos: Reg[],
   autor?: AuditAutor
 ): Promise<void> {
   const existentesMap = new Map(elementosExistentes.map((e) => [e.id, e]));
@@ -340,9 +160,8 @@ export async function syncElementos(
 
   // Criar ou atualizar elementos
   for (const el of elementosNovos) {
-    const dados = { ...el, nr_seq_banda: nrSeqBanda, nr_seq_relatorio: undefined };
+    const dados: Reg = { ...el, nr_seq_banda: nrSeqBanda };
     delete dados.nr_seq_relatorio; // será preenchido pela banda
-
     if (el.id && existentesMap.has(el.id)) {
       // Atualizar existente
       await atualizarElemento(el.id, dados, autor);

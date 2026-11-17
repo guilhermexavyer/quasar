@@ -34,7 +34,7 @@ import {
   encerrarPeriodoLetivoPorPrevisao,
   atualizarPeriodoLetivo,
 } from "@/services/periodoLetivoService";
-import { obterUsuarios } from "@/services/usuarioService";
+import { obterUsuarios, entrar, sair, obterSessao } from "@/services/usuarioService";
 import {
   criarUsuario,
   excluirUsuario,
@@ -148,8 +148,7 @@ import {
   obterParametro,
 } from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
-import { db } from "@/lib/firebase";
-import { doc, getDoc, updateDoc } from "firebase/firestore";
+import { EVENTO_SESSAO_EXPIRADA } from "@/lib/apiCliente";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -228,7 +227,7 @@ import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem
 import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
 import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
-import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio } from "@/services/relatorioService";
+import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio, obterRelatorioPorId, atualizarBandasDoRelatorio } from "@/services/relatorioService";
 
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
@@ -1094,7 +1093,6 @@ export default function Home() {
   }, [delegatePerfisUsuario, perfis]);
   const [delegatePerfis, setDelegatePerfis] = useState<number[]>([]);
   const [delegatePerfisSaving, setDelegatePerfisSaving] = useState(false);
-  const [adminOriginalSenhaHash, setAdminOriginalSenhaHash] = useState<string | null>(null);
   const [changePasswordModalOpen, setChangePasswordModalOpen] = useState(false);
   const [pessoaFisicaLookupOpen, setPessoaFisicaLookupOpen] = useState(false);
   // Pessoa física em visualização (modal de leitura, estilo Detalhe da auditoria).
@@ -2776,6 +2774,8 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // As rotas de dados exigem sessão: carrega ao entrar (ou ao restaurar a sessão).
+    if (!isAuthenticated) return;
     loadPessoasFisicas();
     loadUsuarios();
     loadPerfis();
@@ -2806,7 +2806,7 @@ export default function Home() {
     loadEncerramentoAutomaticoPeriodoLetivo();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -3040,13 +3040,13 @@ export default function Home() {
 
         if (!session?.userId) return;
 
-        const usuariosCadastrados = await Promise.race([
-          obterUsuarios(),
+        // A sessão vale pelo cookie do servidor; o localStorage guarda só a navegação.
+        const usuarioSalvo = await Promise.race([
+          obterSessao(),
           new Promise<never>((_, reject) => setTimeout(() => reject(new Error('Timeout')), 10000)),
         ]);
         if (cancelled) return;
 
-        const usuarioSalvo = usuariosCadastrados.find((u) => u.id === session.userId);
         if (!usuarioSalvo) {
           window.localStorage.removeItem(SESSION_KEY);
           return;
@@ -3100,6 +3100,15 @@ export default function Home() {
       cancelled = true;
     };
   }, []);
+
+  /* ── Sessão encerrada no servidor (expirou ou o usuário foi bloqueado): volta ao login ── */
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const aoExpirar = () => handleLogout();
+    window.addEventListener(EVENTO_SESSAO_EXPIRADA, aoExpirar);
+    return () => window.removeEventListener(EVENTO_SESSAO_EXPIRADA, aoExpirar);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated]);
 
   /* ── Logout automático (Administração do Sistema > Regras) ── */
   // A regra é carregada ao entrar e recarregada periodicamente: uma alteração
@@ -3185,7 +3194,6 @@ export default function Home() {
   function openAdminNewForm() {
     setAdminForm({ ...emptyAdminForm, nr_seq_pessoa_fisica: undefined });
     setAdminEditingId(null);
-    setAdminOriginalSenhaHash(null);
     setAdminAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setMessage("");
     setAdminCampoErros([]);
@@ -3536,8 +3544,7 @@ export default function Home() {
       }
 
       // ── Manter relatorio.bandas sincronizado (retrocompatibilidade) ──
-      const docRef = doc(db, 'relatorio', relatorioEditingId);
-      await updateDoc(docRef, { bandas: removerUndefinedProfundo(bandasSalvas) });
+      await atualizarBandasDoRelatorio(relatorioEditingId, bandasSalvas);
 
       bandaJustSavedRef.current = true;
       setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasSalvas } : prev);
@@ -3574,16 +3581,11 @@ export default function Home() {
   }
 
   function handleRelatorioGerar(relatorio: Relatorio) {
-    // Sempre buscar dados atualizados do Firestore antes de gerar
+    // Sempre buscar dados atualizados do banco antes de gerar
     (async () => {
       try {
-        const { getDoc } = await import('firebase/firestore');
-        const { db } = await import('@/lib/firebase');
-        const docSnap = await getDoc((await import('firebase/firestore')).doc(db, 'relatorio', relatorio.id!));
-        if (docSnap.exists()) {
-          const { id: _fid, ...rest } = docSnap.data() as any;
-          relatorio = { id: docSnap.id, ...rest } as Relatorio;
-        }
+        const relatorioAtual = await obterRelatorioPorId(relatorio.id!);
+        if (relatorioAtual) relatorio = relatorioAtual;
         // Buscar bandas frescas
         const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
         const nrSeqRelatorio = (relatorio as any).nr_sequencia;
@@ -3898,7 +3900,6 @@ export default function Home() {
     // para nunca salvar contra a coleção errada.
     setAdminForm(emptyAdminForm);
     setAdminEditingId(null);
-    setAdminOriginalSenhaHash(null);
     setAdminAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
     setPerfilForm({ ds_perfil: '', ds_observacao: '', ie_status: 'A' });
     setPerfilEditingId(null);
@@ -5013,7 +5014,6 @@ export default function Home() {
       ie_base_conhecimento: usuario.ie_base_conhecimento ?? 'N',
       ie_central_suporte: usuario.ie_central_suporte ?? 'N',
     });
-    setAdminOriginalSenhaHash(usuario.ds_senha ?? null);
     setAdminEditingId(usuario.id ?? null);
     setAdminAuditInfo({
       createdAt: usuario.dt_criacao ?? '',
@@ -6632,95 +6632,6 @@ export default function Home() {
     }
   }
 
-  function createFallbackHash(input: string): string {
-    const bytes = new TextEncoder().encode(input);
-    let hash = 0;
-
-    for (let index = 0; index < bytes.length; index += 1) {
-      hash = (hash << 5) - hash + bytes[index];
-      hash |= 0;
-    }
-
-    return (hash >>> 0).toString(16).padStart(8, '0');
-  }
-
-  function rotr32(value: number, shift: number): number {
-    return (value >>> shift) | (value << (32 - shift));
-  }
-
-  function sha256Hex(input: string): string {
-    // SHA-256 puro em JavaScript: sempre o mesmo resultado, independente de
-    // crypto.subtle existir (localhost = contexto seguro) ou não (HTTP rede local).
-    const bytes: number[] = Array.from(new TextEncoder().encode(input));
-
-    const bitLength = bytes.length * 8;
-    bytes.push(0x80);
-    while (bytes.length % 64 !== 56) bytes.push(0);
-    const highLength = Math.floor(bitLength / 0x100000000);
-    const lowLength = bitLength >>> 0;
-    bytes.push(
-      (highLength >>> 24) & 0xff, (highLength >>> 16) & 0xff,
-      (highLength >>> 8) & 0xff, highLength & 0xff,
-      (lowLength >>> 24) & 0xff, (lowLength >>> 16) & 0xff,
-      (lowLength >>> 8) & 0xff, lowLength & 0xff,
-    );
-
-    const K = [
-      0x428a2f98, 0x71374491, 0xb5c0fbcf, 0xe9b5dba5, 0x3956c25b, 0x59f111f1, 0x923f82a4, 0xab1c5ed5,
-      0xd807aa98, 0x12835b01, 0x243185be, 0x550c7dc3, 0x72be5d74, 0x80deb1fe, 0x9bdc06a7, 0xc19bf174,
-      0xe49b69c1, 0xefbe4786, 0x0fc19dc6, 0x240ca1cc, 0x2de92c6f, 0x4a7484aa, 0x5cb0a9dc, 0x76f988da,
-      0x983e5152, 0xa831c66d, 0xb00327c8, 0xbf597fc7, 0xc6e00bf3, 0xd5a79147, 0x06ca6351, 0x14292967,
-      0x27b70a85, 0x2e1b2138, 0x4d2c6dfc, 0x53380d13, 0x650a7354, 0x766a0abb, 0x81c2c92e, 0x92722c85,
-      0xa2bfe8a1, 0xa81a664b, 0xc24b8b70, 0xc76c51a3, 0xd192e819, 0xd6990624, 0xf40e3585, 0x106aa070,
-      0x19a4c116, 0x1e376c08, 0x2748774c, 0x34b0bcb5, 0x391c0cb3, 0x4ed8aa4a, 0x5b9cca4f, 0x682e6ff3,
-      0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2,
-    ];
-
-    let h0 = 0x6a09e667, h1 = 0xbb67ae85, h2 = 0x3c6ef372, h3 = 0xa54ff53a;
-    let h4 = 0x510e527f, h5 = 0x9b05688c, h6 = 0x1f83d9ab, h7 = 0x5be0cd19;
-
-    const w: number[] = new Array(64);
-
-    for (let i = 0; i < bytes.length; i += 64) {
-      for (let j = 0; j < 16; j++) {
-        w[j] =
-          (bytes[i + j * 4] << 24) |
-          (bytes[i + j * 4 + 1] << 16) |
-          (bytes[i + j * 4 + 2] << 8) |
-          bytes[i + j * 4 + 3];
-      }
-      for (let j = 16; j < 64; j++) {
-        const s0 = rotr32(w[j - 15], 7) ^ rotr32(w[j - 15], 18) ^ (w[j - 15] >>> 3);
-        const s1 = rotr32(w[j - 2], 17) ^ rotr32(w[j - 2], 19) ^ (w[j - 2] >>> 10);
-        w[j] = (w[j - 16] + s0 + w[j - 7] + s1) | 0;
-      }
-
-      let a = h0, b = h1, c = h2, d = h3, e = h4, f = h5, g = h6, h = h7;
-      for (let j = 0; j < 64; j++) {
-        const S1 = rotr32(e, 6) ^ rotr32(e, 11) ^ rotr32(e, 25);
-        const ch = (e & f) ^ (~e & g);
-        const temp1 = (h + S1 + ch + K[j] + w[j]) | 0;
-        const S0 = rotr32(a, 2) ^ rotr32(a, 13) ^ rotr32(a, 22);
-        const maj = (a & b) ^ (a & c) ^ (b & c);
-        const temp2 = (S0 + maj) | 0;
-        h = g; g = f; f = e; e = (d + temp1) | 0;
-        d = c; c = b; b = a; a = (temp1 + temp2) | 0;
-      }
-
-      h0 = (h0 + a) | 0; h1 = (h1 + b) | 0; h2 = (h2 + c) | 0; h3 = (h3 + d) | 0;
-      h4 = (h4 + e) | 0; h5 = (h5 + f) | 0; h6 = (h6 + g) | 0; h7 = (h7 + h) | 0;
-    }
-
-    const toHex = (value: number) => (value >>> 0).toString(16).padStart(8, '0');
-    return toHex(h0) + toHex(h1) + toHex(h2) + toHex(h3) + toHex(h4) + toHex(h5) + toHex(h6) + toHex(h7);
-  }
-
-  async function hashPassword(password: string): Promise<string> {
-    // Sempre SHA-256: a implementação pura em JS garante o mesmo hash em
-    // qualquer contexto (localhost ou HTTP de rede local).
-    return sha256Hex(password);
-  }
-
   async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
@@ -6741,15 +6652,14 @@ export default function Home() {
     setAdminSubmitting(true);
 
     try {
-      const senhaHash = adminForm.ds_senha
-        ? await hashPassword(adminForm.ds_senha)
-        : adminOriginalSenhaHash ?? '';
+      // A senha vai em texto para o servidor, que guarda só o hash; vazia mantém a atual.
+      const senha = adminForm.ds_senha ?? '';
 
       const usuarioPayload: Record<string, any> = {
         ds_usuario: adminForm.ds_usuario,
         ds_usuario_alternativo: adminForm.ds_usuario_alternativo,
         ds_email: adminForm.ds_email ?? '',
-        ds_senha: senhaHash,
+        ds_senha: senha,
         ds_observacao: adminForm.ds_observacao,
         ie_status: adminForm.ie_status,
         ie_base_conhecimento: adminForm.ie_base_conhecimento ?? 'N',
@@ -6779,7 +6689,6 @@ export default function Home() {
           setMessage("Nenhuma alteração detectada.");
           setAdminForm(emptyAdminForm);
           setAdminEditingId(null);
-          setAdminOriginalSenhaHash(null);
           await loadUsuarios();
           setView("list");
           return;
@@ -6829,7 +6738,6 @@ export default function Home() {
       await loadUsuarios();
       setAdminForm(emptyAdminForm);
       setAdminEditingId(null);
-      setAdminOriginalSenhaHash(null);
       setView("list");
     } catch {
       setMessage("Erro ao salvar.");
@@ -7467,8 +7375,7 @@ export default function Home() {
     setAdminSubmitting(true);
 
     try {
-      const senhaHash = await hashPassword(passwordChangeValue);
-      await atualizarUsuario(passwordChangeUserId, { ds_senha: senhaHash }, auditAutor);
+      await atualizarUsuario(passwordChangeUserId, { ds_senha: passwordChangeValue }, auditAutor);
       await loadUsuarios();
       closeChangePasswordModal();
       setMessage("Senha alterada com sucesso!");
@@ -9122,45 +9029,11 @@ export default function Home() {
     setIsLoginLoading(true);
 
     try {
-      const usuariosCadastrados = await obterUsuarios();
-      const hashedPassword = await hashPassword(normalizedPassword);
-      const legacyHash = createFallbackHash(normalizedPassword);
-      const usuarioValido = usuariosCadastrados.find((usuario) => {
-        const storedUser = (usuario.ds_usuario ?? "").trim().toLowerCase();
-        const storedUserAlt = (usuario.ds_usuario_alternativo ?? "").trim().toLowerCase();
-        const storedPassword = (usuario.ds_senha ?? "").trim();
-        const storedPasswordNormalized = storedPassword.toLowerCase();
-        const usernameMatches =
-          storedUser === normalizedUsername.toLowerCase() ||
-          storedUserAlt === normalizedUsername.toLowerCase();
+      // Usuário e senha são conferidos no servidor; o navegador não recebe a lista de usuários.
+      const resultado = await entrar(normalizedUsername, normalizedPassword);
 
-        return usernameMatches
-          && (storedPasswordNormalized === normalizedPassword.toLowerCase()
-            || storedPasswordNormalized === hashedPassword.toLowerCase()
-            || storedPasswordNormalized === legacyHash.toLowerCase());
-      });
-
-      if (usuarioValido) {
-        const usuarioStatus = String(usuarioValido.ie_status ?? 'A').toUpperCase();
-        if (usuarioStatus === 'B' || usuarioStatus === 'I') {
-          console.warn("[Login] usuário bloqueado/inativo", {
-            normalizedUsername,
-            usuarioStatus,
-          });
-          setLoginWarning(usuarioStatus === 'B' ? "Usuário bloqueado." : "Usuário inativo.");
-          setIsLoginLoading(false);
-          return;
-        }
-
-        // Verifica se o usuário possui ao menos um perfil vinculado.
-        const perfisVinculados = parsePerfisConfig(usuarioValido.config_perfis);
-        if (perfisVinculados.length === 0) {
-          console.warn("[Login] usuário sem perfil vinculado", { normalizedUsername });
-          setLoginError("O usuário não possui um perfil.");
-          setIsLoginLoading(false);
-          return;
-        }
-
+      if (resultado.status === 'ok') {
+        const usuarioValido = resultado.usuario;
         window.setTimeout(() => {
           // Ao entrar, nenhuma função vem selecionada (inclusive após a sessão ter sido encerrada).
           limparPaginacaoDaSecao();
@@ -9176,10 +9049,15 @@ export default function Home() {
         return;
       }
 
-      console.warn("[Login] usuário/senha inválidos", { normalizedUsername });
-      setLoginError("Usuário ou senha incorretos");
+      if (resultado.status === 'bloqueado' || resultado.status === 'inativo') {
+        setLoginWarning(resultado.status === 'bloqueado' ? "Usuário bloqueado." : "Usuário inativo.");
+      } else if (resultado.status === 'sem_perfil') {
+        setLoginError("O usuário não possui um perfil.");
+      } else {
+        setLoginError("Usuário ou senha incorretos");
+      }
     } catch (error) {
-      console.error("[Login] erro ao carregar usuários", error);
+      console.error("[Login] erro ao autenticar", error);
       setLoginError("Erro ao autenticar. Veja o console para detalhes.");
     }
 
@@ -9187,6 +9065,7 @@ export default function Home() {
   }
 
   function handleLogout() {
+    sair().catch(() => { /* a sessão expira sozinha no servidor */ });
     try {
       window.localStorage.removeItem(SESSION_KEY);
       window.sessionStorage.removeItem(SESSION_NAV_KEY);

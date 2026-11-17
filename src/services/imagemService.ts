@@ -1,131 +1,35 @@
-import {
-  collection,
-  getDocs,
-  addDoc,
-  updateDoc,
-  deleteDoc,
-  doc,
-  getDoc,
-  runTransaction,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { temAlteracoes } from "@/lib/firestoreUtils";
+import { atualizarDado, criarDado, excluirDado, listarDados, obterDado } from "@/lib/apiCliente";
 import type { Imagem } from "@/types/imagem";
-import { registrarExclusao } from "@/services/exclusaoService";
 
 const COLLECTION = "imagem";
 
 export async function obterImagens(): Promise<Imagem[]> {
-  const snap = await getDocs(collection(db, COLLECTION));
-  const list = snap.docs.map((d) => ({ id: d.id, ...d.data() } as Imagem));
+  const list = await listarDados<Imagem>(COLLECTION);
   list.sort((a, b) => (a.nr_sequencia ?? 0) - (b.nr_sequencia ?? 0));
   return list;
 }
 
-const contadorDoc = doc(db, "_counters", "imagem_sequence");
-
-async function obterProximaImagemSequencia(): Promise<number> {
-  try {
-    const resultado = await runTransaction(db, async (transacao) => {
-      const docSnap = await transacao.get(contadorDoc);
-      let proximo = 1;
-      if (docSnap.exists()) {
-        proximo = (docSnap.data().current ?? 0) + 1;
-      }
-      transacao.set(contadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-    return resultado;
-  } catch {
-    try {
-      await runTransaction(db, async (transacao) => {
-        const docSnap = await transacao.get(contadorDoc);
-        if (!docSnap.exists()) {
-          transacao.set(contadorDoc, { current: 1 });
-        }
-      });
-      return 1;
-    } catch {
-      return Date.now();
-    }
-  }
-}
-
+/** O autor vem da sessão no servidor (o parâmetro `usuario` é mantido só pela assinatura). */
 export async function criarImagem(
   data: Omit<Imagem, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
-  usuario?: string
+  _usuario?: string
 ): Promise<string> {
-  const nrSeq = await obterProximaImagemSequencia();
-  const now = new Date().toISOString();
-  const docRef = await addDoc(collection(db, COLLECTION), {
-    ...data,
-    nr_sequencia: nrSeq,
-    dt_criacao: now,
-    ds_usuario_criacao: usuario || "",
-    dt_alteracao: now,
-    ds_usuario_alteracao: usuario || "",
-  });
-
-  // Registrar auditoria de criação
-  try {
-    const auditCol = collection(db, COLLECTION, docRef.id, "auditoria");
-    await addDoc(auditCol, {
-      usuarioNome: usuario || "-",
-      acao: "create",
-      timestamp: now,
-      detalhes: {
-        ...data,
-        nr_sequencia: nrSeq,
-        dt_criacao: now,
-        dt_alteracao: now,
-        ds_usuario_criacao: usuario || "",
-        ds_usuario_alteracao: usuario || "",
-      },
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de criação de imagem", e);
-  }
-
-  return docRef.id;
+  return (await criarDado<Imagem>(COLLECTION, data)).id;
 }
 
 export async function atualizarImagem(
   id: string,
   data: Partial<Imagem>,
-  usuario?: string
+  _usuario?: string
 ): Promise<void> {
-  const docRef = doc(db, COLLECTION, id);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return;
-
-  const antes = snap.data() as Record<string, any>;
-  if (!temAlteracoes(antes, data)) return;
-  const now = new Date().toISOString();
-  const atualizacoes = { ...data, dt_alteracao: now, ds_usuario_alteracao: usuario || "" };
-  await updateDoc(docRef, atualizacoes);
-
-  // Registrar auditoria de alteração
-  try {
-    const auditCol = collection(db, COLLECTION, id, "auditoria");
-    // Estado completo após a alteração em `detalhes`, como nas demais
-    // coleções: o modal "Detalhe da auditoria" compara com o log anterior.
-    await addDoc(auditCol, {
-      usuarioNome: usuario || "-",
-      acao: "update",
-      timestamp: now,
-      detalhes: { ...antes, ...atualizacoes },
-    });
-  } catch (e) {
-    console.error("Erro ao registrar auditoria de atualização de imagem", e);
-  }
+  await atualizarDado(COLLECTION, id, data);
 }
 
 export async function excluirImagem(id: string): Promise<void> {
-  await registrarExclusao(COLLECTION, id);
-  await deleteDoc(doc(db, COLLECTION, id));
+  await excluirDado(COLLECTION, id);
 }
 
-/** Exclui o arquivo de imagem do diretório public/images/. */
+/** Exclui o arquivo da imagem no Storage. */
 export async function excluirArquivoImagem(filePath: string): Promise<void> {
   if (!filePath) return;
   try {
@@ -139,7 +43,7 @@ export async function excluirArquivoImagem(filePath: string): Promise<void> {
   }
 }
 
-/** Renomeia o arquivo de imagem no diretório e retorna o novo caminho. */
+/** Renomeia o arquivo da imagem no Storage e retorna o novo caminho. */
 export async function renomearArquivoImagem(oldPath: string, newFileName: string): Promise<string> {
   const res = await fetch('/api/rename-file', {
     method: 'POST',
@@ -155,15 +59,12 @@ export async function renomearArquivoImagem(oldPath: string, newFileName: string
 }
 
 export async function obterImagemPorId(id: string): Promise<Imagem | null> {
-  const docRef = doc(db, COLLECTION, id);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return null;
-  return { id: snap.id, ...snap.data() } as Imagem;
+  return obterDado<Imagem>(COLLECTION, id);
 }
 
 /**
- * Upload de imagem para o diretório public/images/.
- * Retorna o caminho relativo salvo no Firestore (ex.: /images/arquivo.png).
+ * Upload de imagem para o Supabase Storage (bucket privado).
+ * Retorna o caminho que a tela guarda em ie_arquivo (ex.: /api/imagens/arquivo/images/arquivo.png).
  */
 export async function uploadImagem(file: File): Promise<string> {
   const formData = new FormData();

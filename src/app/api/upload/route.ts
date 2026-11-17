@@ -1,43 +1,32 @@
-import { NextRequest, NextResponse } from "next/server";
-import { put } from "@vercel/blob";
-import { EXTENSOES_IMAGEM, pastaImagens, existeImagemNoBlob } from "@/lib/blobImagens";
+import { NextResponse, type NextRequest } from "next/server";
+import { erro, rota } from "@/lib/server/http";
+import { enviarArquivo, ErroStorage, mimeDoArquivo, nomeArquivoValido, PASTA, urlDaRota } from "@/lib/server/storage";
 
+const TAMANHO_MAXIMO = 5 * 1024 * 1024; // mesmo limite do bucket
+
+/**
+ * Envia uma imagem para o Supabase Storage (bucket privado). Exige sessão.
+ * Devolve { path }: o caminho que a tela guarda em ie_arquivo e usa para exibir.
+ */
 export async function POST(request: NextRequest) {
-  try {
+  return rota(request, async () => {
     const formData = await request.formData();
-    const file = formData.get("file") as File | null;
+    const file = formData.get("file");
+    if (!(file instanceof File)) return erro("Nenhum arquivo enviado", 400);
 
-    if (!file) {
-      return NextResponse.json({ error: "Nenhum arquivo enviado" }, { status: 400 });
+    if (!nomeArquivoValido(file.name)) {
+      return erro("Tipo de arquivo não permitido. Aceitos: .jpeg, .jpg, .png", 400);
     }
+    if (file.size > TAMANHO_MAXIMO) return erro("A imagem deve ter no máximo 5 MB.", 400);
 
-    // Validar tipo de arquivo
-    const fileName = file.name.toLowerCase();
-    const hasValidExtension = EXTENSOES_IMAGEM.some((ext) => fileName.endsWith(ext));
-    if (!hasValidExtension) {
-      return NextResponse.json(
-        { error: "Tipo de arquivo não permitido. Aceitos: .jpeg, .jpg, .png" },
-        { status: 400 }
-      );
+    const caminho = PASTA + file.name.trim();
+    try {
+      await enviarArquivo(caminho, Buffer.from(await file.arrayBuffer()), mimeDoArquivo(file.name));
+    } catch (e) {
+      if (e instanceof ErroStorage && e.status === 409) return erro("A imagem já existe.", 409);
+      console.error("Erro no upload:", e);
+      return erro("Erro ao fazer upload", 500);
     }
-
-    // Verificar se o arquivo já existe
-    if (await existeImagemNoBlob(file.name)) {
-      return NextResponse.json({ error: "A imagem já existe." }, { status: 409 });
-    }
-
-    const bytes = await file.arrayBuffer();
-
-    const blob = await put(pastaImagens() + file.name, Buffer.from(bytes), {
-      access: "public",
-      addRandomSuffix: false,
-      contentType: file.type || undefined,
-    });
-
-    // Guarda a URL pública do Blob, que é o que a tela e os relatórios usam
-    return NextResponse.json({ path: blob.url });
-  } catch (error) {
-    console.error("Erro no upload:", error);
-    return NextResponse.json({ error: "Erro ao fazer upload" }, { status: 500 });
-  }
+    return NextResponse.json({ path: urlDaRota(caminho) });
+  });
 }

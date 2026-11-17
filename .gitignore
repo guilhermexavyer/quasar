@@ -42,3 +42,9 @@ next-env.d.ts
 
 # backups do banco (scripts/limpar-banco.mjs)
 /backups/
+
+# modelo das variáveis (sem valores) pode ser versionado
+!.env.local.example
+
+# credenciais antigas do Firebase
+db*.txt

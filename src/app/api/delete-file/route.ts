@@ -1,36 +1,33 @@
-import { NextRequest, NextResponse } from "next/server";
-import { del } from "@vercel/blob";
-import { ehUrlBlob, blobDoAmbienteAtual } from "@/lib/blobImagens";
+import { NextResponse, type NextRequest } from "next/server";
+import { query } from "@/lib/db";
+import { corpo, erro, rota } from "@/lib/server/http";
+import { caminhoDoStorage, removerArquivo } from "@/lib/server/storage";
 
+/**
+ * Apaga o arquivo de uma imagem no Storage. Exige sessão.
+ * Se a imagem cadastrada com este arquivo estiver em uso num relatório, o
+ * arquivo é mantido (o banco também recusará excluir o cadastro).
+ */
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const filePath = body.path as string;
+  return rota(request, async () => {
+    const { path } = await corpo(request);
+    if (!path || typeof path !== "string") return erro("Caminho não informado", 400);
 
-    if (!filePath) {
-      return NextResponse.json({ error: "Caminho não informado" }, { status: 400 });
-    }
+    // Imagens antigas que ficavam no repositório (/images/...) não podem ser apagadas.
+    if (path.startsWith("/images/")) return NextResponse.json({ ok: true });
 
-    // Imagens novas estão no Vercel Blob
-    if (ehUrlBlob(filePath)) {
-      // Só apaga arquivos da pasta deste ambiente; os de outra base (ex.: registros
-      // copiados da produção) são preservados.
-      if (!blobDoAmbienteAtual(filePath)) {
-        console.warn("Exclusão ignorada: imagem pertence a outra base:", filePath);
-        return NextResponse.json({ ok: true });
-      }
-      await del(filePath);
-      return NextResponse.json({ ok: true });
-    }
+    const caminho = caminhoDoStorage(path);
+    if (!caminho) return erro("Caminho inválido", 400);
 
-    // Imagens antigas (/images/...) ficam no código e não podem ser apagadas no Vercel
-    if (!filePath.startsWith("/images/")) {
-      return NextResponse.json({ error: "Caminho inválido" }, { status: 400 });
-    }
-    console.warn("Exclusão ignorada para imagem legada no repositório:", filePath);
+    const { rows } = await query<{ n: number }>(
+      `select count(*)::int as n from relatorio_banda_elemento e
+         join imagem i on i.nr_sequencia = e.nr_seq_imagem
+        where i.ds_caminho_storage = $1`,
+      [caminho]
+    );
+    if (rows[0].n > 0) return erro("A imagem está em uso em um relatório.", 409);
+
+    await removerArquivo(caminho);
     return NextResponse.json({ ok: true });
-  } catch (error) {
-    console.error("Erro ao excluir arquivo:", error);
-    return NextResponse.json({ error: "Erro ao excluir arquivo" }, { status: 500 });
-  }
+  });
 }

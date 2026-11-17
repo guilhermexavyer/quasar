@@ -1,19 +1,9 @@
-import {
-  collection,
-  getDocs,
-  doc,
-  setDoc,
-  addDoc,
-  query,
-  orderBy,
-  limit,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import type { AuditAutor } from "@/services/auditService";
+import { atualizarDado, criarDado, listarDados } from "@/lib/apiCliente";
+import { fetchAuditByDocumentId, type AuditAutor } from "@/services/auditService";
 
 /**
  * Parâmetros das funções (tela Parâmetros). Cada parâmetro tem a própria
- * coleção com um único documento e a subcoleção auditoria. O valor fica em
+ * tabela com um único registro e a auditoria. O valor fica em
  * ds_regra (regra de geração de código), cd_cor (cor de status) ou ie_regra (opção Sim/Não).
  */
 export const COLECAO_PARAM_COR_ATIVO_DESCARTADO = "pat_param_cor_ativo_descartado";
@@ -45,29 +35,21 @@ export interface ParametroFuncao {
 }
 
 /**
- * Documentos gravados antes do controle de criação não têm dt_criacao/ds_usuario_criacao.
+ * Registros gravados antes do controle de criação não têm dt_criacao/ds_usuario_criacao.
  * Nesse caso, a criação é inferida do registro de auditoria mais antigo.
  */
 async function obterCriacaoPelaAuditoria(colecao: string, id: string): Promise<{ dt_criacao: string; ds_usuario_criacao: string } | null> {
-  try {
-    const q = query(collection(db, colecao, id, "auditoria"), orderBy("timestamp", "asc"), limit(1));
-    const snap = await getDocs(q);
-    if (snap.empty) return null;
-    const log = snap.docs[0].data();
-    if (!log.timestamp) return null;
-    return { dt_criacao: String(log.timestamp), ds_usuario_criacao: String(log.usuarioNome ?? "").trim() || "-" };
-  } catch {
-    return null;
-  }
+  const logs = await fetchAuditByDocumentId(colecao, id); // do mais recente para o mais antigo
+  const log = logs[logs.length - 1];
+  if (!log?.timestamp) return null;
+  return { dt_criacao: String(log.timestamp), ds_usuario_criacao: String(log.usuarioNome ?? "").trim() || "-" };
 }
 
 export async function obterParametro(colecao: string): Promise<ParametroFuncao | null> {
-  const snapshot = await getDocs(collection(db, colecao));
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  const dados = { id: docSnap.id, ...docSnap.data() } as ParametroFuncao;
-  if (!dados.dt_criacao || !dados.ds_usuario_criacao) {
-    const criacao = await obterCriacaoPelaAuditoria(colecao, docSnap.id);
+  const dados = (await listarDados<ParametroFuncao>(colecao))[0];
+  if (!dados) return null;
+  if (dados.id && (!dados.dt_criacao || !dados.ds_usuario_criacao)) {
+    const criacao = await obterCriacaoPelaAuditoria(colecao, dados.id);
     if (criacao) {
       dados.dt_criacao = dados.dt_criacao || criacao.dt_criacao;
       dados.ds_usuario_criacao = dados.ds_usuario_criacao || criacao.ds_usuario_criacao;
@@ -76,62 +58,18 @@ export async function obterParametro(colecao: string): Promise<ParametroFuncao |
   return dados;
 }
 
-export async function salvarParametro(colecao: string, campo: CampoParametro, valor: string, autor?: AuditAutor): Promise<void> {
-  const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || '-';
-  const snapshot = await getDocs(collection(db, colecao));
-  if (snapshot.empty) {
-    const docRef = doc(collection(db, colecao));
-    await setDoc(docRef, {
-      [campo]: valor,
-      dt_criacao: agora,
-      dt_alteracao: agora,
-      ds_usuario_criacao: nomeAutor,
-      ds_usuario_alteracao: nomeAutor,
-    });
-    // Registrar auditoria na subcollection
-    try {
-      const auditCol = collection(db, colecao, docRef.id, "auditoria");
-      await addDoc(auditCol, {
-        usuarioId: autor?.usuarioId ?? null,
-        usuarioNome: nomeAutor,
-        acao: "create",
-        timestamp: agora,
-        detalhes: { [campo]: valor },
-      });
-    } catch (e) {
-      console.error("Erro ao registrar auditoria de criação", e);
-    }
-  } else {
-    const docSnap = snapshot.docs[0];
-    const dadosAtuais = docSnap.data();
-    const atual = dadosAtuais[campo] ?? "";
-    if (atual === valor) return;
-    // Completa a criação de documentos antigos que não a registravam.
-    const criacao = !dadosAtuais.dt_criacao || !dadosAtuais.ds_usuario_criacao
-      ? await obterCriacaoPelaAuditoria(colecao, docSnap.id)
-      : null;
-    await setDoc(doc(db, colecao, docSnap.id), {
-      [campo]: valor,
-      dt_alteracao: agora,
-      ds_usuario_alteracao: nomeAutor,
-      ...(criacao ? {
-        dt_criacao: dadosAtuais.dt_criacao || criacao.dt_criacao,
-        ds_usuario_criacao: dadosAtuais.ds_usuario_criacao || criacao.ds_usuario_criacao,
-      } : {}),
-    }, { merge: true });
-    // Registrar auditoria na subcollection
-    try {
-      const auditCol = collection(db, colecao, docSnap.id, "auditoria");
-      await addDoc(auditCol, {
-        usuarioId: autor?.usuarioId ?? null,
-        usuarioNome: nomeAutor,
-        acao: "update",
-        timestamp: agora,
-        detalhes: { [campo]: valor },
-      });
-    } catch (e) {
-      console.error("Erro ao registrar auditoria de atualização", e);
-    }
+/**
+ * Grava o valor do parâmetro. Cria o registro na primeira vez; sem alteração no
+ * valor, nada é gravado. A auditoria guarda só o campo alterado, como sempre.
+ * O autor vem da sessão (o parâmetro `autor` é mantido só pela assinatura).
+ */
+export async function salvarParametro(colecao: string, campo: CampoParametro, valor: string, _autor?: AuditAutor): Promise<void> {
+  const atual = (await listarDados<ParametroFuncao>(colecao))[0];
+  const auditoria = { detalhes: { [campo]: valor } };
+  if (!atual?.id) {
+    await criarDado(colecao, { [campo]: valor }, auditoria);
+    return;
   }
+  if ((atual[campo] ?? "") === valor) return;
+  await atualizarDado(colecao, atual.id, { [campo]: valor }, auditoria);
 }

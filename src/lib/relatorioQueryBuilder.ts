@@ -1,8 +1,4 @@
-import {
-  collection,
-  getDocs,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { listarDados } from "@/lib/apiCliente";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import type {
   Relatorio,
@@ -187,12 +183,11 @@ function registroPassaFiltros(
 }
 
 /**
- * Busca documentos de uma coleção do Firestore.
+ * Busca os registros de uma coleção (pela rota /api/dados; o servidor nunca
+ * devolve a senha dos usuários).
  */
 async function fetchColecao(nomeColecao: string): Promise<Record<string, any>[]> {
-  const collectionRef = collection(db, nomeColecao);
-  const snapshot = await getDocs(collectionRef);
-  return snapshot.docs.map((doc) => ({ id: doc.id, ...doc.data() }));
+  return listarDados<Record<string, any>>(nomeColecao);
 }
 
 /**

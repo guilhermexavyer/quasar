@@ -1,45 +1,25 @@
 #!/usr/bin/env node
 /**
- * Seeder — Implantação inicial
+ * Seeder — Implantação inicial (PostgreSQL)
  *
- * Cria apenas o mínimo para acessar o sistema:
+ * Cria o mínimo para acessar o sistema:
  *   - perfil  → 'Administrador', com todas as funções liberadas. Sem
  *               config_permissoes: o sistema trata a ausência como "tudo
  *               liberado", inclusive permissões criadas no futuro.
  *   - usuario → 'administrador' (senha em SHA-256, mesmo formato do login),
- *               vinculado ao perfil 'Administrador' (também como perfil ativo).
+ *               com Base de Conhecimento e Central de Suporte, vinculado ao
+ *               perfil 'Administrador' (também como perfil ativo).
  *
- * O script é IDEMPOTENTE: se o perfil/usuário já existirem, não são recriados
- * (apenas o vínculo do usuário com o perfil é garantido).
+ * IDEMPOTENTE: se o perfil/usuário já existirem, não são recriados (apenas o
+ * vínculo do usuário com o perfil é garantido). Tudo roda numa transação.
+ * Troque a senha do administrador depois do primeiro acesso.
  *
  * Uso:
- *   node --env-file=.env.local scripts/seed.mjs
- *   node --env-file=.env.local scripts/seed.mjs --dry-run   → só mostra o que seria feito
+ *   node --env-file=.env.local scripts/seed.mjs              → grava
+ *   node --env-file=.env.local scripts/seed.mjs --dry-run    → só mostra o que seria feito (desfaz no fim)
  */
-
 import { createHash } from "node:crypto";
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, getDocs, doc, setDoc, addDoc } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-if (!firebaseConfig.projectId) {
-  console.error(
-    "❌ Variáveis NEXT_PUBLIC_FIREBASE_* não encontradas.\n" +
-      "   Rode com: node --env-file=.env.local scripts/seed.mjs"
-  );
-  process.exit(1);
-}
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
+import { ajustarSequencia, auditarCriacao, conectar, falhar, textoDoErro } from "./lib/conexao.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -50,147 +30,115 @@ const DATA_IMPLANTACAO = new Date().toISOString();
 const USUARIO_ADMIN = {
   ds_usuario: "administrador",
   ds_usuario_alternativo: "administrador",
-  senha: "quasar@1105",
+  senha: "quasar.01",
 };
 
 /* Funções do sistema (mesmas chaves de FuncaoId em src/lib/perfilUtils.ts) */
-const TODAS_FUNCOES = [
-  "pessoaFisica",
-  "estruturaAcademica",
-  "patrimonio",
-  "relatorio",
-  "administracaoSistema",
-  "cadastrosGerais",
-];
+const TODAS_FUNCOES = ["pessoaFisica", "estruturaAcademica", "patrimonio", "relatorio", "administracaoSistema", "cadastrosGerais"];
 
-function normalizar(valor) {
-  return String(valor ?? "")
-    .toLowerCase()
-    .trim()
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+/**
+ * Próximo número da tabela, calculado aqui (e não pela sequência do banco): uma
+ * sequência não volta atrás quando o --dry-run desfaz a transação, então usá-la
+ * faria a gravação real pular números.
+ */
+async function proximoNumero(db, tabela) {
+  const { rows } = await db.query(`select coalesce(max(nr_sequencia), 0) + 1 as n from ${tabela}`);
+  return Number(rows[0].n);
 }
 
-function parseArray(raw) {
-  if (!raw) return [];
-  try {
-    const parsed = JSON.parse(raw);
-    return Array.isArray(parsed) ? parsed : [];
-  } catch {
-    return [];
+const controle = {
+  dt_criacao: DATA_IMPLANTACAO,
+  dt_alteracao: DATA_IMPLANTACAO,
+  ds_usuario_criacao: USUARIO_IMPLANTACAO,
+  ds_usuario_alteracao: USUARIO_IMPLANTACAO,
+};
+
+async function semearPerfilAdministrador(db) {
+  const { rows } = await db.query("select nr_sequencia from perfil where lower(btrim(ds_perfil)) = 'administrador' order by nr_sequencia limit 1");
+  if (rows[0]) {
+    console.log(`ℹ️  perfil: Administrador já existe (${rows[0].nr_sequencia})`);
+    return Number(rows[0].nr_sequencia);
   }
-}
-
-function maiorSequencia(snap) {
-  return snap.docs.reduce((max, d) => Math.max(max, Number(d.data().nr_sequencia) || 0), 0);
-}
-
-/** Cria o documento, registra a auditoria de criação e sincroniza o contador. */
-async function criarComAuditoria(nomeColecao, contador, dados) {
-  const ref = doc(collection(db, nomeColecao));
-  await setDoc(ref, dados);
-  await addDoc(collection(db, nomeColecao, ref.id, "auditoria"), {
-    usuarioId: null,
-    usuarioNome: USUARIO_IMPLANTACAO,
-    acao: "create",
-    timestamp: DATA_IMPLANTACAO,
-    detalhes: dados,
-  });
-  await setDoc(doc(db, "_counters", contador), { current: dados.nr_sequencia }, { merge: true });
-  return ref.id;
-}
-
-async function semearPerfilAdministrador() {
-  const snap = await getDocs(collection(db, "perfil"));
-  const existente = snap.docs.find((d) => normalizar(d.data().ds_perfil) === "administrador");
-  if (existente) {
-    console.log(`ℹ️  perfil: Administrador já existe (${existente.data().nr_sequencia})`);
-    return Number(existente.data().nr_sequencia);
-  }
-
-  const nr_sequencia = maiorSequencia(snap) + 1;
-  if (DRY_RUN) {
-    console.log(`👀 perfil: Administrador seria inserido (${nr_sequencia})`);
-    return nr_sequencia;
-  }
-
-  await criarComAuditoria("perfil", "perfil_sequence", {
-    nr_sequencia,
+  const dados = {
     ds_perfil: "Administrador",
     ds_observacao: "Perfil padrão do sistema com acesso a todas as funções.",
     ie_status: "A",
     config_funcoes: JSON.stringify(TODAS_FUNCOES),
-    dt_criacao: DATA_IMPLANTACAO,
-    dt_alteracao: DATA_IMPLANTACAO,
-    ds_usuario_criacao: USUARIO_IMPLANTACAO,
-    ds_usuario_alteracao: USUARIO_IMPLANTACAO,
-  });
-  console.log(`✅ perfil: Administrador inserido (${nr_sequencia})`);
-  return nr_sequencia;
+  };
+  const { rows: novo } = await db.query(
+    `insert into perfil (nr_sequencia, ds_perfil, ds_observacao, ie_status, config_funcoes, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao)
+     values ($7, $1, $2, $3, $4::jsonb, $5, $5, $6, $6) returning nr_sequencia`,
+    [dados.ds_perfil, dados.ds_observacao, dados.ie_status, dados.config_funcoes, DATA_IMPLANTACAO, USUARIO_IMPLANTACAO, await proximoNumero(db, "perfil")]
+  );
+  const nr = Number(novo[0].nr_sequencia);
+  await auditarCriacao(db, "perfil", nr, USUARIO_IMPLANTACAO, DATA_IMPLANTACAO, { nr_sequencia: nr, ...dados, ...controle });
+  console.log(`✅ perfil: Administrador ${DRY_RUN ? "seria inserido" : "inserido"} (${nr})`);
+  return nr;
 }
 
-async function semearUsuarioAdministrador(perfilSeq) {
-  const snap = await getDocs(collection(db, "usuario"));
-  const existente = snap.docs.find((d) => normalizar(d.data().ds_usuario) === USUARIO_ADMIN.ds_usuario);
-
+async function semearUsuarioAdministrador(db, perfilSeq) {
+  const { rows } = await db.query(
+    "select nr_sequencia, config_perfis from usuario where lower(btrim(ds_usuario)) = $1 order by nr_sequencia limit 1",
+    [USUARIO_ADMIN.ds_usuario]
+  );
+  const existente = rows[0];
   if (existente) {
-    const perfis = parseArray(existente.data().config_perfis);
+    const perfis = Array.isArray(existente.config_perfis) ? existente.config_perfis : [];
     if (perfis.includes(perfilSeq)) {
       console.log(`ℹ️  usuario: administrador já existe e já possui o perfil (${perfilSeq})`);
       return;
     }
-    if (DRY_RUN) {
-      console.log(`👀 usuario: administrador existente receberia o perfil (${perfilSeq})`);
-      return;
-    }
-    await setDoc(
-      doc(db, "usuario", existente.id),
-      { config_perfis: JSON.stringify([...perfis, perfilSeq]), config_perfil_ativo: String(perfilSeq) },
-      { merge: true }
+    await db.query(
+      "update usuario set config_perfis = $1::jsonb, config_perfil_ativo = $2 where nr_sequencia = $3",
+      [JSON.stringify([...perfis, perfilSeq]), String(perfilSeq), existente.nr_sequencia]
     );
-    console.log(`✅ usuario: administrador existente vinculado ao perfil (${perfilSeq})`);
+    console.log(`✅ usuario: administrador existente ${DRY_RUN ? "receberia" : "recebeu"} o perfil (${perfilSeq})`);
     return;
   }
 
-  const nr_sequencia = maiorSequencia(snap) + 1;
-  if (DRY_RUN) {
-    console.log(`👀 usuario: administrador seria inserido (${nr_sequencia}) com o perfil (${perfilSeq})`);
-    return;
-  }
-
-  await criarComAuditoria("usuario", "usuario_sequence", {
-    nr_sequencia,
+  const dados = {
     ds_usuario: USUARIO_ADMIN.ds_usuario,
     ds_usuario_alternativo: USUARIO_ADMIN.ds_usuario_alternativo,
-    // SHA-256 em hexadecimal — mesmo formato que o hashPassword do login
-    ds_senha: createHash("sha256").update(USUARIO_ADMIN.senha).digest("hex"),
     ds_observacao: "",
     ie_status: "A",
     ie_base_conhecimento: "S",
     ie_central_suporte: "S",
     config_perfis: JSON.stringify([perfilSeq]),
     config_perfil_ativo: String(perfilSeq),
-    dt_criacao: DATA_IMPLANTACAO,
-    dt_alteracao: DATA_IMPLANTACAO,
-    ds_usuario_criacao: USUARIO_IMPLANTACAO,
-    ds_usuario_alteracao: USUARIO_IMPLANTACAO,
-  });
-  console.log(`✅ usuario: administrador inserido (${nr_sequencia}) com o perfil (${perfilSeq})`);
-}
-
-async function main() {
-  console.log(`🌱 Seeder — Implantação inicial${DRY_RUN ? " (dry-run)" : ""}\n`);
-  const perfilSeq = await semearPerfilAdministrador();
-  await semearUsuarioAdministrador(perfilSeq);
-  console.log(DRY_RUN ? "\n👀 Dry-run concluído. Nada foi escrito." : "\n🎉 Concluído!");
-  process.exit(0);
-}
-
-main().catch((err) => {
-  console.error("❌ Erro ao executar o seeder:", err?.message ?? err);
-  console.error(
-    "   Verifique se as regras de segurança do Firestore permitem escrita " +
-      "e se as credenciais estão corretas."
+  };
+  // SHA-256 em hexadecimal — mesmo formato conferido no login (src/lib/server/senha.ts)
+  const hash = createHash("sha256").update(USUARIO_ADMIN.senha).digest("hex");
+  const { rows: novo } = await db.query(
+    `insert into usuario (nr_sequencia, ds_usuario, ds_usuario_alternativo, ds_senha, ds_observacao, ie_status, ie_base_conhecimento, ie_central_suporte,
+                          config_perfis, config_perfil_ativo, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao)
+     values ($12, $1, $2, $3, $4, $5, $6, $7, $8::jsonb, $9, $10, $10, $11, $11) returning nr_sequencia`,
+    [dados.ds_usuario, dados.ds_usuario_alternativo, hash, dados.ds_observacao, dados.ie_status, dados.ie_base_conhecimento,
+      dados.ie_central_suporte, dados.config_perfis, dados.config_perfil_ativo, DATA_IMPLANTACAO, USUARIO_IMPLANTACAO, await proximoNumero(db, "usuario")]
   );
-  process.exit(1);
-});
+  const nr = Number(novo[0].nr_sequencia);
+  // A auditoria nunca guarda a senha.
+  await auditarCriacao(db, "usuario", nr, USUARIO_IMPLANTACAO, DATA_IMPLANTACAO, { nr_sequencia: nr, ...dados, ...controle });
+  console.log(`✅ usuario: administrador ${DRY_RUN ? "seria inserido" : "inserido"} (${nr}) com o perfil (${perfilSeq})`);
+}
+
+console.log(`🌱 Seeder — Implantação inicial${DRY_RUN ? " (dry-run)" : ""}`);
+const db = await conectar();
+try {
+  await db.query("BEGIN");
+  const perfilSeq = await semearPerfilAdministrador(db);
+  await semearUsuarioAdministrador(db, perfilSeq);
+  await ajustarSequencia(db, "perfil");
+  await ajustarSequencia(db, "usuario");
+  if (DRY_RUN) {
+    await db.query("ROLLBACK");
+    console.log("\n👀 Dry-run concluído. Nada foi gravado.");
+  } else {
+    await db.query("COMMIT");
+    console.log("\n🎉 Concluído!");
+  }
+} catch (erro) {
+  await db.query("ROLLBACK").catch(() => undefined);
+  falhar(`Erro ao executar o seeder (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}. Nada foi gravado.`);
+} finally {
+  await db.end().catch(() => undefined);
+}

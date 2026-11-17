@@ -1,5 +1,4 @@
-import { collection, getDocs, query, orderBy } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { api } from "@/lib/apiCliente";
 
 export interface AuditAutor {
   usuarioId?: string | null;
@@ -11,17 +10,15 @@ export interface AuditEntry {
   usuarioId?: string;
   usuarioNome?: string;
   acao?: string;
-  timestamp?: string; // ISO string or Firestore timestamp as string
+  timestamp?: string; // ISO string
   detalhes?: any;
 }
 
+/** Trilha de auditoria de um registro, do mais recente para o mais antigo. */
 export async function fetchAuditByDocumentId(collectionName: string, documentId: string): Promise<AuditEntry[]> {
   if (!documentId) return [];
   try {
-    const colRef = collection(db, collectionName, documentId, "auditoria");
-    const q = query(colRef, orderBy("timestamp", "desc"));
-    const snap = await getDocs(q);
-    return snap.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as AuditEntry[];
+    return await api.get<AuditEntry[]>(`/api/auditoria/${encodeURIComponent(collectionName)}/${encodeURIComponent(documentId)}`);
   } catch (e) {
     console.error("Erro ao buscar auditoria:", e);
     return [];
@@ -35,4 +32,3 @@ export async function fetchAuditByPessoaId(pessoaId: string): Promise<AuditEntry
 export async function fetchAuditByUsuarioId(usuarioId: string): Promise<AuditEntry[]> {
   return fetchAuditByDocumentId("usuario", usuarioId);
 }
-

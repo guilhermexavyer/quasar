@@ -1,5 +1,4 @@
-import { collection, getDocs, doc, setDoc, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { atualizarDado, criarDado, listarDados } from "@/lib/apiCliente";
 import type { AuditAutor } from "@/services/auditService";
 
 const COLECAO = "aviso";
@@ -35,58 +34,21 @@ export function filtrarAuditoriaDoAviso<T extends { campo?: string; detalhes?: R
 }
 
 export async function obterAviso(): Promise<Aviso | null> {
-  const snapshot = await getDocs(collection(db, COLECAO));
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  return { id: docSnap.id, ...docSnap.data() } as Aviso;
+  return (await listarDados<Aviso>(COLECAO))[0] ?? null;
 }
 
 /**
- * Salva o conteúdo de um aviso. Cria o documento na primeira vez e registra a
- * auditoria (detalhes = estado completo, para o modal "Detalhe da auditoria").
- * Sem alteração no conteúdo, nada é gravado.
+ * Salva o conteúdo de um aviso. Cria o registro na primeira vez e registra a
+ * auditoria (detalhes = estado completo, para o modal "Detalhe da auditoria";
+ * o log guarda qual aviso foi alterado). Sem alteração no conteúdo, nada é gravado.
+ * O autor vem da sessão (o parâmetro `autor` é mantido só pela assinatura).
  */
-export async function salvarAviso(campo: CampoAviso, conteudo: string, autor?: AuditAutor): Promise<Aviso> {
-  const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
+export async function salvarAviso(campo: CampoAviso, conteudo: string, _autor?: AuditAutor): Promise<Aviso> {
   const atual = await obterAviso();
-
   if (!atual?.id) {
-    const ref = doc(collection(db, COLECAO));
-    const dados: Aviso = {
-      ds_esqueceu_senha: "",
-      ds_politica_privacidade: "",
-      [campo]: conteudo,
-      dt_criacao: agora,
-      dt_alteracao: agora,
-      ds_usuario_criacao: nomeAutor,
-      ds_usuario_alteracao: nomeAutor,
-    };
-    await setDoc(ref, dados);
-    await registrarAuditoria(ref.id, "create", agora, autor, dados, campo);
-    return { id: ref.id, ...dados };
+    return criarDado<Aviso>(COLECAO, { ds_esqueceu_senha: "", ds_politica_privacidade: "", [campo]: conteudo }, { campo });
   }
-
   if ((atual[campo] ?? "") === conteudo) return atual;
-  const { id, ...dadosAtuais } = atual;
-  const dados: Aviso = { ...dadosAtuais, [campo]: conteudo, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
-  await setDoc(doc(db, COLECAO, id), { [campo]: conteudo, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor }, { merge: true });
-  await registrarAuditoria(id, "update", agora, autor, dados, campo);
-  return { id, ...dados };
-}
-
-/** O log guarda o aviso alterado (campo): cada aviso tem seu próprio histórico de auditoria. */
-async function registrarAuditoria(id: string, acao: "create" | "update", agora: string, autor: AuditAutor | undefined, detalhes: Aviso, campo: CampoAviso) {
-  try {
-    await addDoc(collection(db, COLECAO, id, "auditoria"), {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: autor?.usuarioNome?.trim() || "-",
-      acao,
-      campo,
-      timestamp: agora,
-      detalhes,
-    });
-  } catch (e) {
-    console.error(`Erro ao registrar auditoria de aviso (${acao})`, e);
-  }
+  const { registro } = await atualizarDado<Aviso>(COLECAO, atual.id, { [campo]: conteudo }, { campo });
+  return registro ?? atual;
 }

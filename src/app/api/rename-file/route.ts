@@ -1,75 +1,50 @@
-import { NextRequest, NextResponse } from "next/server";
-import { put, rename } from "@vercel/blob";
-import { readFile } from "fs/promises";
-import path from "path";
+import { readFile } from "node:fs/promises";
+import path from "node:path";
+import { NextResponse, type NextRequest } from "next/server";
+import { corpo, erro, rota } from "@/lib/server/http";
 import {
-  EXTENSOES_IMAGEM,
-  pastaImagens,
-  ehUrlBlob,
-  blobDoAmbienteAtual,
-  existeImagemNoBlob,
-} from "@/lib/blobImagens";
+  caminhoDoStorage, enviarArquivo, ErroStorage, mimeDoArquivo, moverArquivo, nomeArquivoValido, PASTA, urlDaRota,
+} from "@/lib/server/storage";
 
+/**
+ * Renomeia o arquivo de uma imagem no Storage. Exige sessão.
+ * Devolve { path } com o novo caminho (a tela grava em ie_arquivo).
+ */
 export async function POST(request: NextRequest) {
-  try {
-    const body = await request.json();
-    const oldPath = body.oldPath as string;
-    const newFileName = body.newFileName as string;
-
-    if (!oldPath || !newFileName) {
-      return NextResponse.json({ error: "Parâmetros não informados" }, { status: 400 });
+  return rota(request, async () => {
+    const { oldPath, newFileName } = await corpo(request);
+    if (typeof oldPath !== "string" || typeof newFileName !== "string" || !oldPath || !newFileName) {
+      return erro("Parâmetros não informados", 400);
     }
-
-    // Validar tipo de arquivo
-    const lowerName = newFileName.toLowerCase();
-    const hasValidExtension = EXTENSOES_IMAGEM.some((ext) => lowerName.endsWith(ext));
-    if (!hasValidExtension) {
-      return NextResponse.json(
-        { error: "Tipo de arquivo não permitido. Aceitos: .jpeg, .jpg, .png" },
-        { status: 400 }
-      );
+    if (!nomeArquivoValido(newFileName)) {
+      return erro("Tipo de arquivo não permitido. Aceitos: .jpeg, .jpg, .png", 400);
     }
+    const destino = PASTA + newFileName.trim();
 
-    if (!ehUrlBlob(oldPath) && !oldPath.startsWith("/images/")) {
-      return NextResponse.json({ error: "Caminho inválido" }, { status: 400 });
-    }
-
-    // Verificar se o novo nome já existe nesta base
-    if (await existeImagemNoBlob(newFileName)) {
-      return NextResponse.json({ error: "A imagem já existe." }, { status: 409 });
-    }
-
-    const novoPathname = pastaImagens() + newFileName;
-
-    // Imagem desta base: renomeia dentro do Blob, sem reenviar o arquivo
-    if (ehUrlBlob(oldPath) && blobDoAmbienteAtual(oldPath)) {
-      const resultado = await rename(oldPath, novoPathname, { access: "public" });
-      return NextResponse.json({ path: resultado.url });
-    }
-
-    // Imagem de outra origem (legada do repositório ou de outra base): copia para
-    // a pasta desta base com o novo nome e não mexe no original.
-    let conteudo: Buffer;
-    if (ehUrlBlob(oldPath)) {
-      const resposta = await fetch(oldPath);
-      if (!resposta.ok) {
-        return NextResponse.json({ error: "Arquivo original não encontrado" }, { status: 404 });
+    try {
+      // Imagem antiga do repositório (public/images): copia para o Storage com o novo nome.
+      if (oldPath.startsWith("/images/")) {
+        const local = path.join(process.cwd(), "public", "images", path.basename(oldPath));
+        let conteudo: Buffer;
+        try {
+          conteudo = await readFile(local);
+        } catch {
+          return erro("Arquivo original não encontrado", 404);
+        }
+        await enviarArquivo(destino, conteudo, mimeDoArquivo(newFileName));
+        return NextResponse.json({ path: urlDaRota(destino) });
       }
-      conteudo = Buffer.from(await resposta.arrayBuffer());
-    } else {
-      try {
-        conteudo = await readFile(path.join(process.cwd(), "public", oldPath));
-      } catch {
-        return NextResponse.json({ error: "Arquivo original não encontrado" }, { status: 404 });
-      }
+
+      const origem = caminhoDoStorage(oldPath);
+      if (!origem) return erro("Caminho inválido", 400);
+      if (origem === destino) return NextResponse.json({ path: urlDaRota(destino) });
+      await moverArquivo(origem, destino);
+      return NextResponse.json({ path: urlDaRota(destino) });
+    } catch (e) {
+      if (e instanceof ErroStorage && e.status === 409) return erro("A imagem já existe.", 409);
+      if (e instanceof ErroStorage && (e.status === 400 || e.status === 404)) return erro("Arquivo original não encontrado", 404);
+      console.error("Erro ao renomear arquivo:", e);
+      return erro("Erro ao renomear arquivo", 500);
     }
-    const blob = await put(novoPathname, conteudo, {
-      access: "public",
-      addRandomSuffix: false,
-    });
-    return NextResponse.json({ path: blob.url });
-  } catch (error) {
-    console.error("Erro ao renomear arquivo:", error);
-    return NextResponse.json({ error: "Erro ao renomear arquivo" }, { status: 500 });
-  }
+  });
 }

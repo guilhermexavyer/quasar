@@ -1,125 +1,54 @@
-import {
-  collection,
-  addDoc,
-  getDocs,
-  getDoc,
-  doc,
-  updateDoc,
-  deleteDoc,
-  runTransaction,
-  onSnapshot,
-  query,
-  where,
-} from "firebase/firestore";
-import { db } from "@/lib/firebase";
-import { montarUpdateComRemocoes, removerUndefined } from "@/lib/firestoreUtils";
+import { atualizarDado, criarDado, excluirDado, listarDados } from "@/lib/apiCliente";
+import { notificarMudanca, notificarPrefixo, observar } from "@/lib/observador";
 import { COLECAO_PERIODO_LETIVO_FERIADO } from "@/lib/periodoLetivoFeriadoUtils";
 import type { PeriodoLetivoFeriado } from "@/types/periodoLetivoFeriado";
 import type { AuditAutor } from "@/services/auditService";
-import { registrarExclusao } from "@/services/exclusaoService";
 
-const feriadoColecao = collection(db, COLECAO_PERIODO_LETIVO_FERIADO);
-const contadorDoc = doc(db, "_counters", "periodo_letivo_feriado_sequence");
+const assunto = (nrSeqPeriodoLetivo: number) => `${COLECAO_PERIODO_LETIVO_FERIADO}:${nrSeqPeriodoLetivo}`;
 
-async function obterProximoSequencia(): Promise<number> {
-  try {
-    return await runTransaction(db, async (transacao) => {
-      const docSnap = await transacao.get(contadorDoc);
-      const proximo = docSnap.exists() ? (docSnap.data().current ?? 0) + 1 : 1;
-      transacao.set(contadorDoc, { current: proximo }, { merge: true });
-      return proximo;
-    });
-  } catch {
-    return Date.now();
-  }
+function feriadosDoPeriodo(nrSeqPeriodoLetivo: number): Promise<PeriodoLetivoFeriado[]> {
+  return listarDados<PeriodoLetivoFeriado>(COLECAO_PERIODO_LETIVO_FERIADO, { nr_seq_periodo_letivo: nrSeqPeriodoLetivo });
 }
 
-async function registrarAuditoria(id: string, acao: 'create' | 'update', detalhes: Record<string, unknown>, autor: AuditAutor | undefined, timestamp: string) {
-  try {
-    await addDoc(collection(db, COLECAO_PERIODO_LETIVO_FERIADO, id, "auditoria"), {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: autor?.usuarioNome ?? '-',
-      acao,
-      timestamp,
-      detalhes,
-    });
-  } catch (e) {
-    console.error('Erro ao registrar auditoria do feriado', e);
-  }
-}
-
-/** Escuta, em tempo real, os feriados de um período letivo. Retorna o cancelamento. */
+/**
+ * Acompanha os feriados de um período letivo (na hora para o que este navegador
+ * grava; em até 15 segundos para o que outros usuários alteram). Retorna o cancelamento.
+ */
 export function observarFeriadosDoPeriodo(
   nrSeqPeriodoLetivo: number,
   aoMudar: (feriados: PeriodoLetivoFeriado[]) => void,
   aoFalhar?: (erro: unknown) => void
 ): () => void {
-  return onSnapshot(
-    query(feriadoColecao, where("nr_seq_periodo_letivo", "==", nrSeqPeriodoLetivo)),
-    (snapshot) => {
-      aoMudar(snapshot.docs.map((d) => {
-        const { id, ...rest } = d.data() as Record<string, unknown>;
-        void id;
-        return { id: d.id, ...rest } as PeriodoLetivoFeriado;
-      }));
-    },
-    (erro) => aoFalhar?.(erro)
-  );
+  return observar(assunto(nrSeqPeriodoLetivo), () => feriadosDoPeriodo(nrSeqPeriodoLetivo), aoMudar, aoFalhar);
 }
 
 export async function criarFeriado(
   feriado: Omit<PeriodoLetivoFeriado, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">,
-  autor?: AuditAutor
+  _autor?: AuditAutor
 ): Promise<string> {
-  const agora = new Date().toISOString();
-  const nr_sequencia = await obterProximoSequencia();
-  const nomeAutor = autor?.usuarioNome?.trim() || '-';
-  const dados = {
-    ...removerUndefined(feriado),
-    nr_sequencia,
-    dt_criacao: agora,
-    dt_alteracao: agora,
-    ds_usuario_criacao: nomeAutor,
-    ds_usuario_alteracao: nomeAutor,
-  };
-  const docRef = await addDoc(feriadoColecao, dados);
-  await registrarAuditoria(docRef.id, 'create', dados, autor, agora);
-  return docRef.id;
+  const criado = await criarDado<PeriodoLetivoFeriado>(COLECAO_PERIODO_LETIVO_FERIADO, feriado);
+  notificarMudanca(assunto(Number(criado.nr_seq_periodo_letivo)));
+  return String(criado.id);
 }
 
 export async function atualizarFeriado(
   id: string,
   feriado: Partial<Pick<PeriodoLetivoFeriado, "dt_feriado" | "ds_feriado" | "ie_tipo_feriado">>,
-  autor?: AuditAutor
+  _autor?: AuditAutor
 ): Promise<void> {
-  const docRef = doc(db, COLECAO_PERIODO_LETIVO_FERIADO, id);
-  const snap = await getDoc(docRef);
-  if (!snap.exists()) return;
-
-  const atual = snap.data() as Record<string, unknown>;
-  const mudou = Object.entries(feriado).some(([k, v]) => String(atual[k] ?? '') !== String(v ?? ''));
-  if (!mudou) return;
-
-  const { updates, removidos } = montarUpdateComRemocoes(atual, feriado);
-  const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || '-';
-  await updateDoc(docRef, { ...updates, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor });
-
-  const estadoFinal: Record<string, unknown> = { ...atual, ...updates, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
-  for (const key of removidos) delete estadoFinal[key];
-  await registrarAuditoria(id, 'update', estadoFinal, autor, agora);
+  const { registro } = await atualizarDado<PeriodoLetivoFeriado>(COLECAO_PERIODO_LETIVO_FERIADO, id, feriado);
+  if (registro) notificarMudanca(assunto(Number(registro.nr_seq_periodo_letivo)));
 }
 
 export async function excluirFeriado(id: string): Promise<void> {
-  await registrarExclusao(COLECAO_PERIODO_LETIVO_FERIADO, id);
-  await deleteDoc(doc(db, COLECAO_PERIODO_LETIVO_FERIADO, id));
+  await excluirDado(COLECAO_PERIODO_LETIVO_FERIADO, id);
+  // O período do feriado excluído não é conhecido aqui: avisa todos os observadores de feriados.
+  notificarPrefixo(`${COLECAO_PERIODO_LETIVO_FERIADO}:`);
 }
 
 /** Exclui todos os feriados de um período letivo (usado ao excluir o período). */
 export async function excluirFeriadosDoPeriodo(nrSeqPeriodoLetivo: number): Promise<void> {
-  const snap = await getDocs(query(feriadoColecao, where("nr_seq_periodo_letivo", "==", nrSeqPeriodoLetivo)));
-  await Promise.all(snap.docs.map(async (d) => {
-    await registrarExclusao(COLECAO_PERIODO_LETIVO_FERIADO, d.id);
-    await deleteDoc(d.ref);
-  }));
+  const feriados = await feriadosDoPeriodo(nrSeqPeriodoLetivo);
+  await Promise.all(feriados.map((f) => excluirDado(COLECAO_PERIODO_LETIVO_FERIADO, String(f.id))));
+  notificarMudanca(assunto(nrSeqPeriodoLetivo));
 }

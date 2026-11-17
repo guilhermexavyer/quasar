@@ -1,5 +1,4 @@
-import { collection, getDocs, doc, setDoc, addDoc } from "firebase/firestore";
-import { db } from "@/lib/firebase";
+import { atualizarDado, criarDado, listarDados } from "@/lib/apiCliente";
 import type { AuditAutor } from "@/services/auditService";
 
 const COLECAO = "regra";
@@ -39,62 +38,28 @@ export function filtrarAuditoriaDaRegra<T extends object>(logs: T[], regra: IdRe
 }
 
 export async function obterRegra(): Promise<Regra | null> {
-  const snapshot = await getDocs(collection(db, COLECAO));
-  if (snapshot.empty) return null;
-  const docSnap = snapshot.docs[0];
-  return { id: docSnap.id, ...docSnap.data() } as Regra;
+  return (await listarDados<Regra>(COLECAO))[0] ?? null;
 }
 
 /**
- * Salva os campos de uma regra. Cria o documento na primeira vez e registra a
- * auditoria (detalhes = estado completo, para o modal "Detalhe da auditoria").
- * Sem alteração nos valores, nada é gravado.
+ * Salva os campos de uma regra. Cria o registro na primeira vez e registra a
+ * auditoria (detalhes = estado completo, para o modal "Detalhe da auditoria";
+ * o log guarda qual regra foi alterada). Sem alteração nos valores, nada é gravado.
+ * O autor vem da sessão (o parâmetro `autor` é mantido só pela assinatura).
  */
-export async function salvarRegra(regra: IdRegra, valores: Partial<Regra>, autor?: AuditAutor): Promise<Regra> {
+export async function salvarRegra(regra: IdRegra, valores: Partial<Regra>, _autor?: AuditAutor): Promise<Regra> {
   const agora = new Date().toISOString();
-  const nomeAutor = autor?.usuarioNome?.trim() || "-";
   const campos = Object.fromEntries(CAMPOS_REGRA[regra].map((c) => [c, String(valores[c] ?? "")])) as Partial<Regra>;
   // Vigência própria do logout: salvar outra regra não muda a partir de quando ele vale.
   const vigencia: Partial<Regra> = regra === "logout_automatico" ? { dt_vigencia_logout: agora } : {};
   const atual = await obterRegra();
 
   if (!atual?.id) {
-    const ref = doc(collection(db, COLECAO));
-    const dados: Regra = {
-      ...campos,
-      ...vigencia,
-      dt_criacao: agora,
-      dt_alteracao: agora,
-      ds_usuario_criacao: nomeAutor,
-      ds_usuario_alteracao: nomeAutor,
-    };
-    await setDoc(ref, dados);
-    await registrarAuditoria(ref.id, "create", agora, autor, dados, regra);
-    return { id: ref.id, ...dados };
+    return criarDado<Regra>(COLECAO, { ...campos, ...vigencia }, { regra });
   }
 
   const semAlteracao = CAMPOS_REGRA[regra].every((c) => String(atual[c] ?? "") === campos[c]);
   if (semAlteracao) return atual;
-  const { id, ...dadosAtuais } = atual;
-  const alteracao = { ...campos, ...vigencia, dt_alteracao: agora, ds_usuario_alteracao: nomeAutor };
-  await setDoc(doc(db, COLECAO, id), alteracao, { merge: true });
-  const dados: Regra = { ...dadosAtuais, ...alteracao };
-  await registrarAuditoria(id, "update", agora, autor, dados, regra);
-  return { id, ...dados };
-}
-
-/** O log guarda a regra alterada: cada regra tem seu próprio histórico de auditoria. */
-async function registrarAuditoria(id: string, acao: "create" | "update", agora: string, autor: AuditAutor | undefined, detalhes: Regra, regra: IdRegra) {
-  try {
-    await addDoc(collection(db, COLECAO, id, "auditoria"), {
-      usuarioId: autor?.usuarioId ?? null,
-      usuarioNome: autor?.usuarioNome?.trim() || "-",
-      acao,
-      regra,
-      timestamp: agora,
-      detalhes,
-    });
-  } catch (e) {
-    console.error(`Erro ao registrar auditoria de regra (${acao})`, e);
-  }
+  const { registro } = await atualizarDado<Regra>(COLECAO, atual.id, { ...campos, ...vigencia }, { regra });
+  return registro ?? atual;
 }
