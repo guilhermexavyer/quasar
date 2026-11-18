@@ -142,7 +142,10 @@ export async function criar(tabela: string, dados: Registro, sessao: Sessao, opc
   avisarDesconhecidas(tabela, desconhecidas);
   tratarSenha(tabela, valores);
   await completarImagem(tabela, valores);
-  if (tabela === "usuario" && !valores.get("ds_senha")) throw new ErroValidacao("Informe a senha do usuário.");
+  // Usuário novo nasce sem senha (o formulário de cadastro não tem esse campo, como
+  // antes da migração): a senha é definida depois em "Alterar senha". Senha vazia
+  // nunca confere no login (senhaConfere), então ninguém entra até ela ser definida.
+  if (tabela === "usuario" && !valores.get("ds_senha")) valores.set("ds_senha", "");
 
   const agora = new Date().toISOString();
   const autor = opcoes?.sistema ? "Sistema" : sessao.nomeUsuario;
