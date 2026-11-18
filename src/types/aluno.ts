@@ -1,5 +1,9 @@
-/** Um responsável do aluno (seção Responsáveis). */
-export interface AlunoResponsavel {
+/**
+ * Formato antigo de um responsável, quando ficavam dentro do aluno (lista
+ * responsaveis). Hoje ficam em aluno_responsavel; este tipo só serve para
+ * exibir o histórico de auditoria gravado antes da mudança.
+ */
+export interface AlunoResponsavelLegado {
   /** Pessoa física responsável. */
   nr_seq_responsavel?: number;
   /** Grau de parentesco do responsável. */
@@ -16,11 +20,6 @@ export interface Aluno {
   dt_status?: string;
   ds_status?: string;
   ie_status?: string;
-  /** Responsáveis do aluno (seção Responsáveis). */
-  responsaveis?: AlunoResponsavel[];
-  /* Campos legados (pré-responsaveis): lidos na migração para o array. */
-  nr_seq_responsavel?: number;
-  nr_seq_grau_parentesco?: number;
   dt_criacao: string;
   dt_alteracao: string;
   ds_usuario_criacao?: string;

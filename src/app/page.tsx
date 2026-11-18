@@ -152,7 +152,7 @@ import { EVENTO_SESSAO_EXPIRADA } from "@/lib/apiCliente";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
-import type { Aluno, AlunoResponsavel } from "@/types/aluno";
+import type { Aluno, AlunoResponsavelLegado } from "@/types/aluno";
 import type { Colaborador } from "@/types/colaborador";
 import type { PeriodoLetivo } from "@/types/periodoLetivo";
 import {
@@ -185,6 +185,7 @@ import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView
 import PessoaJuridicaListView from "@/components/pessoaJuridica/PessoaJuridicaListView";
 import PessoaJuridicaFormView from "@/components/pessoaJuridica/PessoaJuridicaFormView";
 import AlunoListView from "@/components/estruturaAcademica/AlunoListView";
+import AlunoDetalheView from "@/components/estruturaAcademica/AlunoDetalheView";
 import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademica/AlunoFormView";
 import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorListView";
 import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
@@ -204,6 +205,7 @@ import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import AtivoDetalheView from "@/components/patrimonio/AtivoDetalheView";
 import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
+import { excluirResponsaveisDoAluno } from "@/services/alunoResponsavelService";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
 import ParametrosDaFuncaoView, { PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
@@ -499,7 +501,6 @@ const emptyAlunoForm: AlunoFormData = {
   dt_status: "",
   ds_status: "",
   ie_status: 'A',
-  responsaveis: [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }],
 };
 
 const emptyPeriodoLetivoForm: PeriodoLetivoFormData = {
@@ -580,21 +581,6 @@ function filtroValoresMedicos(pessoa: Partial<PessoaFisica>): Record<string, str
     result[campo] = Array.isArray(lista) ? lista.filter((v) => v && v.trim() !== '') : [];
   }
   return result;
-}
-
-/** Converte um aluno salvo para o formato responsaveis[] (migra campos legados). */
-function migrarResponsaveis(aluno: Aluno): AlunoResponsavel[] {
-  // Formato novo gravado (mesmo que vazio — usuário limpou todos): respeita.
-  if (Array.isArray(aluno.responsaveis)) {
-    return aluno.responsaveis.length > 0
-      ? aluno.responsaveis.map((r) => ({ ...r }))
-      : [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }];
-  }
-  // Legado: nr_seq_responsavel/nr_seq_grau_parentesco no documento.
-  if (aluno.nr_seq_responsavel || aluno.nr_seq_grau_parentesco) {
-    return [{ nr_seq_responsavel: aluno.nr_seq_responsavel, nr_seq_grau_parentesco: aluno.nr_seq_grau_parentesco }];
-  }
-  return [{ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined }];
 }
 
 const emptyPjForm: PjFormData = {
@@ -932,7 +918,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1155,7 +1141,8 @@ export default function Home() {
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
   const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter'>('aluno');
-  const alunoResponsavelLookupIndexRef = useRef(0);
+  /** Responsáveis do aluno (aba Responsáveis): recebe a pessoa física escolhida no lookup. */
+  const alunoResponsavelLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
   /** Quem recebe o colaborador escolhido no lookup aberto pelos responsáveis do ativo. */
   const ativoResponsavelLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
@@ -1380,6 +1367,7 @@ export default function Home() {
   const [imagemCampoErros, setImagemCampoErros] = useState<string[]>([]);
   const [periodoLetivoFeriadoSaving, setPeriodoLetivoFeriadoSaving] = useState(false);
   const [ativoResponsavelSaving, setAtivoResponsavelSaving] = useState(false);
+  const [alunoResponsavelSaving, setAlunoResponsavelSaving] = useState(false);
   // Cores da bolinha de status do Período letivo (Estrutura Acadêmica > Parâmetros).
   const [coresStatusPeriodoLetivo, setCoresStatusPeriodoLetivo] = useState<Record<string, string>>(CORES_STATUS_PERIODO_LETIVO_PADRAO);
   // Cores da bolinha de status dos Ativos (Patrimônio > Parâmetros).
@@ -1904,6 +1892,7 @@ export default function Home() {
       gerarMatricula: permitida('gerar_matricula_aluno'),
       alterarDataIngresso: permitida('alterar_data_ingresso_aluno'),
       alterarStatusAluno: permitida('alterar_status_aluno'),
+      detalhesAluno: permitida('detalhes_aluno'),
       excluirAluno: permitida('excluir_aluno'),
       acessarColaborador: permitida('acessar_colaborador'),
       adicionarColaborador: permitida('adicionar_colaborador'),
@@ -2335,24 +2324,14 @@ export default function Home() {
   );
 
   /* ── Lookups (nr_sequencia → nome) para as colunas de Aluno ── */
-  const alunoPessoaFisicaLookups = useMemo(() => {
-    const nomePessoa = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
-    const nomeGrau = Object.fromEntries(grausParentesco.map((g) => [g.nr_sequencia, g.ds_grau_parentesco]));
-    return {
-      nr_seq_pessoa_fisica: nomePessoa,
-      responsaveis: (value: unknown) => {
-        const arr = Array.isArray(value) ? (value as AlunoResponsavel[]) : [];
-        const validos = arr.filter((r) => r && r.nr_seq_responsavel);
-        return validos
-          .map((r) => {
-            const nome = nomePessoa[r.nr_seq_responsavel!] ?? String(r.nr_seq_responsavel);
-            const grau = r.nr_seq_grau_parentesco ? (nomeGrau[r.nr_seq_grau_parentesco] ?? '') : '';
-            return grau ? `${nome} (${grau})` : nome;
-          })
-          .join(', ');
-      },
-    };
-  }, [pessoasFisicas, grausParentesco]);
+  const nomePessoaFisicaDoAluno = useCallback(
+    (seq?: number) => (seq ? pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '' : ''),
+    [pessoasFisicas]
+  );
+
+  const alunoPessoaFisicaLookups = useMemo(() => ({
+    nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+  }), [pessoasFisicas]);
 
   /* ── Carregar pessoas físicas, jurídicas e usuários ── */
   const loadPessoasFisicas = useCallback(async () => {
@@ -3978,6 +3957,7 @@ export default function Home() {
   function handleAlunoManageSelectionChange(value: string) {
     setAlunoInteracted(true);
     setPeriodoLetivoFeriadosId(null);
+    setAlunoDetalheId(null);
     setAlunoManageSelection(value);
     // Ao trocar entre Alunos/Colaboradores, zera os formulários em edição
     // para nunca salvar contra a coleção errada.
@@ -4172,6 +4152,19 @@ export default function Home() {
       const logs = await fetchAuditByDocumentId('pat_ativo', ativoId);
       setAuditLogs(logs);
     } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openAlunoResponsavelAuditModal(responsavelId: string) {
+    setAuditDocumentType('aluno_responsavel');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('aluno_responsavel', responsavelId));
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -4883,7 +4876,6 @@ export default function Home() {
       dt_status: aluno.dt_status ?? '',
       ds_status: aluno.ds_status ?? '',
       ie_status: aluno.ie_status ?? 'A',
-      responsaveis: migrarResponsaveis(aluno),
     });
     setAlunoEditingId(aluno.id ?? null);
     setAlunoAuditInfo({
@@ -5392,6 +5384,20 @@ export default function Home() {
   function navegarFeriadosDoPeriodo(direcao: -1 | 1) {
     const alvo = filteredSortedPeriodosLetivos[periodoLetivoFeriadosIndex + direcao];
     if (periodoLetivoFeriadosIndex >= 0 && alvo?.id) setPeriodoLetivoFeriadosId(alvo.id);
+  }
+
+  // Responsáveis de um aluno (duplo clique na lista, como os responsáveis de um ativo).
+  const [alunoDetalheId, setAlunoDetalheId] = useState<string | null>(null);
+  const alunoDetalhe = alunoDetalheId ? alunos.find((a) => a.id === alunoDetalheId) ?? null : null;
+  const alunoDetalheIndex = alunoDetalheId ? filteredSortedAlunos.findIndex((a) => a.id === alunoDetalheId) : -1;
+  function abrirDetalheDoAluno(aluno: Aluno) {
+    if (!permissoesEA.detalhesAluno || !aluno.id) return;
+    setMessage("");
+    setAlunoDetalheId(aluno.id);
+  }
+  function navegarDetalheDoAluno(direcao: -1 | 1) {
+    const alvo = filteredSortedAlunos[alunoDetalheIndex + direcao];
+    if (alunoDetalheIndex >= 0 && alvo?.id) setAlunoDetalheId(alvo.id);
   }
 
   const hasPrevPeriodoLetivoRecord = currentPeriodoLetivoEditIndex > 0;
@@ -6297,38 +6303,10 @@ export default function Home() {
     event.preventDefault();
     setMessage("");
 
-    // Remove linhas de responsáveis totalmente vazias antes de validar/salvar.
-    const responsaveisFiltrados = (alunoForm.responsaveis ?? []).filter(
-      (r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco
-    );
-
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
-    // nr_seq_responsavel/nr_seq_grau_parentesco ficam dentro do array
-    // responsaveis — se o campo é obrigatório, TODAS as linhas adicionadas
-    // (não só a primeira) precisam ter o valor preenchido.
+    // Os responsáveis ficam em aluno_responsavel (duplo clique no aluno).
     const alunoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'aluno');
-    const alunoFaltantes: string[] = [];
-    const linhasResponsaveis = alunoForm.responsaveis ?? [];
-    if (
-      alunoRegras['nr_seq_responsavel'] === 'O' &&
-      linhasResponsaveis.some((r) => !r.nr_seq_responsavel)
-    ) {
-      alunoFaltantes.push('nr_seq_responsavel');
-    }
-    if (
-      alunoRegras['nr_seq_grau_parentesco'] === 'O' &&
-      linhasResponsaveis.some((r) => !r.nr_seq_grau_parentesco)
-    ) {
-      alunoFaltantes.push('nr_seq_grau_parentesco');
-    }
-    // Demais obrigatórios (campos planos do formulário).
-    const regrasPlanas: Record<string, CampoStatus> = {};
-    for (const [campo, status] of Object.entries(alunoRegras)) {
-      if (campo === 'nr_seq_responsavel' || campo === 'nr_seq_grau_parentesco') continue;
-      regrasPlanas[campo] = status;
-    }
-    const faltantesPlanos = camposObrigatoriosVazios(alunoForm as unknown as Record<string, unknown>, regrasPlanas);
-    alunoFaltantes.push(...faltantesPlanos);
+    const alunoFaltantes = camposObrigatoriosVazios(alunoForm as unknown as Record<string, unknown>, alunoRegras);
     if (alunoFaltantes.length > 0) {
       setAlunoCampoErros(alunoFaltantes);
       setMessage("Preencha os campos obrigatórios.");
@@ -6337,10 +6315,7 @@ export default function Home() {
     setAlunoCampoErros([]);
     setAlunoSubmitting(true);
 
-    const payloadAluno = {
-      ...alunoForm,
-      responsaveis: responsaveisFiltrados,
-    };
+    const payloadAluno = { ...alunoForm };
 
     try {
       if (alunoEditingId) {
@@ -6353,14 +6328,8 @@ export default function Home() {
           'ds_status',
           'ie_status',
         ];
-        const responsaveisAtuais = migrarResponsaveis(currentAluno ?? ({} as Aluno)).filter(
-          (r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco
-        );
-        const responsaveisForm = (alunoForm.responsaveis ?? []).filter((r) => r.nr_seq_responsavel || r.nr_seq_grau_parentesco);
-        const responsaveisMudaram =
-          JSON.stringify(responsaveisAtuais) !== JSON.stringify(responsaveisForm);
         const hasChanges = currentAluno
-          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? '')) || responsaveisMudaram
+          ? formKeys.some((key) => String(currentAluno[key] ?? '') !== String(alunoForm[key] ?? ''))
           : true;
 
         if (!hasChanges) {
@@ -7001,9 +6970,8 @@ export default function Home() {
   }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter', responsavelIndex = 0) {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter') {
     alunoPessoaFisicaLookupTargetRef.current = target;
-    alunoResponsavelLookupIndexRef.current = responsavelIndex;
     setAlunoLookupForm(alunoLookupFilter);
     setAlunoLookupApplied(false);
     setAlunoPessoaFisicaLookupOpen(true);
@@ -7022,12 +6990,8 @@ export default function Home() {
     } else if (target === 'colaborador') {
       setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
     } else if (target === 'responsavel') {
-      const index = alunoResponsavelLookupIndexRef.current;
-      setAlunoForm((prev) => {
-        const responsaveis = [...(prev.responsaveis ?? [])];
-        responsaveis[index] = { ...(responsaveis[index] ?? {}), nr_seq_responsavel: pessoa.nr_sequencia };
-        return { ...prev, responsaveis };
-      });
+      alunoResponsavelLookupCallbackRef.current?.(pessoa.nr_sequencia);
+      alunoResponsavelLookupCallbackRef.current = null;
     } else if (target === 'manutencaoFilter') {
       setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_prestador_servico: String(pessoa.nr_sequencia) }));
     } else {
@@ -7201,14 +7165,6 @@ export default function Home() {
       return true;
     });
   }, [pessoasJuridicas, colaboradorPjLookupFilter]);
-
-  // Nomes exibidos nos campos "Pessoa física" de Responsáveis do formulário de Aluno (por linha).
-  const selectedAlunoResponsaveisNames = useMemo(() => {
-    return (alunoForm.responsaveis ?? []).map((r) => {
-      if (!r.nr_seq_responsavel) return "";
-      return pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_responsavel)?.ds_nome ?? "";
-    });
-  }, [alunoForm.responsaveis, pessoasFisicas]);
 
   // Opções do dropdown "Grau de parentesco" (Responsáveis) — apenas os ativos,
   // em ordem alfabética (pt-BR).
@@ -7458,10 +7414,17 @@ export default function Home() {
     if (view === 'form') goToPjList();
   }
 
+  /** Exclui o aluno junto com os responsáveis dele (que vão para Exclusões antes do aluno). */
+  async function excluirAlunoComResponsaveis(id: string) {
+    const aluno = alunos.find((a) => a.id === id);
+    if (aluno) await excluirResponsaveisDoAluno(aluno.nr_sequencia);
+    await excluirAluno(id);
+  }
+
   async function handleAlunoDelete(id: string) {
     setMessage("");
     try {
-      await excluirAluno(id);
+      await excluirAlunoComResponsaveis(id);
       setMessage("Excluído com sucesso!");
       await loadAlunos();
     } catch {
@@ -7491,7 +7454,7 @@ export default function Home() {
     setMessage("");
     let excluidos = 0;
     try {
-      excluidos = await aplicarEmLote(ids, (id) => excluirAluno(id));
+      excluidos = await aplicarEmLote(ids, (id) => excluirAlunoComResponsaveis(id));
       setMessage(`${ids.length} registros excluídos com sucesso!`);
       setAlunosSelecionados([]);
     } catch {
@@ -9199,8 +9162,9 @@ export default function Home() {
       nr_seq_sistema_operacional: Object.fromEntries(sistemasOperacionais.map((s) => [s.nr_sequencia, s.ds_sistema_operacional ?? ''])),
       nr_seq_combustivel: Object.fromEntries(combustiveis.map((c) => [c.nr_sequencia, c.ds_combustivel ?? ''])),
       nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? ''])),
+      nr_seq_grau_parentesco: Object.fromEntries(grausParentesco.map((g) => [g.nr_sequencia, g.ds_grau_parentesco ?? ''])),
     } as Record<string, Record<number, string>>;
-  }, [pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos]);
+  }, [pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
 
   /** Colunas da lista de registros excluídos: uma configuração por função, salvas juntas no usuário. */
   function colunasExclusoesRegistro(colecao: string) {
@@ -9256,7 +9220,6 @@ export default function Home() {
       campoErros: [] as string[],
     };
     const nomePf = (seq?: number) => (seq ? pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '' : '');
-    const nomesResponsaveis = (lista?: { nr_seq_responsavel?: number }[]) => (lista ?? []).map((r) => nomePf(r.nr_seq_responsavel));
     const cg = Object.values(CG_DEFS).find((d) => d.collection === ex.ds_colecao);
     switch (ex.ds_colecao) {
       case 'pessoa_fisica':
@@ -9272,7 +9235,7 @@ export default function Home() {
       case 'periodo_letivo':
         return <PeriodoLetivoFormView {...comuns} selectOptions={[]} />;
       case 'aluno':
-        return <AlunoFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} responsaveisNames={nomesResponsaveis(dados.responsaveis)} onOpenResponsavelLookup={nada} onViewResponsavel={nada} grauParentescoOptions={alunoGrauParentescoOptions} selectOptions={[]} />;
+        return <AlunoFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} selectOptions={[]} />;
       case 'colaborador':
         return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} cargos={colaboradorCargosOptions} selectOptions={[]} />;
       case 'pat_categoria':
@@ -9869,8 +9832,40 @@ export default function Home() {
                     {...colunasPorIndice('config_colunas_periodo_letivo')}
                     coresStatus={coresStatusPeriodoLetivo}
                   />
+                ) : alunoManageSelection === 'alunos' && alunoDetalhe ? (
+                  <AlunoDetalheView
+                    key={alunoDetalhe.id}
+                    aluno={alunoDetalhe}
+                    nomeAluno={nomePessoaFisicaDoAluno(alunoDetalhe.nr_seq_pessoa_fisica)}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    onPrevRecord={() => navegarDetalheDoAluno(-1)}
+                    onNextRecord={() => navegarDetalheDoAluno(1)}
+                    hasPrevRecord={alunoDetalheIndex > 0}
+                    hasNextRecord={alunoDetalheIndex >= 0 && alunoDetalheIndex < filteredSortedAlunos.length - 1}
+                    onVoltar={() => { setMessage(""); setAlunoDetalheId(null); }}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno_responsavel')}
+                    onOpenAudit={openAlunoResponsavelAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onMessage={setMessage}
+                    onSavingChange={setAlunoResponsavelSaving}
+                    confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
+                    pessoasFisicas={pessoasFisicas}
+                    nomePessoaFisica={nomePessoaFisicaDoAluno}
+                    onOpenPessoaFisicaLookup={(aoSelecionar) => {
+                      alunoResponsavelLookupCallbackRef.current = aoSelecionar;
+                      openAlunoPessoaFisicaLookup('responsavel');
+                    }}
+                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                    grauParentescoOptions={alunoGrauParentescoOptions}
+                    colunasResponsaveis={colunasPorChave('config_colunas_aluno_responsavel')}
+                    darkMode={darkMode}
+                  />
                 ) : alunoManageSelection === 'alunos' ? (
                   <AlunoListView
+                    onOpenDetalhe={abrirDetalheDoAluno}
                     message={message}
                     loading={loading}
                     alunos={filteredSortedAlunos}
@@ -10471,10 +10466,6 @@ export default function Home() {
                     pessoaFisicaName={selectedAlunoPessoaFisicaName}
                     onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
                     onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                    responsaveisNames={selectedAlunoResponsaveisNames}
-                    onOpenResponsavelLookup={(index) => openAlunoPessoaFisicaLookup('responsavel', index)}
-                    onViewResponsavel={(seq) => openPessoaFisicaView(seq)}
-                    grauParentescoOptions={alunoGrauParentescoOptions}
                     selectOptions={EA_SELECT_OPTIONS}
                     manageSelection={alunoManageSelection}
                     onManageSelectionChange={handleAlunoManageSelectionChange}
@@ -14515,6 +14506,7 @@ export default function Home() {
         const isFeriado = auditDocumentType === 'periodo_letivo_feriado';
         const isAtivo = auditDocumentType === 'pat_ativo';
         const isAtivoResponsavel = auditDocumentType === 'pat_ativo_responsavel';
+        const isAlunoResponsavel = auditDocumentType === 'aluno_responsavel';
         const isParametros = auditDocumentType === 'parametro';
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
@@ -14623,6 +14615,8 @@ export default function Home() {
           ? ['nr_sequencia', 'nr_seq_periodo_letivo', 'dt_feriado', 'ds_feriado', 'ie_tipo_feriado', 'dt_criacao', 'dt_alteracao']
           : isAtivoResponsavel
           ? ['nr_sequencia', 'nr_seq_ativo', 'nr_seq_colaborador', 'dt_criacao', 'dt_alteracao']
+          : isAlunoResponsavel
+          ? ['nr_sequencia', 'nr_seq_aluno', 'nr_seq_pessoa_fisica', 'nr_seq_grau_parentesco', 'dt_criacao', 'dt_alteracao']
           : isPeriodoLetivo
           ? [
               'nr_sequencia',
@@ -14890,6 +14884,8 @@ export default function Home() {
                       ie_badge_teste: 'Badge de teste',
                       nr_seq_ativo: 'Ativo',
                       nr_seq_colaborador: 'Colaborador',
+                      nr_seq_aluno: 'Aluno',
+                      nr_seq_grau_parentesco: 'Grau de parentesco',
                       dt_envio: 'Data de envio',
                       dt_termino: 'Data de término',
                       ie_status_manutencao: 'Status',
@@ -15035,6 +15031,11 @@ export default function Home() {
                         nr_seq_combustivel: () => combustiveis.find((c) => c.nr_sequencia === seq)?.ds_combustivel,
                         nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
                         nr_seq_colaborador: () => nomeColaboradorPorSeq(seq),
+                        nr_seq_grau_parentesco: () => grausParentesco.find((g) => g.nr_sequencia === seq)?.ds_grau_parentesco,
+                        nr_seq_aluno: () => {
+                          const aluno = alunos.find((a) => a.nr_sequencia === seq);
+                          return aluno ? pessoasFisicas.find((p) => p.nr_sequencia === aluno.nr_seq_pessoa_fisica)?.ds_nome : undefined;
+                        },
                         nr_seq_prestador_servico: () => {
                           // O campo guarda a sequência do colaborador (prestador).
                           const col = colaboradores.find((c) => c.nr_sequencia === seq);
@@ -15132,7 +15133,7 @@ export default function Home() {
                       if (field === 'responsaveis' && Array.isArray(normalized)) {
                         const nomePessoa = Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome]));
                         const nomeGrau = Object.fromEntries(grausParentesco.map((g) => [g.nr_sequencia, g.ds_grau_parentesco]));
-                        const respArr = normalized as AlunoResponsavel[];
+                        const respArr = normalized as AlunoResponsavelLegado[];
                         return respArr
                           .filter((r) => r && r.nr_seq_responsavel)
                           .map((r) => {
@@ -15810,7 +15811,7 @@ export default function Home() {
         perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
-        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || ativoTransferirSaving || assumirAtivosSaving ||
+        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || ativoTransferirSaving || assumirAtivosSaving ||
         delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving
       ) && <LoadingModal open message="Carregando..." />}
 

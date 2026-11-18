@@ -90,6 +90,10 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   CG("cg_sistema_operacional", "Sistema operacional", SISTEMA_OPERACIONAL_COLUMNS),
   CG("cg_vinculo_contratual", "Vínculo contratual", VINCULO_CONTRATUAL_COLUMNS),
   { colecao: "aluno", funcao: "Estrutura Acadêmica", dropdown: "Alunos", colunas: proprias(ALUNO_COLUMNS), formatar: f(formatAluno) },
+  {
+    colecao: "aluno_responsavel", funcao: "Estrutura Acadêmica", dropdown: "Alunos > Responsáveis",
+    colunas: [SEQ, { key: "nr_seq_aluno", label: "Aluno", alinharDireita: true }, { key: "nr_seq_pessoa_fisica", label: "Pessoa física" }, { key: "nr_seq_grau_parentesco", label: "Grau de parentesco" }],
+  },
   { colecao: "curso", funcao: "Estrutura Acadêmica", dropdown: "Cursos", colunas: proprias(CURSO_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "colaborador", funcao: "Estrutura Acadêmica", dropdown: "Colaboradores", colunas: proprias(COLABORADOR_COLUMNS), formatar: f(formatColaborador) },
   { colecao: "periodo_letivo", funcao: "Estrutura Acadêmica", dropdown: "Período letivo", colunas: proprias(PERIODO_LETIVO_COLUMNS), formatar: f(formatPeriodoLetivo) },
@@ -149,10 +153,15 @@ export interface AbaFilhosExclusao {
 }
 
 /**
- * Registros que abrem outra tela com duplo clique: período letivo (feriados), ativo (responsáveis),
+ * Registros que abrem outra tela com duplo clique: aluno (responsáveis), período letivo (feriados), ativo (responsáveis),
  * relatório (bandas e parâmetros) e banda (elementos e ordenação).
  */
 export const FILHOS_EXCLUSAO: Record<string, { rotulo: string; campoDescricao: string; abas: AbaFilhosExclusao[] }> = {
+  aluno: {
+    rotulo: "Aluno",
+    campoDescricao: "nr_matricula",
+    abas: [{ aba: "Responsáveis", colecao: "aluno_responsavel", campoPai: "nr_seq_aluno" }],
+  },
   pat_ativo: {
     rotulo: "Ativo",
     campoDescricao: "ds_ativo",

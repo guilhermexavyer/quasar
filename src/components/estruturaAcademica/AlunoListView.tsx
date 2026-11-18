@@ -45,6 +45,8 @@ interface ListViewProps {
   /** Ids dos alunos marcados na coluna de seleção. */
   selecionados?: string[];
   onSelecionadosChange?: (ids: string[]) => void;
+  /** Duplo clique no aluno: abre os responsáveis do aluno. */
+  onOpenDetalhe?: (aluno: Aluno) => void;
 }
 
 export default function AlunoListView({
@@ -68,6 +70,7 @@ export default function AlunoListView({
   columnLookups,
   selecionados = [],
   onSelecionadosChange,
+  onOpenDetalhe,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
@@ -597,8 +600,9 @@ export default function AlunoListView({
                       return (
                       <tr
                         key={aluno.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === aluno.id || marcado ? 'row-selected' : ''}`}
+                        className={`${onOpenDetalhe ? 'cursor-pointer' : 'cursor-[context-menu]'} hover:bg-[#eee] ${selectedId === aluno.id || marcado ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === aluno.id ? null : aluno.id ?? null))}
+                        onDoubleClick={() => { setSelectedId(aluno.id ?? null); onOpenDetalhe?.(aluno); }}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(aluno.id ?? null);

@@ -399,8 +399,8 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     // configuráveis (campos fixos: desabilitados no formulário).
     { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Alunos", colecao: "aluno" },
-    { key: "aluno.nr_seq_responsavel", label: "Pessoa física (responsável)", tipo: "Alunos", colecao: "aluno" },
-    { key: "aluno.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos", colecao: "aluno" },
+    { key: "aluno_responsavel.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
+    { key: "aluno_responsavel.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
     { key: "modal_aluno_alterar_status.dt_status", label: "Alterar status > Data do status", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
     { key: "modal_aluno_alterar_status.ds_status", label: "Alterar status > Motivo", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
     { key: "modal_colaborador_alterar_status.dt_status", label: "Alterar status > Data do status", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { Aluno, AlunoResponsavel } from "@/types/aluno";
+import type { Aluno } from "@/types/aluno";
 import { FIELD_INFOS, applyDateMask, formatDate } from "@/lib/alunoUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
@@ -36,13 +36,6 @@ interface FormViewProps {
   onOpenPessoaFisicaLookup: () => void;
   /** Abre o modal de visualização da pessoa física (Identificação). */
   onViewPessoaFisica?: (nrSequencia: number | undefined) => void;
-  /** Nomes das pessoas físicas responsáveis (Responsáveis), por linha. */
-  responsaveisNames: string[];
-  onOpenResponsavelLookup: (index: number) => void;
-  /** Abre o modal de visualização de um responsável (Responsáveis). */
-  onViewResponsavel?: (nrSequencia: number | undefined) => void;
-  /** Opções do dropdown "Grau de parentesco" (Responsáveis). */
-  grauParentescoOptions?: { value: string; label: string }[];
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
@@ -75,10 +68,6 @@ export default function AlunoFormView({
   pessoaFisicaName,
   onOpenPessoaFisicaLookup,
   onViewPessoaFisica,
-  responsaveisNames,
-  onOpenResponsavelLookup,
-  onViewResponsavel,
-  grauParentescoOptions = [],
   selectOptions,
   manageSelection,
   onManageSelectionChange,
@@ -98,30 +87,6 @@ export default function AlunoFormView({
     return campoErros.includes(campo)
       ? `${base} border-red-500`
       : `${base} border-slate-300`;
-  }
-
-  /** Atualiza um responsável pelo índice. */
-  function atualizarResponsavel(index: number, patch: Partial<AlunoResponsavel>): AlunoFormData {
-    const responsaveis = [...(form.responsaveis ?? [])];
-    responsaveis[index] = { ...(responsaveis[index] ?? {}), ...patch };
-    return { ...form, responsaveis };
-  }
-
-  /** Adiciona uma nova linha vazia de responsável logo abaixo da atual. */
-  function adicionarResponsavel(index: number): AlunoFormData {
-    const responsaveis = [...(form.responsaveis ?? [])];
-    responsaveis.splice(index + 1, 0, { nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined });
-    return { ...form, responsaveis };
-  }
-
-  /** Remove um responsável pelo índice (mantém ao menos uma linha vazia). */
-  function removerResponsavel(index: number): AlunoFormData {
-    const responsaveis = [...(form.responsaveis ?? [])];
-    responsaveis.splice(index, 1);
-    if (responsaveis.length === 0) {
-      responsaveis.push({ nr_seq_responsavel: undefined, nr_seq_grau_parentesco: undefined });
-    }
-    return { ...form, responsaveis };
   }
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
@@ -367,112 +332,6 @@ export default function AlunoFormView({
                   onChange={(e) => setForm({ ...form, ds_status: e.target.value })}
                 />
               </div>
-            </div>
-          </section>
-
-          {/* ── Responsáveis ── */}
-          <section>
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Responsáveis</h2>
-            <div className="space-y-[15px]">
-              {(form.responsaveis ?? []).map((resp, index) => {
-                const erroPessoa = campoErros.includes('nr_seq_responsavel') && !resp.nr_seq_responsavel;
-                const erroGrau = campoErros.includes('nr_seq_grau_parentesco') && !resp.nr_seq_grau_parentesco;
-                return (
-                  <div key={index} className="grid gap-[15px] sm:grid-cols-12 items-start">
-                    <div className="sm:col-span-7 group">
-                      {index === 0 && renderFieldLabel('nr_seq_responsavel', 'Pessoa física')}
-                      <div className="flex items-center gap-2 flex-nowrap">
-                        <div style={{ width: 110 }}>
-                          <label className="sr-only">Sequência da pessoa física responsável</label>
-                          <input
-                            inputMode="numeric"
-                            maxLength={10}
-                            disabled={statusDe('nr_seq_responsavel') === 'D'}
-                            className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${erroPessoa ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                            value={resp.nr_seq_responsavel ? String(resp.nr_seq_responsavel) : ''}
-                            onChange={(e) => {
-                              const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
-                              setForm(atualizarResponsavel(index, { nr_seq_responsavel: raw ? Number(raw) : undefined }));
-                            }}
-                          />
-                        </div>
-                        <div className="relative flex-1 min-w-0">
-                          <label className="sr-only">Nome da pessoa física responsável</label>
-                          <input
-                            readOnly
-                            className={`w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${erroPessoa ? 'border-red-500' : ''}`}
-                            value={responsaveisNames[index] ?? ''}
-                          />
-                          <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                            {resp.nr_seq_responsavel && (
-                              <button
-                                type="button"
-                                onClick={() => onViewResponsavel?.(resp.nr_seq_responsavel)}
-                                className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
-                                aria-label="Visualizar pessoa física responsável"
-                              >
-                                <ViewIcon />
-                              </button>
-                            )}
-                            <button
-                              type="button"
-                              onClick={() => onOpenResponsavelLookup(index)}
-                              disabled={statusDe('nr_seq_responsavel') === 'D'}
-                              className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
-                              aria-label="Localizar pessoa física responsável"
-                            >
-                              <SearchIcon />
-                            </button>
-                          </div>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="sm:col-span-5 group">
-                      {index === 0 && renderFieldLabel('nr_seq_grau_parentesco', 'Grau de parentesco')}
-                      <div className="flex items-center gap-1">
-                        <div className="flex-1 min-w-0">
-                          <Select
-                            disabled={statusDe('nr_seq_grau_parentesco') === 'D'}
-                            error={erroGrau}
-                            value={resp.nr_seq_grau_parentesco ? String(resp.nr_seq_grau_parentesco) : ''}
-                            onChange={(v) =>
-                              setForm(atualizarResponsavel(index, { nr_seq_grau_parentesco: v ? Number(v) : undefined }))
-                            }
-                            options={grauParentescoOptions}
-                            showPlaceholder
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setForm(adicionarResponsavel(index))}
-                          className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]"
-                          aria-label={`Adicionar responsável após o ${index + 1}`}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="M12 5v14" />
-                            <path d="M5 12h14" />
-                          </svg>
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => setForm(removerResponsavel(index))}
-                          disabled={(form.responsaveis ?? []).length <= 1}
-                          className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
-                          aria-label={`Remover responsável ${index + 1}`}
-                        >
-                          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                            <path d="M5 12h14" />
-                          </svg>
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-              {(form.responsaveis ?? []).length === 0 && (
-                <p className="text-sm text-slate-500">Nenhum responsável cadastrado.</p>
-              )}
             </div>
           </section>
         </div>

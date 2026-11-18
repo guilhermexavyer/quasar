@@ -22,6 +22,8 @@ export interface Usuario {
   config_colunas_periodo_letivo?: string;
   config_colunas_curso?: string;
   config_colunas_periodo_letivo_feriado?: string;
+  /* Estrutura Acadêmica > Alunos > duplo clique (Responsáveis) */
+  config_colunas_aluno_responsavel?: string;
   /* Patrimônio > Ativos > duplo clique (Responsáveis / Manutenções) */
   config_colunas_ativo_responsavel?: string;
   config_colunas_ativo_manutencao?: string;

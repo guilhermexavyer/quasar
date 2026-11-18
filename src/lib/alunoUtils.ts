@@ -32,10 +32,6 @@ export const FIELD_INFOS = {
   dt_status: { type: 'string', field: 'dt_status', collection: 'aluno' },
   ds_status: { type: 'string', field: 'ds_status', collection: 'aluno' },
   ie_status: { type: 'string', field: 'ie_status', collection: 'aluno' },
-  responsaveis: { type: 'array', field: 'responsaveis', collection: 'aluno' },
-  // Subcampos do array responsaveis (usados nas labels do formulário).
-  nr_seq_responsavel: { type: 'int64', field: 'nr_seq_responsavel', collection: 'aluno' },
-  nr_seq_grau_parentesco: { type: 'int64', field: 'nr_seq_grau_parentesco', collection: 'aluno' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'aluno' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'aluno' },
 } as const;
@@ -79,12 +75,6 @@ export function formatCellValue(key: keyof Aluno, value: unknown): string {
         default:
           return '';
       }
-    case 'responsaveis': {
-      // Fallback sem lookup: mostra a quantidade de responsáveis.
-      const arr = Array.isArray(value) ? value : [];
-      const validos = arr.filter((r) => r && r.nr_seq_responsavel);
-      return validos.length === 0 ? '' : validos.length === 1 ? '1 responsável' : `${validos.length} responsáveis`;
-    }
     default:
       if (Array.isArray(value)) {
         return (value as unknown[]).filter((v) => v !== null && v !== undefined && String(v) !== '').join(', ');

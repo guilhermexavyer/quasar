@@ -61,6 +61,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "gerar_matricula_aluno", label: "Permite gerar matrícula" },
     { key: "alterar_data_ingresso_aluno", label: "Permite alterar data de ingresso" },
     { key: "alterar_status_aluno", label: "Permite alterar status" },
+    { key: "detalhes_aluno", label: "Permite acessar responsáveis do aluno" },
     { key: "excluir_aluno", label: "Permite excluir" },
     // Colaboradores
     { key: "acessar_colaborador", label: "Permite acessar Colaboradores" },
@@ -239,7 +240,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   estruturaAcademica: [
     {
       titulo: 'Alunos',
-      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'gerar_matricula_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'excluir_aluno'],
+      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'gerar_matricula_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'detalhes_aluno', 'excluir_aluno'],
     },
     {
       titulo: 'Colaboradores',

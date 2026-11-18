@@ -71,6 +71,13 @@ const margem = (lado: string) => (d: Dados) => obj(pdf(d).margens)[lado];
  * reaproveitado no "Ver" de Exclusões: mesmas seções e campos do original.
  */
 export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
+  aluno_responsavel: [{
+    campos: [
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
+      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 2 },
+      { campo: "nr_seq_grau_parentesco", rotulo: "Grau de parentesco", span: 2 },
+    ],
+  }],
   pat_ativo_responsavel: [{
     campos: [
       { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
