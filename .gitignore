@@ -45,6 +45,7 @@ next-env.d.ts
 
 # modelo das variáveis (sem valores) pode ser versionado
 !.env.local.example
+!.env.producao.example
 
 # anotações locais com credenciais
 db*.txt

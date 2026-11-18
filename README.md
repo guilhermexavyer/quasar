@@ -20,12 +20,15 @@ O sistema é pensado para ser altamente configurável pelo próprio usuário:
 
 ```bash
 npm.cmd install                       # instala as dependências
-copy .env.local.example .env.local    # depois preencha com os dados da homologação
+copy db-homologacao.txt .env.local   # credenciais da homologação (veja abaixo)
+copy db-producao.txt .env.producao   # credenciais da produção (veja abaixo)
 npm.cmd run db:testar                 # confere a conexão com o banco
 npm.cmd run dev                       # inicia o servidor em http://localhost:3000
 ```
 
-Variáveis (Supabase → projeto → **Connect** e **Project Settings → API**):
+**Credenciais (`db-homologacao.txt` e `db-producao.txt`).** Esses dois arquivos têm as senhas e as chaves secretas, por isso **não vêm com o repositório** (o `.gitignore` bloqueia `db*.txt`). Guarde uma cópia deles fora do Git (gerenciador de senhas, pendrive, pasta pessoal) e, depois de clonar, coloque-os na raiz do projeto antes de rodar os `copy` acima. Se não tiver os arquivos, use os modelos: `copy .env.local.example .env.local` e `copy .env.producao.example .env.producao`, e preencha pelo Supabase.
+
+Variáveis (Supabase → projeto → **Connect** e **Project Settings → API Keys**):
 
 | Variável | Uso |
 |---|---|
@@ -34,7 +37,14 @@ Variáveis (Supabase → projeto → **Connect** e **Project Settings → API**)
 | `SUPABASE_URL` | URL do projeto. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave `service_role` (só servidor; acesso ao Storage). |
 
-Nenhuma delas pode ter o prefixo `NEXT_PUBLIC_`. Os arquivos `.env*` nunca vão para o Git. Para os comandos de produção, crie `.env.producao` com as mesmas variáveis do projeto de produção.
+Nenhuma delas pode ter o prefixo `NEXT_PUBLIC_`. Os arquivos `.env*` e `db*.txt` nunca vão para o Git (só os modelos `.env.local.example` e `.env.producao.example`, sempre sem valores).
+
+| Arquivo | Projeto Supabase | Usado por |
+|---|---|---|
+| `.env.local` | homologação (`quasar-homologacao`) | o sistema local e os comandos sem `:producao` |
+| `.env.producao` | produção | os comandos `:producao` e `db:copiar-producao` (é a origem da cópia) |
+
+Sem o `.env.producao` preenchido, os comandos de produção e a cópia produção → homologação não encontram a conexão.
 
 ## Banco de dados
 
