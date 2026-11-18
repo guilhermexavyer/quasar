@@ -19,7 +19,7 @@
  *   node scripts/copiar-producao-homologacao.mjs --confirmar                  → copia de verdade
  *   node scripts/copiar-producao-homologacao.mjs --confirmar --sem-imagens    → copia só o banco
  */
-import { ajustarSequencia, conectar, contagens, falhar, fazerBackup, lerEnv, refDaBase, storage, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
+import { ajustarSequencia, conectar, contagens, encerrarComErro, falhar, fazerBackup, lerEnv, problemaNaChave, refDaBase, storage, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
 
 const CONFIRMAR = process.argv.includes("--confirmar");
 const SEM_IMAGENS = process.argv.includes("--sem-imagens");
@@ -30,6 +30,12 @@ const refProd = refDaBase(prod.DATABASE_URL_MIGRACAO);
 const refHomol = refDaBase(homol.DATABASE_URL_MIGRACAO);
 if (!prod.DATABASE_URL_MIGRACAO || !homol.DATABASE_URL_MIGRACAO) falhar("DATABASE_URL_MIGRACAO precisa estar em .env.producao e em .env.local.");
 if (refProd === refHomol) falhar("Origem e destino são a mesma base. Confira .env.producao e .env.local.");
+// As chaves do Storage são conferidas antes de qualquer conexão (a cópia das imagens vem depois da do banco).
+if (!SEM_IMAGENS) {
+  const problemas = [problemaNaChave(prod.SUPABASE_URL, prod.SUPABASE_SERVICE_ROLE_KEY, ".env.producao"),
+    problemaNaChave(homol.SUPABASE_URL, homol.SUPABASE_SERVICE_ROLE_KEY, ".env.local")].filter(Boolean);
+  if (problemas.length) falhar(`${problemas.join("\n❌ ")}\n   (Para copiar só o banco, sem as imagens, use --sem-imagens.)`);
+}
 console.log(`📤 Origem (produção): ${refProd}\n📥 Destino (homologação, será substituída): ${refHomol}\n`);
 
 const origem = await conectar(prod.DATABASE_URL_MIGRACAO, ".env.producao");
@@ -47,15 +53,15 @@ try {
   const tabelas = await tabelasEmOrdem(origem);
   const tabelasDestino = new Set(await tabelasEmOrdem(destino));
   const faltando = tabelas.filter((t) => !tabelasDestino.has(t));
-  if (faltando.length) falhar(`A homologação não tem as tabelas: ${faltando.join(", ")}. Rode as migrações (npm run db:migrar) antes.`);
+  if (faltando.length) throw new Error(`A homologação não tem as tabelas: ${faltando.join(", ")}. Rode as migrações (npm run db:migrar) antes`);
 
   const naOrigem = await contagens(origem, tabelas);
   const noDestino = await contagens(destino, tabelas);
   console.log(`   ${"tabela".padEnd(32)} produção  homologação`);
   for (const t of tabelas) if (naOrigem[t] || noDestino[t]) console.log(`   ${t.padEnd(32)} ${String(naOrigem[t]).padStart(8)}  ${String(noDestino[t]).padStart(11)}`);
 
-  const stProd = SEM_IMAGENS ? null : storage(prod.SUPABASE_URL, prod.SUPABASE_SERVICE_ROLE_KEY);
-  const stHomol = SEM_IMAGENS ? null : storage(homol.SUPABASE_URL, homol.SUPABASE_SERVICE_ROLE_KEY);
+  const stProd = SEM_IMAGENS ? null : storage(prod.SUPABASE_URL, prod.SUPABASE_SERVICE_ROLE_KEY, ".env.producao");
+  const stHomol = SEM_IMAGENS ? null : storage(homol.SUPABASE_URL, homol.SUPABASE_SERVICE_ROLE_KEY, ".env.local");
   const imagensProd = stProd ? await stProd.listar() : [];
   const imagensHomol = stHomol ? await stHomol.listar() : [];
   if (!SEM_IMAGENS) console.log(`   ${"imagens (Storage)".padEnd(32)} ${String(imagensProd.length).padStart(8)}  ${String(imagensHomol.length).padStart(11)}`);
@@ -111,7 +117,7 @@ try {
     console.log("\n🎉 Homologação igual à produção.");
   }
 } catch (erro) {
-  falhar(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}. A homologação não foi alterada pelo passo que falhou.`);
+  encerrarComErro(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}. A homologação não foi alterada pelo passo que falhou.`);
 } finally {
   await origem.end().catch(() => undefined);
   await destino.end().catch(() => undefined);

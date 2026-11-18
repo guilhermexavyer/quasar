@@ -16,7 +16,7 @@
  *   node --env-file=.env.local scripts/seed-cadastros-gerais.mjs --dry-run    → só mostra o que seria feito (desfaz no fim)
  */
 import { readFileSync } from "node:fs";
-import { ajustarSequencia, conectar, falhar, textoDoErro } from "./lib/conexao.mjs";
+import { ajustarSequencia, conectar, encerrarComErro, textoDoErro } from "./lib/conexao.mjs";
 
 const DRY_RUN = process.argv.includes("--dry-run");
 
@@ -73,7 +73,7 @@ try {
   }
 } catch (erro) {
   await db.query("ROLLBACK").catch(() => undefined);
-  falhar(`Erro ao executar o seeder (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}. Nada foi gravado.`);
+  encerrarComErro(`Erro ao executar o seeder (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}. Nada foi gravado.`);
 } finally {
   await db.end().catch(() => undefined);
 }

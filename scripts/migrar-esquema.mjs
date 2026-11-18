@@ -25,6 +25,12 @@ function falhar(mensagem) {
   process.exit(1);
 }
 
+/** Erro com a conexão aberta: marca a saída com erro e deixa o finally fechar a conexão (process.exit aqui derruba o Node no Windows). */
+function encerrarComErro(mensagem) {
+  console.error(`❌ ${mensagem}`);
+  process.exitCode = 1;
+}
+
 const bruta = process.env.DATABASE_URL_MIGRACAO;
 if (!bruta) falhar("DATABASE_URL_MIGRACAO não está definida. Rode com: node --env-file=.env.local scripts/migrar-esquema.mjs");
 let url;
@@ -96,7 +102,7 @@ try {
 } catch (erro) {
   const texto = String(erro?.message ?? erro).replace(/postgres(ql)?:\/\/\S+/gi, "[url omitida]");
   const onde = erro?.position ? ` (posição ${erro.position} do SQL)` : "";
-  falhar(`Falha (${erro?.code ?? "sem código"}): ${texto}${onde}. Nada foi aplicado.`);
+  encerrarComErro(`Falha (${erro?.code ?? "sem código"}): ${texto}${onde}. Nada foi aplicado.`);
 } finally {
   await cliente.end().catch(() => undefined);
 }

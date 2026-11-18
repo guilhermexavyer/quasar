@@ -10,7 +10,7 @@
  *
  * Uso: node --env-file=.env.local scripts/audit-rodapes.mjs
  */
-import { conectar, falhar, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
+import { conectar, encerrarComErro, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
 
 /** Tabelas sem rodapé de registro. */
 const SEM_RODAPE = new Set(["auditoria", "exclusao", "usuario_coluna", "usuario_painel"]);
@@ -62,7 +62,7 @@ try {
   }
   console.log(problemas === 0 ? "\n🎉 Nenhum problema de rodapé nos dados." : `\n⚠️  ${problemas} problema(s) encontrado(s).`);
 } catch (erro) {
-  falhar(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}`);
+  encerrarComErro(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}`);
 } finally {
   await db.end().catch(() => undefined);
 }

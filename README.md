@@ -101,6 +101,7 @@ npm.cmd run db:copiar-producao -- --confirmar                  # copia de verdad
 npm.cmd run db:copiar-producao -- --confirmar --sem-imagens    # copia só o banco
 ```
 
+- A cópia das imagens usa a `SUPABASE_SERVICE_ROLE_KEY` dos dois arquivos (chave secreta: `sb_secret_...` ou `service_role`). O comando confere as chaves antes de começar; com `--sem-imagens` elas não são usadas.
 - Antes de apagar, grava um backup da homologação em `backups/` (fora do Git).
 - Copia tabela por tabela numa transação e confere as contagens; qualquer diferença desfaz a cópia.
 - As sessões de login da homologação são encerradas (é preciso entrar de novo).

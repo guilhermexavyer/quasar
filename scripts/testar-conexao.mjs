@@ -19,6 +19,12 @@ function falhar(mensagem) {
   process.exit(1);
 }
 
+/** Erro com a conexão aberta: marca a saída com erro e deixa o finally fechar a conexão (process.exit aqui derruba o Node no Windows). */
+function encerrarComErro(mensagem) {
+  console.error(`❌ ${mensagem}`);
+  process.exitCode = 1;
+}
+
 const bruta = process.env[VARIAVEL];
 if (!bruta) falhar(`${VARIAVEL} não está definida. Rode com: node --env-file=.env.local scripts/testar-conexao.mjs`);
 
@@ -54,7 +60,7 @@ try {
 } catch (erro) {
   // Mostra só o código e a mensagem do driver (sem a string de conexão).
   const texto = String(erro?.message ?? erro).replace(/postgres(ql)?:\/\/\S+/gi, "[url omitida]");
-  falhar(`Falha na conexão (${erro?.code ?? "sem código"}): ${texto}`);
+  encerrarComErro(`Falha na conexão (${erro?.code ?? "sem código"}): ${texto}`);
 } finally {
   await cliente.end().catch(() => undefined);
 }

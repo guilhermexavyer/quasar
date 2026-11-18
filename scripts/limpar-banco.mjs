@@ -13,7 +13,7 @@
  *   node --env-file=.env.local scripts/limpar-banco.mjs --confirmar                  → faz backup e APAGA tudo
  *   node --env-file=.env.local scripts/limpar-banco.mjs --confirmar --com-imagens    → também apaga as imagens do Storage
  */
-import { conectar, contagens, falhar, fazerBackup, refDaBase, storage, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
+import { conectar, contagens, encerrarComErro, fazerBackup, refDaBase, storage, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
 
 const CONFIRMAR = process.argv.includes("--confirmar");
 const COM_IMAGENS = process.argv.includes("--com-imagens");
@@ -27,7 +27,7 @@ try {
   for (const [t, n] of Object.entries(antes)) if (n > 0) console.log(`   ${t.padEnd(32)} ${n}`);
   console.log(`   Total: ${total} registro(s)`);
 
-  const st = COM_IMAGENS ? storage(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+  const st = COM_IMAGENS ? storage(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY, "o arquivo .env usado") : null;
   const imagens = st ? await st.listar() : [];
   if (st) console.log(`   Imagens no Storage: ${imagens.length}`);
 
@@ -39,12 +39,12 @@ try {
     await db.query(`truncate table ${[...tabelas, "sessao"].map((t) => `"${t}"`).join(", ")} restart identity cascade`);
     const depois = await contagens(db, [...tabelas, "sessao"]);
     const restante = Object.values(depois).reduce((a, b) => a + b, 0);
-    if (restante !== 0) falhar(`Sobraram ${restante} registro(s).`);
+    if (restante !== 0) throw new Error(`Sobraram ${restante} registro(s)`);
     if (st && imagens.length) await st.remover(imagens);
     console.log(`\n🧹 Banco limpo${st ? ` e ${imagens.length} imagem(ns) removida(s)` : ""}. Rode os seeders para recriar o básico.`);
   }
 } catch (erro) {
-  falhar(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}`);
+  encerrarComErro(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}`);
 } finally {
   await db.end().catch(() => undefined);
 }

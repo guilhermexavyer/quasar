@@ -18,9 +18,21 @@ pg.types.setTypeParser(1700, (v) => v); // numeric
 /** Tabelas internas que os scripts não copiam nem apagam. */
 export const TABELAS_INTERNAS = new Set(["migracao_esquema", "sessao"]);
 
+/** Erro antes de abrir conexões: mostra a mensagem e encerra na hora. */
 export function falhar(mensagem) {
   console.error(`❌ ${mensagem}`);
   process.exit(1);
+}
+
+/**
+ * Erro com conexões abertas (dentro de try/catch): mostra a mensagem e marca a
+ * saída com erro, sem encerrar na hora — o finally fecha as conexões antes.
+ * (Chamar process.exit com conexões abertas derruba o Node no Windows com
+ * "Assertion failed: !(handle->flags & UV_HANDLE_CLOSING)".)
+ */
+export function encerrarComErro(mensagem) {
+  console.error(`❌ ${mensagem}`);
+  process.exitCode = 1;
 }
 
 /** Mensagem de erro do driver sem a string de conexão. */
@@ -137,8 +149,39 @@ export async function fazerBackup(cliente, rotulo) {
 
 export const BUCKET = "imagens";
 
-export function storage(supabaseUrl, chave) {
-  if (!supabaseUrl || !chave) falhar("SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY precisam estar definidas.");
+/**
+ * Confere (sem exibir) se a chave é uma chave secreta do mesmo projeto da URL:
+ * - formato novo: sb_secret_...;
+ * - formato legado: JWT (eyJ...) com role "service_role" e ref do projeto.
+ * Devolve a mensagem do problema, ou null se estiver tudo certo.
+ */
+export function problemaNaChave(supabaseUrl, chave, arquivo = "o arquivo .env") {
+  const onde = `SUPABASE_SERVICE_ROLE_KEY em ${arquivo}`;
+  const url = String(supabaseUrl ?? "").trim();
+  const k = String(chave ?? "").trim();
+  if (!url) return `SUPABASE_URL não está preenchida em ${arquivo}.`;
+  if (!k) return `${onde} não está preenchida.`;
+  if (k.startsWith("sb_secret_")) return null;
+  if (k.startsWith("sb_publishable_")) return `${onde} é a chave pública (sb_publishable_). Use a chave secreta (sb_secret_ ou service_role).`;
+  const partes = k.split(".");
+  if (partes.length !== 3) {
+    return `${onde} não é uma chave válida (${k.length} caracteres). Cole a chave secreta: Supabase → Project Settings → API Keys (sb_secret_... ou service_role eyJ...).`;
+  }
+  let dados = {};
+  try {
+    dados = JSON.parse(Buffer.from(partes[1], "base64url").toString("utf8"));
+  } catch {
+    return `${onde} não é uma chave válida.`;
+  }
+  if (dados.role !== "service_role") return `${onde} é a chave "${dados.role ?? "?"}"; use a service_role.`;
+  const refUrl = (/^https:\/\/([a-z0-9]+)\./.exec(url) ?? [])[1];
+  if (refUrl && dados.ref && dados.ref !== refUrl) return `${onde} é de outro projeto (${dados.ref}), mas SUPABASE_URL é do projeto ${refUrl}.`;
+  return null;
+}
+
+export function storage(supabaseUrl, chave, arquivo) {
+  const problema = problemaNaChave(supabaseUrl, chave, arquivo);
+  if (problema) throw new Error(problema);
   const base = `${supabaseUrl.replace(/\/$/, "")}/storage/v1`;
   const h = { apikey: chave, Authorization: `Bearer ${chave}` };
   const codificar = (c) => c.split("/").map(encodeURIComponent).join("/");
