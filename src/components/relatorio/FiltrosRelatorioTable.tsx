@@ -20,9 +20,9 @@ interface FiltrosRelatorioTableProps {
   onEditingChange?: (editing: boolean) => void;
   /** Ordem em que as linhas estão exibidas (ids), para a navegação anterior/próximo das telas Ver. */
   onOrdemChange?: (ids: string[]) => void;
-  /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
+  /** Chamado ao concluir a edição de uma linha (para gravar no banco). */
   onRowCommit?: (row: RelatorioFiltro) => void;
-  /** Duplica o parâmetro no Firestore e devolve a cópia salva. */
+  /** Duplica o parâmetro no banco e devolve a cópia salva. */
   onDuplicateFiltro?: (original: RelatorioFiltro) => Promise<RelatorioFiltro | null>;
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
@@ -32,7 +32,7 @@ interface FiltrosRelatorioTableProps {
   colecaoOptions?: { value: string; label: string }[];
   /** Callback ao clicar 'Ver' no menu de contexto. */
   onViewFiltro?: (filtro: RelatorioFiltro) => void;
-  /** Callback ao excluir um filtro (para deletar do Firestore). */
+  /** Callback ao excluir um filtro (para deletar no banco). */
   onDeleteFiltro?: (filtro: RelatorioFiltro) => void;
 }
 

@@ -2,7 +2,7 @@ import type { DataSourceDef } from "@/types/relatorio";
 
 /**
  * Fontes de dados disponíveis para relatórios.
- * Cada entrada mapeia uma coleção do Firestore aos seus campos.
+ * Cada entrada mapeia uma tabela do banco aos seus campos.
  */
 export const DATA_SOURCES: DataSourceDef[] = [
   // ════════════════════════════════════════════════════════════

@@ -1,6 +1,6 @@
 /** 
  * Configuração de um relatório personalizado.
- * Armazenado na coleção 'relatorios' do Firestore.
+ * Armazenado na tabela 'relatorio'.
  */
 export interface Relatorio {
   id?: string;
@@ -11,7 +11,7 @@ export interface Relatorio {
   ds_observacao?: string;
 
   /* ── Fonte de dados ── */
-  /** Coleção principal do Firestore (ex.: 'pat_ativo'). */
+  /** Tabela principal (ex.: 'pat_ativo'). */
   colecao: string;
   /** Joins com outras coleções. */
   joins?: RelatorioJoin[];
@@ -205,8 +205,8 @@ export interface RelatorioFiltro {
   ds_label?: string;
   /** Se true, o preenchimento no modal de Parâmetros é obrigatório. */
   ie_obrigatorio?: boolean;
-  /** ID do Firestore (quando o parâmetro já foi salvo). */
-  _firestoreId?: string;
+  /** Número do registro (quando o parâmetro já foi salvo). */
+  _idRegistro?: string;
   /** Data de criação do parâmetro. */
   dt_criacao?: string;
   /** Data da última alteração do parâmetro. */
@@ -382,7 +382,7 @@ export interface RelatorioConfigPdf {
  * Usado internamente para popular o seletor de coleções.
  */
 export interface DataSourceDef {
-  /** Valor da coleção no Firestore. */
+  /** Nome da tabela no banco. */
   value: string;
   /** Nome exibido ao usuário. */
   label: string;

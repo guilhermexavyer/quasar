@@ -34,7 +34,7 @@ export interface ColunaExclusao {
 
 /** Função/submódulo cujos registros excluídos podem ser consultados. */
 export interface FuncaoExclusao {
-  /** Coleção do Firestore (também é o id da linha). */
+  /** Tabela do banco (também é o id da linha). */
   colecao: string;
   funcao: string;
   dropdown: string;

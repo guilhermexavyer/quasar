@@ -36,7 +36,7 @@ interface BandasRelatorioTableProps {
   onEditingChange?: (editing: boolean) => void;
   /** Ordem em que as linhas estão exibidas (ids), para a navegação anterior/próximo das telas Ver. */
   onOrdemChange?: (ids: string[]) => void;
-  /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
+  /** Chamado ao concluir a edição de uma linha (para gravar no banco). */
   onRowCommit?: (row: Banda) => void;
   userId?: string;
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
@@ -48,7 +48,7 @@ interface BandasRelatorioTableProps {
   selectedRecordId?: string | null;
   /** Callback ao excluir uma banda (para modal de confirmação). */
   onDeleteBanda?: (banda: Banda) => void;
-  /** Callback ao duplicar uma banda (para salvar no Firestore). */
+  /** Callback ao duplicar uma banda (para salvar no banco). */
   onDuplicateBanda?: (original: Banda) => Promise<Banda | null>;
 }
 

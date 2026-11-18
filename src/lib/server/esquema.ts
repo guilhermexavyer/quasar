@@ -4,12 +4,12 @@ import { urlDaRota, PASTA } from "@/lib/server/storage";
 
 /**
  * Metadados das tabelas e conversão entre o formato do banco e o formato que a
- * tela sempre usou (o do Firestore):
+ * tela usa:
  *   - `id` não existe no banco: a API devolve `id = String(nr_sequencia)`;
  *   - datas sem hora (date) trafegam como 'DD/MM/AAAA';
  *   - instantes (timestamptz) trafegam como string ISO;
  *   - config_* (jsonb) trafegam como string JSON;
- *   - coluna nula não aparece no objeto (como campo ausente no Firestore).
+ *   - coluna nula não aparece no objeto.
  */
 
 /** Tabelas com um único registro (nr_sequencia = 1). */
@@ -38,7 +38,7 @@ export const TABELAS_DADOS = new Set([
 export const COLUNAS_CONTROLE = new Set(["nr_sequencia", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]);
 
 /** Chaves que a tela envia e não são colunas (identificação do cliente). */
-const CHAVES_IGNORADAS = new Set(["id", "_firestoreId"]);
+const CHAVES_IGNORADAS = new Set(["id", "_idRegistro"]);
 
 /** config_* guardados como texto simples (não são JSON). */
 const CONFIG_TEXTO = new Set(["config_tema", "config_perfil_ativo"]);

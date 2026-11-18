@@ -63,7 +63,7 @@ interface ResizableTableProps<T> {
   storageKeySuffix?: string;
   /** Callback chamado quando a ordem ou largura das colunas é alterada. */
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
-  /** Configuração inicial de colunas vindas do Firestore (quando fornecida, ignora localStorage). */
+  /** Configuração inicial de colunas salva por usuário (quando fornecida, ignora localStorage). */
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
 }
 

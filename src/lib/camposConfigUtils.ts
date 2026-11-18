@@ -130,7 +130,7 @@ export interface CampoDef {
   label: string;
   /** Identificação da coleção (ex.: Pessoa Física, Pessoa Jurídica, Usuário...). */
   tipo: string;
-  /** Nome da coleção no Firestore (usada na aplicação das regras nos forms).
+  /** Nome da tabela no banco (usada na aplicação das regras nos forms).
    *  Campos de modais usam uma "coleção" própria do modal (prefixo modal_), para
    *  terem regra independente do mesmo campo no formulário. */
   colecao: string;

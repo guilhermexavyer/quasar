@@ -1,5 +1,5 @@
 import { atualizarCopiaEmbutida, criarDado, criarServicoCrud, obterDado } from "@/lib/apiCliente";
-import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
+import { removerUndefinedProfundo } from "@/lib/registroUtils";
 import type { Relatorio } from "@/types/relatorio";
 import type { AuditAutor } from "@/services/auditService";
 
@@ -48,7 +48,7 @@ export async function excluirRelatorio(id: string): Promise<void> {
 
 /** Remove identificação e auditoria de um registro, para recriá-lo como cópia. */
 function semIdentificacao(registro: Record<string, unknown>): Record<string, unknown> {
-  const { id: _id, _firestoreId: _fs, nr_sequencia: _seq, dt_criacao: _dc, dt_alteracao: _da, ds_usuario_criacao: _uc, ds_usuario_alteracao: _ua, ...resto } = registro;
+  const { id: _id, _idRegistro: _fs, nr_sequencia: _seq, dt_criacao: _dc, dt_alteracao: _da, ds_usuario_criacao: _uc, ds_usuario_alteracao: _ua, ...resto } = registro;
   return resto;
 }
 
@@ -85,12 +85,12 @@ export async function duplicarRelatorio(relatorioId: string, autor?: AuditAutor)
     for (const elemento of elementos) {
       const dadosElemento = { ...semIdentificacao(elemento), nr_seq_banda: novaBanda.nr_sequencia, nr_seq_relatorio: novaSeq };
       const novoElemento = await criarElemento(dadosElemento, autor);
-      camposNovos.push({ ...dadosElemento, id: novoElemento.id, _firestoreId: novoElemento.id, nr_sequencia: novoElemento.nr_sequencia, dt_criacao: novoElemento.dt_criacao, dt_alteracao: novoElemento.dt_alteracao, ds_usuario_criacao: novoElemento.ds_usuario_criacao, ds_usuario_alteracao: novoElemento.ds_usuario_alteracao });
+      camposNovos.push({ ...dadosElemento, id: novoElemento.id, _idRegistro: novoElemento.id, nr_sequencia: novoElemento.nr_sequencia, dt_criacao: novoElemento.dt_criacao, dt_alteracao: novoElemento.dt_alteracao, ds_usuario_criacao: novoElemento.ds_usuario_criacao, ds_usuario_alteracao: novoElemento.ds_usuario_alteracao });
     }
     // Cópia embutida dos elementos na banda (mesmo formato do salvamento da banda)
     await atualizarCopiaEmbutida("relatorio_banda", novaBanda.id, { campos: removerUndefinedProfundo(camposNovos) });
 
-    bandasNovas.push({ ...dadosBanda, nr_seq_relatorio: novaSeq, id: novaBanda.id, _firestoreId: novaBanda.id, nr_sequencia: novaBanda.nr_sequencia, dt_criacao: novaBanda.dt_criacao, dt_alteracao: novaBanda.dt_alteracao, ds_usuario_criacao: novaBanda.ds_usuario_criacao, ds_usuario_alteracao: novaBanda.ds_usuario_alteracao, campos: camposNovos });
+    bandasNovas.push({ ...dadosBanda, nr_seq_relatorio: novaSeq, id: novaBanda.id, _idRegistro: novaBanda.id, nr_sequencia: novaBanda.nr_sequencia, dt_criacao: novaBanda.dt_criacao, dt_alteracao: novaBanda.dt_alteracao, ds_usuario_criacao: novaBanda.ds_usuario_criacao, ds_usuario_alteracao: novaBanda.ds_usuario_alteracao, campos: camposNovos });
   }
 
   // Parâmetros
@@ -98,7 +98,7 @@ export async function duplicarRelatorio(relatorioId: string, autor?: AuditAutor)
   for (const parametro of parametrosOrigem) {
     const dadosParametro = { ...semIdentificacao(parametro), nr_seq_relatorio: novaSeq };
     const novoParametro = await criarParametro(dadosParametro, autor);
-    filtrosNovos.push({ ...dadosParametro, id: novoParametro.id, _firestoreId: novoParametro.id, nr_sequencia: novoParametro.nr_sequencia, dt_criacao: novoParametro.dt_criacao, dt_alteracao: novoParametro.dt_alteracao, ds_usuario_criacao: novoParametro.ds_usuario_criacao, ds_usuario_alteracao: novoParametro.ds_usuario_alteracao });
+    filtrosNovos.push({ ...dadosParametro, id: novoParametro.id, _idRegistro: novoParametro.id, nr_sequencia: novoParametro.nr_sequencia, dt_criacao: novoParametro.dt_criacao, dt_alteracao: novoParametro.dt_alteracao, ds_usuario_criacao: novoParametro.ds_usuario_criacao, ds_usuario_alteracao: novoParametro.ds_usuario_alteracao });
   }
 
   // Cópias embutidas no relatório (retrocompatibilidade). Relatórios antigos,

@@ -35,7 +35,7 @@ interface Transferencia {
   ds_motivo: string;
 }
 
-/** Timestamp da auditoria (ISO ou Timestamp do Firestore) → ISO. */
+/** Timestamp da auditoria (ISO ou objeto com seconds/toDate) → ISO. */
 function timestampIso(valor: unknown): string {
   if (!valor) return '';
   if (typeof valor === 'string') return valor;

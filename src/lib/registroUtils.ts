@@ -1,12 +1,11 @@
-/** Remove campos com valor undefined — o Firestore rejeita undefined ao gravar. */
+/** Remove campos com valor undefined antes de gravar. */
 export function removerUndefined<T extends Record<string, any>>(obj: T): Partial<T> {
   return Object.fromEntries(Object.entries(obj).filter(([, v]) => v !== undefined)) as Partial<T>;
 }
 
 /**
- * Remove `undefined` em qualquer nível (objetos e arrays aninhados). O
- * Firestore rejeita `undefined` mesmo dentro de arrays/objetos (ex.: os
- * elementos embutidos em `campos` de uma banda).
+ * Remove `undefined` em qualquer nível (objetos e arrays aninhados), inclusive
+ * dentro de arrays/objetos (ex.: os elementos embutidos em `campos` de uma banda).
  */
 export function removerUndefinedProfundo<T>(valor: T): T {
   if (Array.isArray(valor)) return valor.map((v) => removerUndefinedProfundo(v)) as unknown as T;
@@ -21,7 +20,7 @@ export function removerUndefinedProfundo<T>(valor: T): T {
 }
 
 /** Campos de controle que não contam como alteração do registro. */
-const CAMPOS_CONTROLE = new Set(["id", "_firestoreId", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]);
+const CAMPOS_CONTROLE = new Set(["id", "_idRegistro", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]);
 
 /**
  * Indica se algum campo de `novos` difere do documento atual (ignora campos de

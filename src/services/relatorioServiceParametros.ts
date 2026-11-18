@@ -1,5 +1,5 @@
 import { atualizarCopiaEmbutida, atualizarDado, criarDado, excluirDado, listarDados, obterDado } from "@/lib/apiCliente";
-import { removerUndefined } from "@/lib/firestoreUtils";
+import { removerUndefined } from "@/lib/registroUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 /**
@@ -9,7 +9,7 @@ import type { AuditAutor } from "@/services/auditService";
  * só pela assinatura).
  */
 
-// Registros do construtor de relatórios têm forma livre (como já era no Firestore).
+// Registros do construtor de relatórios têm forma livre.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Reg = Record<string, any>;
 type Controle = { id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string };
@@ -37,7 +37,7 @@ export function normalizarParametroDoc(raw: Reg): Reg {
 /** Retorna todos os parâmetros de um relatório (por nr_seq_relatorio). */
 export async function obterParametrosPorRelatorio(nrSeqRelatorio: number): Promise<Reg[]> {
   const lista = await listarDados<Reg>("relatorio_parametro", { nr_seq_relatorio: nrSeqRelatorio });
-  return lista.map(({ id, ...rest }) => ({ id, _firestoreId: id, ...normalizarParametroDoc(rest) }));
+  return lista.map(({ id, ...rest }) => ({ id, _idRegistro: id, ...normalizarParametroDoc(rest) }));
 }
 
 /** Cria um novo parâmetro. */
@@ -80,7 +80,7 @@ export async function excluirParametroComCopia(id: string, relatorioDocId?: stri
   const relatorio = await obterDado<Reg>("relatorio", relatorioDocId);
   const filtros = relatorio?.filtros;
   if (Array.isArray(filtros)) {
-    const restantes = filtros.filter((f: { id?: string; _firestoreId?: string }) => f?.id !== id && f?._firestoreId !== id);
+    const restantes = filtros.filter((f: { id?: string; _idRegistro?: string }) => f?.id !== id && f?._idRegistro !== id);
     if (restantes.length !== filtros.length) await atualizarCopiaEmbutida("relatorio", relatorioDocId, { filtros: restantes });
   }
 }

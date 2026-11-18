@@ -50,7 +50,7 @@ interface RelatorioBuilderProps {
   resolverNomeAutorExibicao?: (dsUsuario: string) => string;
   /** Exibe uma mensagem/aviso/erro como toast (via page.tsx). */
   onToast?: (message: string, status: 'success' | 'warning' | 'error') => void;
-  /** Configuração de colunas salva no Firestore (per-user) */
+  /** Configuração de colunas salva por usuário */
   initialListaColumns?: { order: string[]; widths: Record<string, number> } | null;
   onListaColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   initialDadosColumns?: { order: string[]; widths: Record<string, number> } | null;
@@ -77,7 +77,7 @@ interface RelatorioBuilderProps {
   onOpenCampoAudit?: (relatorioId?: string | null, campoId?: string | null) => void;
   /** Abrir histórico de auditoria de um parâmetro (relatorio_parametro). */
   onOpenFiltroAudit?: (relatorioId?: string | null, filtroId?: string | null) => void;
-  /** Save direto no Firestore ao salvar a banda (gera log de auditoria). Retorna as bandas salvas. */
+  /** Save direto no banco ao salvar a banda (gera log de auditoria). Retorna as bandas salvas. */
   onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => Promise<any[] | void> | any[] | void;
   /** Regras de campos por perfil (colecao relatorios): campo → status (N/O/D). */
   campoRegras?: Record<string, CampoStatus>;
@@ -114,7 +114,7 @@ function simNao(v: unknown): 'S' | 'N' {
 function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
   return {
     id: c.id || gerarId(),
-    _firestoreId: c._firestoreId || c.id || undefined,
+    _idRegistro: c._idRegistro || c.id || undefined,
     nr_sequencia: c.nr_sequencia ?? 0,
     ds_elemento: c.ds_elemento ?? '',
     dt_criacao: c.dt_criacao ?? '',
@@ -306,7 +306,7 @@ export default function RelatorioBuilder({
   );
   const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
   const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[]; _firestoreId?: string; dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string };
+  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[]; _idRegistro?: string; dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string };
   const [bandas, setBandas] = useState<BandaState[]>(
     relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
   );
@@ -371,9 +371,9 @@ export default function RelatorioBuilder({
   function openAuditForCtx() {
     if (!relatorio) return;
     if (auditCtx === 'elemento') {
-      onOpenCampoAudit?.(relatorio.id ?? null, campoSel?._firestoreId || campoSel?.id || null);
+      onOpenCampoAudit?.(relatorio.id ?? null, campoSel?._idRegistro || campoSel?.id || null);
     } else if (auditCtx === 'parametro') {
-      onOpenFiltroAudit?.(relatorio.id ?? null, (filtroSel as any)?._firestoreId || filtroSel?.id || null);
+      onOpenFiltroAudit?.(relatorio.id ?? null, (filtroSel as any)?._idRegistro || filtroSel?.id || null);
     } else if (auditCtx === 'banda') {
       onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId);
     } else {
@@ -583,7 +583,7 @@ export default function RelatorioBuilder({
 
   // ── Ordenação da banda (tipo Lista) ──
   // A ordenação pertence à banda: fica em bandas[i].ordenacao e é gravada no
-  // Firestore junto com a banda assim que a linha deixa de estar em edição.
+  // banco junto com a banda assim que a linha deixa de estar em edição.
   const bandasRef = useRef(bandas);
   useEffect(() => { bandasRef.current = bandas; }, [bandas]);
   const ordenacaoPendenteRef = useRef(false);
@@ -615,27 +615,27 @@ export default function RelatorioBuilder({
     setOrdenacaoEditRequest(id);
   }
 
-  /** Grava no Firestore um elemento editado direto na tabela (lápis). */
+  /** Grava no banco um elemento editado direto na tabela (lápis). */
   async function gravarElementoEditado(row: CamposRelatorioRow) {
-    if (!row._firestoreId) return;
+    if (!row._idRegistro) return;
     const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
     const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
     const nrSeqBanda = bandasRef.current.find((b) => b.id === bandaDetailIdRef.current)?.nr_sequencia ?? 0;
-    const audit = await atualizarElemento(row._firestoreId, { ...row, nr_seq_banda: nrSeqBanda }, auditAutor);
+    const audit = await atualizarElemento(row._idRegistro, { ...row, nr_seq_banda: nrSeqBanda }, auditAutor);
     syncCampos((prev) => prev.map((c) => (c.id === row.id ? { ...c, dt_alteracao: audit.dt_alteracao, ds_usuario_alteracao: audit.ds_usuario_alteracao } : c)));
   }
 
-  /** Grava no Firestore um parâmetro editado direto na tabela (lápis). */
+  /** Grava no banco um parâmetro editado direto na tabela (lápis). */
   async function gravarParametroEditado(row: RelatorioFiltro) {
-    const firestoreId = (row as RelatorioFiltro & { _firestoreId?: string })._firestoreId;
-    if (!firestoreId) return;
+    const idRegistro = (row as RelatorioFiltro & { _idRegistro?: string })._idRegistro;
+    if (!idRegistro) return;
     const { atualizarParametro } = await import('@/services/relatorioServiceParametros');
     const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-    const audit = await atualizarParametro(firestoreId, { ...row, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+    const audit = await atualizarParametro(idRegistro, { ...row, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
     setFiltros((prev) => prev.map((f) => (f.id === row.id ? { ...f, dt_alteracao: audit.dt_alteracao, ds_usuario_alteracao: audit.ds_usuario_alteracao } : f)));
   }
 
-  /** Duplica um parâmetro gravando a cópia no Firestore. */
+  /** Duplica um parâmetro gravando a cópia no banco. */
   async function duplicarParametro(original: RelatorioFiltro): Promise<RelatorioFiltro | null> {
     setBandaSaving(true);
     try {
@@ -643,9 +643,9 @@ export default function RelatorioBuilder({
       const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
       // A cópia ganha identificação e auditoria próprias.
       const dados: Record<string, unknown> = { ...original };
-      for (const chave of ['id', '_firestoreId', 'nr_sequencia', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']) delete dados[chave];
+      for (const chave of ['id', '_idRegistro', 'nr_sequencia', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']) delete dados[chave];
       const salvo = await criarParametro({ ...dados, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-      return { ...dados, id: salvo.id, _firestoreId: salvo.id, nr_sequencia: salvo.nr_sequencia, dt_criacao: salvo.dt_criacao, dt_alteracao: salvo.dt_alteracao, ds_usuario_criacao: salvo.ds_usuario_criacao, ds_usuario_alteracao: salvo.ds_usuario_alteracao } as unknown as RelatorioFiltro;
+      return { ...dados, id: salvo.id, _idRegistro: salvo.id, nr_sequencia: salvo.nr_sequencia, dt_criacao: salvo.dt_criacao, dt_alteracao: salvo.dt_alteracao, ds_usuario_criacao: salvo.ds_usuario_criacao, ds_usuario_alteracao: salvo.ds_usuario_alteracao } as unknown as RelatorioFiltro;
     } catch {
       return null;
     } finally {
@@ -655,7 +655,7 @@ export default function RelatorioBuilder({
 
   /** Grava as bandas após editar uma banda direto na tabela (lápis). */
   async function gravarBandaEditada(row: BandaState) {
-    if (!row._firestoreId) return;
+    if (!row._idRegistro) return;
     setBandaSaving(true);
     try {
       const atualizadas = bandasRef.current.map((b) => (b.id === row.id ? row : b));
@@ -930,7 +930,7 @@ export default function RelatorioBuilder({
     ctrlSHandlerRef.current = () => {
       if (campoDetailId) {
         if (pendingCampo && pendingCampo.id === campoDetailId) {
-          // Salvar campo novo → Firestore
+          // Salvar campo novo → banco
           (async () => {
             setBandaSaving(true);
             try {
@@ -944,8 +944,8 @@ export default function RelatorioBuilder({
                 nr_seq_banda: nrSeqBanda ?? 0,
                 nr_seq_relatorio: relatorio?.nr_sequencia ?? 0,
               };
-              const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
-              const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
+              const { id: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
+              const novoCampo = { ...campoData, id: idRegistro, _idRegistro: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
               syncCampos((prev) => [...prev, novoCampo]);
               setPendingCampo(null);
             } finally {
@@ -955,15 +955,15 @@ export default function RelatorioBuilder({
           setCampoDetailId(null);
           return;
         }
-        // Campo existente: salvar explicitamente no Firestore
+        // Campo existente: salvar explicitamente no banco
         (async () => {
           setBandaSaving(true);
           try {
             const campoAtual = campos.find((c) => c.id === campoDetailId);
-            if (campoAtual?._firestoreId) {
+            if (campoAtual?._idRegistro) {
               const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
               const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-              const auditAtualizado = await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+              const auditAtualizado = await atualizarElemento(campoAtual._idRegistro, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
               syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
             }
           } finally {
@@ -974,7 +974,7 @@ export default function RelatorioBuilder({
         return;
       }
       if (filtroDetailId) {
-        // Salvar filtro no Firestore
+        // Salvar filtro no banco
         (async () => {
           setBandaSaving(true);
           try {
@@ -983,11 +983,11 @@ export default function RelatorioBuilder({
             if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
               const { id: _oldId, ...filtroData } = pendingFiltro;
               const { id: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-              setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
+              setFiltros((prev) => [...prev, { ...filtroData, id: newId, _idRegistro: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
             } else {
               const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
-              if ((filtroAtual as any)?._firestoreId) {
-                const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+              if ((filtroAtual as any)?._idRegistro) {
+                const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._idRegistro, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
                 setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, dt_alteracao: auditAtualizadoF.dt_alteracao, ds_usuario_alteracao: auditAtualizadoF.ds_usuario_alteracao } : f));
               }
             }
@@ -1115,7 +1115,7 @@ export default function RelatorioBuilder({
     return errs.length === 0;
   }
 
-  /** Remove recursivamente chaves com valor undefined (Firestore rejeita undefined). */
+  /** Remove recursivamente chaves com valor undefined antes de gravar. */
   function deepClean(obj: any): any {
     if (obj === undefined || obj === null) return obj;
     if (Array.isArray(obj)) return obj.map(deepClean);
@@ -1471,18 +1471,18 @@ export default function RelatorioBuilder({
                 try {
                   const { criarBanda, criarElemento } = await import('@/services/relatorioServiceBandas');
                   const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                  const { id: _oldId, _firestoreId: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
+                  const { id: _oldId, _idRegistro: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
                   // A cópia vai para o fim (posição própria), sem empatar com a original no PDF.
                   rest.nr_posicao = Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1;
                   const { id: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda({ ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
                   // Duplicar elementos filhos
                   const novosCampos: any[] = [];
                   for (const c of (_oldCampos ?? [])) {
-                    const { id: _cId, _firestoreId: _cFs, ...cRest } = c;
+                    const { id: _cId, _idRegistro: _cFs, ...cRest } = c;
                     const { id: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt } = await criarElemento({ ...cRest, nr_seq_banda: savedSeq, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                    novosCampos.push({ ...cRest, id: cNewId, _firestoreId: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt });
+                    novosCampos.push({ ...cRest, id: cNewId, _idRegistro: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt });
                   }
-                  return { ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), id: newBandaId, _firestoreId: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, campos: novosCampos } as any;
+                  return { ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), id: newBandaId, _idRegistro: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, campos: novosCampos } as any;
                 } finally {
                   setBandaSaving(false);
                 }
@@ -2376,10 +2376,10 @@ export default function RelatorioBuilder({
                     const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
                     const { criarElemento } = await import('@/services/relatorioServiceBandas');
                     const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                    const { id: _oldId, _firestoreId: _oldFs, ...rest } = original;
+                    const { id: _oldId, _idRegistro: _oldFs, ...rest } = original;
                     const campoData = { ...rest, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
-                    const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
-                    return { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as CamposRelatorioRow;
+                    const { id: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
+                    return { ...campoData, id: idRegistro, _idRegistro: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as CamposRelatorioRow;
                   } finally {
                     setBandaSaving(false);
                   }
@@ -2486,7 +2486,7 @@ export default function RelatorioBuilder({
                 type={(bandaDetailId && !campoDetailId) || isBandasMode ? 'button' : 'submit'}
                 disabled={saving}
                 onClick={campoDetailId ? () => {
-                  // Salvar campo: pendente (novo) → salva direto no Firestore
+                  // Salvar campo: pendente (novo) → salva direto no banco
                   if (pendingCampo && pendingCampo.id === campoDetailId) {
                     (async () => {
                       setBandaSaving(true);
@@ -2496,8 +2496,8 @@ export default function RelatorioBuilder({
                         const { criarElemento } = await import('@/services/relatorioServiceBandas');
                         const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
                         const campoData = { ...pendingCampo, nr_sequencia: seq, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
-                        const { id: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
-                        const novoCampo = { ...campoData, id: firestoreId, _firestoreId: firestoreId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
+                        const { id: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
+                        const novoCampo = { ...campoData, id: idRegistro, _idRegistro: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
                         syncCampos((prev) => [...prev, novoCampo]);
                         setPendingCampo(null);
                       } finally {
@@ -2505,15 +2505,15 @@ export default function RelatorioBuilder({
                       }
                     })();
                   } else {
-                    // Campo existente: salvar explicitamente no Firestore
+                    // Campo existente: salvar explicitamente no banco
                     (async () => {
                       setBandaSaving(true);
                       try {
                         const campoAtual = campos.find((c) => c.id === campoDetailId);
-                        if (campoAtual?._firestoreId) {
+                        if (campoAtual?._idRegistro) {
                           const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
                           const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                          const auditAtualizado = await atualizarElemento(campoAtual._firestoreId, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
+                          const auditAtualizado = await atualizarElemento(campoAtual._idRegistro, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
                           syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
                         }
                       } finally {
@@ -2523,7 +2523,7 @@ export default function RelatorioBuilder({
                   }
                   setCampoDetailId(null);
                 } : filtroDetailId ? () => {
-                  // Salvar filtro no Firestore
+                  // Salvar filtro no banco
                   (async () => {
                     setBandaSaving(true);
                     try {
@@ -2532,11 +2532,11 @@ export default function RelatorioBuilder({
                       if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
                         const { id: _oldId, ...filtroData } = pendingFiltro;
                         const { id: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                        setFiltros((prev) => [...prev, { ...filtroData, id: newId, _firestoreId: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
+                        setFiltros((prev) => [...prev, { ...filtroData, id: newId, _idRegistro: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
                       } else {
                         const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
-                        if ((filtroAtual as any)?._firestoreId) {
-                          const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._firestoreId, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
+                        if ((filtroAtual as any)?._idRegistro) {
+                          const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._idRegistro, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
                           setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, dt_alteracao: auditAtualizadoF.dt_alteracao, ds_usuario_alteracao: auditAtualizadoF.ds_usuario_alteracao } : f));
                         }
                       }

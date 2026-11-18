@@ -46,7 +46,7 @@ next-env.d.ts
 # modelo das variáveis (sem valores) pode ser versionado
 !.env.local.example
 
-# credenciais antigas do Firebase
+# anotações locais com credenciais
 db*.txt
 
 # cargas de dados (contêm dados reais)

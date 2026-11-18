@@ -1,5 +1,5 @@
 /**
- * Substitui o "tempo real" do Firestore (onSnapshot): busca na hora, de novo
+ * Atualização das listas: busca na hora, de novo
  * sempre que este navegador grava algo no mesmo assunto (notificarMudanca) e a
  * cada 15 segundos, para refletir o que outros usuários alteraram.
  */

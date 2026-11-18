@@ -13,7 +13,7 @@ import { Pool, types, type PoolClient, type QueryResultRow } from "pg";
  * - `max` baixo: o plano gratuito limita conexões e a Vercel abre várias instâncias.
  */
 
-// Tipos devolvidos à API no mesmo formato que o Firestore guardava.
+// Tipos devolvidos à API no formato que a tela usa.
 types.setTypeParser(1082, (v) => v); // date → 'AAAA-MM-DD' (sem fuso)
 /** '2025-01-02 03:04:05.678+00' → ISO 8601 aceito por qualquer `Date`. */
 function textoTimestampParaIso(v: string, utc = false): string {

@@ -282,8 +282,7 @@ async function resolveColecoesFK(
 
 /**
  * Executa a consulta do relatório e retorna os dados processados.
- * Busca todos os documentos da coleção e aplica filtros/ordenação no cliente
- * para evitar a necessidade de índices compostos no Firestore.
+ * Busca todos os registros da tabela e aplica filtros/ordenação no cliente.
  */
 export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<RelatorioResultado> {
   const { colecao, campos, filtros, ordenacao } = relatorio;

@@ -231,7 +231,7 @@ import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, 
 
 import { gerarPdf } from "@/lib/relatorioPdf";
 import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
-import { removerUndefinedProfundo } from "@/lib/firestoreUtils";
+import { removerUndefinedProfundo } from "@/lib/registroUtils";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
 import AvisoModal from "@/components/ui/AvisoModal";
 import { filtrarAuditoriaDoAviso, type CampoAviso } from "@/services/avisoService";
@@ -3421,8 +3421,8 @@ export default function Home() {
         const bandasComElementos = await Promise.all(
           bandasDb.map(async (b: any) => {
             const elementosRaw = b.nr_sequencia ? await obterElementosPorBandaSeq(b.nr_sequencia) : [];
-            const elementos = elementosRaw.map((e: any) => ({ ...e, _firestoreId: e.id }));
-            return { ...b, _firestoreId: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
+            const elementos = elementosRaw.map((e: any) => ({ ...e, _idRegistro: e.id }));
+            return { ...b, _idRegistro: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
           })
         );
         // Carregar parâmetros da coleção relatorio_parametro
@@ -3523,24 +3523,24 @@ export default function Home() {
           ordenacao: b.ordenacao, // undefined (banda antiga sem ordenação própria) não é gravado
         });
 
-        if (b._firestoreId) {
-          // Banda já existe no Firestore — atualizar
+        if (b._idRegistro) {
+          // Banda já existe no banco — atualizar
           // Usa o retorno do serviço: banda sem alterações mantém a data/autor anteriores.
-          const auditBanda = await atualizarBanda(b._firestoreId, bandaData, auditAutor);
+          const auditBanda = await atualizarBanda(b._idRegistro, bandaData, auditAutor);
           bandasSalvas.push({ ...b, dt_alteracao: auditBanda.dt_alteracao || b.dt_alteracao, ds_usuario_alteracao: auditBanda.ds_usuario_alteracao || b.ds_usuario_alteracao });
         } else {
           // Banda nova — criar
-          // A sequência definitiva vem do contador do Firestore (os elementos da
+          // A sequência definitiva vem do banco (os elementos da
           // banda são vinculados por nr_seq_banda, então precisa ser a mesma do banco).
           const { id: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda(bandaData, auditAutor);
-          bandasSalvas.push({ ...b, _firestoreId: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao });
+          bandasSalvas.push({ ...b, _idRegistro: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao });
         }
       }
 
       // ── Excluir bandas removidas da lista ──
       const { obterBandasPorRelatorio, excluirBanda } = await import('@/services/relatorioServiceBandas');
       const bandasExistentes = await obterBandasPorRelatorio(nrSeqRelatorio);
-      const idsMantidos = new Set(bandasSalvas.map((b) => b._firestoreId).filter(Boolean));
+      const idsMantidos = new Set(bandasSalvas.map((b) => b._idRegistro).filter(Boolean));
       for (const be of bandasExistentes) {
         if (!idsMantidos.has(be.id)) {
           await excluirBanda(be.id);
@@ -3598,8 +3598,8 @@ export default function Home() {
           const bandasComElementos = await Promise.all(
             bandasDb.map(async (b: any) => {
               const elementosRaw = b.nr_sequencia ? await obterElementosPorBandaSeq(b.nr_sequencia) : [];
-              const elementos = elementosRaw.map((e: any) => ({ ...e, _firestoreId: e.id }));
-              return { ...b, _firestoreId: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
+              const elementos = elementosRaw.map((e: any) => ({ ...e, _idRegistro: e.id }));
+              return { ...b, _idRegistro: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
             })
           );
           relatorio = { ...relatorio, bandas: bandasComElementos } as any;
@@ -10134,7 +10134,7 @@ export default function Home() {
                           setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${campo.nr_sequencia ?? ''}?`);
                           setConfirmDeleteType('campo');
                           setConfirmDeleteItemId(campo.id);
-                          setConfirmDeleteExtra({ _firestoreId: campo._firestoreId });
+                          setConfirmDeleteExtra({ _idRegistro: campo._idRegistro });
                           setConfirmDeleteAction(null);
                           setConfirmDeleteOpen(true);
                         }}
@@ -10142,7 +10142,7 @@ export default function Home() {
                           setConfirmDeleteMessage(`Deseja mesmo excluir a banda ${banda.nr_sequencia ?? ''}?`);
                           setConfirmDeleteType('banda');
                           setConfirmDeleteItemId(banda.id);
-                          setConfirmDeleteExtra({ _firestoreId: banda._firestoreId });
+                          setConfirmDeleteExtra({ _idRegistro: banda._idRegistro });
                           setConfirmDeleteAction(null);
                           setConfirmDeleteOpen(true);
                         }}
@@ -10150,7 +10150,7 @@ export default function Home() {
                           setConfirmDeleteMessage(`Deseja mesmo excluir o parâmetro ${f.nr_sequencia ?? ''}?`);
                           setConfirmDeleteType('filtro');
                           setConfirmDeleteItemId(f.id);
-                          setConfirmDeleteExtra({ _firestoreId: (f as any)._firestoreId });
+                          setConfirmDeleteExtra({ _idRegistro: (f as any)._idRegistro });
                           setConfirmDeleteAction(null);
                           setConfirmDeleteOpen(true);
                         }}
@@ -12946,10 +12946,10 @@ export default function Home() {
                     confirmDeleteAction();
                   } else if (confirmDeleteType === 'campo') {
                     const extra = confirmDeleteExtra;
-                    // Excluir do Firestore
-                    if (extra?._firestoreId) {
+                    // Excluir do banco
+                    if (extra?._idRegistro) {
                       import('@/services/relatorioServiceBandas').then(({ excluirElementoComCopias }) => {
-                        excluirElementoComCopias(extra._firestoreId, relatorioEditingId).then(() => setMessage('Registro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir registro.'));
+                        excluirElementoComCopias(extra._idRegistro, relatorioEditingId).then(() => setMessage('Registro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir registro.'));
                       });
                     }
                     // Remover do array local + state do RelatorioBuilder
@@ -12960,9 +12960,9 @@ export default function Home() {
                     });
                   } else if (confirmDeleteType === 'banda') {
                     const extra = confirmDeleteExtra;
-                    if (extra?._firestoreId) {
+                    if (extra?._idRegistro) {
                       import('@/services/relatorioServiceBandas').then(({ excluirBanda }) => {
-                        excluirBanda(extra._firestoreId).then(() => setMessage('Banda excluída com sucesso!')).catch(() => setMessage('Erro ao excluir banda.'));
+                        excluirBanda(extra._idRegistro).then(() => setMessage('Banda excluída com sucesso!')).catch(() => setMessage('Erro ao excluir banda.'));
                       });
                     }
                     // Remover do array local + state do RelatorioBuilder
@@ -12973,9 +12973,9 @@ export default function Home() {
                     });
                   } else if (confirmDeleteType === 'filtro') {
                     const extra = confirmDeleteExtra;
-                    if (extra?._firestoreId) {
+                    if (extra?._idRegistro) {
                       import('@/services/relatorioServiceParametros').then(({ excluirParametroComCopia }) => {
-                        excluirParametroComCopia(extra._firestoreId, relatorioEditingId).then(() => setMessage('Parâmetro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir parâmetro.'));
+                        excluirParametroComCopia(extra._idRegistro, relatorioEditingId).then(() => setMessage('Parâmetro excluído com sucesso!')).catch(() => setMessage('Erro ao excluir parâmetro.'));
                       });
                     }
                     setRelatorioForm((prev) => {

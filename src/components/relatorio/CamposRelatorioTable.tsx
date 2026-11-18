@@ -21,11 +21,11 @@ interface CamposRelatorioTableProps {
   onEditingChange?: (editing: boolean) => void;
   /** Ordem em que as linhas estão exibidas (ids), para a navegação anterior/próximo das telas Ver. */
   onOrdemChange?: (ids: string[]) => void;
-  /** Chamado ao concluir a edição de uma linha (para gravar no Firestore). */
+  /** Chamado ao concluir a edição de uma linha (para gravar no banco). */
   onRowCommit?: (row: CamposRelatorioRow) => void;
   /** Sufixo para persistência de colunas por usuário. */
   userId?: string;
-  /** Configuração inicial de colunas (do Firestore). */
+  /** Configuração inicial de colunas (salva por usuário). */
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;
   /** Callback ao alterar ordem/qt_largura das colunas. */
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
@@ -41,9 +41,9 @@ interface CamposRelatorioTableProps {
   bandaTipo?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape';
   /** Callback ao clicar 'Ver' no menu de contexto. */
   onViewCampo?: (campo: CamposRelatorioRow) => void;
-  /** Callback ao excluir um campo (para deletar do Firestore). */
+  /** Callback ao excluir um campo (para deletar no banco). */
   onDeleteCampo?: (campo: CamposRelatorioRow) => void;
-  /** Callback ao duplicar um campo (para salvar no Firestore). */
+  /** Callback ao duplicar um campo (para salvar no banco). */
   onDuplicateCampo?: (original: CamposRelatorioRow) => Promise<CamposRelatorioRow | null>;
 }
 
@@ -53,8 +53,8 @@ export interface CamposRelatorioRow {
   nr_sequencia?: number;
   /** Descrição do elemento. */
   ds_elemento?: string;
-  /** ID do Firestore (quando o elemento já foi salvo). */
-  _firestoreId?: string;
+  /** Número do registro (quando o elemento já foi salvo). */
+  _idRegistro?: string;
   /** Data de criação do elemento. */
   dt_criacao?: string;
   /** Data da última alteração do elemento. */

@@ -21,7 +21,7 @@ export function carregarEsquema(): Promise<Esquema> {
   return cache;
 }
 
-/** Nomes antigos (do Firestore) → nome do tipo no PostgreSQL. */
+/** Tipos declarados nos metadados dos campos (string, int64...) → nome do tipo no PostgreSQL. */
 const EQUIVALENTES: Record<string, string> = {
   string: "text",
   int64: "bigint",

@@ -50,8 +50,8 @@ export interface AuditoriaExtra {
 }
 
 /**
- * No Firestore, mandar `undefined` num campo que existia o removia do
- * documento. O JSON descarta `undefined`, então ele vira `null` (= limpar a coluna).
+ * Mandar `undefined` num campo significa limpá-lo. O JSON descarta `undefined`,
+ * então ele vira `null` (= limpar a coluna).
  */
 function comNulos(dados: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(Object.entries(dados).map(([k, v]) => [k, v === undefined ? null : v]));
@@ -89,7 +89,7 @@ export function atualizarDado<T>(
 
 /**
  * Atualiza as cópias embutidas do construtor de relatórios (relatorio.bandas,
- * relatorio.filtros, relatorio_banda.campos). Como no Firestore, isso não conta
+ * relatorio.filtros, relatorio_banda.campos). Isso não conta
  * como alteração do registro: não muda dt_alteracao nem gera auditoria.
  */
 export async function atualizarCopiaEmbutida(colecao: string, id: string, dados: object): Promise<void> {

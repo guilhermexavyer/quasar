@@ -10,8 +10,7 @@ import { caminhoDoStorage, infoArquivo } from "@/lib/server/storage";
 import type { Sessao } from "@/lib/server/sessao";
 
 /**
- * Leitura e gravação genéricas das tabelas, com o mesmo comportamento que os
- * serviços tinham no Firestore:
+ * Leitura e gravação genéricas das tabelas:
  *   - criar/atualizar preenchem dt_criacao/dt_alteracao/ds_usuario_*;
  *   - atualizar sem mudança real não grava nada;
  *   - toda gravação registra auditoria, e toda exclusão guarda a cópia do

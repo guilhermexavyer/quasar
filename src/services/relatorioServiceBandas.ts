@@ -1,5 +1,5 @@
 import { atualizarCopiaEmbutida, atualizarDado, criarDado, excluirDado, listarDados, obterDado } from "@/lib/apiCliente";
-import { removerUndefined, removerUndefinedProfundo } from "@/lib/firestoreUtils";
+import { removerUndefined, removerUndefinedProfundo } from "@/lib/registroUtils";
 import type { AuditAutor } from "@/services/auditService";
 
 /**
@@ -9,7 +9,7 @@ import type { AuditAutor } from "@/services/auditService";
  * parâmetro `autor` é mantido só pela assinatura).
  */
 
-// Registros do construtor de relatórios têm forma livre (como já era no Firestore).
+// Registros do construtor de relatórios têm forma livre.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Reg = Record<string, any>;
 type Controle = { id: string; nr_sequencia: number; dt_criacao: string; dt_alteracao: string; ds_usuario_criacao: string; ds_usuario_alteracao: string };
@@ -117,9 +117,9 @@ export async function excluirElementoComCopias(id: string, relatorioDocId?: stri
   const nrSeqBanda = elemento?.nr_seq_banda;
   await excluirElemento(id);
 
-  type Embutido = { id?: string; _firestoreId?: string };
+  type Embutido = { id?: string; _idRegistro?: string };
   const semElemento = (campos: Embutido[] | undefined) =>
-    (campos ?? []).filter((c) => c?.id !== id && c?._firestoreId !== id);
+    (campos ?? []).filter((c) => c?.id !== id && c?._idRegistro !== id);
 
   if (nrSeqBanda !== undefined && nrSeqBanda !== null) {
     const bandas = await listarDados<Reg>("relatorio_banda", { nr_sequencia: Number(nrSeqBanda) });
