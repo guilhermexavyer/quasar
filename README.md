@@ -51,15 +51,38 @@ npm.cmd run db:auditar-rodapes              # confere rodapés x auditoria (só 
 
 ## Como publicar
 
-`homologacao` é a branch de trabalho. Cada push em `homologacao` publica **quasar-cbc-homol.vercel.app** (Vercel, ambiente Preview) e cada push em `producao` publica **quasar-cbc.vercel.app** (Production). Antes, deixe `git status` limpo e teste na homologação.
+Branches: `desenvolvimento` → `homologacao` → `producao`. Trabalhe só em `desenvolvimento`; as outras duas recebem as mudanças apenas por merge.
+
+| Branch | Publica em |
+|---|---|
+| `desenvolvimento` | nada fixo (só um deploy de teste da Vercel) |
+| `homologacao` | **quasar-cbc-homol.vercel.app** (Vercel, ambiente Preview) |
+| `producao` | **quasar-cbc.vercel.app** (Production) |
+
+O desenvolvimento local (`.env.local`) usa o **mesmo banco da homologação**.
+
+Antes de publicar, deixe `git status` limpo (tudo commitado em `desenvolvimento`).
+
+**1. Homologação**
 
 ```bash
-npm.cmd run db:migrar:producao -- --confirmar   # 1. migrações pendentes na produção (se houver)
-git checkout producao                           # 2. vai para a branch de produção
+npm.cmd run db:migrar -- --confirmar            # migrações pendentes na homologação (se houver)
+git checkout homologacao                        # vai para a branch de homologação
+git pull                                        # atualiza com o GitHub
+git merge desenvolvimento                       # traz as mudanças do desenvolvimento
+git push                                        # envia e dispara o deploy
+git checkout desenvolvimento                    # volta para a branch de trabalho
+```
+
+**2. Produção** (depois de testar na homologação)
+
+```bash
+npm.cmd run db:migrar:producao -- --confirmar   # migrações pendentes na produção (se houver)
+git checkout producao                           # vai para a branch de produção
 git pull                                        # atualiza com o GitHub
 git merge homologacao                           # traz as mudanças da homologação
 git push                                        # envia e dispara o deploy
-git checkout homologacao                        # volta para a branch de trabalho
+git checkout desenvolvimento                    # volta para a branch de trabalho
 ```
 
 Em caso de conflito no merge: resolva os arquivos, rode `git add <arquivo>` e `git commit` antes do `git push`.
