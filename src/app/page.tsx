@@ -530,7 +530,7 @@ const emptyColaboradorForm: ColaboradorFormData = {
 };
 
 const emptyAtivoForm: AtivoFormData = {
-  cd_patrimonio_externo: "",
+  cd_externo: "",
   ds_ativo: "",
   nr_seq_categoria: undefined,
   nr_seq_localizacao: undefined,
@@ -1346,7 +1346,7 @@ export default function Home() {
   type AtivoFilterFormData = {
     // Identificação
     nr_sequencia: string;
-    cd_patrimonio_externo: string;
+    cd_externo: string;
     ds_ativo: string;
     ds_modelo: string;
     nr_serie: string;
@@ -1368,7 +1368,7 @@ export default function Home() {
     nr_seq_sistema_operacional: string;
   };
   const emptyAtivoFilterForm: AtivoFilterFormData = {
-    nr_sequencia: '', cd_patrimonio_externo: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
+    nr_sequencia: '', cd_externo: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
     dt_aquisicao_inicio: '', dt_aquisicao_fim: '', dt_garantia_inicio: '', dt_garantia_fim: '', ie_status: 'T',
     nr_seq_categoria: '', nr_seq_localizacao: '', nr_seq_marca: '', nr_seq_responsavel: '',
     ds_endereco_mac: '', ds_ip: '', nr_seq_sistema_operacional: '',
@@ -4934,7 +4934,7 @@ export default function Home() {
 
   function openAtivoEditForm(ativo: Ativo) {
     setAtivoForm({
-      cd_patrimonio_externo: ativo.cd_patrimonio_externo ?? '',
+      cd_externo: ativo.cd_externo ?? '',
       ds_ativo: ativo.ds_ativo ?? '',
       nr_seq_categoria: ativo.nr_seq_categoria,
       nr_seq_localizacao: ativo.nr_seq_localizacao,
@@ -5405,7 +5405,7 @@ export default function Home() {
         if (q && String(a.nr_sequencia) !== q) return false;
       }
       if (appliedAtivoFilterForm.ds_ativo && !(a.ds_ativo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ativo.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.cd_patrimonio_externo && !(a.cd_patrimonio_externo ?? '').toLowerCase().includes(appliedAtivoFilterForm.cd_patrimonio_externo.toLowerCase())) return false;
+      if (appliedAtivoFilterForm.cd_externo && !(a.cd_externo ?? '').toLowerCase().includes(appliedAtivoFilterForm.cd_externo.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_modelo && !(a.ds_modelo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_modelo.toLowerCase())) return false;
       if (appliedAtivoFilterForm.nr_serie && !(a.nr_serie ?? '').toLowerCase().includes(appliedAtivoFilterForm.nr_serie.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_qr_code && !(a.ds_qr_code ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_qr_code.toLowerCase())) return false;
@@ -6532,7 +6532,7 @@ export default function Home() {
       if (ativoEditingId) {
         const currentAtivo = ativos.find((a) => a.id === ativoEditingId);
         const formKeys: Array<keyof AtivoFormData> = [
-          'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
+          'cd_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
           'nr_seq_marca', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
           'vl_aquisicao', 'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
           'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
@@ -12267,8 +12267,8 @@ export default function Home() {
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_sequencia} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_patrimonio_externo" />
-                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_patrimonio_externo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_patrimonio_externo: e.target.value })} />
+                  <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_externo" />
+                  <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_externo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_externo: e.target.value })} />
                 </div>
                 <div className="sm:col-span-6">
                   <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
@@ -14671,7 +14671,7 @@ export default function Home() {
             ]
           : isAtivo
           ? [
-              'nr_sequencia', 'cd_patrimonio_externo', 'ds_ativo', 'nr_seq_categoria',
+              'nr_sequencia', 'cd_externo', 'ds_ativo', 'nr_seq_categoria',
               'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'vl_aquisicao', 'dt_aquisicao', 'dt_garantia',
               'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status', 'ds_motivo_transferencia',
@@ -14967,7 +14967,7 @@ export default function Home() {
                       ie_obrigatorio: 'Obrigatório',
                       ds_usuario_criacao: 'Usuário criação',
                       ds_usuario_alteracao: 'Usuário alteração',
-                      cd_patrimonio_externo: 'Código externo',
+                      cd_externo: 'Código externo',
                       ds_ativo: 'Descrição',
                       nr_seq_categoria: 'Categoria',
                       nr_seq_localizacao: 'Localização',
@@ -15394,8 +15394,8 @@ export default function Home() {
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={String(ativoView.nr_sequencia ?? '')} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_patrimonio_externo" />
-                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_patrimonio_externo ?? ''} />
+                      <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_externo" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_externo ?? ''} />
                     </div>
                     <div className="sm:col-span-7 group">
                       <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />

@@ -249,13 +249,13 @@ export default function AtivoFormView({
               </div>
 
               <div className="sm:col-span-4 group">
-                {renderFieldLabel('cd_patrimonio_externo', 'Código externo')}
+                {renderFieldLabel('cd_externo', 'Código externo')}
                 <input
-                  disabled={statusDe('cd_patrimonio_externo') === 'D'}
+                  disabled={statusDe('cd_externo') === 'D'}
                   maxLength={30}
-                  className={`${inputClass('cd_patrimonio_externo')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.cd_patrimonio_externo ?? ''}
-                  onChange={(e) => setForm({ ...form, cd_patrimonio_externo: e.target.value })}
+                  className={`${inputClass('cd_externo')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                  value={form.cd_externo ?? ''}
+                  onChange={(e) => setForm({ ...form, cd_externo: e.target.value })}
                 />
               </div>
 

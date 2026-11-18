@@ -46,12 +46,12 @@ export const ATIVO_COLUMNS: ColDef[] = [
   { key: 'ds_usuario_criacao', label: 'Usuário criação' },
   { key: 'ds_usuario_alteracao', label: 'Usuário alteração' },
   // Colunas novas entram no fim: a ordem/largura salvas são por índice.
-  { key: 'cd_patrimonio_externo', label: 'Código externo' },
+  { key: 'cd_externo', label: 'Código externo' },
 ];
 
 export const FIELD_INFOS = {
   nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'pat_ativo' },
-  cd_patrimonio_externo: { type: 'string', field: 'cd_patrimonio_externo', collection: 'pat_ativo' },
+  cd_externo: { type: 'string', field: 'cd_externo', collection: 'pat_ativo' },
   ds_ativo: { type: 'string', field: 'ds_ativo', collection: 'pat_ativo' },
   nr_seq_categoria: { type: 'int64', field: 'nr_seq_categoria', collection: 'pat_ativo' },
   nr_seq_localizacao: { type: 'int64', field: 'nr_seq_localizacao', collection: 'pat_ativo' },
@@ -90,7 +90,7 @@ export const FIELD_INFOS = {
 
 export const FIELD_LABELS: Record<string, string> = {
   nr_sequencia: 'Sequência',
-  cd_patrimonio_externo: 'Código externo',
+  cd_externo: 'Código externo',
   ds_ativo: 'Descrição',
   nr_seq_categoria: 'Categoria',
   nr_seq_localizacao: 'Localização',

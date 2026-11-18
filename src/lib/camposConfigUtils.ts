@@ -247,7 +247,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_sistema_operacional.ie_status", label: "Status", tipo: "Sistema operacional", colecao: "cg_sistema_operacional" },
   ],
   patrimonio: [
-    { key: "pat_ativo.cd_patrimonio_externo", label: "Código externo", tipo: "Ativos", colecao: "pat_ativo" },
+    { key: "pat_ativo.cd_externo", label: "Código externo", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.ds_ativo", label: "Descrição", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.nr_seq_categoria", label: "Categoria", tipo: "Ativos", colecao: "pat_ativo" },
     { key: "pat_ativo.nr_seq_localizacao", label: "Localização", tipo: "Ativos", colecao: "pat_ativo" },

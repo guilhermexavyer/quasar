@@ -3,7 +3,7 @@ export interface Ativo {
   id?: string;
   nr_sequencia: number;
   /** Código externo (código do bem em outro sistema). */
-  cd_patrimonio_externo?: string;
+  cd_externo?: string;
   /** Descrição do ativo. */
   ds_ativo?: string;
   /** Categoria (Cadastros Gerais > Categoria (ativo)). */
