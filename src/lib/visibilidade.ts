@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState, type RefObject } from "react";
+import { useEffect, useLayoutEffect, useRef, useState, type RefObject } from "react";
+import { flushSync } from "react-dom";
 
 /**
  * Indica se o elemento está visível na página.
@@ -19,6 +20,15 @@ export function elementoVisivel(elemento: Element | null | undefined): boolean {
  * só surge ao escolher uma opção no dropdown PAI). Serve de dependência para
  * refazer medições que não rodaram nesses momentos — como as larguras das
  * colunas de uma tabela.
+ *
+ * Tudo acontece ANTES de a tela ser pintada, para o usuário nunca ver a tabela
+ * com larguras automáticas por um instante (o "piscar" das colunas):
+ *   - o observer é ligado num useLayoutEffect (antes da pintura), e não num
+ *     useEffect (que roda depois dela);
+ *   - a notificação do ResizeObserver chega entre o cálculo do layout e a
+ *     pintura; o flushSync faz o React renderizar ali mesmo, então as medições
+ *     que dependem da versão (useLayoutEffect das tabelas) aplicam as larguras
+ *     salvas no mesmo quadro.
  */
 export function useVersaoVisivel(ref: RefObject<Element | null>): number {
   const [versao, setVersao] = useState(0);
@@ -26,7 +36,7 @@ export function useVersaoVisivel(ref: RefObject<Element | null>): number {
 
   // Sem lista de dependências: o elemento pode ser trocado (ex.: tabela que só
   // aparece depois do carregamento), então confere a cada render.
-  useEffect(() => {
+  useLayoutEffect(() => {
     const elemento = ref.current;
     if (observado.current?.elemento === elemento) return;
     observado.current?.observer.disconnect();
@@ -38,7 +48,7 @@ export function useVersaoVisivel(ref: RefObject<Element | null>): number {
     // Esconder/mostrar (display: none) muda o tamanho do elemento de/para zero.
     const observer = new ResizeObserver(() => {
       const agora = elementoVisivel(elemento);
-      if (agora && !visivel) setVersao((v) => v + 1);
+      if (agora && !visivel) flushSync(() => setVersao((v) => v + 1));
       visivel = agora;
     });
     observer.observe(elemento);

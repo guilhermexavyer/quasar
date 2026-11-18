@@ -426,6 +426,7 @@ export default function BandasRelatorioTable({
         onRowContextMenu={handleContextMenu}
         onRowClick={(row) => setSelectedId(row.id === selectedId ? null : row.id)}
         onRowDoubleClick={(row) => { if (onOpenBanda) onOpenBanda(row); }}
+        rowPointer={() => !!onOpenBanda}
         rowClassName={(row) => (selectedId === row.id || editingId === row.id) ? "row-selected" : ""}
         pinnedColumns={["_actions"]}
         storageKeySuffix={userId}

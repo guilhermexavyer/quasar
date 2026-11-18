@@ -189,6 +189,7 @@ export default function RelatorioListView({
               }}
               onRowClick={handleRowClick}
               onRowDoubleClick={handleRowDoubleClick}
+              rowPointer={() => true}
               onRowContextMenu={handleContextMenu}
               rowClassName={(row) =>
                 row._id === selectedId ? "row-selected" : ""

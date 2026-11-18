@@ -57,6 +57,11 @@ interface ResizableTableProps<T> {
   onRowDoubleClick?: (row: T) => void;
   onRowContextMenu?: (row: T, e: ReactMouseEvent<HTMLTableRowElement>) => void;
   rowClassName?: (row: T) => string;
+  /**
+   * Linhas cujo duplo clique abre itens relacionados (ex.: bandas do relatório):
+   * ficam com cursor de mãozinha. Padrão: cursor de menu de contexto.
+   */
+  rowPointer?: (row: T) => boolean;
   /** Colunas fixas que ficam sempre à esquerda e não podem ser reordenadas/redimensionadas. */
   pinnedColumns?: string[];
   /** Sufixo para a chave de persistência no localStorage (ex.: userId). */
@@ -84,6 +89,7 @@ export default function ResizableTable<T>({
   onRowDoubleClick,
   onRowContextMenu,
   rowClassName,
+  rowPointer,
   pinnedColumns = [],
   storageKeySuffix = '',
   onColumnsChange,
@@ -509,7 +515,7 @@ export default function ResizableTable<T>({
               return (
                 <tr
                   key={rk}
-                  className={`cursor-[context-menu] hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
+                  className={`${rowPointer?.(row) ? "cursor-pointer" : "cursor-[context-menu]"} hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
                   onClick={() => onRowClick?.(row)}
                   onDoubleClick={() => onRowDoubleClick?.(row)}
                   onContextMenu={(e) => {

@@ -595,7 +595,7 @@ export default function PeriodoLetivoListView({
                     {paginatedPeriodos.map((periodo) => (
                       <tr
                         key={periodo.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === periodo.id ? 'row-selected' : ''}`}
+                        className={`${onOpenFeriados ? 'cursor-pointer' : 'cursor-[context-menu]'} hover:bg-[#eee] ${selectedId === periodo.id ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === periodo.id ? null : periodo.id ?? null))}
                         onDoubleClick={() => { setSelectedId(periodo.id ?? null); onOpenFeriados?.(periodo); }}
                         onContextMenu={(e) => {

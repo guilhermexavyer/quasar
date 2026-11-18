@@ -402,6 +402,7 @@ export default function ExclusoesView({
                     rowClassName={(ex) => (ex.id === selecionadoId ? "row-selected" : "")}
                     onRowClick={(ex) => setSelecionadoId((atual) => (atual === ex.id ? null : ex.id))}
                     onRowDoubleClick={abrirFilhos}
+                    rowPointer={(ex) => !!FILHOS_EXCLUSAO[ex.ds_colecao]}
                     onRowContextMenu={(ex, e) => {
                       e.preventDefault();
                       setSelecionadoId(ex.id);

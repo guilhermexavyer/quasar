@@ -644,7 +644,7 @@ export default function AtivoListView({
                       return (
                       <tr
                         key={ativo.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === ativo.id || marcado ? 'row-selected' : ''}`}
+                        className={`${onOpenDetalhe ? 'cursor-pointer' : 'cursor-[context-menu]'} hover:bg-[#eee] ${selectedId === ativo.id || marcado ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === ativo.id ? null : ativo.id ?? null))}
                         onDoubleClick={() => { setSelectedId(ativo.id ?? null); onOpenDetalhe?.(ativo); }}
                         onContextMenu={(e) => {
