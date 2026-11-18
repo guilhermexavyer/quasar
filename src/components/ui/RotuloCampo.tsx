@@ -7,7 +7,7 @@ import { tipoDoCampo } from "@/lib/campoInfo";
 interface RotuloCampoProps {
   /** Texto do rótulo. */
   texto: ReactNode;
-  /** Coleção (ou origem) do campo exibida em "Informações do campo". */
+  /** Tabela (ou origem) do campo exibida em "Informações do campo". */
   colecao: string;
   /** Nome do campo no banco. */
   campo: string;

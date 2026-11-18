@@ -2,6 +2,7 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
+import { carregarEsquema, tipoDaColuna, tipoDeclarado } from "@/lib/esquemaBanco";
 
 interface FieldInfoPopupProps {
   /** Elemento âncora (o botão de informações do campo). */
@@ -30,6 +31,20 @@ export default function FieldInfoPopup({ anchor, meta, onClose }: FieldInfoPopup
   const popupRef = useRef<HTMLDivElement | null>(null);
   const [pos, setPos] = useState<{ top: number; left: number; flipX: boolean } | null>(null);
   const dark = !!anchor?.closest('.dark');
+
+  // Tipo real da coluna no banco (PostgreSQL); até chegar, ou para campos que
+  // não são colunas (ex.: modais), mostra o tipo declarado na tela.
+  const [tipoReal, setTipoReal] = useState<string | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    carregarEsquema().then((esquema) => {
+      if (ativo) setTipoReal(tipoDaColuna(esquema, meta.collection, meta.field));
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [meta.collection, meta.field]);
+  const tipo = tipoReal ?? tipoDeclarado(meta.type);
 
   // Posiciona ao lado da âncora (à direita do infobutton), centralizado
   // verticalmente com ele. Na primeira passada o pop-up fica invisível para
@@ -91,7 +106,7 @@ export default function FieldInfoPopup({ anchor, meta, onClose }: FieldInfoPopup
   return createPortal(
     <div
       ref={popupRef}
-      // Largura mínima de 240px; nomes longos (ex.: coleção) alargam a pop-up até o limite da tela.
+      // Largura mínima de 240px; nomes longos (ex.: tabela) alargam a pop-up até o limite da tela.
       className={`fixed z-[9999] w-max min-w-[240px] max-w-[calc(100vw-16px)] [overflow-wrap:anywhere] p-[10px] text-xs border shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${darkClasses}`}
       style={pos ? { top: pos.top, left: pos.left } : { top: 0, left: 0, visibility: 'hidden' }}
       onClick={(event) => event.stopPropagation()}
@@ -125,9 +140,9 @@ export default function FieldInfoPopup({ anchor, meta, onClose }: FieldInfoPopup
       )}
       <div className="mb-2 font-semibold">Informações do campo</div>
       <div className="space-y-1">
-        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Tipo:</span> {meta.type}</div>
-        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Campo:</span> {meta.field}</div>
-        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Coleção:</span> {meta.collection}</div>
+        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Tipo:</span> {tipo}</div>
+        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Coluna:</span> {meta.field}</div>
+        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Tabela:</span> {meta.collection}</div>
       </div>
     </div>,
     document.body

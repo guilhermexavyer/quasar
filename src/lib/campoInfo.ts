@@ -1,5 +1,5 @@
-/** Campos gravados como lista (array) no banco. */
-const CAMPOS_ARRAY = new Set([
+/** Campos gravados como lista no banco. */
+const CAMPOS_LISTA = new Set([
   "responsaveis",
   "ds_alergia",
   "ds_medicamento_continuo",
@@ -8,13 +8,17 @@ const CAMPOS_ARRAY = new Set([
 ]);
 
 /**
- * Tipo de um campo do banco pelo padrão de nomenclatura (o mesmo dos
- * FIELD_INFOS): vl_ = float64; nr_seq_*, nr_sequencia, nr_ano e qt_ = int64;
- * listas conhecidas = array; o restante (inclusive nr_cpf, nr_matricula…) = string.
+ * Tipo provável de uma coluna pelo padrão de nomenclatura, usado no infobutton
+ * enquanto o tipo real (lido do banco em /api/esquema) não chega ou quando o
+ * campo não é uma coluna: vl_ = numeric; nr_seq_* e nr_sequencia = bigint;
+ * nr_ano e qt_ = integer; dt_ = date; listas conhecidas = jsonb; o restante
+ * (inclusive nr_cpf, nr_matricula…) = text.
  */
 export function tipoDoCampo(campo: string): string {
-  if (CAMPOS_ARRAY.has(campo)) return "array";
-  if (campo.startsWith("vl_")) return "float64";
-  if (/^(nr_seq_|qt_)/.test(campo) || campo === "nr_sequencia" || campo === "nr_ano") return "int64";
-  return "string";
+  if (CAMPOS_LISTA.has(campo)) return "jsonb";
+  if (campo.startsWith("vl_")) return "numeric";
+  if (campo.startsWith("nr_seq_") || campo === "nr_sequencia") return "bigint";
+  if (campo.startsWith("qt_") || campo === "nr_ano") return "integer";
+  if (campo.startsWith("dt_")) return "date";
+  return "text";
 }

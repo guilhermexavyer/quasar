@@ -71,20 +71,22 @@ export async function exigirAcessoEscrita(
   sessao: Sessao, tabela: string, operacao: "criar" | "atualizar" | "excluir",
   atual: Registro | null, dados?: Registro
 ): Promise<void> {
-  const admin = ehAdministrador(sessao.usuario);
+  // O usuário 'administrador' e o perfil 'Administrador' são o acesso padrão do
+  // sistema: ninguém os altera nem exclui, nem o próprio administrador.
   if (tabela === "usuario") {
     const ehProprio = atual != null && Number(atual.nr_sequencia) === sessao.nrUsuario;
     const chaves = Object.keys(dados ?? {});
-    // Trocar a própria senha é sempre permitido.
+    // Trocar a própria senha (menu do usuário) é sempre permitido, inclusive ao administrador.
     if (operacao === "atualizar" && ehProprio && chaves.length === 1 && chaves[0] === "ds_senha") return;
-    if (!admin && ehAdministrador(atual)) throw new ErroAcesso("O usuário administrador não pode ser alterado por outros usuários.");
-    if (!admin && operacao !== "excluir" && ehAdministrador(dados)) throw new ErroAcesso("Nome de usuário reservado.");
+    if (ehAdministrador(atual)) throw new ErroAcesso("O usuário administrador não pode ser alterado.");
+    if (operacao !== "excluir" && ehAdministrador(dados)) throw new ErroAcesso("Nome de usuário reservado.");
     await exigirPermissao(sessao, "acessar_usuarios");
   } else if (tabela === "perfil") {
     // Migração automática da versão das permissões, feita pela tela de qualquer usuário.
     const chaves = Object.keys(dados ?? {}).sort().join(",");
-    if (operacao === "atualizar" && chaves === "config_permissoes,config_permissoes_v") return;
-    if (!admin && ehPerfilAdministrador(atual)) throw new ErroAcesso("O perfil Administrador não pode ser alterado por outros usuários.");
+    if (operacao === "atualizar" && chaves === "config_permissoes,config_permissoes_v" && !ehPerfilAdministrador(atual)) return;
+    if (ehPerfilAdministrador(atual)) throw new ErroAcesso("O perfil Administrador não pode ser alterado.");
+    if (operacao !== "excluir" && ehPerfilAdministrador(dados)) throw new ErroAcesso("Nome de perfil reservado.");
     await exigirPermissao(sessao, "acessar_perfis");
   }
 }

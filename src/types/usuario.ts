@@ -8,7 +8,11 @@ export interface Usuario {
   ds_email?: string;
   ds_senha: string;
   ds_observacao: string;
-  /* Preferências personalizadas do usuário (nomes padronizados) */
+  /*
+   * Preferências personalizadas do usuário (nomes padronizados).
+   * config_colunas_* (largura e ordem das colunas de cada lista) ficam na tabela
+   * usuario_coluna (uma linha por lista); a API as entrega aqui com o mesmo nome.
+   */
   config_tema?: string;
   config_colunas_pessoa_fisica?: string;
   config_colunas_pessoa_juridica?: string;

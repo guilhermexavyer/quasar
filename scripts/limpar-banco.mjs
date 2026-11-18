@@ -1,116 +1,50 @@
 #!/usr/bin/env node
 /**
- * Limpeza TOTAL do banco de dados (Firestore).
+ * Limpeza TOTAL do banco (PostgreSQL/Supabase).
  *
- * Apaga todos os documentos de todas as coleções do sistema, as subcoleções
- * "auditoria" (inclusive as órfãs, via collectionGroup) e os contadores
- * (_counters). Antes de apagar, grava um backup completo em JSON na pasta
- * backups/ (ignorada pelo git).
- *
- * O SDK cliente do Firebase não lista coleções raiz, por isso a lista abaixo
- * precisa acompanhar as coleções usadas pelo sistema.
+ * Apaga todos os registros de todas as tabelas de dados (inclusive auditoria,
+ * exclusões e sessões) e reinicia a numeração (nr_sequencia). O esquema
+ * (tabelas e colunas) fica. Antes de apagar, grava um backup completo em JSON
+ * na pasta backups/ (ignorada pelo git). As imagens do Storage não são
+ * apagadas, a menos que se use --com-imagens.
  *
  * Uso:
- *   node --env-file=.env.local scripts/limpar-banco.mjs              → só mostra o que seria apagado
- *   node --env-file=.env.local scripts/limpar-banco.mjs --confirmar  → faz backup e APAGA tudo
+ *   node --env-file=.env.local scripts/limpar-banco.mjs                              → só mostra o que seria apagado
+ *   node --env-file=.env.local scripts/limpar-banco.mjs --confirmar                  → faz backup e APAGA tudo
+ *   node --env-file=.env.local scripts/limpar-banco.mjs --confirmar --com-imagens    → também apaga as imagens do Storage
  */
-import { mkdirSync, writeFileSync } from "node:fs";
-import { initializeApp, getApps } from "firebase/app";
-import { getFirestore, collection, collectionGroup, getDocs, writeBatch } from "firebase/firestore";
-
-const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
-};
-
-if (!firebaseConfig.projectId) {
-  console.error("❌ Variáveis NEXT_PUBLIC_FIREBASE_* não encontradas. Rode com: node --env-file=.env.local scripts/limpar-banco.mjs");
-  process.exit(1);
-}
-
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const db = getFirestore(app);
+import { conectar, contagens, falhar, fazerBackup, refDaBase, storage, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
 
 const CONFIRMAR = process.argv.includes("--confirmar");
+const COM_IMAGENS = process.argv.includes("--com-imagens");
 
-const COLECOES = [
-  "_counters",
-  "pessoa_fisica", "pessoa_juridica",
-  "aluno", "colaborador", "periodo_letivo",
-  "pat_ativo", "pat_ativos", "pat_manutencao", "pat_param_codigo_patrimonio", "pat_param_cor_ativo_descartado", "pat_param_cor_ativo_estoque", "pat_param_cor_ativo_manutencao", "pat_param_cor_ativo_operacional", "pat_param_cor_manutencao_andamento", "pat_param_cor_manutencao_concluida", "pat_param_cor_manutencao_cancelada", "periodo_letivo_feriado", "curso", "exclusao", "ea_param_matricula_aluno", "ea_param_matricula_colaborador", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado", "ea_param_encerramento_automatico_periodo_letivo",
-  "perfil", "usuario", "imagem", "aviso", "regra",
-  "relatorio", "relatorio_banda", "relatorio_bandas", "relatorio_banda_elemento", "relatorio_parametro",
-  "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor",
-  "cg_logradouro", "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual",
-  "cg_localizacao", "cg_marca", "pat_categoria", "cg_categoria_ativo" /* antiga, renomeada para pat_categoria */, "cg_sistema_operacional",
-];
+const db = await conectar();
+try {
+  const ref = refDaBase(process.env.DATABASE_URL_MIGRACAO);
+  const tabelas = await tabelasEmOrdem(db);
+  const antes = await contagens(db, [...tabelas, "sessao"]);
+  const total = Object.values(antes).reduce((a, b) => a + b, 0);
+  for (const [t, n] of Object.entries(antes)) if (n > 0) console.log(`   ${t.padEnd(32)} ${n}`);
+  console.log(`   Total: ${total} registro(s)`);
 
-/** Apaga documentos em lotes (limite do Firestore: 500 operações por batch). */
-async function apagarDocs(docs) {
-  const LOTE = 450;
-  for (let i = 0; i < docs.length; i += LOTE) {
-    const batch = writeBatch(db);
-    for (const d of docs.slice(i, i + LOTE)) batch.delete(d.ref);
-    await batch.commit();
-  }
-}
-
-async function main() {
-  console.log(`🧹 Limpeza do banco — projeto "${firebaseConfig.projectId}"${CONFIRMAR ? "" : " (simulação)"}\n`);
-
-  // 1) Leitura de tudo (para backup e contagem)
-  const backup = { projeto: firebaseConfig.projectId, data: new Date().toISOString(), colecoes: {}, auditoria: {} };
-  const snaps = {};
-  for (const nome of COLECOES) {
-    const snap = await getDocs(collection(db, nome));
-    snaps[nome] = snap;
-    backup.colecoes[nome] = Object.fromEntries(snap.docs.map((d) => [d.id, d.data()]));
-  }
-  const auditSnap = await getDocs(collectionGroup(db, "auditoria"));
-  for (const d of auditSnap.docs) backup.auditoria[d.ref.path] = d.data();
-
-  let total = auditSnap.size;
-  for (const nome of COLECOES) {
-    const n = snaps[nome].size;
-    total += n;
-    if (n > 0) console.log(`   ${nome}: ${n}`);
-  }
-  console.log(`   auditoria (todas as subcoleções): ${auditSnap.size}`);
-  console.log(`\n   Total: ${total} documento(s)`);
+  const st = COM_IMAGENS ? storage(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY) : null;
+  const imagens = st ? await st.listar() : [];
+  if (st) console.log(`   Imagens no Storage: ${imagens.length}`);
 
   if (!CONFIRMAR) {
-    console.log("\nℹ️  Nada foi apagado. Para apagar, rode novamente com --confirmar.");
-    process.exit(0);
+    console.log("\n👀 Nada foi apagado. Use --confirmar para fazer o backup e apagar.");
+  } else {
+    const backup = await fazerBackup(db, ref);
+    console.log(`💾 Backup: ${backup}`);
+    await db.query(`truncate table ${[...tabelas, "sessao"].map((t) => `"${t}"`).join(", ")} restart identity cascade`);
+    const depois = await contagens(db, [...tabelas, "sessao"]);
+    const restante = Object.values(depois).reduce((a, b) => a + b, 0);
+    if (restante !== 0) falhar(`Sobraram ${restante} registro(s).`);
+    if (st && imagens.length) await st.remover(imagens);
+    console.log(`\n🧹 Banco limpo${st ? ` e ${imagens.length} imagem(ns) removida(s)` : ""}. Rode os seeders para recriar o básico.`);
   }
-
-  // 2) Backup
-  mkdirSync("backups", { recursive: true });
-  const arquivo = `backups/backup-${backup.data.replace(/[:.]/g, "-")}.json`;
-  writeFileSync(arquivo, JSON.stringify(backup, null, 2), "utf-8");
-  console.log(`\n💾 Backup gravado em ${arquivo}`);
-
-  // 3) Exclusão: auditorias primeiro, depois os documentos de cada coleção
-  await apagarDocs(auditSnap.docs);
-  console.log(`🗑️  auditoria: ${auditSnap.size} apagados`);
-  for (const nome of COLECOES) {
-    const docs = snaps[nome].docs;
-    if (docs.length === 0) continue;
-    await apagarDocs(docs);
-    console.log(`🗑️  ${nome}: ${docs.length} apagados`);
-  }
-
-  // 4) Verificação
-  let restantes = (await getDocs(collectionGroup(db, "auditoria"))).size;
-  for (const nome of COLECOES) restantes += (await getDocs(collection(db, nome))).size;
-  console.log(restantes === 0 ? "\n✅ Banco limpo." : `\n⚠️  Restaram ${restantes} documento(s).`);
-  process.exit(restantes === 0 ? 0 : 1);
+} catch (erro) {
+  falhar(`Erro (${erro?.code ?? "sem código"}): ${textoDoErro(erro)}`);
+} finally {
+  await db.end().catch(() => undefined);
 }
-
-main().catch((err) => {
-  console.error("❌ Erro na limpeza:", err?.message ?? err);
-  process.exit(1);
-});

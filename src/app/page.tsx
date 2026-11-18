@@ -1685,15 +1685,19 @@ export default function Home() {
     [isAdministrador, currentUser?.config_perfis]
   );
 
-  // Item protegido: o usuário 'administrador' ou o perfil 'Administrador' só
-  // podem ser vistos por outros usuários (não podem ser alterados/excluídos).
+  // Item protegido: o usuário 'administrador' e o perfil 'Administrador' são o
+  // acesso padrão do sistema e não podem ser alterados nem excluídos por ninguém
+  // (inclusive pelo próprio administrador): no menu de contexto só aparece "Ver".
   const isProtectedAdminItem = useMemo(() => {
-    if (!contextMenu || contextMenu.section !== 'administracaoSistema' || isAdministrador) return false;
+    if (!contextMenu || contextMenu.section !== 'administracaoSistema') return false;
     if (adminManageSelection === 'perfis') {
       return isAdministradorPerfil(contextMenu.item as Perfil);
     }
-    return isAdministradorUsuario(contextMenu.item as Usuario);
-  }, [contextMenu, adminManageSelection, isAdministrador]);
+    if (adminManageSelection === 'usuarios') {
+      return isAdministradorUsuario(contextMenu.item as Usuario);
+    }
+    return false;
+  }, [contextMenu, adminManageSelection]);
 
   // Perfis vinculados ao usuário logado que estão ativos, em ordem alfabética.
   // Para usuários comuns, o perfil Administrador (exclusivo do admin) não entra.
@@ -3913,6 +3917,8 @@ export default function Home() {
   // Salva o status de um campo na configuração do perfil (Administração > Campos).
   async function handleCamposStatusChange(perfil: Perfil, chave: string, status: CampoStatus) {
     if (!perfil.id) return;
+    // O perfil Administrador não pode ser alterado (só consulta).
+    if (isAdministradorPerfil(perfil)) return;
     setMessage("");
     const config = parseCamposConfig(perfil.config_campos);
     config[chave] = status;
@@ -6635,9 +6641,9 @@ export default function Home() {
   async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    // Defesa em profundidade: não-admins não podem alterar o usuário administrador.
-    if (!isAdministrador && adminEditingId && isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId))) {
-      setMessage("O usuário administrador não pode ser alterado por outros usuários.");
+    // Defesa em profundidade: o usuário administrador não pode ser alterado.
+    if (adminEditingId && isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId))) {
+      setMessage("O usuário administrador não pode ser alterado.");
       return;
     }
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
@@ -6749,9 +6755,9 @@ export default function Home() {
   async function handlePerfilSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setMessage("");
-    // Defesa em profundidade: não-admins não podem alterar o perfil Administrador.
-    if (!isAdministrador && perfilEditingId && isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId))) {
-      setMessage("O perfil Administrador não pode ser alterado por outros usuários.");
+    // Defesa em profundidade: o perfil Administrador não pode ser alterado.
+    if (perfilEditingId && isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId))) {
+      setMessage("O perfil Administrador não pode ser alterado.");
       return;
     }
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
@@ -7422,15 +7428,8 @@ export default function Home() {
     }
 
     if (!item) return;
-    // Itens protegidos (usuário administrador / perfil Administrador) só podem
-    // ser vistos por outros usuários — o menu de contexto não deve abrir aqui.
-    if (!isAdministrador && activeSection === 'administracaoSistema') {
-      if (adminManageSelection === 'perfis') {
-        if (isAdministradorPerfil(item as Perfil)) return;
-      } else {
-        if (isAdministradorUsuario(item as Usuario)) return;
-      }
-    }
+    // Itens protegidos (usuário administrador / perfil Administrador): o menu
+    // abre só com "Ver" (ver isProtectedAdminItem).
     event.preventDefault();
     setContextMenu({ x: event.clientX, y: event.clientY, section, item });
   }
@@ -9720,7 +9719,7 @@ export default function Home() {
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
-                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
+                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo && !isAdministradorPerfil(perfis.find((p) => p.id === camposPerfilId))}
                   selectedPerfilId={camposPerfilId}
                   onSelectedPerfilIdChange={setCamposPerfilId}
                   selectedFuncao={camposFuncao}
@@ -10307,7 +10306,7 @@ export default function Home() {
                     manageSelection={adminManageSelection}
                     onManageSelectionChange={handleAdminManageSelectionChange}
                     allowedSubmodulos={allowedAdminSubmodulos}
-                    podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo}
+                    podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo && !isAdministradorPerfil(perfis.find((p) => p.id === camposPerfilId))}
                     selectedPerfilId={camposPerfilId}
                     onSelectedPerfilIdChange={setCamposPerfilId}
                     selectedFuncao={camposFuncao}
@@ -10340,7 +10339,7 @@ export default function Home() {
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
-                  readOnly={!isAdministrador && adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
+                  readOnly={adminEditingId ? isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId)) : false}
                   campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'usuario')}
                   campoErros={adminCampoErros}
                 />
@@ -10390,7 +10389,7 @@ export default function Home() {
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
-                  readOnly={!isAdministrador && perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
+                  readOnly={perfilEditingId ? isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId)) : false}
                   campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'perfil')}
                   campoErros={perfilCampoErros}
                 />
