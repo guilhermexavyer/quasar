@@ -35,6 +35,26 @@ interface SelectProps {
 }
 
 const ROW_HEIGHT = 32; // altura aproximada de cada linha (px)
+/** Espaço entre uma opção e outra (px). */
+const GAP_OPCOES = 2;
+/** Espaço interno da lista: o mesmo nas bordas de cima, baixo, esquerda e direita (px). */
+const PADDING_LISTA = 4;
+/** Borda da lista (px, 1 em cima e 1 embaixo). */
+const BORDA_LISTA = 1;
+
+/** Altura da lista aberta com n opções visíveis (linhas + espaços + padding + borda). */
+function alturaLista(n: number): number {
+  return n * ROW_HEIGHT + Math.max(0, n - 1) * GAP_OPCOES + 2 * PADDING_LISTA + 2 * BORDA_LISTA;
+}
+
+/** Rola a lista para deixar a opção visível, respeitando o espaço interno da lista. */
+function rolarAteOpcao(list: HTMLElement, itemEl: HTMLElement) {
+  if (itemEl.offsetTop - PADDING_LISTA < list.scrollTop) {
+    list.scrollTop = itemEl.offsetTop - PADDING_LISTA;
+  } else if (itemEl.offsetTop + itemEl.offsetHeight + PADDING_LISTA > list.scrollTop + list.clientHeight) {
+    list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight + PADDING_LISTA - list.clientHeight;
+  }
+}
 
 export default function Select({
   value,
@@ -60,6 +80,8 @@ export default function Select({
   const rootRef = useRef<HTMLDivElement | null>(null);
   const listRef = useRef<HTMLDivElement | null>(null);
   const searchTimeoutRef = useRef<number | null>(null);
+  /** A opção destacada foi encontrada pela digitação (o Tab a confirma ao sair do campo). */
+  const destaquePorDigitacaoRef = useRef(false);
 
   // Normaliza para comparação: minúsculas, sem acentos (ex.: "Técnico" ≈ "tecnico").
   function normalizeLabel(label: string): string {
@@ -95,7 +117,7 @@ export default function Select({
   useLayoutEffect(() => {
     if (!open || !rootRef.current) return;
     const triggerRect = rootRef.current.getBoundingClientRect();
-    const listHeight = Math.min(items.length, visibleOptions) * ROW_HEIGHT;
+    const listHeight = alturaLista(Math.min(items.length, visibleOptions));
     const spaceBelow = window.innerHeight - triggerRect.bottom - 12;
     const spaceAbove = triggerRect.top - 12;
     const up = forceOpenUp || (spaceBelow < listHeight && spaceAbove >= spaceBelow);
@@ -121,11 +143,7 @@ export default function Select({
     if (selectedIndex < 0) return;
     const itemEl = list.children[selectedIndex] as HTMLElement | undefined;
     if (!itemEl) return;
-    if (itemEl.offsetTop < list.scrollTop) {
-      list.scrollTop = itemEl.offsetTop;
-    } else if (itemEl.offsetTop + itemEl.offsetHeight > list.scrollTop + list.clientHeight) {
-      list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight - list.clientHeight;
-    }
+    rolarAteOpcao(list, itemEl);
   }, [open, items, value, visibleOptions, forceOpenUp]);
   // Recalculate position on scroll/resize — direct DOM update for zero delay
   useEffect(() => {
@@ -133,7 +151,7 @@ export default function Select({
     const recalc = () => {
       if (!rootRef.current) return;
       const triggerRect = rootRef.current.getBoundingClientRect();
-      const listHeight = Math.min(items.length, visibleOptions) * ROW_HEIGHT;
+      const listHeight = alturaLista(Math.min(items.length, visibleOptions));
       const spaceBelow = window.innerHeight - triggerRect.bottom - 12;
       const spaceAbove = triggerRect.top - 12;
       const up = forceOpenUp || (spaceBelow < listHeight && spaceAbove >= spaceBelow);
@@ -198,10 +216,16 @@ export default function Select({
     setOpen(false);
   }
 
+  // Ao abrir ou fechar, o destaque ainda não veio da digitação.
+  useEffect(() => {
+    if (!open) destaquePorDigitacaoRef.current = false;
+  }, [open]);
+
   function handleKeyDown(event: React.KeyboardEvent<HTMLButtonElement>) {
     if (disabled) return;
     if (event.key === "ArrowDown" || event.key === "ArrowUp") {
       event.preventDefault();
+      destaquePorDigitacaoRef.current = false;
       if (!open) {
         setHighlighted(Math.max(0, items.findIndex((o) => o.value === value)));
         setOpen(true);
@@ -213,7 +237,8 @@ export default function Select({
         if (next < 0 || next >= items.length) return current;
         return next;
       });
-    } else if (event.key === "Enter" || event.key === " ") {
+    } else if (event.key === "Enter" || (event.key === " " && !searchBuffer)) {
+      // Espaço no meio de uma busca por digitação é parte do texto (ex.: "rede (").
       event.preventDefault();
       if (!open) {
         setHighlighted(Math.max(0, items.findIndex((o) => o.value === value)));
@@ -224,17 +249,21 @@ export default function Select({
         handleSelect(items[highlighted].value);
       }
     } else if (event.key === "Tab") {
+      // Tab depois de digitar confirma a opção encontrada e segue para o próximo campo.
+      if (open && destaquePorDigitacaoRef.current && highlighted >= 0) onChange(items[highlighted].value);
       setOpen(false);
     } else if (
-      open &&
       !event.ctrlKey &&
       !event.metaKey &&
       !event.altKey &&
-      (event.key.length === 1 || event.key === "Backspace")
+      (event.key.length === 1 || (open && event.key === "Backspace"))
     ) {
-      // Busca por digitação (type-ahead): acumula os caracteres digitados e
-      // destaca a primeira opção que comece com o texto (ex.: "tec" → "Técnico").
+      // Busca por digitação (type-ahead): com o dropdown focado (Tab ou clique),
+      // aberto ou fechado, acumula os caracteres digitados e destaca a primeira
+      // opção que comece com o texto (ex.: "comp" → "Computador"). Fechado, a
+      // lista abre para mostrar a opção encontrada; Enter ou Tab confirmam.
       event.preventDefault();
+      if (!open) setOpen(true);
       const nextBuffer =
         event.key === "Backspace"
           ? searchBuffer.slice(0, -1)
@@ -254,6 +283,7 @@ export default function Select({
           o.label && normalizeLabel(o.label).startsWith(query)
         );
         if (matchIndex >= 0) {
+          destaquePorDigitacaoRef.current = true;
           setHighlighted(matchIndex);
         }
       }
@@ -266,11 +296,7 @@ export default function Select({
     if (!open || !list || highlighted < 0) return;
     const itemEl = list.children[highlighted] as HTMLElement | undefined;
     if (!itemEl) return;
-    if (itemEl.offsetTop < list.scrollTop) {
-      list.scrollTop = itemEl.offsetTop;
-    } else if (itemEl.offsetTop + itemEl.offsetHeight > list.scrollTop + list.clientHeight) {
-      list.scrollTop = itemEl.offsetTop + itemEl.offsetHeight - list.clientHeight;
-    }
+    rolarAteOpcao(list, itemEl);
   }, [open, highlighted]);
 
   return (
@@ -312,12 +338,20 @@ export default function Select({
           ref={listRef}
           role="listbox"
           onMouseLeave={() => setHighlighted(-1)}
-          className={`cg-select-list ${absolute ? 'absolute z-[100]' : 'fixed z-[9999]'} overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
+          className={`cg-select-list ${absolute ? 'absolute z-[100]' : 'fixed z-[9999]'} flex flex-col overflow-y-auto shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${
             theme === 'sidebar'
               ? 'border border-[#163a54] bg-[#1A4567]'
               : 'border border-[#ccc] bg-white'
           } ${dropdownClassName}`}
-          style={{ top: dropdownPos.top, left: dropdownPos.left, width: dropdownPos.width, maxHeight: visibleOptions * ROW_HEIGHT }}
+          style={{
+            top: dropdownPos.top,
+            left: dropdownPos.left,
+            width: dropdownPos.width,
+            maxHeight: alturaLista(visibleOptions),
+            // Opções separadas entre si e com o mesmo espaço em todas as bordas da lista.
+            padding: PADDING_LISTA,
+            gap: GAP_OPCOES,
+          }}
         >
           {items.map((op, index) => {
             const isSelected = op.value === value;
@@ -328,9 +362,12 @@ export default function Select({
                 type="button"
                 role="option"
                 aria-selected={isSelected}
-                onMouseEnter={() => setHighlighted(index)}
+                onMouseEnter={() => {
+                  destaquePorDigitacaoRef.current = false;
+                  setHighlighted(index);
+                }}
                 onClick={() => handleSelect(op.value)}
-                className={`block w-full cursor-pointer truncate px-2 py-1.5 text-left text-sm transition ${
+                className={`block w-full shrink-0 cursor-pointer truncate px-2 py-1.5 text-left text-sm ${
                   optionClassName
                     ? (isHighlighted || isSelected ? 'bg-[#1A4567] text-white' : 'text-white')
                     : theme === 'sidebar'
@@ -338,7 +375,7 @@ export default function Select({
                         ? 'bg-[#2a5f8a] text-white'
                         : 'text-white'
                       : isHighlighted || isSelected
-                        ? 'bg-slate-100 text-slate-900'
+                        ? 'bg-slate-200 text-slate-900'
                         : 'text-slate-800'
                 } ${optionClassName}`}
               >

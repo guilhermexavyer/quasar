@@ -11351,7 +11351,7 @@ export default function Home() {
                         theme="sidebar"
                         className="!bg-[#1A4567] !text-white !border-[#1A4567] !rounded-[2px] text-center"
                         dropdownClassName="!bg-[#003056] !border-[#1A4567] !shadow-[0_-4px_12px_rgba(0,0,0,0.25)] !rounded-[2px] !text-white !overflow-hidden"
-                        optionClassName="!bg-[#003056] hover:!bg-[#1A4567] !text-white !rounded-[2px] !mx-[2px] !my-[1px]"
+                        optionClassName="!bg-[#003056] hover:!bg-[#1A4567] !text-white"
                         absolute
                       />
                     </div>
