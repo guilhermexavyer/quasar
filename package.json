@@ -18,7 +18,9 @@
     "db:limpar": "node --env-file=.env.local scripts/limpar-banco.mjs",
     "db:limpar:producao": "node --env-file=.env.producao scripts/limpar-banco.mjs",
     "db:copiar-producao": "node scripts/copiar-producao-homologacao.mjs",
-    "db:auditar-rodapes": "node --env-file=.env.local scripts/audit-rodapes.mjs"
+    "db:auditar-rodapes": "node --env-file=.env.local scripts/audit-rodapes.mjs",
+    "credenciais:salvar": "node scripts/credenciais.mjs salvar",
+    "credenciais:restaurar": "node scripts/credenciais.mjs restaurar"
   },
   "dependencies": {
     "html2pdf.js": "^0.14.0",

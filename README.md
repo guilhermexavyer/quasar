@@ -18,15 +18,22 @@ O sistema é pensado para ser altamente configurável pelo próprio usuário:
 
 ## Como instalar
 
+Rode na raiz do projeto, logo depois do `git clone`:
+
 ```bash
 npm.cmd install                       # instala as dependências
-copy db-homologacao.txt .env.local   # credenciais da homologação (veja abaixo)
-copy db-producao.txt .env.producao   # credenciais da produção (veja abaixo)
+npm.cmd run credenciais:restaurar     # pede a frase-senha e cria .env.local e .env.producao
 npm.cmd run db:testar                 # confere a conexão com o banco
 npm.cmd run dev                       # inicia o servidor em http://localhost:3000
 ```
 
-**Credenciais (`db-homologacao.txt` e `db-producao.txt`).** Esses dois arquivos têm as senhas e as chaves secretas, por isso **não vêm com o repositório** (o `.gitignore` bloqueia `db*.txt`). Guarde uma cópia deles fora do Git (gerenciador de senhas, pendrive, pasta pessoal) e, depois de clonar, coloque-os na raiz do projeto antes de rodar os `copy` acima. Se não tiver os arquivos, use os modelos: `copy .env.local.example .env.local` e `copy .env.producao.example .env.producao`, e preencha pelo Supabase.
+**Credenciais (`credenciais.enc`).** As senhas e as chaves secretas dos dois ambientes vêm com o repositório no arquivo `credenciais.enc`, **criptografado** (AES-256-GCM, chave derivada da frase-senha). O repositório é público: sem a frase-senha o arquivo não serve para nada, e a frase-senha **nunca** vai para o Git. Guarde-a num gerenciador de senhas; se ela se perder, o arquivo também se perde (refaça pelo Supabase, veja abaixo).
+
+- `npm.cmd run credenciais:restaurar` recria `.env.local` (homologação) e `.env.producao` (produção). Não sobrescreve `.env` existentes; para isso, `npm.cmd run credenciais:restaurar -- --forcar`.
+- Mudou alguma credencial? Edite `db-homologacao.txt` e `db-producao.txt` na raiz (ou, se eles não existirem, os próprios `.env.local` e `.env.producao`), rode `npm.cmd run credenciais:salvar` (pede a frase-senha duas vezes) e faça commit do `credenciais.enc`. O comando recusa arquivos que ainda tenham os marcadores `SENHA` ou `CHAVE`.
+- Os `db*.txt` e os `.env*` continuam fora do Git (o `.gitignore` os bloqueia): só o `credenciais.enc` é versionado.
+
+Se perder a frase-senha (ou ainda não houver `credenciais.enc`): copie os modelos (`copy .env.local.example .env.local` e `copy .env.producao.example .env.producao`) e preencha pelo Supabase. As strings do banco ficam em **Connect** (no topo do projeto), aba de connection string, opções **Transaction pooler** e **Session pooler**; a chave fica em **Project Settings → API Keys** (Secret key, `sb_secret_...`). A senha do banco **não aparece** no Supabase: se ninguém a tiver guardado, é preciso redefini-la em **Project Settings → Database → Reset database password** e atualizar também a `DATABASE_URL` da Vercel (Production para a produção, Preview para a homologação).
 
 Variáveis (Supabase → projeto → **Connect** e **Project Settings → API Keys**):
 
@@ -37,7 +44,7 @@ Variáveis (Supabase → projeto → **Connect** e **Project Settings → API Ke
 | `SUPABASE_URL` | URL do projeto. |
 | `SUPABASE_SERVICE_ROLE_KEY` | Chave `service_role` (só servidor; acesso ao Storage). |
 
-Nenhuma delas pode ter o prefixo `NEXT_PUBLIC_`. Os arquivos `.env*` e `db*.txt` nunca vão para o Git (só os modelos `.env.local.example` e `.env.producao.example`, sempre sem valores).
+Nenhuma delas pode ter o prefixo `NEXT_PUBLIC_`. Os arquivos `.env*` e `db*.txt` nunca vão para o Git (só os modelos `.env.local.example` e `.env.producao.example`, sempre sem valores, e o `credenciais.enc` criptografado).
 
 | Arquivo | Projeto Supabase | Usado por |
 |---|---|---|
