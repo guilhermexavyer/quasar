@@ -1,6 +1,7 @@
 import "server-only";
 import { query } from "@/lib/db";
 import { urlDaRota, PASTA } from "@/lib/server/storage";
+import { formatCpf, formatPhone } from "@/lib/pessoaFisicaUtils";
 
 /**
  * Metadados das tabelas e conversão entre o formato do banco e o formato que a
@@ -9,6 +10,8 @@ import { urlDaRota, PASTA } from "@/lib/server/storage";
  *   - datas sem hora (date) trafegam como 'DD/MM/AAAA';
  *   - instantes (timestamptz) trafegam como string ISO;
  *   - config_* (jsonb) trafegam como string JSON;
+ *   - CPF e telefone ficam no banco só com números, e o DDD em nr_ddd; na
+ *     tela trafegam com máscara, e o telefone num campo só ((11) 98765-4321);
  *   - coluna nula não aparece no objeto.
  */
 
@@ -48,6 +51,53 @@ export type Colunas = Map<string, TipoColuna>;
 export type Registro = Record<string, unknown>;
 
 export class ErroValidacao extends Error {}
+
+/* ── CPF e telefone: só números no banco, máscara na tela ── */
+
+function somenteDigitos(valor: unknown): string {
+  return String(valor ?? "").replace(/\D/g, "");
+}
+
+/** Telefone vindo da tela ("(11) 98765-4321") → DDD e número, só com dígitos (null = vazio). */
+function separarTelefone(valor: unknown): { ddd: string | null; numero: string | null } {
+  const digitos = somenteDigitos(valor);
+  if (!digitos) return { ddd: null, numero: null };
+  if (digitos.length !== 10 && digitos.length !== 11) {
+    throw new ErroValidacao("Telefone inválido: informe o DDD e o número (10 ou 11 dígitos).");
+  }
+  return { ddd: digitos.slice(0, 2), numero: digitos.slice(2) };
+}
+
+/** CPF vindo da tela ("123.456.789-09") → 11 dígitos (null = vazio). */
+function normalizarCpf(valor: unknown): string | null {
+  const digitos = somenteDigitos(valor);
+  if (!digitos) return null;
+  if (digitos.length !== 11) throw new ErroValidacao("CPF inválido: informe os 11 dígitos.");
+  return digitos;
+}
+
+/** Banco → tela: CPF com máscara; DDD + número de volta num campo só, com máscara. */
+function mascararDocumentos(colunas: Colunas, linha: Registro, saida: Registro) {
+  if (colunas.has("nr_cpf") && saida.nr_cpf) saida.nr_cpf = formatCpf(String(saida.nr_cpf));
+  if (colunas.has("nr_ddd")) {
+    delete saida.nr_ddd;
+    if (linha.nr_telefone) saida.nr_telefone = formatPhone(`${linha.nr_ddd ?? ""}${linha.nr_telefone}`);
+  }
+}
+
+/** Tela → banco: CPF só com números; o telefone é dividido em nr_ddd e nr_telefone. */
+function desmascararDocumentos(colunas: Colunas, valores: Map<string, unknown>) {
+  if (colunas.has("nr_cpf") && valores.has("nr_cpf")) valores.set("nr_cpf", normalizarCpf(valores.get("nr_cpf")));
+  if (colunas.has("nr_ddd")) {
+    // O DDD só chega pelo campo Telefone (a tela não conhece nr_ddd).
+    valores.delete("nr_ddd");
+    if (valores.has("nr_telefone")) {
+      const { ddd, numero } = separarTelefone(valores.get("nr_telefone"));
+      valores.set("nr_ddd", ddd);
+      valores.set("nr_telefone", numero);
+    }
+  }
+}
 
 function tipoDe(dataType: string): TipoColuna {
   switch (dataType) {
@@ -173,6 +223,7 @@ export function paraTela(tabela: string, colunas: Colunas, linha: Registro): Reg
       saida[coluna] = valor;
     }
   }
+  mascararDocumentos(colunas, linha, saida);
   return saida;
 }
 
@@ -247,6 +298,7 @@ export function paraBanco(colunas: Colunas, dados: Registro): { valores: Map<str
     }
     valores.set(chave, converter(chave, tipo, valor));
   }
+  desmascararDocumentos(colunas, valores);
   return { valores, desconhecidas };
 }
 
