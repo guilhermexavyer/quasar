@@ -11,7 +11,8 @@ export interface Usuario {
   /*
    * Preferências personalizadas do usuário (nomes padronizados).
    * config_colunas_* (largura e ordem das colunas de cada lista) ficam na tabela
-   * usuario_coluna (uma linha por lista); a API as entrega aqui com o mesmo nome.
+   * usuario_coluna, e config_paineis_* (largura dos painéis lado a lado) na tabela
+   * usuario_painel (uma linha por lista/tela); a API as entrega aqui com o mesmo nome.
    */
   config_tema?: string;
   config_colunas_pessoa_fisica?: string;

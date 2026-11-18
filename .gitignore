@@ -48,3 +48,6 @@ next-env.d.ts
 
 # credenciais antigas do Firebase
 db*.txt
+
+# cargas de dados (contêm dados reais)
+cargas/

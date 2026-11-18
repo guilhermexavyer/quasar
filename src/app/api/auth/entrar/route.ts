@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { query } from "@/lib/db";
 import { colunasDe, paraTela, type Registro } from "@/lib/server/esquema";
 import { perfisDoUsuario } from "@/lib/server/acesso";
-import { colunasDoUsuario } from "@/lib/server/colunasUsuario";
+import { layoutDoUsuario } from "@/lib/server/layoutUsuario";
 import { corpo, rotaPublica } from "@/lib/server/http";
 import { senhaConfere } from "@/lib/server/senha";
 import { criarSessao } from "@/lib/server/sessao";
@@ -38,7 +38,7 @@ export async function POST(request: NextRequest) {
     const nr = Number(usuario.nr_sequencia);
     return NextResponse.json({
       status: "ok",
-      usuario: { ...paraTela("usuario", await colunasDe("usuario"), usuario), ...(await colunasDoUsuario(nr)) },
+      usuario: { ...paraTela("usuario", await colunasDe("usuario"), usuario), ...(await layoutDoUsuario(nr)) },
     });
   });
 }

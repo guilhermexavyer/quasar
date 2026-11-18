@@ -13,7 +13,7 @@
 import { conectar, falhar, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
 
 /** Tabelas sem rodapé de registro. */
-const SEM_RODAPE = new Set(["auditoria", "exclusao", "usuario_coluna"]);
+const SEM_RODAPE = new Set(["auditoria", "exclusao", "usuario_coluna", "usuario_painel"]);
 const vazio = (v) => v === undefined || v === null || String(v).trim() === "";
 
 const db = await conectar();
