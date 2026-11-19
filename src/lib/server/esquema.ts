@@ -29,8 +29,8 @@ export const TABELAS_REGISTRO_UNICO = new Set([
 export const TABELAS_DADOS = new Set([
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor", "cg_logradouro",
   "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual", "cg_localizacao", "cg_marca",
-  "cg_sistema_operacional", "cg_combustivel", "pat_categoria", "curso",
-  "pessoa_fisica", "pessoa_juridica", "aluno", "aluno_responsavel", "colaborador", "periodo_letivo", "periodo_letivo_feriado",
+  "cg_sistema_operacional", "cg_combustivel", "cg_modalidade_ensino", "pat_categoria", "curso", "disciplina", "turma", "turma_disciplina",
+  "pessoa_fisica", "pessoa_fisica_residencial", "pessoa_fisica_comercial", "pessoa_fisica_saude", "pessoa_juridica", "aluno", "aluno_responsavel", "colaborador", "periodo_letivo", "periodo_letivo_feriado",
   "pat_ativo", "pat_ativo_responsavel", "pat_manutencao",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro",

@@ -21,6 +21,9 @@ export interface Usuario {
   config_colunas_colaborador?: string;
   config_colunas_periodo_letivo?: string;
   config_colunas_curso?: string;
+  config_colunas_disciplina?: string;
+  config_colunas_turma?: string;
+  config_colunas_turma_disciplina?: string;
   config_colunas_periodo_letivo_feriado?: string;
   /* Estrutura Acadêmica > Alunos > duplo clique (Responsáveis) */
   config_colunas_aluno_responsavel?: string;
@@ -81,6 +84,7 @@ export interface Usuario {
   config_colunas_pat_categoria?: string;
   config_colunas_cg_sistema_operacional?: string;
   config_colunas_cg_combustivel?: string;
+  config_colunas_cg_modalidade_ensino?: string;
   config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;
   config_colunas_relatorio?: string;

@@ -18,7 +18,8 @@ import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
 
-type Aba = 'responsaveis';
+export type AlunoDetalheAba = 'responsaveis';
+type Aba = AlunoDetalheAba;
 
 interface FormResponsavel {
   /** Registro em edição; ausente = novo responsável. */
@@ -28,6 +29,9 @@ interface FormResponsavel {
 }
 
 interface AlunoDetalheViewProps {
+  /** Aba aberta ao montar (mantida ao alternar entre registros pelas setas). */
+  abaInicial?: Aba;
+  onAbaChange?: (aba: Aba) => void;
   aluno: Aluno;
   /** Nome do aluno (pessoa física vinculada), exibido no breadcrumb. */
   nomeAluno: string;
@@ -93,8 +97,10 @@ export default function AlunoDetalheView({
   grauParentescoOptions,
   colunasResponsaveis,
   darkMode = false,
+  abaInicial,
+  onAbaChange,
 }: AlunoDetalheViewProps) {
-  const [aba, setAba] = useState<Aba>('responsaveis');
+  const [aba, setAba] = useState<Aba>(abaInicial ?? 'responsaveis');
   const [responsaveis, setResponsaveis] = useState<AlunoResponsavel[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
@@ -181,6 +187,7 @@ export default function AlunoDetalheView({
     setMenu(null);
     setSelecionadoId(null);
     setAba(nova);
+    onAbaChange?.(nova);
   }
 
   function abrirResponsavel(r: AlunoResponsavel) {

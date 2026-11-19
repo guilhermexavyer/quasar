@@ -22,7 +22,8 @@ import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
 
-type Aba = 'responsaveis' | 'manutencoes' | 'transferencias';
+export type AtivoDetalheAba = 'responsaveis' | 'manutencoes' | 'transferencias';
+type Aba = AtivoDetalheAba;
 
 /** Troca de localização do ativo, montada a partir da auditoria do ativo. */
 interface Transferencia {
@@ -81,6 +82,9 @@ interface FormResponsavel {
 }
 
 interface AtivoDetalheViewProps {
+  /** Aba aberta ao montar (mantida ao alternar entre registros pelas setas). */
+  abaInicial?: Aba;
+  onAbaChange?: (aba: Aba) => void;
   ativo: Ativo;
   selectOptions: { value: string; label: string }[];
   manageSelection: string;
@@ -175,8 +179,10 @@ export default function AtivoDetalheView({
   colunasManutencoes,
   colunasTransferencias,
   darkMode = false,
+  abaInicial,
+  onAbaChange,
 }: AtivoDetalheViewProps) {
-  const [aba, setAba] = useState<Aba>('responsaveis');
+  const [aba, setAba] = useState<Aba>(abaInicial ?? 'responsaveis');
   const [responsaveis, setResponsaveis] = useState<AtivoResponsavel[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
@@ -385,6 +391,7 @@ export default function AtivoDetalheView({
     setMenu(null);
     setSelecionadoId(null);
     setAba(nova);
+    onAbaChange?.(nova);
   }
 
   function abrirResponsavel(r: AtivoResponsavel) {

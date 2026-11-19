@@ -7,6 +7,10 @@ import { ATIVO_COLUMNS, formatCellValue as formatAtivo } from "@/lib/ativoUtils"
 import { MANUTENCAO_COLUMNS, formatCellValue as formatManutencao } from "@/lib/manutencaoUtils";
 import { CATEGORIA_ATIVO_COLUMNS } from "@/lib/categoriaAtivoUtils";
 import { CURSO_COLUMNS } from "@/lib/cursoUtils";
+import { DISCIPLINA_COLUMNS } from "@/lib/disciplinaUtils";
+import { TURMA_COLUMNS } from "@/lib/turmaUtils";
+import { TURMA_DISCIPLINA_COLUMNS } from "@/lib/turmaDisciplinaUtils";
+import { MODALIDADE_ENSINO_COLUMNS } from "@/lib/modalidadeEnsinoUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
@@ -84,6 +88,7 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   CG("cg_localizacao", "Localização", LOCALIZACAO_COLUMNS),
   CG("cg_logradouro", "Logradouro", LOGRADOURO_COLUMNS),
   CG("cg_marca", "Marca", MARCA_COLUMNS),
+  CG("cg_modalidade_ensino", "Modalidade de ensino", MODALIDADE_ENSINO_COLUMNS),
   CG("cg_orgao_emissor", "Órgão emissor", ORGAO_EMISSOR_COLUMNS),
   CG("cg_profissao", "Profissão", PROFISSAO_COLUMNS),
   CG("cg_sexo", "Sexo", SEXO_COLUMNS),
@@ -95,6 +100,9 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
     colunas: [SEQ, { key: "nr_seq_aluno", label: "Aluno", alinharDireita: true }, { key: "nr_seq_pessoa_fisica", label: "Pessoa física" }, { key: "nr_seq_grau_parentesco", label: "Grau de parentesco" }],
   },
   { colecao: "curso", funcao: "Estrutura Acadêmica", dropdown: "Cursos", colunas: proprias(CURSO_COLUMNS), formatar: formatCadastroGeralCellValue },
+  { colecao: "disciplina", funcao: "Estrutura Acadêmica", dropdown: "Disciplinas", colunas: proprias(DISCIPLINA_COLUMNS), formatar: formatCadastroGeralCellValue },
+  { colecao: "turma", funcao: "Estrutura Acadêmica", dropdown: "Turmas", colunas: proprias(TURMA_COLUMNS), formatar: formatCadastroGeralCellValue },
+  { colecao: "turma_disciplina", funcao: "Estrutura Acadêmica", dropdown: "Turmas x Disciplinas", colunas: proprias(TURMA_DISCIPLINA_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "colaborador", funcao: "Estrutura Acadêmica", dropdown: "Colaboradores", colunas: proprias(COLABORADOR_COLUMNS), formatar: f(formatColaborador) },
   { colecao: "periodo_letivo", funcao: "Estrutura Acadêmica", dropdown: "Período letivo", colunas: proprias(PERIODO_LETIVO_COLUMNS), formatar: f(formatPeriodoLetivo) },
   {

@@ -9,6 +9,7 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import LoadingModal from "@/components/ui/LoadingModal";
 import ViewIcon from "@/components/ui/ViewIcon";
+import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
 
 export type AtivoFormData = Omit<Ativo, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -57,6 +58,10 @@ interface FormViewProps {
   ultimaManutencaoSeq?: number | null;
   /** Abre o modal de visualização de uma manutenção. */
   onViewManutencao?: (nrSequencia: number | undefined) => void;
+  /** Fornecedor (colaborador com "Fornecedor" marcado): nome exibido, lookup e visualização. */
+  fornecedorName?: string;
+  onOpenFornecedorLookup?: () => void;
+  onViewFornecedor?: (nrSequencia: number | undefined) => void;
 }
 
 export default function AtivoFormView({
@@ -90,6 +95,9 @@ export default function AtivoFormView({
   campoErros = [],
   ultimaManutencaoSeq,
   onViewManutencao,
+  fornecedorName = '',
+  onOpenFornecedorLookup,
+  onViewFornecedor,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
@@ -447,6 +455,49 @@ export default function AtivoFormView({
                   onChange={(v) => setForm({ ...form, nr_seq_marca: v ? Number(v) : undefined })}
                   options={cgOptions(marcas).map((op) => ({ value: String(op.nr_sequencia), label: op.descricao }))}
                 />
+              </div>
+
+              <div className="sm:col-span-12 group">
+                {renderFieldLabel('nr_seq_fornecedor', 'Fornecedor')}
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <input
+                      inputMode="numeric"
+                      maxLength={10}
+                      disabled={statusDe('nr_seq_fornecedor') === 'D'}
+                      className={`${inputClass('nr_seq_fornecedor')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                      value={form.nr_seq_fornecedor ? String(form.nr_seq_fornecedor) : ''}
+                      onChange={(e) => {
+                        const raw = e.target.value.replace(/[^0-9]/g, '').slice(0, 10);
+                        setForm({ ...form, nr_seq_fornecedor: raw ? Number(raw) : undefined });
+                      }}
+                    />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <input
+                      readOnly
+                      tabIndex={-1}
+                      className={`${inputClass('nr_seq_fornecedor')} pr-[62px] !bg-slate-100 text-slate-700`}
+                      value={fornecedorName}
+                    />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      {form.nr_seq_fornecedor && fornecedorName && (
+                        <button type="button" onClick={() => onViewFornecedor?.(form.nr_seq_fornecedor)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar fornecedor">
+                          <ViewIcon size={16} />
+                        </button>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => onOpenFornecedorLookup?.()}
+                        disabled={statusDe('nr_seq_fornecedor') === 'D'}
+                        className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
+                        aria-label="Localizar fornecedor"
+                      >
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </div>
           </section>

@@ -68,28 +68,6 @@ const SECOES: { titulo: string; campos: CampoDef[] }[] = [
       { key: 'ds_email', label: 'E-mail', span: 6 },
     ],
   },
-  {
-    titulo: 'Endereço',
-    campos: [
-      { key: 'nr_cep', label: 'CEP', span: 3 },
-      { key: 'ds_endereco', label: 'Rua', span: 9 },
-      { key: 'nr_seq_logradouro', label: 'Logradouro', span: 6 },
-      { key: 'nr_endereco', label: 'Número', span: 3 },
-      { key: 'ds_bairro', label: 'Bairro', span: 3 },
-      { key: 'ds_complemento', label: 'Complemento', span: 12 },
-    ],
-  },
-  {
-    titulo: 'Informações médicas',
-    campos: [
-      { key: 'ds_tipo_sanguineo', label: 'Tipo sanguíneo', span: 12 },
-      { key: 'ds_alergia', label: 'Alergia', span: 6 },
-      { key: 'ds_medicamento_continuo', label: 'Medicamento de uso contínuo', span: 6 },
-      { key: 'ds_restricao_alimentar', label: 'Restrição alimentar', span: 6 },
-      { key: 'ds_necessidade_especial', label: 'Necessidade especial', span: 6 },
-      { key: 'ds_observacao_medica', label: 'Observações médicas', span: 12 },
-    ],
-  },
 ];
 
 // Campos de referência (Cadastros Gerais): mostram a descrição via lookup.

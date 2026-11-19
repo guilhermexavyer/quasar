@@ -32,6 +32,8 @@ interface ListViewProps {
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
   columnLookups?: Partial<Record<keyof PessoaFisica, Record<number, string>>>;
+  /** Duplo clique: abre as abas Residencial, Comercial e Saúde. */
+  onOpenDetalhe?: (pessoa: PessoaFisica) => void;
 }
 
 export default function PessoaFisicaListView({
@@ -53,6 +55,7 @@ export default function PessoaFisicaListView({
   initialColumns,
   onColumnsChange,
   columnLookups,
+  onOpenDetalhe,
 }: ListViewProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   // Refaz as larguras quando a função volta a aparecer (montada escondida, ex.: após o F5).
@@ -542,8 +545,9 @@ export default function PessoaFisicaListView({
                     {paginatedPessoasFisicas.map((pessoa) => (
                       <tr
                         key={pessoa.id}
-                        className={`cursor-[context-menu] hover:bg-[#eee] ${selectedId === pessoa.id ? 'row-selected' : ''}`}
+                        className={`${onOpenDetalhe ? 'cursor-pointer' : 'cursor-[context-menu]'} hover:bg-[#eee] ${selectedId === pessoa.id ? 'row-selected' : ''}`}
                         onClick={() => setSelectedId((prev) => (prev === pessoa.id ? null : pessoa.id ?? null))}
+                        onDoubleClick={() => { setSelectedId(pessoa.id ?? null); onOpenDetalhe?.(pessoa); }}
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(pessoa.id ?? null);

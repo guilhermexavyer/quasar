@@ -181,11 +181,13 @@ import Toast from "@/components/ui/Toast";
 import LoginScreen, { type ResultadoLoginTela } from "@/components/ui/LoginScreen";
 import LoadingModal from "@/components/ui/LoadingModal";
 import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView";
+import PessoaFisicaDetalheView from "@/components/pessoaFisica/PessoaFisicaDetalheView";
+import { CAMPOS_PF_MOVIDOS_PARA_ABAS, type PessoaFisicaAba } from "@/lib/pessoaFisicaAbasUtils";
 import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView";
 import PessoaJuridicaListView from "@/components/pessoaJuridica/PessoaJuridicaListView";
 import PessoaJuridicaFormView from "@/components/pessoaJuridica/PessoaJuridicaFormView";
 import AlunoListView from "@/components/estruturaAcademica/AlunoListView";
-import AlunoDetalheView from "@/components/estruturaAcademica/AlunoDetalheView";
+import AlunoDetalheView, { type AlunoDetalheAba } from "@/components/estruturaAcademica/AlunoDetalheView";
 import AlunoFormView, { type AlunoFormData } from "@/components/estruturaAcademica/AlunoFormView";
 import ColaboradorListView from "@/components/estruturaAcademica/ColaboradorListView";
 import ColaboradorFormView, { type ColaboradorFormData } from "@/components/estruturaAcademica/ColaboradorFormView";
@@ -204,7 +206,7 @@ import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
-import AtivoDetalheView from "@/components/patrimonio/AtivoDetalheView";
+import AtivoDetalheView, { type AtivoDetalheAba } from "@/components/patrimonio/AtivoDetalheView";
 import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
 import { excluirResponsaveisDoAluno } from "@/services/alunoResponsavelService";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
@@ -296,6 +298,8 @@ import PessoaJuridicaFilterModal, { type PessoaJuridicaFilterForm } from "@/comp
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import RotuloCampo from "@/components/ui/RotuloCampo";
+import ReferenciaLookupModal from "@/components/ui/ReferenciaLookupModal";
+import CampoLookupReferencia from "@/components/ui/CampoLookupReferencia";
 import type { Sexo } from "@/types/sexo";
 import type { EstadoCivil } from "@/types/estadoCivil";
 import type { CorRaca } from "@/types/corRaca";
@@ -325,6 +329,18 @@ import { MARCA_COLUMNS, MARCA_FIELD_INFOS } from "@/lib/marcaUtils";
 import { CATEGORIA_ATIVO_COLUMNS, CATEGORIA_ATIVO_FIELD_INFOS } from "@/lib/categoriaAtivoUtils";
 import { CURSO_COLUMNS, CURSO_FIELD_INFOS } from "@/lib/cursoUtils";
 import { atualizarCurso, criarCurso, excluirCurso, obterCursos } from "@/services/cursoService";
+import { DISCIPLINA_COLUMNS, DISCIPLINA_FIELD_INFOS } from "@/lib/disciplinaUtils";
+import { atualizarDisciplina, criarDisciplina, excluirDisciplina, obterDisciplinas } from "@/services/disciplinaService";
+import type { Disciplina } from "@/types/disciplina";
+import { TURMA_COLUMNS, TURMA_COLUNAS_REFERENCIA, TURMA_FIELD_INFOS } from "@/lib/turmaUtils";
+import { atualizarTurma, criarTurma, excluirTurma, obterTurmas } from "@/services/turmaService";
+import type { Turma } from "@/types/turma";
+import { TURMA_DISCIPLINA_COLUMNS, TURMA_DISCIPLINA_COLUNAS_REFERENCIA, TURMA_DISCIPLINA_FIELD_INFOS } from "@/lib/turmaDisciplinaUtils";
+import { atualizarTurmaDisciplina, criarTurmaDisciplina, excluirTurmaDisciplina, obterTurmasDisciplinas } from "@/services/turmaDisciplinaService";
+import type { TurmaDisciplina } from "@/types/turmaDisciplina";
+import { MODALIDADE_ENSINO_COLUMNS, MODALIDADE_ENSINO_FIELD_INFOS } from "@/lib/modalidadeEnsinoUtils";
+import { atualizarModalidadeEnsino, criarModalidadeEnsino, excluirModalidadeEnsino, obterModalidadesEnsino } from "@/services/modalidadeEnsinoService";
+import type { ModalidadeEnsino } from "@/types/modalidadeEnsino";
 import type { Curso } from "@/types/curso";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { COMBUSTIVEL_COLUMNS, COMBUSTIVEL_FIELD_INFOS } from "@/lib/combustivelUtils";
@@ -461,6 +477,7 @@ const CG_SELECT_OPTIONS = [
   { value: 'localizacao', label: 'Localização' },
   { value: 'logradouro', label: 'Logradouro' },
   { value: 'marca', label: 'Marca' },
+  { value: 'modalidadeEnsino', label: 'Modalidade de ensino' },
   { value: 'orgaoEmissor', label: 'Órgão emissor' },
   { value: 'profissao', label: 'Profissão' },
   { value: 'sexo', label: 'Sexo' },
@@ -475,12 +492,56 @@ const PJ_SELECT_OPTIONS = [
 ];
 
 /* Opções do dropdown da função Estrutura Acadêmica */
+/** Campos próprios da turma no formulário (texto; vazio = sem valor). */
+interface TurmaCamposForm {
+  nr_seq_curso: string;
+  nr_seq_periodo_letivo: string;
+  qt_max_alunos: string;
+  nr_seq_localizacao: string;
+  nr_seq_modalidade_ensino: string;
+}
+
+/** Campos do formulário de Turmas preenchidos por lookup. */
+type TurmaCampoLookup = 'nr_seq_curso' | 'nr_seq_periodo_letivo' | 'nr_seq_localizacao';
+
+/** Campos próprios de Turmas x Disciplinas no formulário (texto; vazio = sem valor). */
+interface TurmaDisciplinaCamposForm {
+  nr_seq_turma: string;
+  nr_seq_disciplina: string;
+}
+
+const TURMA_DISCIPLINA_CAMPOS_VAZIOS: TurmaDisciplinaCamposForm = { nr_seq_turma: '', nr_seq_disciplina: '' };
+
+const TURMA_CAMPOS_VAZIOS: TurmaCamposForm = {
+  nr_seq_curso: '',
+  nr_seq_periodo_letivo: '',
+  qt_max_alunos: '',
+  nr_seq_localizacao: '',
+  nr_seq_modalidade_ensino: '',
+};
+
+/**
+ * Opções de um dropdown de referência: os registros ativos e, se já estiver
+ * escolhido, o atual (mesmo inativo), para não sumir do formulário.
+ */
+function opcoesDeReferencia<T extends { nr_sequencia: number; ie_status?: string }>(
+  lista: T[], descricao: (item: T) => string | undefined, atual: string
+): { value: string; label: string }[] {
+  return lista
+    .filter((item) => String(item.ie_status ?? 'A').toUpperCase() !== 'I' || String(item.nr_sequencia) === atual)
+    .map((item) => ({ value: String(item.nr_sequencia), label: descricao(item) || `#${item.nr_sequencia}` }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+}
+
 const EA_SELECT_OPTIONS = [
-  { value: 'alunos', label: 'Alunos' },
-  { value: 'colaboradores', label: 'Colaboradores' },
-  { value: 'cursos', label: 'Cursos' },
-  { value: 'parametrosFuncao', label: 'Parâmetros' },
-  { value: 'periodoLetivo', label: 'Período letivo' },
+  { value: 'alunos', label: '1. Alunos' },
+  { value: 'colaboradores', label: '2. Colaboradores' },
+  { value: 'periodoLetivo', label: '3. Período Letivo' },
+  { value: 'cursos', label: '4. Cursos' },
+  { value: 'turmas', label: '5. Turmas' },
+  { value: 'disciplinas', label: '6. Disciplinas' },
+  { value: 'turmasDisciplinas', label: '7. Turmas x Disciplinas' },
+  { value: 'parametrosFuncao', label: '8. Parâmetros' },
 ];
 
 /* Opções do dropdown da função Patrimônio */
@@ -539,6 +600,7 @@ const emptyAtivoForm: AtivoFormData = {
   nr_seq_categoria: undefined,
   nr_seq_localizacao: undefined,
   nr_seq_marca: undefined,
+  nr_seq_fornecedor: undefined,
   ds_modelo: "",
   nr_serie: "",
   ds_qr_code: "",
@@ -635,7 +697,7 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional | Combustivel;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional | Combustivel | ModalidadeEnsino;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
@@ -946,7 +1008,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1019,6 +1081,7 @@ export default function Home() {
   const [categoriasAtivos, setCategoriasAtivos] = useState<CategoriaAtivo[]>([]);
   const [sistemasOperacionais, setSistemasOperacionais] = useState<SistemaOperacional[]>([]);
   const [combustiveis, setCombustiveis] = useState<Combustivel[]>([]);
+  const [modalidadesEnsino, setModalidadesEnsino] = useState<ModalidadeEnsino[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -1084,6 +1147,58 @@ export default function Home() {
   const [cursoFilterModalOpen, setCursoFilterModalOpen] = useState(false);
   const [cursoFilterForm, setCursoFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCursoFilterForm, setAppliedCursoFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  /* Estrutura Acadêmica > Disciplinas (coleção disciplina): mesmos componentes genéricos da Categoria. */
+  const [disciplinas, setDisciplinas] = useState<Disciplina[]>([]);
+  const [disciplinaForm, setDisciplinaForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [disciplinaEditingId, setDisciplinaEditingId] = useState<string | null>(null);
+  const [disciplinaSubmitting, setDisciplinaSubmitting] = useState(false);
+  const [disciplinaAuditInfo, setDisciplinaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditDisciplinaIdRef = useRef<string | null>(null);
+  const [disciplinaCampoErros, setDisciplinaCampoErros] = useState<string[]>([]);
+  const [disciplinaSortColumn, setDisciplinaSortColumn] = useState<number | null>(null);
+  const [disciplinaSortAsc, setDisciplinaSortAsc] = useState<boolean | null>(null);
+  const [disciplinaFilterModalOpen, setDisciplinaFilterModalOpen] = useState(false);
+  const [disciplinaFilterForm, setDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedDisciplinaFilterForm, setAppliedDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  /* Estrutura Acadêmica > Turmas (coleção turma): mesmos componentes genéricos da Categoria. */
+  const [turmas, setTurmas] = useState<Turma[]>([]);
+  const [turmaForm, setTurmaForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [turmaEditingId, setTurmaEditingId] = useState<string | null>(null);
+  const [turmaSubmitting, setTurmaSubmitting] = useState(false);
+  const [turmaAuditInfo, setTurmaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditTurmaIdRef = useRef<string | null>(null);
+  const [turmaCampoErros, setTurmaCampoErros] = useState<string[]>([]);
+  const [turmaSortColumn, setTurmaSortColumn] = useState<number | null>(null);
+  const [turmaSortAsc, setTurmaSortAsc] = useState<boolean | null>(null);
+  const [turmaFilterModalOpen, setTurmaFilterModalOpen] = useState(false);
+  const [turmaFilterForm, setTurmaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedTurmaFilterForm, setAppliedTurmaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  /** Campos próprios da turma (além da descrição), como texto do formulário. */
+  const [turmaExtra, setTurmaExtra] = useState<TurmaCamposForm>(TURMA_CAMPOS_VAZIOS);
+  /** Lookup aberto no formulário de Turmas (Curso, Período letivo ou Localização). */
+  const [turmaLookupCampo, setTurmaLookupCampo] = useState<TurmaCampoLookup | null>(null);
+  /** Filtro extra de Turmas: Curso e Período letivo (rascunho e aplicado). */
+  const [turmaFiltroExtra, setTurmaFiltroExtra] = useState({ nr_seq_curso: '', nr_seq_periodo_letivo: '' });
+  const [turmaFiltroExtraAplicado, setTurmaFiltroExtraAplicado] = useState({ nr_seq_curso: '', nr_seq_periodo_letivo: '' });
+  /* Estrutura Acadêmica > Turmas x Disciplinas (coleção turma_disciplina). */
+  const [turmasDisciplinas, setTurmasDisciplinas] = useState<TurmaDisciplina[]>([]);
+  const [turmaDisciplinaForm, setTurmaDisciplinaForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [turmaDisciplinaExtra, setTurmaDisciplinaExtra] = useState<TurmaDisciplinaCamposForm>(TURMA_DISCIPLINA_CAMPOS_VAZIOS);
+  const [turmaDisciplinaEditingId, setTurmaDisciplinaEditingId] = useState<string | null>(null);
+  const [turmaDisciplinaSubmitting, setTurmaDisciplinaSubmitting] = useState(false);
+  const [turmaDisciplinaAuditInfo, setTurmaDisciplinaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditTurmaDisciplinaIdRef = useRef<string | null>(null);
+  const [turmaDisciplinaCampoErros, setTurmaDisciplinaCampoErros] = useState<string[]>([]);
+  const [turmaDisciplinaSortColumn, setTurmaDisciplinaSortColumn] = useState<number | null>(null);
+  const [turmaDisciplinaSortAsc, setTurmaDisciplinaSortAsc] = useState<boolean | null>(null);
+  const [turmaDisciplinaFilterModalOpen, setTurmaDisciplinaFilterModalOpen] = useState(false);
+  const [turmaDisciplinaFilterForm, setTurmaDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedTurmaDisciplinaFilterForm, setAppliedTurmaDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  /** Filtro extra: Turma e Disciplina (rascunho e aplicado). */
+  const [turmaDisciplinaFiltroExtra, setTurmaDisciplinaFiltroExtra] = useState({ nr_seq_turma: '', nr_seq_disciplina: '' });
+  const [turmaDisciplinaFiltroExtraAplicado, setTurmaDisciplinaFiltroExtraAplicado] = useState({ nr_seq_turma: '', nr_seq_disciplina: '' });
+  /** Lookup aberto no formulário de Turmas x Disciplinas. */
+  const [turmaDisciplinaLookupCampo, setTurmaDisciplinaLookupCampo] = useState<'nr_seq_turma' | 'nr_seq_disciplina' | null>(null);
   const [categoriaEditingId, setCategoriaEditingId] = useState<string | null>(null);
   const [categoriaSubmitting, setCategoriaSubmitting] = useState(false);
   const [categoriaAuditInfo, setCategoriaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1273,7 +1388,9 @@ export default function Home() {
   const [enviarManutPrestLookupForm, setEnviarManutPrestLookupForm] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
-  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos'>('modal');
+  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor'>('modal');
+  /** O lookup lista só os colaboradores com "Fornecedor" marcado (Fornecedor do ativo). */
+  const [lookupColaboradorFornecedor, setLookupColaboradorFornecedor] = useState(false);
   /** O lookup lista todos os colaboradores (Responsável do ativo), não só os prestadores de serviço. */
   const [lookupColaboradorTodos, setLookupColaboradorTodos] = useState(false);
   // Modal "Concluir manutenção" (menu de contexto de Ativos).
@@ -1292,8 +1409,9 @@ export default function Home() {
   const [cancelarManutSaving, setCancelarManutSaving] = useState(false);
   const enviarManutPrestadores = useMemo(() => {
     // Apenas colaboradores com ie_prestador_servico === 'S' (ou todos, no Responsável do ativo).
+    if (lookupColaboradorFornecedor) return colaboradores.filter((c) => c.ie_fornecedor === 'S');
     return lookupColaboradorTodos ? colaboradores : colaboradores.filter((c) => c.ie_prestador_servico === 'S');
-  }, [colaboradores, lookupColaboradorTodos]);
+  }, [colaboradores, lookupColaboradorTodos, lookupColaboradorFornecedor]);
   const enviarManutFilteredPrestadores = useMemo(() => {
     if (!enviarManutPrestLookupApplied) return [];
     return enviarManutPrestadores.filter((c) => {
@@ -1377,6 +1495,7 @@ export default function Home() {
     nr_seq_localizacao: string;
     nr_seq_marca: string;
     nr_seq_responsavel: string;
+    nr_seq_fornecedor: string;
     // Dispositivo
     ds_endereco_mac: string;
     ds_ip: string;
@@ -1385,7 +1504,7 @@ export default function Home() {
   const emptyAtivoFilterForm: AtivoFilterFormData = {
     nr_sequencia: '', cd_externo: '', ds_ativo: '', ds_modelo: '', nr_serie: '', ds_qr_code: '', ds_codigo_barras: '',
     dt_aquisicao_inicio: '', dt_aquisicao_fim: '', dt_garantia_inicio: '', dt_garantia_fim: '', ie_status: 'T',
-    nr_seq_categoria: '', nr_seq_localizacao: '', nr_seq_marca: '', nr_seq_responsavel: '',
+    nr_seq_categoria: '', nr_seq_localizacao: '', nr_seq_marca: '', nr_seq_responsavel: '', nr_seq_fornecedor: '',
     ds_endereco_mac: '', ds_ip: '', nr_seq_sistema_operacional: '',
   };
   const [ativoFilterForm, setAtivoFilterForm] = useState<AtivoFilterFormData>(emptyAtivoFilterForm);
@@ -1836,6 +1955,7 @@ export default function Home() {
     return {
       adicionarPessoaFisica: permitida('adicionar_pessoa_fisica'),
       verPessoaFisica: permitida('ver_pessoa_fisica'),
+      detalhesPessoaFisica: permitida('detalhes_pessoa_fisica'),
       excluirPessoaFisica: permitida('excluir_pessoa_fisica'),
       adicionarPessoaJuridica: permitida('adicionar_pessoa_juridica'),
       verPessoaJuridica: permitida('ver_pessoa_juridica'),
@@ -1872,6 +1992,7 @@ export default function Home() {
       logradouro: 'logradouro',
       sistemaOperacional: 'sistema_operacional',
       combustivel: 'combustivel',
+      modalidadeEnsino: 'modalidade_ensino',
     };
     const resultado: Record<string, { adicionar: boolean; ver: boolean; excluir: boolean }> = {};
     for (const [chave, sufixo] of Object.entries(secoes)) {
@@ -1888,7 +2009,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional', 'combustivel'];
+    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional', 'combustivel', 'modalidadeEnsino'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1923,7 +2044,7 @@ export default function Home() {
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'cursos', 'parametrosFuncao', 'periodoLetivo'];
+    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'periodoLetivo', 'cursos', 'turmas', 'disciplinas', 'turmasDisciplinas', 'parametrosFuncao'];
     return eaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1959,6 +2080,15 @@ export default function Home() {
       adicionarCurso: permitida('adicionar_curso'),
       verCurso: permitida('ver_curso'),
       excluirCurso: permitida('excluir_curso'),
+      adicionarDisciplina: permitida('adicionar_disciplina'),
+      verDisciplina: permitida('ver_disciplina'),
+      excluirDisciplina: permitida('excluir_disciplina'),
+      adicionarTurma: permitida('adicionar_turma'),
+      verTurma: permitida('ver_turma'),
+      excluirTurma: permitida('excluir_turma'),
+      adicionarTurmaDisciplina: permitida('adicionar_turma_disciplina'),
+      verTurmaDisciplina: permitida('ver_turma_disciplina'),
+      excluirTurmaDisciplina: permitida('excluir_turma_disciplina'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2260,9 +2390,18 @@ export default function Home() {
       items: (): CgItem[] => combustiveis,
       emptyMessage: 'Clique em "Adicionar" para cadastrar um combustível.',
     },
+    modalidadeEnsino: {
+      descKey: 'ds_modalidade_ensino',
+      collection: 'cg_modalidade_ensino',
+      configKey: 'config_colunas_cg_modalidade_ensino',
+      columns: MODALIDADE_ENSINO_COLUMNS,
+      fieldInfos: MODALIDADE_ENSINO_FIELD_INFOS,
+      items: (): CgItem[] => modalidadesEnsino,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar uma modalidade de ensino.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : cgManageSelection === 'combustivel' ? 'combustivel' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : cgManageSelection === 'combustivel' ? 'combustivel' : cgManageSelection === 'modalidadeEnsino' ? 'modalidadeEnsino' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -2661,6 +2800,50 @@ export default function Home() {
     }
   }, []);
 
+  const loadModalidadesEnsino = useCallback(async () => {
+    setLoading(true);
+    try {
+      setModalidadesEnsino(await obterModalidadesEnsino());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadDisciplinas = useCallback(async () => {
+    setLoading(true);
+    try {
+      setDisciplinas(await obterDisciplinas());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadTurmasDisciplinas = useCallback(async () => {
+    setLoading(true);
+    try {
+      setTurmasDisciplinas(await obterTurmasDisciplinas());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadTurmas = useCallback(async () => {
+    setLoading(true);
+    try {
+      setTurmas(await obterTurmas());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   const loadCursos = useCallback(async () => {
     setLoading(true);
     try {
@@ -2773,10 +2956,12 @@ export default function Home() {
       await loadSistemasOperacionais();
     } else if (cgKind === 'combustivel') {
       await loadCombustiveis();
+    } else if (cgKind === 'modalidadeEnsino') {
+      await loadModalidadesEnsino();
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais, loadCombustiveis]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais, loadCombustiveis, loadModalidadesEnsino]);
 
   /* Enter em qualquer modal de filtro aciona o botão "Filtrar". Os filtros
    * dentro de <form> já disparam o submit nativamente; aqui cobrimos os
@@ -2824,8 +3009,12 @@ export default function Home() {
     loadMarcas();
     loadCategoriasAtivos();
     loadCursos();
+    loadDisciplinas();
+    loadTurmas();
+    loadTurmasDisciplinas();
     loadSistemasOperacionais();
     loadCombustiveis();
+    loadModalidadesEnsino();
     loadAtivos();
     loadManutencoes();
     loadRelatorios();
@@ -2837,7 +3026,7 @@ export default function Home() {
     loadEncerramentoAutomaticoPeriodoLetivo();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -3109,7 +3298,7 @@ export default function Home() {
           setPjManageSelection(session.pjManageSelection);
           setPjInteracted(true);
         }
-        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao' || session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos')) {
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao' || session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos' || session.alunoManageSelection === 'disciplinas' || session.alunoManageSelection === 'turmas' || session.alunoManageSelection === 'turmasDisciplinas')) {
           setAlunoManageSelection(session.alunoManageSelection);
           setAlunoInteracted(true);
         }
@@ -3876,6 +4065,9 @@ export default function Home() {
       }
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.verPeriodoLetivo;
       if (alunoManageSelection === 'cursos') return permissoesEA.verCurso;
+      if (alunoManageSelection === 'disciplinas') return permissoesEA.verDisciplina;
+      if (alunoManageSelection === 'turmas') return permissoesEA.verTurma;
+      if (alunoManageSelection === 'turmasDisciplinas') return permissoesEA.verTurmaDisciplina;
       if (contextMenu?.item && alunosAlvoDoContexto(contextMenu.item as Aluno).length > 1) return false;
       return permissoesEA.verAluno;
     }
@@ -3915,6 +4107,9 @@ export default function Home() {
       if (alunoManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.excluirPeriodoLetivo;
       if (alunoManageSelection === 'cursos') return permissoesEA.excluirCurso;
+      if (alunoManageSelection === 'disciplinas') return permissoesEA.excluirDisciplina;
+      if (alunoManageSelection === 'turmas') return permissoesEA.excluirTurma;
+      if (alunoManageSelection === 'turmasDisciplinas') return permissoesEA.excluirTurmaDisciplina;
       return permissoesEA.excluirAluno;
     }
     if (s === 'patrimonio') {
@@ -3999,6 +4194,7 @@ export default function Home() {
 
   function handlePjManageSelectionChange(value: string) {
     setPjInteracted(true);
+    setPfDetalheId(null);
     setPjManageSelection(value);
     // Ao trocar entre Pessoas Físicas/Jurídicas, zera os formulários e
     // retorna à listagem para nunca salvar contra a coleção errada.
@@ -4035,6 +4231,17 @@ export default function Home() {
     setCursoForm(emptyCgForm);
     setCursoEditingId(null);
     setCursoFilterModalOpen(false);
+    setDisciplinaForm(emptyCgForm);
+    setDisciplinaEditingId(null);
+    setDisciplinaFilterModalOpen(false);
+    setTurmaForm(emptyCgForm);
+    setTurmaExtra(TURMA_CAMPOS_VAZIOS);
+    setTurmaEditingId(null);
+    setTurmaFilterModalOpen(false);
+    setTurmaDisciplinaForm(emptyCgForm);
+    setTurmaDisciplinaExtra(TURMA_DISCIPLINA_CAMPOS_VAZIOS);
+    setTurmaDisciplinaEditingId(null);
+    setTurmaDisciplinaFilterModalOpen(false);
     setMessage("");
     setView("list");
   }
@@ -4132,7 +4339,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -4169,6 +4376,19 @@ export default function Home() {
       const logs = await fetchAuditByDocumentId('colaborador', colaboradorId);
       setAuditLogs(logs);
     } catch (e) {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  async function openPessoaFisicaAbaAuditModal(colecao: string, id: string) {
+    setAuditDocumentType(colecao as typeof auditDocumentType);
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId(colecao, id));
+    } catch {
       setAuditLogs([]);
     } finally {
       setAuditLoading(false);
@@ -4991,6 +5211,7 @@ export default function Home() {
       nr_seq_categoria: ativo.nr_seq_categoria,
       nr_seq_localizacao: ativo.nr_seq_localizacao,
       nr_seq_marca: ativo.nr_seq_marca,
+      nr_seq_fornecedor: ativo.nr_seq_fornecedor,
       ds_modelo: ativo.ds_modelo ?? '',
       nr_serie: ativo.nr_serie ?? '',
       ds_qr_code: ativo.ds_qr_code ?? '',
@@ -5448,11 +5669,14 @@ export default function Home() {
 
   // Responsáveis de um aluno (duplo clique na lista, como os responsáveis de um ativo).
   const [alunoDetalheId, setAlunoDetalheId] = useState<string | null>(null);
+  // Aba aberta no duplo clique: mantida ao alternar entre os alunos pelas setas.
+  const [alunoDetalheAba, setAlunoDetalheAba] = useState<AlunoDetalheAba | undefined>(undefined);
   const alunoDetalhe = alunoDetalheId ? alunos.find((a) => a.id === alunoDetalheId) ?? null : null;
   const alunoDetalheIndex = alunoDetalheId ? filteredSortedAlunos.findIndex((a) => a.id === alunoDetalheId) : -1;
   function abrirDetalheDoAluno(aluno: Aluno) {
     if (!permissoesEA.detalhesAluno || !aluno.id) return;
     setMessage("");
+    setAlunoDetalheAba(undefined);
     setAlunoDetalheId(aluno.id);
   }
   function navegarDetalheDoAluno(direcao: -1 | 1) {
@@ -5498,6 +5722,10 @@ export default function Home() {
         const q = appliedAtivoFilterForm.nr_seq_responsavel.replace(/\D/g, '');
         if (q && !responsaveisAtivos.some((r) => r.nr_seq_ativo === a.nr_sequencia && String(r.nr_seq_colaborador ?? '') === q)) return false;
       }
+      if (appliedAtivoFilterForm.nr_seq_fornecedor) {
+        const q = appliedAtivoFilterForm.nr_seq_fornecedor.replace(/\D/g, '');
+        if (q && String(a.nr_seq_fornecedor ?? '') !== q) return false;
+      }
       // Dispositivo
       if (appliedAtivoFilterForm.ds_endereco_mac && !(a.ds_endereco_mac ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_endereco_mac.toLowerCase())) return false;
       if (appliedAtivoFilterForm.ds_ip && !(a.ds_ip ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ip.toLowerCase())) return false;
@@ -5529,17 +5757,38 @@ export default function Home() {
 
   // Responsáveis e manutenções de um ativo (duplo clique na lista, como os feriados de um período letivo).
   const [ativoDetalheId, setAtivoDetalheId] = useState<string | null>(null);
+  // Aba aberta no duplo clique: mantida ao alternar entre os ativos pelas setas.
+  const [ativoDetalheAba, setAtivoDetalheAba] = useState<AtivoDetalheAba | undefined>(undefined);
   const ativoDetalhe = ativoDetalheId ? ativos.find((a) => a.id === ativoDetalheId) ?? null : null;
   const ativoDetalheIndex = ativoDetalheId ? filteredSortedAtivos.findIndex((a) => a.id === ativoDetalheId) : -1;
   function abrirDetalheDoAtivo(ativo: Ativo) {
     if (!permissoesPatrimonio.detalhesAtivo || !ativo.id) return;
     setMessage("");
+    setAtivoDetalheAba(undefined);
     setAtivoDetalheId(ativo.id);
   }
   function navegarDetalheDoAtivo(direcao: -1 | 1) {
     const alvo = filteredSortedAtivos[ativoDetalheIndex + direcao];
     if (ativoDetalheIndex >= 0 && alvo?.id) setAtivoDetalheId(alvo.id);
   }
+  // Residencial, Comercial e Saúde de uma pessoa física (duplo clique na lista).
+  const [pfDetalheId, setPfDetalheId] = useState<string | null>(null);
+  // Aba aberta no duplo clique: mantida ao alternar entre as pessoas físicas pelas setas.
+  const [pfDetalheAba, setPfDetalheAba] = useState<PessoaFisicaAba | undefined>(undefined);
+  const [pfDetalheSaving, setPfDetalheSaving] = useState(false);
+  const pfDetalhe = pfDetalheId ? pessoasFisicas.find((p) => p.id === pfDetalheId) ?? null : null;
+  const pfDetalheIndex = pfDetalheId ? filteredSortedPessoasFisicas.findIndex((p) => p.id === pfDetalheId) : -1;
+  function abrirDetalheDaPessoaFisica(pessoa: PessoaFisica) {
+    if (!permissoesPessoa.detalhesPessoaFisica || !pessoa.id) return;
+    setMessage("");
+    setPfDetalheAba(undefined);
+    setPfDetalheId(pessoa.id);
+  }
+  function navegarDetalheDaPessoaFisica(direcao: -1 | 1) {
+    const alvo = filteredSortedPessoasFisicas[pfDetalheIndex + direcao];
+    if (pfDetalheIndex >= 0 && alvo?.id) setPfDetalheId(alvo.id);
+  }
+
   function fecharDetalheDoAtivo() {
     setMessage("");
     setAtivoDetalheId(null);
@@ -6220,6 +6469,678 @@ export default function Home() {
     if (view === 'form') goToCursoList();
   }
 
+  /* ── Estrutura Acadêmica > Disciplinas ── */
+  const filteredSortedDisciplinas = useMemo(() => {
+    const filtro = appliedDisciplinaFilterForm;
+    const lista = disciplinas.filter((c) => {
+      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+      if (filtro.descricao && !String(c.ds_disciplina ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+      return true;
+    });
+    if (disciplinaSortColumn === null || disciplinaSortAsc === null) {
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
+    }
+    const key = DISCIPLINA_COLUMNS[disciplinaSortColumn].key;
+    return lista.sort((a, b) => {
+      const valA = a[key];
+      const valB = b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') return disciplinaSortAsc ? valA - valB : valB - valA;
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return disciplinaSortAsc ? -1 : 1;
+      if (strA > strB) return disciplinaSortAsc ? 1 : -1;
+      return 0;
+    });
+  }, [disciplinas, appliedDisciplinaFilterForm, disciplinaSortColumn, disciplinaSortAsc]);
+
+  const currentDisciplinaEditIndex = disciplinaEditingId ? filteredSortedDisciplinas.findIndex((c) => c.id === disciplinaEditingId) : -1;
+  const hasPrevDisciplinaRecord = currentDisciplinaEditIndex > 0;
+  const hasNextDisciplinaRecord = currentDisciplinaEditIndex >= 0 && currentDisciplinaEditIndex < filteredSortedDisciplinas.length - 1;
+
+  function handleDisciplinaSortChange(logicalIndex: number) {
+    if (disciplinaSortColumn === logicalIndex) {
+      if (disciplinaSortAsc) {
+        setDisciplinaSortAsc(false);
+      } else {
+        setDisciplinaSortColumn(null);
+        setDisciplinaSortAsc(null);
+      }
+    } else {
+      setDisciplinaSortColumn(logicalIndex);
+      setDisciplinaSortAsc(true);
+    }
+  }
+
+  // Botão "Adicionar": sem a permissão, mostra aviso.
+  function handleDisciplinaNewForm() {
+    if (!permissoesEA.adicionarDisciplina) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    setDisciplinaForm(emptyCgForm);
+    setDisciplinaEditingId(null);
+    setDisciplinaAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setDisciplinaCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  async function carregarAutorAuditoriaDisciplina(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('disciplina', id);
+      if (auditDisciplinaIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
+      setDisciplinaAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  function openDisciplinaEditForm(disciplina: Disciplina) {
+    setDisciplinaForm({
+      descricao: disciplina.ds_disciplina ?? '',
+      ie_status: 'A',
+      nr_cbo: '',
+      sg_sigla: '',
+      ds_observacao: disciplina.ds_observacao ?? '',
+    });
+    setDisciplinaEditingId(disciplina.id ?? null);
+    setDisciplinaAuditInfo({
+      createdAt: disciplina.dt_criacao ?? '',
+      updatedAt: disciplina.dt_alteracao ?? '',
+      createdBy: disciplina.ds_usuario_criacao ?? '',
+      updatedBy: disciplina.ds_usuario_alteracao ?? '',
+    });
+    auditDisciplinaIdRef.current = disciplina.id ?? null;
+    setMessage("");
+    setDisciplinaCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+    if (disciplina.id) carregarAutorAuditoriaDisciplina(disciplina.id);
+  }
+
+  function goToDisciplinaList() {
+    setDisciplinaForm(emptyCgForm);
+    setDisciplinaEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
+  }
+
+  function goToPrevDisciplinaRecord() {
+    const anterior = hasPrevDisciplinaRecord ? filteredSortedDisciplinas[currentDisciplinaEditIndex - 1] : undefined;
+    if (anterior) openDisciplinaEditForm(anterior);
+  }
+
+  function goToNextDisciplinaRecord() {
+    const proximo = hasNextDisciplinaRecord ? filteredSortedDisciplinas[currentDisciplinaEditIndex + 1] : undefined;
+    if (proximo) openDisciplinaEditForm(proximo);
+  }
+
+  async function openDisciplinaAuditModal(disciplinaId?: string | null) {
+    if (!disciplinaId) return;
+    setAuditDocumentType('disciplina');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('disciplina', disciplinaId));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openDisciplinaFilterModal() {
+    setDisciplinaFilterForm(appliedDisciplinaFilterForm);
+    setDisciplinaFilterModalOpen(true);
+  }
+
+  function clearDisciplinaFilter() {
+    setDisciplinaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedDisciplinaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  }
+
+  function handleDisciplinaFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedDisciplinaFilterForm({ ...disciplinaFilterForm, ie_status: disciplinaFilterForm.ie_status || 'T' });
+    setDisciplinaFilterModalOpen(false);
+  }
+
+  async function handleDisciplinaSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const payload = {
+      ds_disciplina: disciplinaForm.descricao,
+      ds_observacao: disciplinaForm.ds_observacao ?? '',
+    };
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'disciplina'));
+    if (faltantes.length > 0) {
+      setDisciplinaCampoErros(faltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setDisciplinaCampoErros([]);
+    setDisciplinaSubmitting(true);
+    try {
+      if (disciplinaEditingId) {
+        const atual = disciplinas.find((c) => c.id === disciplinaEditingId);
+        const mudou = !atual || (Object.keys(payload) as (keyof typeof payload)[]).some((k) => String(atual[k] ?? '') !== String(payload[k] ?? ''));
+        if (!mudou) {
+          setMessage("Nenhuma alteração detectada.");
+        } else {
+          await atualizarDisciplina(disciplinaEditingId, payload, auditAutor);
+          setMessage("Atualizado com sucesso!");
+        }
+      } else {
+        await criarDisciplina(payload, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+      setDisciplinaForm(emptyCgForm);
+      setDisciplinaEditingId(null);
+      await loadDisciplinas();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setDisciplinaSubmitting(false);
+    }
+  }
+
+  async function handleDisciplinaDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirDisciplina(id);
+      setMessage("Excluído com sucesso!");
+      await loadDisciplinas();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToDisciplinaList();
+  }
+
+  /** Descrição de uma referência da turma (Curso, Período letivo, Localização, Modalidade de ensino). */
+  function descricaoReferenciaTurma(key: string, valor: unknown): string {
+    if (valor === null || valor === undefined || valor === '') return '';
+    const seq = Number(valor);
+    if (key === 'nr_seq_curso') return cursos.find((c) => c.nr_sequencia === seq)?.ds_curso ?? '';
+    if (key === 'nr_seq_periodo_letivo') return periodosLetivos.find((p) => p.nr_sequencia === seq)?.ds_periodo_letivo ?? '';
+    if (key === 'nr_seq_localizacao') return localizacoes.find((l) => l.nr_sequencia === seq)?.ds_localizacao ?? '';
+    if (key === 'nr_seq_modalidade_ensino') return modalidadesEnsino.find((m) => m.nr_sequencia === seq)?.ds_modalidade_ensino ?? '';
+    return String(valor);
+  }
+
+  /** Célula da lista de Turmas: referências pela descrição; o resto como nos Cadastros Gerais. */
+  function formatTurmaCellValue(key: string, value: unknown): string {
+    if ((TURMA_COLUNAS_REFERENCIA as readonly string[]).includes(key)) return descricaoReferenciaTurma(key, value);
+    return formatCadastroGeralCellValue(key, value);
+  }
+
+  /* ── Estrutura Acadêmica > Turmas ── */
+  const filteredSortedTurmas = useMemo(() => {
+    const filtro = appliedTurmaFilterForm;
+    const lista = turmas.filter((c) => {
+      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+      if (filtro.descricao && !String(c.ds_turma ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+      if (turmaFiltroExtraAplicado.nr_seq_curso && String(c.nr_seq_curso ?? '') !== turmaFiltroExtraAplicado.nr_seq_curso) return false;
+      if (turmaFiltroExtraAplicado.nr_seq_periodo_letivo && String(c.nr_seq_periodo_letivo ?? '') !== turmaFiltroExtraAplicado.nr_seq_periodo_letivo) return false;
+      return true;
+    });
+    if (turmaSortColumn === null || turmaSortAsc === null) {
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
+    }
+    const key = TURMA_COLUMNS[turmaSortColumn].key;
+    return lista.sort((a, b) => {
+      // Referências (Curso, Período letivo...) ordenam pela descrição exibida.
+      const valA = (TURMA_COLUNAS_REFERENCIA as readonly string[]).includes(key) ? descricaoReferenciaTurma(key, a[key]) : a[key];
+      const valB = (TURMA_COLUNAS_REFERENCIA as readonly string[]).includes(key) ? descricaoReferenciaTurma(key, b[key]) : b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') return turmaSortAsc ? valA - valB : valB - valA;
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return turmaSortAsc ? -1 : 1;
+      if (strA > strB) return turmaSortAsc ? 1 : -1;
+      return 0;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turmas, appliedTurmaFilterForm, turmaFiltroExtraAplicado, turmaSortColumn, turmaSortAsc, cursos, periodosLetivos, localizacoes, modalidadesEnsino]);
+
+  const currentTurmaEditIndex = turmaEditingId ? filteredSortedTurmas.findIndex((c) => c.id === turmaEditingId) : -1;
+  const hasPrevTurmaRecord = currentTurmaEditIndex > 0;
+  const hasNextTurmaRecord = currentTurmaEditIndex >= 0 && currentTurmaEditIndex < filteredSortedTurmas.length - 1;
+
+  function handleTurmaSortChange(logicalIndex: number) {
+    if (turmaSortColumn === logicalIndex) {
+      if (turmaSortAsc) {
+        setTurmaSortAsc(false);
+      } else {
+        setTurmaSortColumn(null);
+        setTurmaSortAsc(null);
+      }
+    } else {
+      setTurmaSortColumn(logicalIndex);
+      setTurmaSortAsc(true);
+    }
+  }
+
+  // Botão "Adicionar": sem a permissão, mostra aviso.
+  function handleTurmaNewForm() {
+    if (!permissoesEA.adicionarTurma) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    setTurmaForm(emptyCgForm);
+    setTurmaExtra(TURMA_CAMPOS_VAZIOS);
+    setTurmaEditingId(null);
+    setTurmaAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setTurmaCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  async function carregarAutorAuditoriaTurma(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('turma', id);
+      if (auditTurmaIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
+      setTurmaAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  function openTurmaEditForm(turma: Turma) {
+    setTurmaForm({
+      descricao: turma.ds_turma ?? '',
+      ie_status: 'A',
+      nr_cbo: '',
+      sg_sigla: '',
+      ds_observacao: '',
+    });
+    setTurmaExtra({
+      nr_seq_curso: turma.nr_seq_curso != null ? String(turma.nr_seq_curso) : '',
+      nr_seq_periodo_letivo: turma.nr_seq_periodo_letivo != null ? String(turma.nr_seq_periodo_letivo) : '',
+      qt_max_alunos: turma.qt_max_alunos != null ? String(turma.qt_max_alunos) : '',
+      nr_seq_localizacao: turma.nr_seq_localizacao != null ? String(turma.nr_seq_localizacao) : '',
+      nr_seq_modalidade_ensino: turma.nr_seq_modalidade_ensino != null ? String(turma.nr_seq_modalidade_ensino) : '',
+    });
+    setTurmaEditingId(turma.id ?? null);
+    setTurmaAuditInfo({
+      createdAt: turma.dt_criacao ?? '',
+      updatedAt: turma.dt_alteracao ?? '',
+      createdBy: turma.ds_usuario_criacao ?? '',
+      updatedBy: turma.ds_usuario_alteracao ?? '',
+    });
+    auditTurmaIdRef.current = turma.id ?? null;
+    setMessage("");
+    setTurmaCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+    if (turma.id) carregarAutorAuditoriaTurma(turma.id);
+  }
+
+  function goToTurmaList() {
+    setTurmaForm(emptyCgForm);
+    setTurmaExtra(TURMA_CAMPOS_VAZIOS);
+    setTurmaEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
+  }
+
+  function goToPrevTurmaRecord() {
+    const anterior = hasPrevTurmaRecord ? filteredSortedTurmas[currentTurmaEditIndex - 1] : undefined;
+    if (anterior) openTurmaEditForm(anterior);
+  }
+
+  function goToNextTurmaRecord() {
+    const proximo = hasNextTurmaRecord ? filteredSortedTurmas[currentTurmaEditIndex + 1] : undefined;
+    if (proximo) openTurmaEditForm(proximo);
+  }
+
+  async function openTurmaAuditModal(turmaId?: string | null) {
+    if (!turmaId) return;
+    setAuditDocumentType('turma');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('turma', turmaId));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openTurmaFilterModal() {
+    setTurmaFilterForm(appliedTurmaFilterForm);
+    setTurmaFiltroExtra(turmaFiltroExtraAplicado);
+    setTurmaFilterModalOpen(true);
+  }
+
+  function clearTurmaFilter() {
+    setTurmaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedTurmaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setTurmaFiltroExtra({ nr_seq_curso: '', nr_seq_periodo_letivo: '' });
+    setTurmaFiltroExtraAplicado({ nr_seq_curso: '', nr_seq_periodo_letivo: '' });
+  }
+
+  function handleTurmaFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedTurmaFilterForm({ ...turmaFilterForm, ie_status: turmaFilterForm.ie_status || 'T' });
+    setTurmaFiltroExtraAplicado(turmaFiltroExtra);
+    setTurmaFilterModalOpen(false);
+  }
+
+  async function handleTurmaSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const numero = (v: string) => (v.trim() === '' ? null : Number(v));
+    const payload = {
+      ds_turma: turmaForm.descricao,
+      nr_seq_curso: numero(turmaExtra.nr_seq_curso),
+      nr_seq_periodo_letivo: numero(turmaExtra.nr_seq_periodo_letivo),
+      qt_max_alunos: numero(turmaExtra.qt_max_alunos),
+      nr_seq_localizacao: numero(turmaExtra.nr_seq_localizacao),
+      nr_seq_modalidade_ensino: numero(turmaExtra.nr_seq_modalidade_ensino),
+    };
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'turma'));
+    if (faltantes.length > 0) {
+      setTurmaCampoErros(faltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    setTurmaCampoErros([]);
+    setTurmaSubmitting(true);
+    try {
+      if (turmaEditingId) {
+        const atual = turmas.find((c) => c.id === turmaEditingId);
+        const mudou = !atual || (Object.keys(payload) as (keyof typeof payload)[]).some((k) => String(atual[k] ?? '') !== String(payload[k] ?? ''));
+        if (!mudou) {
+          setMessage("Nenhuma alteração detectada.");
+        } else {
+          await atualizarTurma(turmaEditingId, payload as Partial<Turma>, auditAutor);
+          setMessage("Atualizado com sucesso!");
+        }
+      } else {
+        await criarTurma(payload as unknown as Omit<Turma, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+      setTurmaForm(emptyCgForm);
+      setTurmaExtra(TURMA_CAMPOS_VAZIOS);
+      setTurmaEditingId(null);
+      await loadTurmas();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setTurmaSubmitting(false);
+    }
+  }
+
+  async function handleTurmaDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirTurma(id);
+      setMessage("Excluído com sucesso!");
+      await loadTurmas();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToTurmaList();
+  }
+
+  /* ── Estrutura Acadêmica > Turmas x Disciplinas ── */
+  /** Descrição de uma referência de Turmas x Disciplinas (Turma, Disciplina). */
+  function descricaoReferenciaTurmaDisciplina(key: string, valor: unknown): string {
+    if (valor === null || valor === undefined || valor === '') return '';
+    const seq = Number(valor);
+    if (key === 'nr_seq_turma') return turmas.find((t) => t.nr_sequencia === seq)?.ds_turma ?? '';
+    if (key === 'nr_seq_disciplina') return disciplinas.find((d) => d.nr_sequencia === seq)?.ds_disciplina ?? '';
+    return String(valor);
+  }
+
+  /** Célula da lista: Turma e Disciplina pela descrição; o resto como nos Cadastros Gerais. */
+  function formatTurmaDisciplinaCellValue(key: string, value: unknown): string {
+    if ((TURMA_DISCIPLINA_COLUNAS_REFERENCIA as readonly string[]).includes(key)) return descricaoReferenciaTurmaDisciplina(key, value);
+    return formatCadastroGeralCellValue(key, value);
+  }
+
+  const filteredSortedTurmasDisciplinas = useMemo(() => {
+    const filtro = appliedTurmaDisciplinaFilterForm;
+    const extra = turmaDisciplinaFiltroExtraAplicado;
+    const lista = turmasDisciplinas.filter((td) => {
+      if (filtro.nr_sequencia && String(td.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+      if (filtro.ie_status && filtro.ie_status !== 'T' && (td.ie_status ?? 'A') !== filtro.ie_status) return false;
+      if (extra.nr_seq_turma && String(td.nr_seq_turma ?? '') !== extra.nr_seq_turma) return false;
+      if (extra.nr_seq_disciplina && String(td.nr_seq_disciplina ?? '') !== extra.nr_seq_disciplina) return false;
+      return true;
+    });
+    if (turmaDisciplinaSortColumn === null || turmaDisciplinaSortAsc === null) {
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
+    }
+    const key = TURMA_DISCIPLINA_COLUMNS[turmaDisciplinaSortColumn].key;
+    const referencia = (TURMA_DISCIPLINA_COLUNAS_REFERENCIA as readonly string[]).includes(key);
+    return lista.sort((a, b) => {
+      // Turma e Disciplina ordenam pela descrição exibida.
+      const valA = referencia ? descricaoReferenciaTurmaDisciplina(key, a[key]) : a[key];
+      const valB = referencia ? descricaoReferenciaTurmaDisciplina(key, b[key]) : b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') return turmaDisciplinaSortAsc ? valA - valB : valB - valA;
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return turmaDisciplinaSortAsc ? -1 : 1;
+      if (strA > strB) return turmaDisciplinaSortAsc ? 1 : -1;
+      return 0;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turmasDisciplinas, appliedTurmaDisciplinaFilterForm, turmaDisciplinaFiltroExtraAplicado, turmaDisciplinaSortColumn, turmaDisciplinaSortAsc, turmas, disciplinas]);
+
+  const currentTurmaDisciplinaEditIndex = turmaDisciplinaEditingId ? filteredSortedTurmasDisciplinas.findIndex((td) => td.id === turmaDisciplinaEditingId) : -1;
+  const hasPrevTurmaDisciplinaRecord = currentTurmaDisciplinaEditIndex > 0;
+  const hasNextTurmaDisciplinaRecord = currentTurmaDisciplinaEditIndex >= 0 && currentTurmaDisciplinaEditIndex < filteredSortedTurmasDisciplinas.length - 1;
+
+  function handleTurmaDisciplinaSortChange(logicalIndex: number) {
+    if (turmaDisciplinaSortColumn === logicalIndex) {
+      if (turmaDisciplinaSortAsc) {
+        setTurmaDisciplinaSortAsc(false);
+      } else {
+        setTurmaDisciplinaSortColumn(null);
+        setTurmaDisciplinaSortAsc(null);
+      }
+    } else {
+      setTurmaDisciplinaSortColumn(logicalIndex);
+      setTurmaDisciplinaSortAsc(true);
+    }
+  }
+
+  // Botão "Adicionar": sem a permissão, mostra aviso.
+  function handleTurmaDisciplinaNewForm() {
+    if (!permissoesEA.adicionarTurmaDisciplina) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    setTurmaDisciplinaForm(emptyCgForm);
+    setTurmaDisciplinaExtra(TURMA_DISCIPLINA_CAMPOS_VAZIOS);
+    setTurmaDisciplinaEditingId(null);
+    setTurmaDisciplinaAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setTurmaDisciplinaCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+  }
+
+  async function carregarAutorAuditoriaTurmaDisciplina(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('turma_disciplina', id);
+      if (auditTurmaDisciplinaIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
+      setTurmaDisciplinaAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  function openTurmaDisciplinaEditForm(td: TurmaDisciplina) {
+    setTurmaDisciplinaForm({ ...emptyCgForm, ie_status: td.ie_status || 'A' });
+    setTurmaDisciplinaExtra({
+      nr_seq_turma: td.nr_seq_turma != null ? String(td.nr_seq_turma) : '',
+      nr_seq_disciplina: td.nr_seq_disciplina != null ? String(td.nr_seq_disciplina) : '',
+    });
+    setTurmaDisciplinaEditingId(td.id ?? null);
+    setTurmaDisciplinaAuditInfo({
+      createdAt: td.dt_criacao ?? '',
+      updatedAt: td.dt_alteracao ?? '',
+      createdBy: td.ds_usuario_criacao ?? '',
+      updatedBy: td.ds_usuario_alteracao ?? '',
+    });
+    auditTurmaDisciplinaIdRef.current = td.id ?? null;
+    setMessage("");
+    setTurmaDisciplinaCampoErros([]);
+    setView("form");
+    setActiveSection("estruturaAcademica");
+    if (td.id) carregarAutorAuditoriaTurmaDisciplina(td.id);
+  }
+
+  function goToTurmaDisciplinaList() {
+    setTurmaDisciplinaForm(emptyCgForm);
+    setTurmaDisciplinaExtra(TURMA_DISCIPLINA_CAMPOS_VAZIOS);
+    setTurmaDisciplinaEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("estruturaAcademica");
+  }
+
+  function goToPrevTurmaDisciplinaRecord() {
+    const anterior = hasPrevTurmaDisciplinaRecord ? filteredSortedTurmasDisciplinas[currentTurmaDisciplinaEditIndex - 1] : undefined;
+    if (anterior) openTurmaDisciplinaEditForm(anterior);
+  }
+
+  function goToNextTurmaDisciplinaRecord() {
+    const proximo = hasNextTurmaDisciplinaRecord ? filteredSortedTurmasDisciplinas[currentTurmaDisciplinaEditIndex + 1] : undefined;
+    if (proximo) openTurmaDisciplinaEditForm(proximo);
+  }
+
+  async function openTurmaDisciplinaAuditModal(id?: string | null) {
+    if (!id) return;
+    setAuditDocumentType('turma_disciplina');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('turma_disciplina', id));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openTurmaDisciplinaFilterModal() {
+    setTurmaDisciplinaFilterForm(appliedTurmaDisciplinaFilterForm);
+    setTurmaDisciplinaFiltroExtra(turmaDisciplinaFiltroExtraAplicado);
+    setTurmaDisciplinaFilterModalOpen(true);
+  }
+
+  function clearTurmaDisciplinaFilter() {
+    setTurmaDisciplinaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedTurmaDisciplinaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setTurmaDisciplinaFiltroExtra({ nr_seq_turma: '', nr_seq_disciplina: '' });
+    setTurmaDisciplinaFiltroExtraAplicado({ nr_seq_turma: '', nr_seq_disciplina: '' });
+  }
+
+  function handleTurmaDisciplinaFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedTurmaDisciplinaFilterForm({ ...turmaDisciplinaFilterForm, ie_status: turmaDisciplinaFilterForm.ie_status || 'T' });
+    setTurmaDisciplinaFiltroExtraAplicado(turmaDisciplinaFiltroExtra);
+    setTurmaDisciplinaFilterModalOpen(false);
+  }
+
+  async function handleTurmaDisciplinaSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setMessage("");
+    const numero = (v: string) => (v.trim() === '' ? null : Number(v));
+    const payload = {
+      nr_seq_turma: numero(turmaDisciplinaExtra.nr_seq_turma),
+      nr_seq_disciplina: numero(turmaDisciplinaExtra.nr_seq_disciplina),
+      ie_status: turmaDisciplinaForm.ie_status || 'A',
+    };
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
+    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'turma_disciplina'));
+    if (faltantes.length > 0) {
+      setTurmaDisciplinaCampoErros(faltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    // Turma e Disciplina digitadas precisam existir.
+    const invalidos = [
+      payload.nr_seq_turma != null && !turmas.some((t) => t.nr_sequencia === payload.nr_seq_turma) ? 'nr_seq_turma' : '',
+      payload.nr_seq_disciplina != null && !disciplinas.some((d) => d.nr_sequencia === payload.nr_seq_disciplina) ? 'nr_seq_disciplina' : '',
+    ].filter(Boolean);
+    if (invalidos.length > 0) {
+      setTurmaDisciplinaCampoErros(invalidos);
+      setMessage(invalidos.includes('nr_seq_turma') ? "Turma não encontrada." : "Disciplina não encontrada.");
+      return;
+    }
+    setTurmaDisciplinaCampoErros([]);
+    setTurmaDisciplinaSubmitting(true);
+    try {
+      if (turmaDisciplinaEditingId) {
+        const atual = turmasDisciplinas.find((td) => td.id === turmaDisciplinaEditingId);
+        const mudou = !atual || (Object.keys(payload) as (keyof typeof payload)[]).some((k) => String(atual[k] ?? '') !== String(payload[k] ?? ''));
+        if (!mudou) {
+          setMessage("Nenhuma alteração detectada.");
+        } else {
+          await atualizarTurmaDisciplina(turmaDisciplinaEditingId, payload as Partial<TurmaDisciplina>, auditAutor);
+          setMessage("Atualizado com sucesso!");
+        }
+      } else {
+        await criarTurmaDisciplina(payload as unknown as Omit<TurmaDisciplina, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+      setTurmaDisciplinaForm(emptyCgForm);
+      setTurmaDisciplinaExtra(TURMA_DISCIPLINA_CAMPOS_VAZIOS);
+      setTurmaDisciplinaEditingId(null);
+      await loadTurmasDisciplinas();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setTurmaDisciplinaSubmitting(false);
+    }
+  }
+
+  async function handleTurmaDisciplinaDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirTurmaDisciplina(id);
+      setMessage("Excluído com sucesso!");
+      await loadTurmasDisciplinas();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToTurmaDisciplinaList();
+  }
+
   function goToPrevPjRecord() {
     if (!hasPrevPjRecord) return;
     const previous = filteredSortedPessoasJuridicas[currentPjEditIndex - 1];
@@ -6285,7 +7206,7 @@ export default function Home() {
     event.preventDefault();
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
-    const pfRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica');
+    const pfRegras = Object.fromEntries(Object.entries(campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica')).filter(([campo]) => !CAMPOS_PF_MOVIDOS_PARA_ABAS.has(campo)));
     const pfFaltantes = camposObrigatoriosVazios(form as unknown as Record<string, any>, pfRegras);
     if (pfFaltantes.length > 0) {
       setPfCampoErros(pfFaltantes);
@@ -6562,7 +7483,7 @@ export default function Home() {
         const currentAtivo = ativos.find((a) => a.id === ativoEditingId);
         const formKeys: Array<keyof AtivoFormData> = [
           'cd_externo', 'ds_ativo', 'nr_seq_categoria', 'nr_seq_localizacao',
-          'nr_seq_marca', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
+          'nr_seq_marca', 'nr_seq_fornecedor', 'ds_modelo', 'nr_serie', 'ds_qr_code', 'ds_codigo_barras',
           'vl_aquisicao', 'dt_aquisicao', 'dt_garantia', 'ie_status', 'ds_processador',
           'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
           'ds_endereco_mac', 'ds_ip', 'nr_seq_sistema_operacional', 'ds_observacao',
@@ -6918,6 +7839,8 @@ export default function Home() {
           await atualizarSistemaOperacional(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'combustivel') {
           await atualizarCombustivel(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'modalidadeEnsino') {
+          await atualizarModalidadeEnsino(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -6947,6 +7870,8 @@ export default function Home() {
           await criarSistemaOperacional(payload as any, auditAutor);
         } else if (cgKind === 'combustivel') {
           await criarCombustivel(payload as any, auditAutor);
+        } else if (cgKind === 'modalidadeEnsino') {
+          await criarModalidadeEnsino(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -7438,6 +8363,12 @@ export default function Home() {
         item = periodosLetivos.find((p) => p.id === periodoLetivoEditingId) ?? null;
       } else if (alunoManageSelection === 'cursos') {
         item = cursos.find((c) => c.id === cursoEditingId) ?? null;
+      } else if (alunoManageSelection === 'disciplinas') {
+        item = disciplinas.find((d) => d.id === disciplinaEditingId) ?? null;
+      } else if (alunoManageSelection === 'turmas') {
+        item = turmas.find((t) => t.id === turmaEditingId) ?? null;
+      } else if (alunoManageSelection === 'turmasDisciplinas') {
+        item = turmasDisciplinas.find((td) => td.id === turmaDisciplinaEditingId) ?? null;
       } else {
         item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
@@ -8108,8 +9039,9 @@ export default function Home() {
     }
   }
 
-  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' = 'modal') {
+  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' = 'modal') {
     enviarManutPrestadorLookupTargetRef.current = target;
+    setLookupColaboradorFornecedor(target === 'ativoFornecedor' || target === 'ativoFilterFornecedor');
     setLookupColaboradorTodos(target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos');
     setEnviarManutPrestLookupForm(enviarManutPrestLookupFilter);
     setEnviarManutPrestLookupApplied(false);
@@ -8141,6 +9073,10 @@ export default function Home() {
       ativoResponsavelLookupCallbackRef.current = null;
     } else if (target === 'ativoFilter') {
       setAtivoFilterForm((prev) => ({ ...prev, nr_seq_responsavel: String(colaborador.nr_sequencia) }));
+    } else if (target === 'ativoFornecedor') {
+      setAtivoForm((prev) => ({ ...prev, nr_seq_fornecedor: colaborador.nr_sequencia }));
+    } else if (target === 'ativoFilterFornecedor') {
+      setAtivoFilterForm((prev) => ({ ...prev, nr_seq_fornecedor: String(colaborador.nr_sequencia) }));
     } else if (target === 'assumirAtivos') {
       setAssumirAtivosOrigem(String(colaborador.nr_sequencia));
       setAssumirAtivosErro(false);
@@ -8976,6 +9912,8 @@ export default function Home() {
         await excluirSistemaOperacional(id);
       } else if (cgKind === 'combustivel') {
         await excluirCombustivel(id);
+      } else if (cgKind === 'modalidadeEnsino') {
+        await excluirModalidadeEnsino(id);
       } else {
         await excluirOrgaoEmissor(id);
       }
@@ -9242,6 +10180,7 @@ export default function Home() {
       nr_seq_colaborador: nomeColaborador,
       nr_seq_pessoa_juridica: nomePj,
       nr_seq_prestador_servico: nomeColaborador,
+      nr_seq_fornecedor: nomeColaborador,
       nr_seq_vinculo_contratual: Object.fromEntries(vinculosContratuais.map((v) => [v.nr_sequencia, v.ds_vinculo_contratual ?? ''])),
       nr_seq_cargo: Object.fromEntries(cargos.map((c) => [c.nr_sequencia, c.ds_cargo ?? ''])),
       nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria ?? ''])),
@@ -9251,8 +10190,14 @@ export default function Home() {
       nr_seq_combustivel: Object.fromEntries(combustiveis.map((c) => [c.nr_sequencia, c.ds_combustivel ?? ''])),
       nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? ''])),
       nr_seq_grau_parentesco: Object.fromEntries(grausParentesco.map((g) => [g.nr_sequencia, g.ds_grau_parentesco ?? ''])),
+      nr_seq_curso: Object.fromEntries(cursos.map((c) => [c.nr_sequencia, c.ds_curso ?? ''])),
+      nr_seq_periodo_letivo: Object.fromEntries(periodosLetivos.map((p) => [p.nr_sequencia, p.ds_periodo_letivo ?? ''])),
+      nr_seq_modalidade_ensino: Object.fromEntries(modalidadesEnsino.map((m) => [m.nr_sequencia, m.ds_modalidade_ensino ?? ''])),
+      nr_seq_turma: Object.fromEntries(turmas.map((t) => [t.nr_sequencia, t.ds_turma ?? ''])),
+      nr_seq_disciplina: Object.fromEntries(disciplinas.map((d) => [d.nr_sequencia, d.ds_disciplina ?? ''])),
     } as Record<string, Record<number, string>>;
-  }, [pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [turmas, disciplinas, cursos, periodosLetivos, modalidadesEnsino, pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
 
   /** Colunas da lista de registros excluídos: uma configuração por função, salvas juntas no usuário. */
   function colunasExclusoesRegistro(colecao: string) {
@@ -9328,12 +10273,49 @@ export default function Home() {
         return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} cargos={colaboradorCargosOptions} selectOptions={[]} />;
       case 'pat_categoria':
         return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS} descFieldKey="ds_categoria" collectionName="pat_categoria" showObservacao />;
+      case 'disciplina':
+        return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_disciplina ?? '', ie_status: 'A', nr_cbo: '', sg_sigla: '', ds_observacao: dados.ds_observacao ?? '' }} selectOptions={[]} fieldInfos={DISCIPLINA_FIELD_INFOS} descFieldKey="ds_disciplina" collectionName="disciplina" showObservacao hideStatus />;
+      case 'turma':
+        return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_turma ?? '', ie_status: 'A', nr_cbo: '', sg_sigla: '', ds_observacao: '' }} selectOptions={[]} fieldInfos={TURMA_FIELD_INFOS} descFieldKey="ds_turma" collectionName="turma" hideStatus
+          extraFields={({ renderFieldLabel }) => (
+            <>
+              {([
+                ['nr_seq_curso', 'Curso', 'sm:col-span-6'],
+                ['nr_seq_periodo_letivo', 'Período letivo', 'sm:col-span-6'],
+                ['qt_max_alunos', 'Máximo de alunos', 'sm:col-span-2'],
+                ['nr_seq_localizacao', 'Localização', 'sm:col-span-5'],
+                ['nr_seq_modalidade_ensino', 'Modalidade de ensino', 'sm:col-span-5'],
+              ] as const).map(([campo, rotulo, colunas]) => (
+                <div key={campo} className={`${colunas} group`}>
+                  {renderFieldLabel(campo, rotulo)}
+                  <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm" value={campo === 'qt_max_alunos' ? String(dados.qt_max_alunos ?? '') : descricaoReferenciaTurma(campo, dados[campo])} />
+                </div>
+              ))}
+            </>
+          )}
+        />;
+      case 'turma_disciplina':
+        return <CadastroGeralFormView {...comuns} form={{ descricao: '', ie_status: dados.ie_status ?? 'A', nr_cbo: '', sg_sigla: '', ds_observacao: '' }} selectOptions={[]} fieldInfos={TURMA_DISCIPLINA_FIELD_INFOS} descFieldKey="nr_seq_turma" collectionName="turma_disciplina" hideDescricao
+          extraFields={({ renderFieldLabel }) => (
+            <>
+              {([
+                ['nr_seq_turma', 'Turma', 'sm:col-span-6'],
+                ['nr_seq_disciplina', 'Disciplina', 'sm:col-span-5'],
+              ] as const).map(([campo, rotulo, colunas]) => (
+                <div key={campo} className={`${colunas} group`}>
+                  {renderFieldLabel(campo, rotulo)}
+                  <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm" value={descricaoReferenciaTurmaDisciplina(campo, dados[campo])} />
+                </div>
+              ))}
+            </>
+          )}
+        />;
       case 'curso':
         return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_curso ?? '', ie_status: dados.ie_status ?? 'A', nr_cbo: '', sg_sigla: '', ds_observacao: dados.ds_observacao ?? '' }} selectOptions={[]} fieldInfos={CURSO_FIELD_INFOS} descFieldKey="ds_curso" collectionName="curso" showObservacao />;
       case 'pat_manutencao':
         return <ManutencaoFormView {...comuns} ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))} ativoName={exclusoesLookups.nr_seq_ativo[dados.nr_seq_ativo] ?? ''} onOpenAtivoLookup={nada} onViewAtivo={nada} prestadorName={exclusoesLookups.nr_seq_prestador_servico[dados.nr_seq_prestador_servico] ?? nomePf(dados.nr_seq_prestador_servico)} onOpenPrestadorLookup={nada} onViewPrestador={nada} selectOptions={[]} />;
       case 'pat_ativo':
-        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} />;
+        return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} fornecedorName={exclusoesLookups.nr_seq_fornecedor[dados.nr_seq_fornecedor] ?? ''} onOpenFornecedorLookup={nada} onViewFornecedor={nada} />;
       default:
         if (cg) {
           return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
@@ -9712,6 +10694,29 @@ export default function Home() {
                     onColumnsChange={handlePjColumnsChange}
                     columnLookups={pjCgLookups}
                   />
+                ) : pfDetalhe ? (
+                  <PessoaFisicaDetalheView
+                    key={pfDetalhe.id}
+                    abaInicial={pfDetalheAba}
+                    onAbaChange={setPfDetalheAba}
+                    pessoa={pfDetalhe}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    onPrevRecord={() => navegarDetalheDaPessoaFisica(-1)}
+                    onNextRecord={() => navegarDetalheDaPessoaFisica(1)}
+                    hasPrevRecord={pfDetalheIndex > 0}
+                    hasNextRecord={pfDetalheIndex >= 0 && pfDetalheIndex < filteredSortedPessoasFisicas.length - 1}
+                    onVoltar={() => { setMessage(""); setPfDetalheId(null); }}
+                    logradouros={pfCgOptions.logradouros}
+                    regrasDaColecao={(colecao) => campoRegrasDaColecao(campoRegrasAtivas, colecao)}
+                    onOpenAudit={openPessoaFisicaAbaAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onMessage={setMessage}
+                    onSavingChange={setPfDetalheSaving}
+                    darkMode={darkMode}
+                  />
                 ) : (
                   <PessoaFisicaListView
                     message={message}
@@ -9732,6 +10737,7 @@ export default function Home() {
                     initialColumns={pfColunasConfig}
                     onColumnsChange={handlePfColumnsChange}
                     columnLookups={pfCgLookups}
+                    onOpenDetalhe={permissoesPessoa.detalhesPessoaFisica ? abrirDetalheDaPessoaFisica : undefined}
                   />
                 )
               ) : activeSection === "administracaoSistema" ? (
@@ -9871,6 +10877,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'cursos' ? (
                   <CadastroGeralListView
+                    key="cursos"
                     loading={loading}
                     items={filteredSortedCursos}
                     columns={CURSO_COLUMNS}
@@ -9889,6 +10896,72 @@ export default function Home() {
                     sortAsc={cursoSortAsc}
                     onSortChange={handleCursoSortChange}
                     {...colunasPorIndice('config_colunas_curso')}
+                  />
+                ) : alunoManageSelection === 'disciplinas' ? (
+                  <CadastroGeralListView
+                    key="disciplinas"
+                    loading={loading}
+                    items={filteredSortedDisciplinas}
+                    columns={DISCIPLINA_COLUMNS}
+                    formatCellValue={formatCadastroGeralCellValue}
+                    emptyMessage='Clique em "Adicionar" para cadastrar uma disciplina.'
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    openNewForm={handleDisciplinaNewForm}
+                    openEditForm={openDisciplinaEditForm}
+                    openFilter={openDisciplinaFilterModal}
+                    setContextMenu={setContextMenu}
+                    contextMenuSection="estruturaAcademica"
+                    sortColumn={disciplinaSortColumn}
+                    sortAsc={disciplinaSortAsc}
+                    onSortChange={handleDisciplinaSortChange}
+                    {...colunasPorIndice('config_colunas_disciplina')}
+                  />
+                ) : alunoManageSelection === 'turmas' ? (
+                  <CadastroGeralListView
+                    key="turmas"
+                    loading={loading}
+                    items={filteredSortedTurmas}
+                    columns={TURMA_COLUMNS}
+                    formatCellValue={formatTurmaCellValue}
+                    emptyMessage='Clique em "Adicionar" para cadastrar uma turma.'
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    openNewForm={handleTurmaNewForm}
+                    openEditForm={openTurmaEditForm}
+                    openFilter={openTurmaFilterModal}
+                    setContextMenu={setContextMenu}
+                    contextMenuSection="estruturaAcademica"
+                    sortColumn={turmaSortColumn}
+                    sortAsc={turmaSortAsc}
+                    onSortChange={handleTurmaSortChange}
+                    {...colunasPorIndice('config_colunas_turma')}
+                  />
+                ) : alunoManageSelection === 'turmasDisciplinas' ? (
+                  <CadastroGeralListView
+                    key="turmasDisciplinas"
+                    loading={loading}
+                    items={filteredSortedTurmasDisciplinas}
+                    columns={TURMA_DISCIPLINA_COLUMNS}
+                    formatCellValue={formatTurmaDisciplinaCellValue}
+                    emptyMessage='Clique em "Adicionar" para cadastrar uma turma x disciplina.'
+                    selectOptions={EA_SELECT_OPTIONS}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    openNewForm={handleTurmaDisciplinaNewForm}
+                    openEditForm={openTurmaDisciplinaEditForm}
+                    openFilter={openTurmaDisciplinaFilterModal}
+                    setContextMenu={setContextMenu}
+                    contextMenuSection="estruturaAcademica"
+                    sortColumn={turmaDisciplinaSortColumn}
+                    sortAsc={turmaDisciplinaSortAsc}
+                    onSortChange={handleTurmaDisciplinaSortChange}
+                    {...colunasPorIndice('config_colunas_turma_disciplina')}
                   />
                 ) : alunoManageSelection === 'periodoLetivo' && periodoLetivoFeriados ? (
                   <PeriodoLetivoFeriadosView
@@ -9937,6 +11010,8 @@ export default function Home() {
                 ) : alunoManageSelection === 'alunos' && alunoDetalhe ? (
                   <AlunoDetalheView
                     key={alunoDetalhe.id}
+                    abaInicial={alunoDetalheAba}
+                    onAbaChange={setAlunoDetalheAba}
                     aluno={alunoDetalhe}
                     nomeAluno={nomePessoaFisicaDoAluno(alunoDetalhe.nr_seq_pessoa_fisica)}
                     selectOptions={EA_SELECT_OPTIONS}
@@ -10105,6 +11180,8 @@ export default function Home() {
                 ) : ativoDetalhe ? (
                   <AtivoDetalheView
                     key={ativoDetalhe.id}
+                    abaInicial={ativoDetalheAba}
+                    onAbaChange={setAtivoDetalheAba}
                     ativo={ativoDetalhe}
                     selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                     manageSelection={ativoManageSelection}
@@ -10172,6 +11249,7 @@ export default function Home() {
                     nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria])),
                     nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
                     nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
+                    nr_seq_fornecedor: Object.fromEntries(colaboradores.map((c) => [c.nr_sequencia, nomeColaboradorPorSeq(c.nr_sequencia)])),
                   }}
                   coresStatus={coresStatusAtivo}
                 />
@@ -10560,6 +11638,162 @@ export default function Home() {
                     campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'curso')}
                     campoErros={cursoCampoErros}
                   />
+                ) : alunoManageSelection === 'disciplinas' ? (
+                  <CadastroGeralFormView
+                    editingId={disciplinaEditingId}
+                    sequence={disciplinaEditingId ? (disciplinas.find((c) => c.id === disciplinaEditingId)?.nr_sequencia ?? null) : null}
+                    form={disciplinaForm}
+                    setForm={setDisciplinaForm}
+                    submitting={disciplinaSubmitting}
+                    handleSubmit={handleDisciplinaSubmit}
+                    goToList={goToDisciplinaList}
+                    createdAt={disciplinaAuditInfo.createdAt}
+                    updatedAt={disciplinaAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(disciplinaAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(disciplinaAuditInfo.updatedBy)}
+                    onPrevRecord={goToPrevDisciplinaRecord}
+                    onNextRecord={goToNextDisciplinaRecord}
+                    hasPrevRecord={hasPrevDisciplinaRecord}
+                    hasNextRecord={hasNextDisciplinaRecord}
+                    onOpenAudit={openDisciplinaAuditModal}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    fieldInfos={DISCIPLINA_FIELD_INFOS}
+                    descFieldKey="ds_disciplina"
+                    collectionName="disciplina"
+                    showObservacao
+                    hideStatus
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'disciplina')}
+                    campoErros={disciplinaCampoErros}
+                  />
+                ) : alunoManageSelection === 'turmas' ? (
+                  <CadastroGeralFormView
+                    editingId={turmaEditingId}
+                    sequence={turmaEditingId ? (turmas.find((c) => c.id === turmaEditingId)?.nr_sequencia ?? null) : null}
+                    form={turmaForm}
+                    setForm={setTurmaForm}
+                    submitting={turmaSubmitting}
+                    handleSubmit={handleTurmaSubmit}
+                    goToList={goToTurmaList}
+                    createdAt={turmaAuditInfo.createdAt}
+                    updatedAt={turmaAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(turmaAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(turmaAuditInfo.updatedBy)}
+                    onPrevRecord={goToPrevTurmaRecord}
+                    onNextRecord={goToNextTurmaRecord}
+                    hasPrevRecord={hasPrevTurmaRecord}
+                    hasNextRecord={hasNextTurmaRecord}
+                    onOpenAudit={openTurmaAuditModal}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    fieldInfos={TURMA_FIELD_INFOS}
+                    descFieldKey="ds_turma"
+                    collectionName="turma"
+                    hideStatus
+                    extraFields={({ renderFieldLabel, statusDe, inputClass }) => {
+                      const selectTurma = (campo: keyof TurmaCamposForm, rotulo: string, opcoes: { value: string; label: string }[], colunas: string) => (
+                        <div className={`${colunas} group`}>
+                          {renderFieldLabel(campo, rotulo)}
+                          <Select
+                            value={turmaExtra[campo]}
+                            onChange={(v) => setTurmaExtra((t) => ({ ...t, [campo]: v }))}
+                            options={opcoes}
+                            disabled={statusDe(campo) === 'D'}
+                            error={turmaCampoErros.includes(campo)}
+                          />
+                        </div>
+                      );
+                      // Código + descrição (somente leitura) + botão de localizar, como nos demais lookups.
+                      const lookupTurma = (campo: TurmaCampoLookup, rotulo: string, colunas: string) => (
+                        <CampoLookupReferencia
+                          className={colunas}
+                          rotulo={renderFieldLabel(campo, rotulo)}
+                          ariaLocalizar={`Localizar ${rotulo.toLowerCase()}`}
+                          inputClass={inputClass(campo)}
+                          valor={turmaExtra[campo]}
+                          descricao={descricaoReferenciaTurma(campo, turmaExtra[campo])}
+                          desabilitado={statusDe(campo) === 'D'}
+                          onChange={(valor) => setTurmaExtra((t) => ({ ...t, [campo]: valor }))}
+                          onLocalizar={() => setTurmaLookupCampo(campo)}
+                        />
+                      );
+                      return (
+                        <>
+                          {lookupTurma('nr_seq_curso', 'Curso', 'sm:col-span-6')}
+                          {lookupTurma('nr_seq_periodo_letivo', 'Período letivo', 'sm:col-span-6')}
+                          <div className="sm:col-span-2 group">
+                            {renderFieldLabel('qt_max_alunos', 'Máximo de alunos')}
+                            <input
+                              inputMode="numeric"
+                              maxLength={5}
+                              disabled={statusDe('qt_max_alunos') === 'D'}
+                              className={`${inputClass('qt_max_alunos')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                              value={turmaExtra.qt_max_alunos}
+                              onChange={(e) => setTurmaExtra((t) => ({ ...t, qt_max_alunos: e.target.value.replace(/[^0-9]/g, '') }))}
+                            />
+                          </div>
+                          {lookupTurma('nr_seq_localizacao', 'Localização', 'sm:col-span-5')}
+                          {selectTurma('nr_seq_modalidade_ensino', 'Modalidade de ensino', opcoesDeReferencia(modalidadesEnsino, (m) => m.ds_modalidade_ensino, turmaExtra.nr_seq_modalidade_ensino), 'sm:col-span-5')}
+                        </>
+                      );
+                    }}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'turma')}
+                    campoErros={turmaCampoErros}
+                  />
+                ) : alunoManageSelection === 'turmasDisciplinas' ? (
+                  <CadastroGeralFormView
+                    editingId={turmaDisciplinaEditingId}
+                    sequence={turmaDisciplinaEditingId ? (turmasDisciplinas.find((td) => td.id === turmaDisciplinaEditingId)?.nr_sequencia ?? null) : null}
+                    form={turmaDisciplinaForm}
+                    setForm={setTurmaDisciplinaForm}
+                    submitting={turmaDisciplinaSubmitting}
+                    handleSubmit={handleTurmaDisciplinaSubmit}
+                    goToList={goToTurmaDisciplinaList}
+                    createdAt={turmaDisciplinaAuditInfo.createdAt}
+                    updatedAt={turmaDisciplinaAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(turmaDisciplinaAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(turmaDisciplinaAuditInfo.updatedBy)}
+                    onPrevRecord={goToPrevTurmaDisciplinaRecord}
+                    onNextRecord={goToNextTurmaDisciplinaRecord}
+                    hasPrevRecord={hasPrevTurmaDisciplinaRecord}
+                    hasNextRecord={hasNextTurmaDisciplinaRecord}
+                    onOpenAudit={openTurmaDisciplinaAuditModal}
+                    manageSelection={alunoManageSelection}
+                    onManageSelectionChange={handleAlunoManageSelectionChange}
+                    allowedSubmodulos={allowedAlunoSubmodulos}
+                    selectOptions={EA_SELECT_OPTIONS}
+                    fieldInfos={TURMA_DISCIPLINA_FIELD_INFOS}
+                    descFieldKey="nr_seq_turma"
+                    collectionName="turma_disciplina"
+                    hideDescricao
+                    extraFields={({ renderFieldLabel, statusDe, inputClass }) => {
+                      const lookup = (campo: 'nr_seq_turma' | 'nr_seq_disciplina', rotulo: string, colunas: string) => (
+                        <CampoLookupReferencia
+                          className={colunas}
+                          rotulo={renderFieldLabel(campo, rotulo)}
+                          ariaLocalizar={`Localizar ${rotulo.toLowerCase()}`}
+                          inputClass={inputClass(campo)}
+                          valor={turmaDisciplinaExtra[campo]}
+                          descricao={descricaoReferenciaTurmaDisciplina(campo, turmaDisciplinaExtra[campo])}
+                          desabilitado={statusDe(campo) === 'D'}
+                          onChange={(valor) => setTurmaDisciplinaExtra((t) => ({ ...t, [campo]: valor }))}
+                          onLocalizar={() => setTurmaDisciplinaLookupCampo(campo)}
+                        />
+                      );
+                      return (
+                        <>
+                          {lookup('nr_seq_turma', 'Turma', 'sm:col-span-6')}
+                          {lookup('nr_seq_disciplina', 'Disciplina', 'sm:col-span-5')}
+                        </>
+                      );
+                    }}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'turma_disciplina')}
+                    campoErros={turmaDisciplinaCampoErros}
+                  />
                 ) : alunoManageSelection === 'periodoLetivo' ? (
                   <PeriodoLetivoFormView
                     message={message}
@@ -10770,6 +12004,9 @@ export default function Home() {
                   campoErros={ativoCampoErros}
                   ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
                   onViewManutencao={(seq) => openManutencaoView(seq)}
+                  fornecedorName={nomeColaboradorPorSeq(ativoForm.nr_seq_fornecedor)}
+                  onOpenFornecedorLookup={() => openEnviarManutPrestadorLookup('ativoFornecedor')}
+                  onViewFornecedor={(seq) => openColaboradorView(seq)}
                 />
               ) : (
               <CadastroGeralFormView
@@ -10846,6 +12083,12 @@ export default function Home() {
                 openPeriodoLetivoEditForm(contextMenu.item as PeriodoLetivo);
               } else if (alunoManageSelection === 'cursos') {
                 openCursoEditForm(contextMenu.item as Curso);
+              } else if (alunoManageSelection === 'disciplinas') {
+                openDisciplinaEditForm(contextMenu.item as unknown as Disciplina);
+              } else if (alunoManageSelection === 'turmas') {
+                openTurmaEditForm(contextMenu.item as unknown as Turma);
+              } else if (alunoManageSelection === 'turmasDisciplinas') {
+                openTurmaDisciplinaEditForm(contextMenu.item as unknown as TurmaDisciplina);
               } else {
                 openAlunoEditForm(contextMenu.item as Aluno);
               }
@@ -11151,6 +12394,27 @@ export default function Home() {
                 if (curso.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${curso.nr_sequencia}?`);
                   setConfirmDeleteAction(() => () => handleCursoDelete(curso.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (alunoManageSelection === 'disciplinas') {
+                const disciplina = contextMenu.item as unknown as Disciplina;
+                if (disciplina.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${disciplina.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleDisciplinaDelete(disciplina.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (alunoManageSelection === 'turmas') {
+                const turma = contextMenu.item as unknown as Turma;
+                if (turma.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${turma.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleTurmaDelete(turma.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (alunoManageSelection === 'turmasDisciplinas') {
+                const td = contextMenu.item as unknown as TurmaDisciplina;
+                if (td.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${td.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleTurmaDisciplinaDelete(td.id as string));
                   setConfirmDeleteOpen(true);
                 }
               } else {
@@ -12502,6 +13766,27 @@ export default function Home() {
                     </div>
                   </div>
                 </div>
+                <div className="sm:col-span-12">
+                  <RotuloCampo texto="Fornecedor" colecao="pat_ativo" campo="nr_seq_fornecedor" />
+                  <div className="flex items-center gap-2 flex-nowrap">
+                    <div style={{ width: 110 }}>
+                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_fornecedor} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_fornecedor: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
+                    </div>
+                    <div className="relative flex-1 min-w-0">
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={nomeColaboradorPorSeq(Number(ativoFilterForm.nr_seq_fornecedor) || undefined)} />
+                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                        {ativoFilterForm.nr_seq_fornecedor && (
+                          <button type="button" onClick={() => openColaboradorView(Number(ativoFilterForm.nr_seq_fornecedor))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar fornecedor">
+                            <ViewIcon size={16} />
+                          </button>
+                        )}
+                        <button type="button" onClick={() => openEnviarManutPrestadorLookup('ativoFilterFornecedor')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar fornecedor">
+                          <SearchIcon size={16} />
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
                 <div className="sm:col-span-4">
                   <RotuloCampo texto="Endereço MAC" colecao="pat_ativo" campo="ds_endereco_mac" />
                   <input maxLength={12} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_endereco_mac} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_endereco_mac: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() })} />
@@ -12849,6 +14134,88 @@ export default function Home() {
           onClear={clearCursoFilter}
           colecao="curso"
           campoDescricao="ds_curso"
+        />
+      )}
+
+      {disciplinaFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'disciplinas' && (
+        <CadastroGeralFilterModal
+          open={disciplinaFilterModalOpen}
+          onClose={() => setDisciplinaFilterModalOpen(false)}
+          filterForm={disciplinaFilterForm}
+          setFilterForm={setDisciplinaFilterForm}
+          onSubmit={handleDisciplinaFilterSubmit}
+          onClear={clearDisciplinaFilter}
+          colecao="disciplina"
+          campoDescricao="ds_disciplina"
+          hideStatus
+        />
+      )}
+
+      {turmaFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'turmas' && (
+        <CadastroGeralFilterModal
+          open={turmaFilterModalOpen}
+          onClose={() => setTurmaFilterModalOpen(false)}
+          filterForm={turmaFilterForm}
+          setFilterForm={setTurmaFilterForm}
+          onSubmit={handleTurmaFilterSubmit}
+          onClear={clearTurmaFilter}
+          colecao="turma"
+          campoDescricao="ds_turma"
+          hideStatus
+          extraFields={(
+            <>
+              <div className="sm:col-span-6">
+                <RotuloCampo texto="Curso" colecao="turma" campo="nr_seq_curso" />
+                <Select
+                  value={turmaFiltroExtra.nr_seq_curso}
+                  onChange={(v) => setTurmaFiltroExtra((f) => ({ ...f, nr_seq_curso: v }))}
+                  options={opcoesDeReferencia(cursos, (c) => c.ds_curso, turmaFiltroExtra.nr_seq_curso)}
+                />
+              </div>
+              <div className="sm:col-span-6">
+                <RotuloCampo texto="Período letivo" colecao="turma" campo="nr_seq_periodo_letivo" />
+                <Select
+                  value={turmaFiltroExtra.nr_seq_periodo_letivo}
+                  onChange={(v) => setTurmaFiltroExtra((f) => ({ ...f, nr_seq_periodo_letivo: v }))}
+                  options={opcoesDeReferencia(periodosLetivos, (p) => p.ds_periodo_letivo, turmaFiltroExtra.nr_seq_periodo_letivo)}
+                />
+              </div>
+            </>
+          )}
+        />
+      )}
+
+      {turmaDisciplinaFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'turmasDisciplinas' && (
+        <CadastroGeralFilterModal
+          open={turmaDisciplinaFilterModalOpen}
+          onClose={() => setTurmaDisciplinaFilterModalOpen(false)}
+          filterForm={turmaDisciplinaFilterForm}
+          setFilterForm={setTurmaDisciplinaFilterForm}
+          onSubmit={handleTurmaDisciplinaFilterSubmit}
+          onClear={clearTurmaDisciplinaFilter}
+          colecao="turma_disciplina"
+          campoDescricao="nr_seq_turma"
+          hideDescricao
+          extraFields={(
+            <>
+              <div className="sm:col-span-9">
+                <RotuloCampo texto="Turma" colecao="turma_disciplina" campo="nr_seq_turma" />
+                <Select
+                  value={turmaDisciplinaFiltroExtra.nr_seq_turma}
+                  onChange={(v) => setTurmaDisciplinaFiltroExtra((f) => ({ ...f, nr_seq_turma: v }))}
+                  options={opcoesDeReferencia(turmas, (t) => t.ds_turma, turmaDisciplinaFiltroExtra.nr_seq_turma)}
+                />
+              </div>
+              <div className="sm:col-span-12">
+                <RotuloCampo texto="Disciplina" colecao="turma_disciplina" campo="nr_seq_disciplina" />
+                <Select
+                  value={turmaDisciplinaFiltroExtra.nr_seq_disciplina}
+                  onChange={(v) => setTurmaDisciplinaFiltroExtra((f) => ({ ...f, nr_seq_disciplina: v }))}
+                  options={opcoesDeReferencia(disciplinas, (d) => d.ds_disciplina, turmaDisciplinaFiltroExtra.nr_seq_disciplina)}
+                />
+              </div>
+            </>
+          )}
         />
       )}
 
@@ -13987,7 +15354,7 @@ export default function Home() {
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                   <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>{lookupColaboradorTodos ? 'Localizar colaborador' : 'Localizar prestador de serviço'}</h2>
+                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>{lookupColaboradorFornecedor ? 'Localizar fornecedor' : lookupColaboradorTodos ? 'Localizar colaborador' : 'Localizar prestador de serviço'}</h2>
                     <button type="button" onClick={closeEnviarManutPrestadorLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar prestador">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
                     </button>
@@ -14038,6 +15405,43 @@ export default function Home() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* ── Lookup: Curso / Período letivo / Localização (formulário de Turmas) ── */}
+      {turmaLookupCampo && (() => {
+        const ativos = <T extends { nr_sequencia: number; ie_status?: string }>(lista: T[], descricao: (item: T) => string | undefined) =>
+          lista
+            .filter((item) => String(item.ie_status ?? 'A').toUpperCase() !== 'I')
+            .map((item) => ({ nr_sequencia: item.nr_sequencia, descricao: descricao(item) || `#${item.nr_sequencia}` }));
+        const config = {
+          nr_seq_curso: { titulo: 'Localizar curso', colecao: 'curso', campoDescricao: 'ds_curso', registros: ativos(cursos, (c) => c.ds_curso) },
+          nr_seq_periodo_letivo: { titulo: 'Localizar período letivo', colecao: 'periodo_letivo', campoDescricao: 'ds_periodo_letivo', registros: ativos(periodosLetivos, (p) => p.ds_periodo_letivo) },
+          nr_seq_localizacao: { titulo: 'Localizar localização', colecao: 'cg_localizacao', campoDescricao: 'ds_localizacao', registros: ativos(localizacoes, (l) => l.ds_localizacao) },
+        }[turmaLookupCampo];
+        return (
+          <ReferenciaLookupModal
+            {...config}
+            onClose={() => setTurmaLookupCampo(null)}
+            onSelect={(item) => {
+              setTurmaExtra((t) => ({ ...t, [turmaLookupCampo]: String(item.nr_sequencia) }));
+              setTurmaLookupCampo(null);
+            }}
+          />
+        );
+      })()}
+
+      {/* ── Lookup: Turma / Disciplina (formulário de Turmas x Disciplinas) ── */}
+      {turmaDisciplinaLookupCampo && (
+        <ReferenciaLookupModal
+          {...(turmaDisciplinaLookupCampo === 'nr_seq_turma'
+            ? { titulo: 'Localizar turma', colecao: 'turma', campoDescricao: 'ds_turma', registros: turmas.map((t) => ({ nr_sequencia: t.nr_sequencia, descricao: t.ds_turma || `#${t.nr_sequencia}` })) }
+            : { titulo: 'Localizar disciplina', colecao: 'disciplina', campoDescricao: 'ds_disciplina', registros: disciplinas.map((d) => ({ nr_sequencia: d.nr_sequencia, descricao: d.ds_disciplina || `#${d.nr_sequencia}` })) })}
+          onClose={() => setTurmaDisciplinaLookupCampo(null)}
+          onSelect={(item) => {
+            setTurmaDisciplinaExtra((t) => ({ ...t, [turmaDisciplinaLookupCampo]: String(item.nr_sequencia) }));
+            setTurmaDisciplinaLookupCampo(null);
+          }}
+        />
       )}
 
       {/* ── Lookup: Localizar ativo (manutenções) ── */}
@@ -14671,6 +16075,8 @@ export default function Home() {
         const isAtivo = auditDocumentType === 'pat_ativo';
         const isAtivoResponsavel = auditDocumentType === 'pat_ativo_responsavel';
         const isAlunoResponsavel = auditDocumentType === 'aluno_responsavel';
+        const isPfEndereco = auditDocumentType === 'pessoa_fisica_residencial' || auditDocumentType === 'pessoa_fisica_comercial';
+        const isPfSaude = auditDocumentType === 'pessoa_fisica_saude';
         const isParametros = auditDocumentType === 'parametro';
         const isManutencao = auditDocumentType === 'pat_manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
@@ -14717,7 +16123,7 @@ export default function Home() {
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'curso' || auditDocumentType === 'cg_combustivel';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'curso' || auditDocumentType === 'cg_combustivel' || auditDocumentType === 'cg_modalidade_ensino';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -14777,8 +16183,18 @@ export default function Home() {
             ]
           : isFeriado
           ? ['nr_sequencia', 'nr_seq_periodo_letivo', 'dt_feriado', 'ds_feriado', 'ie_tipo_feriado', 'dt_criacao', 'dt_alteracao']
+          : auditDocumentType === 'disciplina'
+          ? ['nr_sequencia', 'ds_disciplina', 'ds_observacao', 'dt_criacao', 'dt_alteracao']
+          : auditDocumentType === 'turma_disciplina'
+          ? ['nr_sequencia', 'nr_seq_turma', 'nr_seq_disciplina', 'ie_status', 'dt_criacao', 'dt_alteracao']
+          : auditDocumentType === 'turma'
+          ? ['nr_sequencia', 'ds_turma', 'nr_seq_curso', 'nr_seq_periodo_letivo', 'qt_max_alunos', 'nr_seq_localizacao', 'nr_seq_modalidade_ensino', 'dt_criacao', 'dt_alteracao']
           : isAtivoResponsavel
           ? ['nr_sequencia', 'nr_seq_ativo', 'nr_seq_colaborador', 'dt_criacao', 'dt_alteracao']
+          : isPfEndereco
+          ? ['nr_sequencia', 'nr_seq_pessoa_fisica', 'nr_cep', 'ds_endereco', 'nr_seq_logradouro', 'nr_endereco', 'ds_bairro', 'ds_complemento', 'dt_criacao', 'dt_alteracao']
+          : isPfSaude
+          ? ['nr_sequencia', 'nr_seq_pessoa_fisica', 'ds_tipo_sanguineo', 'ds_alergia', 'ds_medicamento_continuo', 'ds_restricao_alimentar', 'ds_necessidade_especial', 'ds_observacao_medica', 'dt_criacao', 'dt_alteracao']
           : isAlunoResponsavel
           ? ['nr_sequencia', 'nr_seq_aluno', 'nr_seq_pessoa_fisica', 'nr_seq_grau_parentesco', 'dt_criacao', 'dt_alteracao']
           : isPeriodoLetivo
@@ -14830,7 +16246,7 @@ export default function Home() {
           : isAtivo
           ? [
               'nr_sequencia', 'cd_externo', 'ds_ativo', 'nr_seq_categoria',
-              'nr_seq_localizacao', 'nr_seq_marca', 'ds_modelo', 'nr_serie',
+              'nr_seq_localizacao', 'nr_seq_marca', 'nr_seq_fornecedor', 'ds_modelo', 'nr_serie',
               'ds_qr_code', 'ds_codigo_barras', 'vl_aquisicao', 'dt_aquisicao', 'dt_garantia',
               'ie_status', 'dt_ultima_manutencao', 'nr_seq_ultima_manutencao', 'dt_status', 'ds_motivo_status', 'ds_motivo_transferencia',
               'ds_processador', 'qt_ram', 'ie_ram', 'qt_armazenamento', 'ie_armazenamento',
@@ -14887,7 +16303,7 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : auditDocumentType === 'cg_modalidade_ensino' ? 'ds_modalidade_ensino' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : []),
               'ie_status',
@@ -15041,6 +16457,14 @@ export default function Home() {
                       ds_marca: 'Descrição',
                       ds_categoria: 'Descrição',
                       ds_curso: 'Descrição',
+                      ds_disciplina: 'Descrição',
+                      ds_turma: 'Descrição',
+                      ds_modalidade_ensino: 'Descrição',
+                      nr_seq_curso: 'Curso',
+                      nr_seq_modalidade_ensino: 'Modalidade de ensino',
+                      nr_seq_turma: 'Turma',
+                      nr_seq_disciplina: 'Disciplina',
+                      qt_max_alunos: 'Máximo de alunos',
                       ds_regra: 'Regra',
                       ie_regra: 'Regra',
                       ie_logout_dia: 'Dia',
@@ -15132,6 +16556,7 @@ export default function Home() {
                       nr_seq_categoria: 'Categoria',
                       nr_seq_localizacao: 'Localização',
                       nr_seq_marca: 'Marca',
+                      nr_seq_fornecedor: 'Fornecedor',
                       ds_modelo: 'Modelo',
                       nr_serie: 'Número de série',
                       ds_qr_code: 'QR Code',
@@ -15193,8 +16618,14 @@ export default function Home() {
                         nr_seq_marca: () => marcas.find((m) => m.nr_sequencia === seq)?.ds_marca,
                         nr_seq_sistema_operacional: () => sistemasOperacionais.find((s) => s.nr_sequencia === seq)?.ds_sistema_operacional,
                         nr_seq_combustivel: () => combustiveis.find((c) => c.nr_sequencia === seq)?.ds_combustivel,
+                        nr_seq_curso: () => cursos.find((c) => c.nr_sequencia === seq)?.ds_curso,
+                        nr_seq_periodo_letivo: () => periodosLetivos.find((p) => p.nr_sequencia === seq)?.ds_periodo_letivo,
+                        nr_seq_modalidade_ensino: () => modalidadesEnsino.find((m) => m.nr_sequencia === seq)?.ds_modalidade_ensino,
+                        nr_seq_turma: () => turmas.find((t) => t.nr_sequencia === seq)?.ds_turma,
+                        nr_seq_disciplina: () => disciplinas.find((d) => d.nr_sequencia === seq)?.ds_disciplina,
                         nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
                         nr_seq_colaborador: () => nomeColaboradorPorSeq(seq),
+                        nr_seq_fornecedor: () => nomeColaboradorPorSeq(seq),
                         nr_seq_grau_parentesco: () => grausParentesco.find((g) => g.nr_sequencia === seq)?.ds_grau_parentesco,
                         nr_seq_aluno: () => {
                           const aluno = alunos.find((a) => a.nr_sequencia === seq);
@@ -15628,6 +17059,10 @@ export default function Home() {
                       <RotuloCampo texto="Marca" colecao="pat_ativo" campo="nr_seq_marca" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_marca ? (marcas.find((m) => m.nr_sequencia === ativoView.nr_seq_marca)?.ds_marca ?? String(ativoView.nr_seq_marca)) : ''} />
                     </div>
+                    <div className="sm:col-span-12 group">
+                      <RotuloCampo texto="Fornecedor" colecao="pat_ativo" campo="nr_seq_fornecedor" />
+                      <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_fornecedor ? (nomeColaboradorPorSeq(ativoView.nr_seq_fornecedor) || String(ativoView.nr_seq_fornecedor)) : ''} />
+                    </div>
                     {responsaveisAtivos.some((r) => r.nr_seq_ativo === ativoView.nr_sequencia) && (
                       <div className="sm:col-span-12 group">
                         <RotuloCampo texto="Responsável" colecao="pat_ativo_responsavel" campo="nr_seq_colaborador" />
@@ -15972,10 +17407,10 @@ export default function Home() {
       {(
         gerandoMatricula || parametrosSaving || relatorioGerando ||
         submitting || pjSubmitting || adminSubmitting || cgSubmitting ||
-        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting ||
+        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting || disciplinaSubmitting || turmaSubmitting || turmaDisciplinaSubmitting ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
-        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || ativoTransferirSaving || assumirAtivosSaving ||
+        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || pfDetalheSaving || ativoTransferirSaving || assumirAtivosSaving ||
         delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving
       ) && <LoadingModal open message="Carregando..." />}
 

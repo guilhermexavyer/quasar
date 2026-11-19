@@ -46,6 +46,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_pessoa_fisica", label: "Permite acessar Pessoas Físicas" },
     { key: "adicionar_pessoa_fisica", label: "Permite adicionar" },
     { key: "ver_pessoa_fisica", label: "Permite ver" },
+    { key: "detalhes_pessoa_fisica", label: "Permite acessar residencial, comercial e saúde" },
     { key: "excluir_pessoa_fisica", label: "Permite excluir" },
     // Pessoas Jurídicas
     { key: "acessar_pessoa_juridica", label: "Permite acessar Pessoas Jurídicas" },
@@ -79,6 +80,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_curso", label: "Permite adicionar" },
     { key: "ver_curso", label: "Permite ver" },
     { key: "excluir_curso", label: "Permite excluir" },
+    // Disciplinas
+    { key: "acessar_disciplina", label: "Permite acessar Disciplinas" },
+    { key: "adicionar_disciplina", label: "Permite adicionar" },
+    { key: "ver_disciplina", label: "Permite ver" },
+    { key: "excluir_disciplina", label: "Permite excluir" },
     // Período letivo
     { key: "acessar_periodo_letivo", label: "Permite acessar Período letivo" },
     { key: "adicionar_periodo_letivo", label: "Permite adicionar" },
@@ -87,6 +93,16 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "reativar_periodo_letivo", label: "Permite reativar" },
     { key: "feriados_periodo_letivo", label: "Permite configurar feriados" },
     { key: "excluir_periodo_letivo", label: "Permite excluir" },
+    // Turmas
+    { key: "acessar_turma", label: "Permite acessar Turmas" },
+    { key: "adicionar_turma", label: "Permite adicionar" },
+    { key: "ver_turma", label: "Permite ver" },
+    { key: "excluir_turma", label: "Permite excluir" },
+    // Turmas x Disciplinas
+    { key: "acessar_turma_disciplina", label: "Permite acessar Turmas x Disciplinas" },
+    { key: "adicionar_turma_disciplina", label: "Permite adicionar" },
+    { key: "ver_turma_disciplina", label: "Permite ver" },
+    { key: "excluir_turma_disciplina", label: "Permite excluir" },
   ],
   patrimonio: [
     // Parâmetros
@@ -191,6 +207,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "adicionar_combustivel", label: "Permite adicionar" },
     { key: "ver_combustivel", label: "Permite ver" },
     { key: "excluir_combustivel", label: "Permite excluir" },
+    // Modalidade de ensino
+    { key: "acessar_modalidade_ensino", label: "Permite acessar Modalidade de ensino" },
+    { key: "adicionar_modalidade_ensino", label: "Permite adicionar" },
+    { key: "ver_modalidade_ensino", label: "Permite ver" },
+    { key: "excluir_modalidade_ensino", label: "Permite excluir" },
     // Sistema operacional
     { key: "acessar_sistema_operacional", label: "Permite acessar Sistema operacional" },
     { key: "adicionar_sistema_operacional", label: "Permite adicionar" },
@@ -241,7 +262,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
   pessoaFisica: [
     {
       titulo: 'Pessoas Físicas',
-      chaves: ['acessar_pessoa_fisica', 'adicionar_pessoa_fisica', 'ver_pessoa_fisica', 'excluir_pessoa_fisica'],
+      chaves: ['acessar_pessoa_fisica', 'adicionar_pessoa_fisica', 'ver_pessoa_fisica', 'detalhes_pessoa_fisica', 'excluir_pessoa_fisica'],
     },
     {
       titulo: 'Pessoas Jurídicas',
@@ -262,12 +283,24 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_curso', 'adicionar_curso', 'ver_curso', 'excluir_curso'],
     },
     {
+      titulo: 'Disciplinas',
+      chaves: ['acessar_disciplina', 'adicionar_disciplina', 'ver_disciplina', 'excluir_disciplina'],
+    },
+    {
       titulo: 'Parâmetros',
       chaves: ['acessar_parametros_funcao'],
     },
     {
       titulo: 'Período letivo',
       chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'feriados_periodo_letivo', 'excluir_periodo_letivo'],
+    },
+    {
+      titulo: 'Turmas',
+      chaves: ['acessar_turma', 'adicionar_turma', 'ver_turma', 'excluir_turma'],
+    },
+    {
+      titulo: 'Turmas x Disciplinas',
+      chaves: ['acessar_turma_disciplina', 'adicionar_turma_disciplina', 'ver_turma_disciplina', 'excluir_turma_disciplina'],
     },
   ],
   patrimonio: [
@@ -354,6 +387,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_combustivel', 'adicionar_combustivel', 'ver_combustivel', 'excluir_combustivel'],
     },
     {
+      titulo: 'Modalidade de ensino',
+      chaves: ['acessar_modalidade_ensino', 'adicionar_modalidade_ensino', 'ver_modalidade_ensino', 'excluir_modalidade_ensino'],
+    },
+    {
       titulo: 'Sistema operacional',
       chaves: ['acessar_sistema_operacional', 'adicionar_sistema_operacional', 'ver_sistema_operacional', 'excluir_sistema_operacional'],
     },
@@ -396,9 +433,12 @@ export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: strin
 export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
   { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
-  { value: 'cursos', label: 'Cursos', permissao: 'acessar_curso' },
-  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
   { value: 'periodoLetivo', label: 'Período letivo', permissao: 'acessar_periodo_letivo' },
+  { value: 'cursos', label: 'Cursos', permissao: 'acessar_curso' },
+  { value: 'turmas', label: 'Turmas', permissao: 'acessar_turma' },
+  { value: 'disciplinas', label: 'Disciplinas', permissao: 'acessar_disciplina' },
+  { value: 'turmasDisciplinas', label: 'Turmas x Disciplinas', permissao: 'acessar_turma_disciplina' },
+  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
 
 /** Configuração de permissões: `funcao` → lista de chaves de permissão concedidas. */
@@ -410,7 +450,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 24;
+export const PERMISSOES_CONFIG_VERSION = 27;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
@@ -618,6 +658,7 @@ export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'localizacao', label: 'Localização', permissao: 'acessar_localizacao' },
   { value: 'logradouro', label: 'Logradouro', permissao: 'acessar_logradouro' },
   { value: 'marca', label: 'Marca', permissao: 'acessar_marca' },
+  { value: 'modalidadeEnsino', label: 'Modalidade de ensino', permissao: 'acessar_modalidade_ensino' },
   { value: 'orgaoEmissor', label: 'Órgão emissor', permissao: 'acessar_orgao_emissor' },
   { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
   { value: 'sexo', label: 'Sexo', permissao: 'acessar_sexo' },

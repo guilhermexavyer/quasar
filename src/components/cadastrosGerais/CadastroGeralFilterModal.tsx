@@ -19,6 +19,12 @@ interface FilterModalProps {
   /** Coleção do cadastro e campo da descrição (para as informações dos campos). */
   colecao: string;
   campoDescricao: string;
+  /** Esconde o filtro de Status (cadastros sem status, ex.: Disciplinas). */
+  hideStatus?: boolean;
+  /** Esconde o filtro de Descrição (cadastros sem descrição, ex.: Turmas x Disciplinas). */
+  hideDescricao?: boolean;
+  /** Campos extras do filtro, depois da descrição (ex.: Curso e Período letivo em Turmas). */
+  extraFields?: React.ReactNode;
 }
 
 export default function CadastroGeralFilterModal({
@@ -30,6 +36,9 @@ export default function CadastroGeralFilterModal({
   onClear,
   colecao,
   campoDescricao,
+  hideStatus = false,
+  hideDescricao = false,
+  extraFields,
 }: FilterModalProps) {
   if (!open) return null;
 
@@ -63,6 +72,7 @@ export default function CadastroGeralFilterModal({
               onChange={(e) => setFilterForm({ ...filterForm, nr_sequencia: e.target.value.replace(/\D/g, '') })}
             />
           </div>
+          {!hideDescricao && (
           <div className="sm:col-span-9">
             <RotuloCampo texto="Descrição" colecao={colecao} campo={campoDescricao} />
             <input
@@ -71,6 +81,9 @@ export default function CadastroGeralFilterModal({
               onChange={(e) => setFilterForm({ ...filterForm, descricao: e.target.value })}
             />
           </div>
+          )}
+          {extraFields}
+          {!hideStatus && (
           <div className="sm:col-span-12">
             <RotuloCampo texto="Status" colecao={colecao} campo="ie_status" />
             <div className="flex items-center gap-4 mb-3">
@@ -106,6 +119,7 @@ export default function CadastroGeralFilterModal({
               </label>
             </div>
           </div>
+          )}
         </div>
 
         <div className="flex justify-end gap-2 px-[15px] pb-[15px]">

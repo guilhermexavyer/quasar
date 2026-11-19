@@ -2,13 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import type { PessoaFisica } from "@/types/pessoaFisica";
-import { FIELD_INFOS, applyCepMask, applyCpfMask, applyDateMask, applyPhoneMask, formatDate, parseDateInput } from "@/lib/pessoaFisicaUtils";
+import { FIELD_INFOS, applyCpfMask, applyDateMask, applyPhoneMask, formatDate, parseDateInput } from "@/lib/pessoaFisicaUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import SearchIcon from "@/components/ui/SearchIcon";
-import { buscarEnderecoPorCep } from "@/services/cepService";
 import { elementoVisivel } from "@/lib/visibilidade";
 
 export type FormData = Omit<PessoaFisica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
@@ -20,33 +19,6 @@ export interface CgSelectOption {
   /** Sigla exibida no rótulo (usada no órgão emissor). */
   sigla?: string;
 }
-
-/** Campos da seção Informações médicas (cada um é uma lista de valores).
- * Observações médicas (ds_observacao_medica) é um campo único, fora desta lista. */
-type CampoMedico =
-  | 'ds_alergia'
-  | 'ds_medicamento_continuo'
-  | 'ds_restricao_alimentar'
-  | 'ds_necessidade_especial';
-
-const CAMPOS_MEDICOS: { campo: CampoMedico; label: string }[] = [
-  { campo: 'ds_alergia', label: 'Alergia' },
-  { campo: 'ds_medicamento_continuo', label: 'Medicamento de uso contínuo' },
-  { campo: 'ds_restricao_alimentar', label: 'Restrição alimentar' },
-  { campo: 'ds_necessidade_especial', label: 'Necessidade especial' },
-];
-
-/** Opções do dropdown Tipo sanguíneo (seção Informações médicas). */
-const TIPOS_SANGUINEOS = [
-  { value: 'A+', label: 'A+' },
-  { value: 'A-', label: 'A-' },
-  { value: 'B+', label: 'B+' },
-  { value: 'B-', label: 'B-' },
-  { value: 'AB+', label: 'AB+' },
-  { value: 'AB-', label: 'AB-' },
-  { value: 'O+', label: 'O+' },
-  { value: 'O-', label: 'O-' },
-];
 
 interface FormViewProps {
   message: string;
@@ -125,8 +97,6 @@ export default function PessoaFisicaFormView({
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<keyof typeof FIELD_INFOS | null>(null);
   const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
-  const [cepLoading, setCepLoading] = useState(false);
-  const prevCepRef = useRef(form.nr_cep ?? '');
 
   // Calcula a idade a partir da data de nascimento (formato DD/MM/AAAA).
   function calcularIdade(dtNascimento: string): string {
@@ -155,34 +125,6 @@ export default function PessoaFisicaFormView({
       .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' }));
   }
 
-  // Normaliza um texto para comparação (remove acentos e pontuação, maiúsculas).
-  function normalizeToken(value: string): string {
-    return value
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '')
-      .replace(/[^a-zA-Z]/g, '')
-      .toUpperCase();
-  }
-
-  // Inferir o tipo de logradouro a partir do nome da rua retornado pelo ViaCEP
-  // (ex.: "Rua das Flores" → "Rua", "Rod. Pres. Dutra" → "Rodovia").
-  function inferirLogradouro(rua: string): number | undefined {
-    const token = normalizeToken(rua.split(' ')[0] ?? '');
-    if (!token) return undefined;
-
-    let best: { op: CgSelectOption; score: number } | null = null;
-    for (const op of cgOptions(logradouros)) {
-      const descNorm = normalizeToken(op.descricao);
-      const siglaNorm = normalizeToken(op.sigla ?? '');
-      let score = 0;
-      if (descNorm === token) score = 3;
-      else if (siglaNorm && siglaNorm === token) score = 2;
-      else if (descNorm.startsWith(token) && token.length >= 2) score = 1;
-      if (score > 0 && (!best || score > best.score)) best = { op, score };
-    }
-    return best ? best.op.nr_sequencia : undefined;
-  }
-
   function statusDe(campo: string): CampoStatus {
     return campoRegras?.[campo] ?? 'N';
   }
@@ -191,33 +133,6 @@ export default function PessoaFisicaFormView({
     return campoErros.includes(campo)
       ? `${base} border-red-500`
       : `${base} border-slate-300`;
-  }
-
-  /** Atualiza um valor da lista de informações médicas pelo índice. */
-  function atualizarValorMedico(campo: CampoMedico, index: number, valor: string): FormData {
-    const lista = [...(form[campo] ?? [])];
-    lista[index] = valor;
-    return { ...form, [campo]: lista };
-  }
-
-  /** Adiciona um valor vazio à lista de informações médicas logo abaixo do atual. */
-  function adicionarValorMedico(campo: CampoMedico, index: number): FormData {
-    const lista = [...(form[campo] ?? [])];
-    lista.splice(index + 1, 0, '');
-    return { ...form, [campo]: lista };
-  }
-
-  /** Remove um valor da lista de informações médicas (mantém ao menos um vazio). */
-  function removerValorMedico(campo: CampoMedico, index: number): FormData {
-    const lista = [...(form[campo] ?? [])];
-    lista.splice(index, 1);
-    return { ...form, [campo]: lista.length > 0 ? lista : [''] };
-  }
-
-  /** Lista normalizada de um campo médico: sempre com ao menos um item vazio. */
-  function listaDe(campo: CampoMedico): string[] {
-    const lista = form[campo] ?? [];
-    return lista.length > 0 ? lista : [''];
   }
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {
@@ -280,44 +195,6 @@ export default function PessoaFisicaFormView({
     return () => document.removeEventListener('keydown', onKeyDown);
   }, [submitting]);
 
-
-
-  // Ao informar/altera um CEP completo (8 dígitos), consulta o ViaCEP e preenche Rua e Bairro.
-  // Não busca ao abrir um registro já salvo — apenas quando o CEP muda após o mount.
-  useEffect(() => {
-    const current = form.nr_cep ?? '';
-    if (current === prevCepRef.current) return;
-    prevCepRef.current = current;
-
-    const digits = current.replace(/\D/g, '');
-    if (digits.length !== 8) {
-      setCepLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    setCepLoading(true);
-    buscarEnderecoPorCep(digits)
-      .then((endereco) => {
-        if (cancelled || !endereco) return;
-        setForm((prev) => ({
-          ...prev,
-          ds_endereco: endereco.logradouro,
-          ds_bairro: endereco.bairro,
-          nr_seq_logradouro: inferirLogradouro(endereco.logradouro) ?? prev.nr_seq_logradouro,
-        }));
-      })
-      .catch(() => {
-        /* CEP não encontrado ou sem conexão — mantém os campos como estão */
-      })
-      .finally(() => {
-        if (!cancelled) setCepLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [form.nr_cep, setForm]);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -591,158 +468,6 @@ export default function PessoaFisicaFormView({
                   className={`${inputClass('ds_email')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.ds_email}
                   onChange={(e) => setForm({ ...form, ds_email: e.target.value })}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* ── Endereço ── */}
-          <section>
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Endereço</h2>
-            <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_cep', 'CEP')}
-                <input
-                  inputMode="numeric"
-                  maxLength={9}
-                  disabled={statusDe('nr_cep') === 'D'}
-                  className={`${inputClass('nr_cep')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.nr_cep ?? ''}
-                  onChange={(e) => setForm({ ...form, nr_cep: applyCepMask(e.target.value) })}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('ds_endereco', 'Rua')}
-                <input
-                  disabled={statusDe('ds_endereco') === 'D'}
-                  className={`${inputClass('ds_endereco')} ${cepLoading ? 'opacity-50' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.ds_endereco ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_endereco: e.target.value })}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_seq_logradouro', 'Logradouro')}
-                <Select
-                  disabled={statusDe('nr_seq_logradouro') === 'D'}
-                  error={campoErros.includes('nr_seq_logradouro')}
-                  value={form.nr_seq_logradouro ? String(form.nr_seq_logradouro) : ''}
-                  onChange={(v) => setForm({ ...form, nr_seq_logradouro: v ? Number(v) : undefined })}
-                  options={cgOptions(logradouros).map((op) => ({
-                    value: String(op.nr_sequencia),
-                    label: op.descricao,
-                  }))}
-                />
-              </div>
-
-              <div className="sm:col-span-3 group">
-                {renderFieldLabel('nr_endereco', 'Número')}
-                <input
-                  maxLength={10}
-                  disabled={statusDe('nr_endereco') === 'D'}
-                  className={`${inputClass('nr_endereco')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.nr_endereco ?? ''}
-                  onChange={(e) => setForm({ ...form, nr_endereco: e.target.value })}
-                />
-              </div>
-
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel('ds_bairro', 'Bairro')}
-                <input
-                  disabled={statusDe('ds_bairro') === 'D'}
-                  className={`${inputClass('ds_bairro')} ${cepLoading ? 'opacity-50' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.ds_bairro ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_bairro: e.target.value })}
-                />
-              </div>
-
-              <div className="sm:col-span-6 group">
-                {renderFieldLabel('ds_complemento', 'Complemento')}
-                <input
-                  disabled={statusDe('ds_complemento') === 'D'}
-                  className={`${inputClass('ds_complemento')} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.ds_complemento ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_complemento: e.target.value })}
-                />
-              </div>
-            </div>
-          </section>
-
-          {/* ── Informações médicas ── */}
-          <section>
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Informações médicas</h2>
-            <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
-              {/* Tipo sanguíneo — dropdown acima de Alergia e Medicamento. */}
-              <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_tipo_sanguineo', 'Tipo sanguíneo')}
-                <Select
-                  disabled={statusDe('ds_tipo_sanguineo') === 'D'}
-                  error={campoErros.includes('ds_tipo_sanguineo')}
-                  value={form.ds_tipo_sanguineo ?? ''}
-                  onChange={(v) => setForm({ ...form, ds_tipo_sanguineo: v })}
-                  options={TIPOS_SANGUINEOS}
-                  visibleOptions={5}
-                  showPlaceholder
-                />
-              </div>
-
-              {CAMPOS_MEDICOS.map((cfg) => {
-                const desabilitado = statusDe(cfg.campo) === 'D';
-                const erroMedico = campoErros.includes(cfg.campo) && listaDe(cfg.campo).every((v) => v.trim() === '');
-                return (
-                  <div key={cfg.campo} className="sm:col-span-6 group">
-                    {renderFieldLabel(cfg.campo, cfg.label)}
-                    <div className="space-y-[8px]">
-                      {listaDe(cfg.campo).map((valor, index) => (
-                        <div key={index} className="flex items-center gap-1">
-                          <div className="flex-1 min-w-0">
-                            <input
-                              disabled={desabilitado}
-                              className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${erroMedico ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                              value={valor}
-                              onChange={(e) => setForm(atualizarValorMedico(cfg.campo, index, e.target.value))}
-                            />
-                          </div>
-                          <button
-                            type="button"
-                            onClick={() => setForm(adicionarValorMedico(cfg.campo, index))}
-                            disabled={desabilitado}
-                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056] disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
-                            aria-label={`Adicionar ${cfg.label} após o ${index + 1}`}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setForm(removerValorMedico(cfg.campo, index))}
-                            disabled={desabilitado || listaDe(cfg.campo).length <= 1}
-                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
-                            aria-label={`Remover ${cfg.label} ${index + 1}`}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <path d="M5 12h14" />
-                            </svg>
-                          </button>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                );
-              })}
-
-              {/* Observações médicas — campo único, sem adicionar/remover. */}
-              <div className="sm:col-span-12 group">
-                {renderFieldLabel('ds_observacao_medica', 'Observações médicas')}
-                <textarea
-                  rows={3}
-                  disabled={statusDe('ds_observacao_medica') === 'D'}
-                  className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none ${campoErros.includes('ds_observacao_medica') ? 'border-red-500' : 'border-slate-300'} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                  value={form.ds_observacao_medica ?? ''}
-                  onChange={(e) => setForm({ ...form, ds_observacao_medica: e.target.value })}
                 />
               </div>
             </div>

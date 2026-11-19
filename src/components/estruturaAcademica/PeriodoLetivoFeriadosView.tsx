@@ -273,6 +273,15 @@ export default function PeriodoLetivoFeriadosView({
             )}
           </div>
         </div>
+        <div className="flex items-center gap-3">
+        {!form && (
+          <div
+            className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2"
+            style={{ border: '1px solid', borderColor: darkMode ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: darkMode ? '#fff' : '#000' }}
+          >
+            <button type="button" className="text-xs font-medium cursor-pointer transition" style={{ borderBottom: `1px solid ${darkMode ? '#fff' : '#000'}`, color: darkMode ? '#fff' : '#000' }}>Feriados</button>
+          </div>
+        )}
         {!form && (
           <button
             type="button"
@@ -282,6 +291,7 @@ export default function PeriodoLetivoFeriadosView({
             Adicionar
           </button>
         )}
+        </div>
       </div>
 
       {form ? (

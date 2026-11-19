@@ -12,6 +12,8 @@ export interface Ativo {
   nr_seq_localizacao?: number;
   /** Marca (Cadastros Gerais > Marca). */
   nr_seq_marca?: number;
+  /** Fornecedor (colaborador com "Fornecedor" marcado). */
+  nr_seq_fornecedor?: number;
   /** Modelo. */
   ds_modelo?: string;
   /** Número de série. */

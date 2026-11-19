@@ -56,6 +56,22 @@ interface FormViewProps {
   campoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
   campoErros?: string[];
+  /** Esconde o campo Status (cadastros sem status, ex.: Disciplinas). */
+  hideStatus?: boolean;
+  /** Esconde o campo Descrição (cadastros sem descrição, ex.: Turmas x Disciplinas). */
+  hideDescricao?: boolean;
+  /**
+   * Campos extras, depois da Descrição (ex.: Curso, Período letivo... em Turmas).
+   * Recebe os mesmos auxiliares do formulário (rótulo com informações, classe e status do campo).
+   */
+  extraFields?: (aux: CadastroGeralCamposAux) => React.ReactNode;
+}
+
+/** Auxiliares do formulário para campos extras (mesmo visual e regras dos campos padrão). */
+export interface CadastroGeralCamposAux {
+  renderFieldLabel: (fieldKey: string, label: string) => React.ReactNode;
+  inputClass: (campo: string) => string;
+  statusDe: (campo: string) => CampoStatus;
 }
 
 export default function CadastroGeralFormView({
@@ -88,6 +104,9 @@ export default function CadastroGeralFormView({
   siglaFieldKey = 'sg_sigla',
   campoRegras = {},
   campoErros = [],
+  hideStatus = false,
+  hideDescricao = false,
+  extraFields,
 }: FormViewProps) {
   const formRef = useRef<HTMLFormElement | null>(null);
   const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
@@ -232,6 +251,7 @@ export default function CadastroGeralFormView({
             />
           </div>
 
+          {!hideDescricao && (
           <div className={`${(showCbo || showSigla) ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
             {renderFieldLabel(descFieldKey, 'Descrição')}
             <input
@@ -241,6 +261,9 @@ export default function CadastroGeralFormView({
               onChange={(e) => setForm({ ...form, descricao: e.target.value })}
             />
           </div>
+          )}
+
+          {extraFields?.({ renderFieldLabel, inputClass: (campo) => inputClass(campo), statusDe })}
 
           {showCbo && (
             <div className="sm:col-span-3 group">
@@ -282,6 +305,7 @@ export default function CadastroGeralFormView({
             </div>
           )}
 
+          {!hideStatus && (
           <div className="sm:col-span-12">
             <div className="group w-full">
               {renderFieldLabel('ie_status', 'Status')}
@@ -311,6 +335,7 @@ export default function CadastroGeralFormView({
               </div>
             </div>
           </div>
+          )}
         </div>
 
         <div className="mt-auto pt-4">

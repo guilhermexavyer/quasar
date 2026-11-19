@@ -47,6 +47,7 @@ export const ATIVO_COLUMNS: ColDef[] = [
   { key: 'ds_usuario_alteracao', label: 'Usuário alteração' },
   // Colunas novas entram no fim: a ordem/largura salvas são por índice.
   { key: 'cd_externo', label: 'Código externo' },
+  { key: 'nr_seq_fornecedor', label: 'Fornecedor' },
 ];
 
 export const FIELD_INFOS = {
@@ -56,6 +57,7 @@ export const FIELD_INFOS = {
   nr_seq_categoria: { type: 'int64', field: 'nr_seq_categoria', collection: 'pat_ativo' },
   nr_seq_localizacao: { type: 'int64', field: 'nr_seq_localizacao', collection: 'pat_ativo' },
   nr_seq_marca: { type: 'int64', field: 'nr_seq_marca', collection: 'pat_ativo' },
+  nr_seq_fornecedor: { type: 'int64', field: 'nr_seq_fornecedor', collection: 'pat_ativo' },
   ds_modelo: { type: 'string', field: 'ds_modelo', collection: 'pat_ativo' },
   nr_serie: { type: 'string', field: 'nr_serie', collection: 'pat_ativo' },
   ds_qr_code: { type: 'string', field: 'ds_qr_code', collection: 'pat_ativo' },
@@ -95,6 +97,7 @@ export const FIELD_LABELS: Record<string, string> = {
   nr_seq_categoria: 'Categoria',
   nr_seq_localizacao: 'Localização',
   nr_seq_marca: 'Marca',
+  nr_seq_fornecedor: 'Fornecedor',
   ds_modelo: 'Modelo',
   nr_serie: 'Número de série',
   ds_qr_code: 'QR Code',
