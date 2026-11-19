@@ -21,6 +21,7 @@ O sistema é pensado para ser altamente configurável pelo próprio usuário:
 Rode na raiz do projeto, logo depois do `git clone`:
 
 ```bash
+git checkout desenvolvimento          # o clone abre na branch producao; o trabalho é feito em desenvolvimento
 npm.cmd install                       # instala as dependências
 npm.cmd run credenciais:restaurar     # pede a frase-senha e cria .env.local e .env.producao
 npm.cmd run db:testar                 # confere a conexão com o banco
