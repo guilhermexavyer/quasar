@@ -19,7 +19,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_imagens", label: "Permite acessar Imagens" },
     { key: "acessar_parametros", label: "Permite acessar Parâmetros" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
-    { key: "acessar_regras", label: "Permite acessar Regras" },
+    { key: "acessar_regras", label: "Permite acessar Sistema" },
     { key: "acessar_usuarios", label: "Permite acessar Usuários" },
     // Opções Campos x Formulários e Campos x Modais
     { key: "alterar_status_campo_formulario", label: "Permite alterar o status do campo" },
@@ -230,7 +230,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_parametros'],
     },
     {
-      titulo: 'Regras',
+      titulo: 'Sistema',
       chaves: ['acessar_regras'],
     },
     {
@@ -362,7 +362,7 @@ export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
   { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
-  { value: 'regras', label: 'Regras', permissao: 'acessar_regras' },
+  { value: 'regras', label: 'Sistema', permissao: 'acessar_regras' },
   { value: 'parametros', label: 'Parâmetros', permissao: 'acessar_parametros' },
 ];
 

@@ -3,7 +3,7 @@ import type { AuditAutor } from "@/services/auditService";
 
 const COLECAO = "regra";
 
-/** Regras do sistema (Administração do Sistema > Regras). Um único documento guarda todas. */
+/** Regras do sistema (Administração do Sistema > Sistema). Um único documento guarda todas. */
 export interface Regra {
   id?: string;
   /** Logout automático: dia da semana ("0" = domingo … "6" = sábado) ou "T" (todos os dias). */

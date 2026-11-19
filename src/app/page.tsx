@@ -949,7 +949,7 @@ export default function Home() {
   const [secoesAbertas, setSecoesAbertas] = useState<SectionType[]>([]);
   /** Função cujo fechamento aguarda confirmação no modal. */
   const [secaoParaFechar, setSecaoParaFechar] = useState<SectionType | null>(null);
-  /** Regras do sistema (Administração do Sistema > Regras), ex.: logout automático. */
+  /** Regras do sistema (Administração do Sistema > Sistema), ex.: logout automático. */
   const [regraSistema, setRegraSistema] = useState<Regra | null>(null);
   /** Início da sessão (ms): o logout automático encerra sessões iniciadas antes do horário programado. */
   const [sessaoInicio, setSessaoInicio] = useState<number | null>(null);
@@ -3105,7 +3105,7 @@ export default function Home() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isAuthenticated]);
 
-  /* ── Logout automático (Administração do Sistema > Regras) ── */
+  /* ── Logout automático (Administração do Sistema > Sistema) ── */
   // A regra é carregada ao entrar e recarregada periodicamente: uma alteração
   // feita por outro usuário passa a valer sem recarregar a página.
   useEffect(() => {
