@@ -12,7 +12,24 @@ const servico = criarServicoCrud<Usuario>("usuario");
 /** Resultado do login, com as mesmas situações que a tela já tratava. */
 export type ResultadoLogin =
   | { status: "ok"; usuario: Usuario }
-  | { status: "invalido" | "bloqueado" | "inativo" | "sem_perfil" };
+  | { status: "invalido" | "bloqueado" | "inativo" | "sem_perfil" | "alterar_senha" };
+
+/** Resultado da troca de senha pedida no login ("Alterar senha no próximo login"). */
+export type ResultadoAlterarSenhaLogin = "ok" | "invalido" | "mesma_senha" | "nova_vazia";
+
+/** Troca a senha no login (sem abrir sessão): exige a senha atual. */
+export async function alterarSenhaNoLogin(usuario: string, senhaAtual: string, novaSenha: string): Promise<ResultadoAlterarSenhaLogin> {
+  const resposta = await fetch("/api/auth/alterar-senha", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ usuario, senhaAtual, novaSenha }),
+    cache: "no-store",
+    credentials: "same-origin",
+  });
+  const dados = (await resposta.json().catch(() => null)) as { status?: ResultadoAlterarSenhaLogin } | null;
+  if (dados && typeof dados.status === "string") return dados.status;
+  throw new ErroApi("Erro ao alterar a senha.", resposta.status);
+}
 
 /** Confere usuário e senha no servidor e abre a sessão (cookie HttpOnly). */
 export async function entrar(usuario: string, senha: string): Promise<ResultadoLogin> {

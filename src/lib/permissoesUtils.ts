@@ -17,6 +17,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_campos_modais", label: "Permite acessar Campos x Modais" },
     { key: "acessar_exclusoes", label: "Permite acessar Exclusões" },
     { key: "acessar_imagens", label: "Permite acessar Imagens" },
+    { key: "acessar_parametros", label: "Permite acessar Parâmetros" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
     { key: "acessar_regras", label: "Permite acessar Regras" },
     { key: "acessar_usuarios", label: "Permite acessar Usuários" },
@@ -225,6 +226,10 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_perfis', 'adicionar_perfil', 'ver_perfil', 'delegar_funcoes_perfil', 'duplicar_perfil', 'excluir_perfil'],
     },
     {
+      titulo: 'Parâmetros',
+      chaves: ['acessar_parametros'],
+    },
+    {
       titulo: 'Regras',
       chaves: ['acessar_regras'],
     },
@@ -358,6 +363,7 @@ export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
   { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
   { value: 'regras', label: 'Regras', permissao: 'acessar_regras' },
+  { value: 'parametros', label: 'Parâmetros', permissao: 'acessar_parametros' },
 ];
 
 /** Opções do dropdown PAI de Administração do Sistema, em ordem alfabética (filtradas pelas permitidas em cada tela). */
@@ -395,7 +401,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 22;
+export const PERMISSOES_CONFIG_VERSION = 23;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é

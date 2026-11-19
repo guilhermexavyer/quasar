@@ -57,6 +57,35 @@ function tratarSenha(tabela: string, valores: Map<string, unknown>) {
   else valores.delete("ds_senha");
 }
 
+/** Parâmetro "Alterar senha no próximo login" (Administração do Sistema > Parâmetros) está em Sim? */
+async function alterarSenhaNoProximoLogin(db: Executor): Promise<boolean> {
+  // Sem registro (nunca configurado) ou "---"/Não: equivale a Não.
+  const { rows } = await db.query<Registro>(
+    "select ie_regra from as_param_alterar_senha_proximo_login where nr_sequencia = 1"
+  );
+  return String(rows[0]?.ie_regra ?? "").toUpperCase() === "S";
+}
+
+/**
+ * usuario.ie_alterar_senha é gravada só pelo servidor:
+ *   - senha alterada pelo menu de contexto "Alterar senha" (Usuários), inclusive
+ *     a do próprio usuário → 'S' se o parâmetro estiver em Sim (senão a marca sai);
+ *   - senha definida pelo próprio usuário para si (menu do usuário ou modal do
+ *     login, `trocaPropriaSenha`) → a marca sai.
+ */
+async function tratarMarcaAlterarSenha(
+  db: Executor, tabela: string, nr: number, colunas: Colunas, valores: Map<string, unknown>, sessao: Sessao,
+  trocaPropriaSenha: boolean
+) {
+  if (tabela !== "usuario") return;
+  valores.delete("ie_alterar_senha");
+  // A coluna e a tabela do parâmetro nascem juntas (migração 0008): sem a coluna, nada a fazer.
+  if (!colunas.has("ie_alterar_senha") || !valores.has("ds_senha")) return;
+  // Só vale para a própria senha: ninguém tira a marca de outro usuário por aqui.
+  const propria = trocaPropriaSenha && nr === sessao.nrUsuario;
+  valores.set("ie_alterar_senha", !propria && (await alterarSenhaNoProximoLogin(db)) ? "S" : null);
+}
+
 /**
  * Imagem: ie_arquivo chega como o caminho da rota (/api/imagens/arquivo/images/x.png).
  * No banco ficam o caminho no Storage e os metadados do arquivo (nome, tipo, tamanho).
@@ -146,6 +175,7 @@ export async function criar(tabela: string, dados: Registro, sessao: Sessao, opc
   // antes da migração): a senha é definida depois em "Alterar senha". Senha vazia
   // nunca confere no login (senhaConfere), então ninguém entra até ela ser definida.
   if (tabela === "usuario" && !valores.get("ds_senha")) valores.set("ds_senha", "");
+  if (tabela === "usuario") valores.delete("ie_alterar_senha"); // gravada só pelo servidor
 
   const agora = new Date().toISOString();
   const autor = opcoes?.sistema ? "Sistema" : sessao.nomeUsuario;
@@ -178,7 +208,12 @@ export interface ResultadoAtualizacao {
 
 export async function atualizar(
   tabela: string, nr: number, dados: Registro, sessao: Sessao,
-  opcoes?: OpcoesAuditoria & { semAuditoria?: boolean; condicao?: (atual: Registro) => boolean }
+  opcoes?: OpcoesAuditoria & {
+    semAuditoria?: boolean;
+    condicao?: (atual: Registro) => boolean;
+    /** Senha definida pelo próprio usuário para si (menu do usuário ou modal do login): tira a marca de troca. */
+    trocaPropriaSenha?: boolean;
+  }
 ): Promise<ResultadoAtualizacao> {
   const colunas = await colunasDe(tabela);
   const { valores, desconhecidas } = paraBanco(colunas, dados);
@@ -191,6 +226,7 @@ export async function atualizar(
     const atual = rows[0];
     if (!atual) return { registro: null, alterado: false };
     if (opcoes?.condicao && !opcoes.condicao(atual)) return { registro: paraTela(tabela, colunas, atual), alterado: false };
+    await tratarMarcaAlterarSenha(db, tabela, nr, colunas, valores, sessao, opcoes?.trocaPropriaSenha === true);
 
     const mudancas = [...valores].filter(([coluna, valor]) => !mesmoValor(colunas.get(coluna)!, atual[coluna], valor));
     if (mudancas.length === 0) return { registro: paraTela(tabela, colunas, atual), alterado: false };
@@ -211,7 +247,9 @@ export async function atualizar(
     );
     const linha = novas[0];
     if (!opcoes?.semAuditoria) {
-      const soSenha = tabela === "usuario" && mudancas.length === 1 && mudancas[0][0] === "ds_senha";
+      // A marca "alterar senha no próximo login" acompanha a troca de senha: não muda o tipo do log.
+      const semMarca = mudancas.filter(([coluna]) => coluna !== "ie_alterar_senha");
+      const soSenha = tabela === "usuario" && semMarca.length === 1 && semMarca[0][0] === "ds_senha";
       await registrarAuditoria(db, tabela, nr, soSenha ? "password" : "update", agora, sessao, paraHistorico(tabela, colunas, linha), opcoes);
     }
     return { registro: paraTela(tabela, colunas, linha), alterado: true };

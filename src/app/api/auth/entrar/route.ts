@@ -11,7 +11,7 @@ import { criarSessao } from "@/lib/server/sessao";
  * Login. A senha é conferida aqui, no servidor; o navegador nunca recebe a
  * lista de usuários nem o hash. Resposta: { status, usuario? } com status
  * ok | invalido | bloqueado | inativo | sem_perfil (as mesmas situações que a
- * tela de login já tratava).
+ * tela de login já tratava) | alterar_senha (precisa trocar a senha antes de entrar).
  */
 export async function POST(request: NextRequest) {
   return rotaPublica(request, async () => {
@@ -33,6 +33,11 @@ export async function POST(request: NextRequest) {
     if (status === "B") return NextResponse.json({ status: "bloqueado" }, { status: 403 });
     if (status === "I") return NextResponse.json({ status: "inativo" }, { status: 403 });
     if (perfisDoUsuario(usuario).length === 0) return NextResponse.json({ status: "sem_perfil" }, { status: 403 });
+    // Senha alterada por outra pessoa com "Alterar senha no próximo login" em Sim: o usuário
+    // troca a senha (POST /api/auth/alterar-senha) e entra de novo com a nova. Sem sessão aqui.
+    if (String(usuario.ie_alterar_senha ?? "").toUpperCase() === "S") {
+      return NextResponse.json({ status: "alterar_senha" });
+    }
 
     await criarSessao(Number(usuario.nr_sequencia));
     const nr = Number(usuario.nr_sequencia);

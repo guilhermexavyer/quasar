@@ -18,6 +18,7 @@ export const COLECAO_PARAM_MATRICULA_COLABORADOR = "ea_param_matricula_colaborad
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "ea_param_cor_periodo_letivo_andamento";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "ea_param_cor_periodo_letivo_encerrado";
 export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "ea_param_encerramento_automatico_periodo_letivo";
+export const COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN = "as_param_alterar_senha_proximo_login";
 
 /** Campo onde o valor do parâmetro é gravado. */
 export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra";

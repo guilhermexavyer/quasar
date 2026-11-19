@@ -19,6 +19,7 @@ import {
   COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
+  COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
   COLECAO_PARAM_MATRICULA_COLABORADOR,
@@ -144,6 +145,17 @@ export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
     dropdown: "Período letivo",
     parametro: "A previsão de término encerra o período letivo automaticamente",
     colecao: COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
+    tipo: "simNao",
+  },
+];
+
+/** Parâmetros de configuração da função Administração do Sistema. */
+export const PARAMETROS_ADMINISTRACAO_SISTEMA: ParametroDef[] = [
+  {
+    id: "alterar_senha_proximo_login",
+    dropdown: "Usuários",
+    parametro: "Alterar senha no próximo login",
+    colecao: COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN,
     tipo: "simNao",
   },
 ];

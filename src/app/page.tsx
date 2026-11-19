@@ -34,7 +34,7 @@ import {
   encerrarPeriodoLetivoPorPrevisao,
   atualizarPeriodoLetivo,
 } from "@/services/periodoLetivoService";
-import { obterUsuarios, entrar, sair, obterSessao } from "@/services/usuarioService";
+import { obterUsuarios, entrar, sair, obterSessao, alterarSenhaNoLogin } from "@/services/usuarioService";
 import {
   criarUsuario,
   excluirUsuario,
@@ -148,7 +148,7 @@ import {
   obterParametro,
 } from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
-import { EVENTO_SESSAO_EXPIRADA } from "@/lib/apiCliente";
+import { EVENTO_SESSAO_EXPIRADA, atualizarPropriaSenha } from "@/lib/apiCliente";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -178,7 +178,7 @@ import {
 } from "@/lib/colunasUtils";
 import ContextMenu from "@/components/ui/ContextMenu";
 import Toast from "@/components/ui/Toast";
-import LoginScreen from "@/components/ui/LoginScreen";
+import LoginScreen, { type ResultadoLoginTela } from "@/components/ui/LoginScreen";
 import LoadingModal from "@/components/ui/LoadingModal";
 import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView";
 import PessoaFisicaFormView from "@/components/pessoaFisica/PessoaFisicaFormView";
@@ -207,7 +207,7 @@ import AtivoDetalheView from "@/components/patrimonio/AtivoDetalheView";
 import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
 import { excluirResponsaveisDoAluno } from "@/services/alunoResponsavelService";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
-import ParametrosDaFuncaoView, { PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
+import ParametrosDaFuncaoView, { PARAMETROS_ADMINISTRACAO_SISTEMA, PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
 import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
@@ -271,6 +271,7 @@ import {
   migrarPermissoesConfig,
   parsePermissoesConfigMigrada,
   adminSubmodulosPermitidos,
+  ADMIN_OPCOES_DROPDOWN,
   pessoaSubmodulosPermitidos,
   cgSubmodulosPermitidos,
   eaSubmodulosPermitidos,
@@ -1756,7 +1757,7 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['avisos', 'camposFormularios', 'camposModais', 'exclusoes', 'perfis', 'usuarios', 'imagens', 'regras'];
+    if (isAdminSemConfig) return ['avisos', 'camposFormularios', 'camposModais', 'exclusoes', 'parametros', 'perfis', 'usuarios', 'imagens', 'regras'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -3050,7 +3051,7 @@ export default function Home() {
         if (ehSecao(session.activeSection)) {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'camposFormularios' || session.adminManageSelection === 'camposModais' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'exclusoes')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'camposFormularios' || session.adminManageSelection === 'camposModais' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'parametros' || session.adminManageSelection === 'exclusoes')) {
           setAdminManageSelection(session.adminManageSelection);
           setAdminInteracted(true);
         } else if (session.adminManageSelection === 'campos') {
@@ -7348,7 +7349,13 @@ export default function Home() {
     setAdminSubmitting(true);
 
     try {
-      await atualizarUsuario(passwordChangeUserId, { ds_senha: passwordChangeValue }, auditAutor);
+      if (passwordChangeIsSelf) {
+        // Menu do usuário: a pessoa define a própria senha (tira a marca "alterar no próximo login").
+        await atualizarPropriaSenha(passwordChangeUserId, passwordChangeValue);
+      } else {
+        // Menu de contexto de Usuários: marca o usuário se "Alterar senha no próximo login" estiver em Sim.
+        await atualizarUsuario(passwordChangeUserId, { ds_senha: passwordChangeValue }, auditAutor);
+      }
       await loadUsuarios();
       closeChangePasswordModal();
       setMessage("Senha alterada com sucesso!");
@@ -8988,7 +8995,7 @@ export default function Home() {
     return () => window.clearTimeout(unmountTimer);
   }, [toastMounted, toastVisible]);
 
-  async function handleLogin(username: string, password: string) {
+  async function handleLogin(username: string, password: string): Promise<ResultadoLoginTela> {
     const normalizedUsername = username.trim();
     const normalizedPassword = password.trim();
 
@@ -9022,6 +9029,12 @@ export default function Home() {
         return;
       }
 
+      if (resultado.status === 'alterar_senha') {
+        // Senha alterada por outra pessoa: a tela de login abre o modal "Alterar senha".
+        setIsLoginLoading(false);
+        return 'alterar_senha';
+      }
+
       if (resultado.status === 'bloqueado' || resultado.status === 'inativo') {
         setLoginWarning(resultado.status === 'bloqueado' ? "Usuário bloqueado." : "Usuário inativo.");
       } else if (resultado.status === 'sem_perfil') {
@@ -9035,6 +9048,20 @@ export default function Home() {
     }
 
     setIsLoginLoading(false);
+  }
+
+  /** Troca de senha pedida no login: devolve null se deu certo, ou a mensagem de erro. */
+  async function handleAlterarSenhaLogin(username: string, senhaAtual: string, novaSenha: string): Promise<string | null> {
+    try {
+      const status = await alterarSenhaNoLogin(username.trim(), senhaAtual, novaSenha);
+      if (status === 'ok') return null;
+      if (status === 'mesma_senha') return 'A nova senha deve ser diferente da senha atual.';
+      if (status === 'nova_vazia') return 'Informe a nova senha.';
+      return 'Senha atual incorreta.';
+    } catch (error) {
+      console.error('[Login] erro ao alterar a senha', error);
+      return 'Erro ao alterar a senha.';
+    }
   }
 
   function handleLogout() {
@@ -9593,6 +9620,7 @@ export default function Home() {
       <div className="relative min-h-screen overflow-hidden bg-white">
         <LoginScreen
           onLogin={handleLogin}
+          onAlterarSenha={handleAlterarSenhaLogin}
           errorMessage={loginError}
           onClearError={() => setLoginError(null)}
           warningMessage={loginWarning}
@@ -9671,6 +9699,19 @@ export default function Home() {
                   onOpenAudit={openAvisoAuditModal}
                   onSaveSuccess={(msg) => setMessage(msg)}
                   onSavingChange={setParametrosSaving}
+                />
+              ) : adminManageSelection === 'parametros' ? (
+                <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_as')} paineis={paineisPorChave('config_paineis_parametros_funcao_as')}
+                  parametros={PARAMETROS_ADMINISTRACAO_SISTEMA}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  selectOptions={ADMIN_OPCOES_DROPDOWN}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
+                  onOpenAudit={openParametroAuditModal}
+                  resolverNomeAutor={resolverNomeAutorExibicao}
+                  auditAutor={auditAutor}
                 />
               ) : adminManageSelection === 'regras' ? (
                 <RegrasView
@@ -10292,6 +10333,19 @@ export default function Home() {
                   onOpenAudit={openAvisoAuditModal}
                   onSaveSuccess={(msg) => setMessage(msg)}
                   onSavingChange={setParametrosSaving}
+                />
+              ) : adminManageSelection === 'parametros' ? (
+                <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_as')} paineis={paineisPorChave('config_paineis_parametros_funcao_as')}
+                  parametros={PARAMETROS_ADMINISTRACAO_SISTEMA}
+                  manageSelection={adminManageSelection}
+                  onManageSelectionChange={handleAdminManageSelectionChange}
+                  selectOptions={ADMIN_OPCOES_DROPDOWN}
+                  allowedSubmodulos={allowedAdminSubmodulos}
+                  onSaveSuccess={(msg) => setMessage(msg)}
+                  onSavingChange={setParametrosSaving}
+                  onOpenAudit={openParametroAuditModal}
+                  resolverNomeAutor={resolverNomeAutorExibicao}
+                  auditAutor={auditAutor}
                 />
               ) : adminManageSelection === 'regras' ? (
                 <RegrasView

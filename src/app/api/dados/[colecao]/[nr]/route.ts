@@ -27,7 +27,7 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
   if (!TABELAS_DADOS.has(colecao)) return erro("Coleção desconhecida.", 404);
   return rota(request, async (sessao) => {
     const numero = numeroDaUrl(nr);
-    const { dados, auditoria, copiaEmbutida } = await corpo(request);
+    const { dados, auditoria, copiaEmbutida, trocaPropriaSenha } = await corpo(request);
     const registro = (dados ?? {}) as Registro;
     if (colecao === "usuario" || colecao === "perfil") {
       await exigirAcessoEscrita(sessao, colecao, "atualizar", await obterLinha(colecao, numero), registro);
@@ -37,7 +37,11 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
       if (!Object.keys(registro).every((c) => permitidas.includes(c))) throw new ErroValidacao("Campos não permitidos como cópia embutida.");
       return NextResponse.json(await atualizar(colecao, numero, registro, sessao, { semAuditoria: true }));
     }
-    return NextResponse.json(await atualizar(colecao, numero, registro, sessao, opcoesDeAuditoria(auditoria)));
+    return NextResponse.json(await atualizar(colecao, numero, registro, sessao, {
+      ...opcoesDeAuditoria(auditoria),
+      // Senha definida pelo próprio usuário no menu do usuário (o servidor confere que é a dele).
+      trocaPropriaSenha: colecao === "usuario" && trocaPropriaSenha === true,
+    }));
   });
 }
 

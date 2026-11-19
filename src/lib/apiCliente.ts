@@ -88,6 +88,14 @@ export function atualizarDado<T>(
 }
 
 /**
+ * Senha definida pelo próprio usuário no menu do usuário (Alterar senha): tira a
+ * marca "Alterar senha no próximo login". O servidor só aceita para a própria senha.
+ */
+export async function atualizarPropriaSenha(id: string, senha: string): Promise<void> {
+  await api.patch(rota("usuario", id), { dados: { ds_senha: senha }, trocaPropriaSenha: true });
+}
+
+/**
  * Atualiza as cópias embutidas do construtor de relatórios (relatorio.bandas,
  * relatorio.filtros, relatorio_banda.campos). Isso não conta
  * como alteração do registro: não muda dt_alteracao nem gera auditoria.
