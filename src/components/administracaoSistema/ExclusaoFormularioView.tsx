@@ -3,7 +3,7 @@
 import type { ReactNode } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import Select from "@/components/ui/Select";
-import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
+import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import type { FuncaoExclusao } from "@/lib/exclusoesUtils";
 import type { Exclusao } from "@/services/exclusaoService";
@@ -57,7 +57,7 @@ export default function ExclusaoFormularioView({
           <Select
             value={manageSelection}
             onChange={() => {}}
-            options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
+            options={LOGS_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
             className="!w-[180px]"

@@ -194,6 +194,7 @@ import PeriodoLetivoListView from "@/components/estruturaAcademica/PeriodoLetivo
 import PeriodoLetivoFormView, { type PeriodoLetivoFormData } from "@/components/estruturaAcademica/PeriodoLetivoFormView";
 import PeriodoLetivoFeriadosView from "@/components/estruturaAcademica/PeriodoLetivoFeriadosView";
 import ExclusoesView, { type NavegacaoExclusoes } from "@/components/administracaoSistema/ExclusoesView";
+import AcessosView, { FILTRO_ACESSOS_VAZIO, LogsSemSelecaoView, type FiltroAcessos } from "@/components/logs/AcessosView";
 import ExclusaoFormularioView from "@/components/administracaoSistema/ExclusaoFormularioView";
 import FormularioExcluidoGenerico, { FORMULARIOS_GENERICOS } from "@/components/administracaoSistema/FormularioExcluidoGenerico";
 import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
@@ -276,6 +277,7 @@ import {
   cgSubmodulosPermitidos,
   eaSubmodulosPermitidos,
   patrimonioSubmodulosPermitidos,
+  logsSubmodulosPermitidos,
   temPermissao,
 } from "@/lib/permissoesUtils";
 import type { PermissaoDef } from "@/lib/permissoesUtils";
@@ -398,9 +400,9 @@ function getActivePerfilKey(userId?: string | null): string {
 }
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio";
+type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio" | "logs";
 
-const SECOES: readonly SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio"];
+const SECOES: readonly SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs"];
 
 function ehSecao(valor: unknown): valor is SectionType {
   return SECOES.includes(valor as SectionType);
@@ -639,7 +641,7 @@ type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradou
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio"];
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs"];
 
 function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
   const result = [...new Set(parsed)];
@@ -654,7 +656,7 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio" || s === "relatorio") as SectionType[];
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio" || s === "relatorio" || s === "logs") as SectionType[];
     if (valid.length === 0) return null;
     return valid;
   } catch {
@@ -828,6 +830,25 @@ const SECTION_DEFS: Record<SectionType, { label: string; icon: React.ReactNode }
         <path d="M16 13H8" />
         <path d="M16 17H8" />
         <path d="M10 9H8" />
+      </svg>
+    ),
+  },
+  logs: {
+    label: "Logs",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+        <path d="M3 3v5h5" />
+        <path d="M12 7v5l4 2" />
       </svg>
     ),
   },
@@ -1433,6 +1454,9 @@ export default function Home() {
   const [paramGerarFaltantes, setParamGerarFaltantes] = useState<string[]>([]);
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
+  // ── Logs (Acessos e Exclusões) ──
+  const [logsManageSelection, setLogsManageSelection] = useState('');
+  const [acessosFiltro, setAcessosFiltro] = useState<FiltroAcessos>(FILTRO_ACESSOS_VAZIO);
   const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const [bandaAuditInfo, setBandaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const relatorioAuditIdRef = useRef<string | null>(null);
@@ -1757,9 +1781,25 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['avisos', 'camposFormularios', 'camposModais', 'exclusoes', 'parametros', 'perfis', 'usuarios', 'imagens', 'regras'];
+    if (isAdminSemConfig) return ['avisos', 'camposFormularios', 'camposModais', 'parametros', 'perfis', 'usuarios', 'imagens', 'regras'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
+
+  // Submódulos da função Logs (Acessos/Exclusões) liberados ao usuário logado.
+  const allowedLogsSubmodulos = useMemo(() => {
+    if (isAdminSemConfig) return ['acessos', 'exclusoes'];
+    return logsSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdminSemConfig, permissoesAtivas]);
+
+  // Opção de Logs que deixou de ser permitida: volta para a seleção vazia.
+  useEffect(() => {
+    if (logsManageSelection && !allowedLogsSubmodulos.includes(logsManageSelection)) setLogsManageSelection('');
+  }, [allowedLogsSubmodulos, logsManageSelection]);
+
+  function handleLogsManageSelectionChange(value: string) {
+    setLogsManageSelection(value);
+    setMessage("");
+  }
 
   // Permissões das opções de Administração do Sistema (menu de contexto) para
   // o usuário logado: o administrador tem tudo liberado; os demais seguem o
@@ -2868,6 +2908,7 @@ export default function Home() {
       alunoManageSelection,
       patrimonioManageSelection: ativoManageSelection,
       relatorioManageSelection,
+      logsManageSelection,
     };
     try {
       window.sessionStorage.setItem(SESSION_NAV_KEY, JSON.stringify(navegacao));
@@ -2886,7 +2927,7 @@ export default function Home() {
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, sessaoInicio, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection]);
+  }, [isAuthenticated, currentUser, sessaoInicio, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection, logsManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -3010,6 +3051,7 @@ export default function Home() {
           alunoManageSelection?: string;
           patrimonioManageSelection?: string;
           relatorioManageSelection?: string;
+          logsManageSelection?: string;
           sessaoInicio?: number;
         };
 
@@ -3051,7 +3093,7 @@ export default function Home() {
         if (ehSecao(session.activeSection)) {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'camposFormularios' || session.adminManageSelection === 'camposModais' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'parametros' || session.adminManageSelection === 'exclusoes')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'camposFormularios' || session.adminManageSelection === 'camposModais' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'parametros')) {
           setAdminManageSelection(session.adminManageSelection);
           setAdminInteracted(true);
         } else if (session.adminManageSelection === 'campos') {
@@ -3074,6 +3116,12 @@ export default function Home() {
         if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
           setAtivoManageSelection(session.patrimonioManageSelection);
           setAtivoInteracted(true);
+        }
+        if (session.logsManageSelection === 'acessos' || session.logsManageSelection === 'exclusoes') {
+          setLogsManageSelection(session.logsManageSelection);
+        } else if (session.adminManageSelection === 'exclusoes') {
+          // Sessão salva antes de Exclusões ir para Logs.
+          setLogsManageSelection('exclusoes');
         }
         if (typeof session.relatorioManageSelection === "string" && session.relatorioManageSelection.trim() !== "") {
           setRelatorioManageSelection(session.relatorioManageSelection);
@@ -3135,7 +3183,7 @@ export default function Home() {
       const programado = ultimoLogoutProgramado(regraSistema, new Date());
       const vigencia = Math.max(inicio, Date.parse(regraSistema?.dt_vigencia_logout ?? regraSistema?.dt_alteracao ?? "") || 0);
       if (programado && programado.getTime() > vigencia) {
-        handleLogout();
+        handleLogout('automatico');
         setLoginWarning("Sua sessão foi encerrada automaticamente.");
       }
     }
@@ -9064,8 +9112,8 @@ export default function Home() {
     }
   }
 
-  function handleLogout() {
-    sair().catch(() => { /* a sessão expira sozinha no servidor */ });
+  function handleLogout(motivo: 'manual' | 'automatico' = 'manual') {
+    sair(motivo).catch(() => { /* a sessão expira sozinha no servidor */ });
     try {
       window.localStorage.removeItem(SESSION_KEY);
       window.sessionStorage.removeItem(SESSION_NAV_KEY);
@@ -9129,6 +9177,8 @@ export default function Home() {
       setAtivoManageSelection(''); setAtivosSelecionados([]); setManutencoesSelecionadas([]); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
       setRelatorioManageSelection(''); setRelatorioInteracted(false); setRelatorioView('list'); setRelatorioEditingId(null); setRelatorioForm(null); setRelatorioBandasMode(false);
+    } else if (secao === 'logs') {
+      setLogsManageSelection(''); setAcessosFiltro(FILTRO_ACESSOS_VAZIO); setExclusaoVer(null);
     }
     if (secao === activeSection) {
       setActiveSection(null);
@@ -9300,8 +9350,8 @@ export default function Home() {
         <ExclusaoFormularioView
           exclusao={exclusaoVer}
           funcao={funcaoVer}
-          manageSelection={adminManageSelection}
-          allowedSubmodulos={allowedAdminSubmodulos}
+          manageSelection={logsManageSelection}
+          allowedSubmodulos={allowedLogsSubmodulos}
           onFechar={() => setExclusaoVer(null)}
           resolverNomeAutor={resolverNomeAutorExibicao}
           darkMode={darkMode}
@@ -9313,9 +9363,9 @@ export default function Home() {
     }
     return (
       <ExclusoesView
-        manageSelection={adminManageSelection}
-        onManageSelectionChange={handleAdminManageSelectionChange}
-        allowedSubmodulos={allowedAdminSubmodulos}
+        manageSelection={logsManageSelection}
+        onManageSelectionChange={handleLogsManageSelectionChange}
+        allowedSubmodulos={allowedLogsSubmodulos}
         colecaoSelecionada={exclusoesColecao}
         onColecaoSelecionadaChange={setExclusoesColecao}
         navegacao={exclusoesNavegacao}
@@ -9685,9 +9735,7 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "administracaoSistema" ? (
-              adminManageSelection === 'exclusoes' ? (
-                renderExclusoes()
-              ) : adminManageSelection === 'avisos' ? (
+              adminManageSelection === 'avisos' ? (
                 <AvisosView
                   colunas={colunasPorChave('config_colunas_avisos')}
                   paineis={paineisPorChave('config_paineis_avisos')}
@@ -10128,6 +10176,32 @@ export default function Home() {
                   coresStatus={coresStatusAtivo}
                 />
                 )
+              ) : activeSection === "logs" ? (
+                logsManageSelection === 'exclusoes' ? (
+                  renderExclusoes()
+                ) : logsManageSelection === 'acessos' ? (
+                  <AcessosView
+                    manageSelection={logsManageSelection}
+                    onManageSelectionChange={handleLogsManageSelectionChange}
+                    allowedSubmodulos={allowedLogsSubmodulos}
+                    filtro={acessosFiltro}
+                    onFiltroChange={setAcessosFiltro}
+                    onMessage={setMessage}
+                    colunas={colunasPorChave('config_colunas_logs_acessos')}
+                    nomePessoaFisica={(nr) => pessoasFisicas.find((p) => p.nr_sequencia === nr)?.ds_nome ?? ''}
+                    onOpenPessoaFisicaLookup={(aoSelecionar) => {
+                      // Mesmo lookup da aba Responsáveis: devolve a sequência pelo retorno.
+                      alunoResponsavelLookupCallbackRef.current = aoSelecionar;
+                      openAlunoPessoaFisicaLookup('responsavel');
+                    }}
+                  />
+                ) : (
+                  <LogsSemSelecaoView
+                    manageSelection={logsManageSelection}
+                    onManageSelectionChange={handleLogsManageSelectionChange}
+                    allowedSubmodulos={allowedLogsSubmodulos}
+                  />
+                )
               ) : activeSection === "relatorio" ? (
                 relatorioView === 'builder' ? (
                   <div className="flex flex-col h-full">                   <RelatorioBuilder
@@ -10319,9 +10393,8 @@ export default function Home() {
                   campoErros={pfCampoErros}
                 />
               )
-            ) : activeSection === "administracaoSistema" ? (              adminManageSelection === 'exclusoes' ? (
-                renderExclusoes()
-              ) : adminManageSelection === 'avisos' ? (
+            ) : activeSection === "administracaoSistema" ? (
+              adminManageSelection === 'avisos' ? (
                 <AvisosView
                   colunas={colunasPorChave('config_colunas_avisos')}
                   paineis={paineisPorChave('config_paineis_avisos')}
@@ -10575,6 +10648,32 @@ export default function Home() {
                     allowedSubmodulos={allowedAlunoSubmodulos}
                     campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
                     campoErros={colaboradorCampoErros}
+                  />
+                )
+              ) : activeSection === "logs" ? (
+                logsManageSelection === 'exclusoes' ? (
+                  renderExclusoes()
+                ) : logsManageSelection === 'acessos' ? (
+                  <AcessosView
+                    manageSelection={logsManageSelection}
+                    onManageSelectionChange={handleLogsManageSelectionChange}
+                    allowedSubmodulos={allowedLogsSubmodulos}
+                    filtro={acessosFiltro}
+                    onFiltroChange={setAcessosFiltro}
+                    onMessage={setMessage}
+                    colunas={colunasPorChave('config_colunas_logs_acessos')}
+                    nomePessoaFisica={(nr) => pessoasFisicas.find((p) => p.nr_sequencia === nr)?.ds_nome ?? ''}
+                    onOpenPessoaFisicaLookup={(aoSelecionar) => {
+                      // Mesmo lookup da aba Responsáveis: devolve a sequência pelo retorno.
+                      alunoResponsavelLookupCallbackRef.current = aoSelecionar;
+                      openAlunoPessoaFisicaLookup('responsavel');
+                    }}
+                  />
+                ) : (
+                  <LogsSemSelecaoView
+                    manageSelection={logsManageSelection}
+                    onManageSelectionChange={handleLogsManageSelectionChange}
+                    allowedSubmodulos={allowedLogsSubmodulos}
                   />
                 )
               ) : activeSection === "patrimonio" && ativoManageSelection === 'categoria' ? (
@@ -11364,7 +11463,7 @@ export default function Home() {
                     </button>
                     <button
                       type="button"
-                      onClick={handleLogout}
+                      onClick={() => handleLogout()}
                       className="flex h-[42px] w-[42px] cursor-pointer items-center justify-center rounded-[2px] bg-transparent text-white hover:text-[#2cc958] outline-none"
                       aria-label="Sair"
                     >

@@ -30,11 +30,35 @@ export function nomeParaAuditoria(usuario: Registro): string {
   return String(usuario.ds_usuario ?? "").trim() || "-";
 }
 
-export async function criarSessao(nrUsuario: number): Promise<void> {
+/** Tipo do logout registrado em Logs > Acessos: M = manual (botão Sair), A = automático (regra de logout). */
+export type TipoLogout = "M" | "A";
+
+/**
+ * Registra o login em Logs > Acessos (log_acesso), com o usuário e a pessoa física
+ * como estão agora. Falha no log nunca impede o login.
+ */
+async function registrarLogin(usuario: Registro, nrSessao: number): Promise<void> {
+  try {
+    await query(
+      `insert into log_acesso (nr_seq_usuario, nr_seq_sessao, ds_usuario, nr_seq_pessoa_fisica, ds_pessoa_fisica)
+       select $1, $2, $3, $4::bigint, (select pf.ds_nome from pessoa_fisica pf where pf.nr_sequencia = $4::bigint)`,
+      [Number(usuario.nr_sequencia), nrSessao, nomeParaAuditoria(usuario), usuario.nr_seq_pessoa_fisica ?? null]
+    );
+  } catch (e) {
+    console.error("[log_acesso] não foi possível registrar o login:", e);
+  }
+}
+
+export async function criarSessao(usuario: Registro): Promise<void> {
+  const nrUsuario = Number(usuario.nr_sequencia);
   const token = randomBytes(32).toString("base64url");
   const expira = new Date(Date.now() + DURACAO_DIAS * 24 * 60 * 60 * 1000);
   await query("delete from sessao where dt_expiracao < now()");
-  await query("insert into sessao (ds_token_hash, nr_seq_usuario, dt_expiracao) values ($1, $2, $3)", [hashToken(token), nrUsuario, expira.toISOString()]);
+  const { rows } = await query<{ nr_sequencia: string }>(
+    "insert into sessao (ds_token_hash, nr_seq_usuario, dt_expiracao) values ($1, $2, $3) returning nr_sequencia",
+    [hashToken(token), nrUsuario, expira.toISOString()]
+  );
+  await registrarLogin(usuario, Number(rows[0].nr_sequencia));
   (await cookies()).set(COOKIE, token, {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
@@ -44,10 +68,22 @@ export async function criarSessao(nrUsuario: number): Promise<void> {
   });
 }
 
-export async function encerrarSessao(): Promise<void> {
+export async function encerrarSessao(tipo: TipoLogout = "M"): Promise<void> {
   const loja = await cookies();
   const token = loja.get(COOKIE)?.value;
-  if (token) await query("delete from sessao where ds_token_hash = $1", [hashToken(token)]);
+  if (token) {
+    const { rows } = await query<{ nr_sequencia: string }>(
+      "delete from sessao where ds_token_hash = $1 returning nr_sequencia",
+      [hashToken(token)]
+    );
+    // Completa o registro do login em Logs > Acessos (falha no log não impede o logout).
+    if (rows[0]) {
+      await query(
+        "update log_acesso set dt_logout = now(), ie_tipo_logout = $2 where nr_seq_sessao = $1 and dt_logout is null",
+        [Number(rows[0].nr_sequencia), tipo]
+      ).catch((e) => console.error("[log_acesso] não foi possível registrar o logout:", e));
+    }
+  }
   loja.delete(COOKIE);
 }
 

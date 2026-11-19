@@ -59,6 +59,30 @@ async function permissoesAtivas(sessao: Sessao): Promise<PermissoesConfig | null
   return parsePermissoesConfigMigrada(texto, versao);
 }
 
+/**
+ * Exige que a função esteja liberada no perfil ativo (config_funcoes) e que a
+ * permissão esteja concedida nela — as mesmas regras da tela. Sem perfis
+ * vinculados, a tela libera tudo, e aqui também.
+ */
+export async function exigirPermissaoDaFuncao(sessao: Sessao, funcao: string, permissao: string): Promise<void> {
+  const perfis = await perfisVinculados(sessao);
+  if (perfis.length > 0) {
+    const nrAtivo = Number(sessao.usuario.config_perfil_ativo);
+    const ativo = perfis.find((p) => Number(p.nr_sequencia) === nrAtivo) ?? perfis[0];
+    let funcoes: unknown = ativo.config_funcoes;
+    if (typeof funcoes === "string") {
+      try { funcoes = JSON.parse(funcoes); } catch { funcoes = []; }
+    }
+    if (!Array.isArray(funcoes) || !funcoes.includes(funcao)) {
+      throw new ErroAcesso("Você não tem permissão para esta operação.");
+    }
+  }
+  const config = await permissoesAtivas(sessao);
+  if (config !== null && !temPermissao(config, funcao, permissao)) {
+    throw new ErroAcesso("Você não tem permissão para esta operação.");
+  }
+}
+
 async function exigirPermissao(sessao: Sessao, permissao: string) {
   const config = await permissoesAtivas(sessao);
   if (config !== null && !temPermissao(config, "administracaoSistema", permissao)) {

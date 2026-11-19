@@ -15,7 +15,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_avisos", label: "Permite acessar Avisos" },
     { key: "acessar_campos_formularios", label: "Permite acessar Campos x Formulários" },
     { key: "acessar_campos_modais", label: "Permite acessar Campos x Modais" },
-    { key: "acessar_exclusoes", label: "Permite acessar Exclusões" },
     { key: "acessar_imagens", label: "Permite acessar Imagens" },
     { key: "acessar_parametros", label: "Permite acessar Parâmetros" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
@@ -118,6 +117,11 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "cancelar_manutencao", label: "Permite cancelar manutenção" },
     { key: "excluir_manutencao", label: "Permite excluir" },
   ],
+  logs: [
+    // Acesso aos submódulos (dropdown PAI)
+    { key: "acessar_acessos", label: "Permite acessar Acessos" },
+    { key: "acessar_exclusoes", label: "Permite acessar Exclusões" },
+  ],
   relatorio: [
     { key: "adicionar_relatorio", label: "Permite adicionar" },
     { key: "ver_relatorio", label: "Permite ver" },
@@ -214,10 +218,6 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_campos_modais', 'alterar_status_campo_modal'],
     },
     {
-      titulo: 'Exclusões',
-      chaves: ['acessar_exclusoes'],
-    },
-    {
       titulo: 'Imagens',
       chaves: ['acessar_imagens', 'adicionar_imagem', 'ver_imagem', 'renomear_imagem', 'excluir_imagem'],
     },
@@ -286,6 +286,16 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     {
       titulo: 'Parâmetros',
       chaves: ['acessar_parametros_funcao'],
+    },
+  ],
+  logs: [
+    {
+      titulo: 'Acessos',
+      chaves: ['acessar_acessos'],
+    },
+    {
+      titulo: 'Exclusões',
+      chaves: ['acessar_exclusoes'],
     },
   ],
   relatorio: [
@@ -358,7 +368,6 @@ export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string
   { value: 'avisos', label: 'Avisos', permissao: 'acessar_avisos' },
   { value: 'camposFormularios', label: 'Campos x Formulários', permissao: 'acessar_campos_formularios' },
   { value: 'camposModais', label: 'Campos x Modais', permissao: 'acessar_campos_modais' },
-  { value: 'exclusoes', label: 'Exclusões', permissao: 'acessar_exclusoes' },
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
   { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
@@ -401,7 +410,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 23;
+export const PERMISSOES_CONFIG_VERSION = 24;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
@@ -409,6 +418,7 @@ export const PERMISSOES_CONFIG_VERSION = 23;
  * Versão 14: Categoria (ativo) saiu de Cadastros Gerais e foi para Patrimônio.
  * Versão 22: Campos foi dividido em Campos x Formulários e Campos x Modais
  * (quem tinha a permissão de Campos recebe a mesma nas duas opções).
+ * Versão 24: Exclusões saiu de Administração do Sistema e foi para a nova função Logs.
  */
 const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
   { de: ["cadastrosGerais", "acessar_categoria_ativo"], para: ["patrimonio", "acessar_categoria"] },
@@ -419,6 +429,7 @@ const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
   { de: ["administracaoSistema", "acessar_campos"], para: ["administracaoSistema", "acessar_campos_modais"] },
   { de: ["administracaoSistema", "alterar_status_campo"], para: ["administracaoSistema", "alterar_status_campo_formulario"] },
   { de: ["administracaoSistema", "alterar_status_campo"], para: ["administracaoSistema", "alterar_status_campo_modal"] },
+  { de: ["administracaoSistema", "acessar_exclusoes"], para: ["logs", "acessar_exclusoes"] },
 ];
 
 /**
@@ -570,6 +581,22 @@ export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: s
  * Valores do dropdown PAI da função Patrimônio (Ativos/...) liberados conforme
  * as permissões salvas. Sem configuração (lista vazia) = tudo liberado.
  */
+/** Submódulos da função Logs (dropdown PAI) e a permissão que libera o acesso a cada um deles. */
+export const LOGS_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'acessos', label: 'Acessos', permissao: 'acessar_acessos' },
+  { value: 'exclusoes', label: 'Exclusões', permissao: 'acessar_exclusoes' },
+];
+
+/** Opções do dropdown PAI de Logs, em ordem alfabética. */
+export const LOGS_OPCOES_DROPDOWN: { value: string; label: string }[] = LOGS_SUBMODULOS.map(({ value, label }) => ({ value, label }));
+
+/** Submódulos de Logs liberados conforme as permissões salvas (sem configuração = tudo liberado). */
+export function logsSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
+  const salvos = config?.["logs"];
+  if (!salvos) return LOGS_SUBMODULOS.map((s) => s.value);
+  return LOGS_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
+}
+
 export function patrimonioSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
   const salvos = config?.["patrimonio"];
   // Sem configuração salva para a função: comportamento padrão (tudo liberado).

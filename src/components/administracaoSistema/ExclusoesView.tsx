@@ -4,7 +4,7 @@ import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import Select from "@/components/ui/Select";
-import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
+import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
@@ -263,7 +263,7 @@ export default function ExclusoesView({
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
-          options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
+          options={LOGS_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
           className="!w-[180px]"
         />

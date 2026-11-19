@@ -46,8 +46,8 @@ export async function entrar(usuario: string, senha: string): Promise<ResultadoL
 }
 
 /** Encerra a sessão no servidor. */
-export async function sair(): Promise<void> {
-  await api.post("/api/auth/sair");
+export async function sair(motivo: "manual" | "automatico" = "manual"): Promise<void> {
+  await api.post("/api/auth/sair", { motivo });
 }
 
 /** Usuário da sessão atual (para restaurar o login ao recarregar a página), ou null. */

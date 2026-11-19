@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ status: "alterar_senha" });
     }
 
-    await criarSessao(Number(usuario.nr_sequencia));
+    await criarSessao(usuario);
     const nr = Number(usuario.nr_sequencia);
     return NextResponse.json({
       status: "ok",

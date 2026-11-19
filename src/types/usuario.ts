@@ -56,6 +56,7 @@ export interface Usuario {
   config_paineis_campos_modais?: string;
   config_paineis_parametros_funcao_as?: string;
   config_colunas_parametros_funcao_as?: string;
+  config_colunas_logs_acessos?: string;
   config_paineis_exclusoes?: string;
   config_colunas_avisos?: string;
   config_colunas_regras?: string;
