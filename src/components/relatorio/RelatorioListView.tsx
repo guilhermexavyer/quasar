@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingModal from "@/components/ui/LoadingModal";
 import { useState, useRef, useCallback, useEffect } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
@@ -146,13 +147,8 @@ export default function RelatorioListView({
           <EmptySelectionMessage />
         ) : loading ? (
           <div className="p-4 space-y-3 flex-1">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="flex items-center gap-4 animate-pulse px-1 py-1">
-                <div className="h-4 w-48 rounded bg-slate-200" />
-                <div className="h-4 w-28 rounded bg-slate-200" />
-                <div className="h-4 w-40 rounded bg-slate-200 hidden sm:block" />
-              </div>
-            ))}
+            {/* Enquanto os registros carregam, só o modal "Carregando..." (sem animação na lista). */}
+              <LoadingModal open message="Carregando..." />
           </div>
         ) : relatorios.length === 0 ? (
           <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">

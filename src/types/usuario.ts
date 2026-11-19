@@ -42,6 +42,9 @@ export interface Usuario {
   config_colunas_campos_perfil?: string;
   config_colunas_campos_funcao?: string;
   config_colunas_campos_campo?: string;
+  config_colunas_campos_modais_perfil?: string;
+  config_colunas_campos_modais_funcao?: string;
+  config_colunas_campos_modais_campo?: string;
   config_colunas_parametros_funcao?: string;
   config_colunas_parametros_funcao_ea?: string;
   /* Largura dos painéis (containers lado a lado), em proporções (JSON) */
@@ -50,6 +53,7 @@ export interface Usuario {
   config_paineis_avisos?: string;
   config_paineis_regras?: string;
   config_paineis_campos?: string;
+  config_paineis_campos_modais?: string;
   config_paineis_exclusoes?: string;
   config_colunas_avisos?: string;
   config_colunas_regras?: string;

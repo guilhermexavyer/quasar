@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Dispatch, MouseEvent as ReactMouseEvent, SetStateAction } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
@@ -497,16 +498,8 @@ export default function PessoaFisicaListView({
             <EmptySelectionMessage />
           ) : loading ? (
             <div className="p-4 space-y-3 flex-1">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-4 animate-pulse px-1 py-1">
-                  <div className="h-4 w-48 rounded bg-slate-200" />
-                  <div className="h-4 w-28 rounded bg-slate-200" />
-                  <div className="h-4 w-40 rounded bg-slate-200 hidden sm:block" />
-                  <div className="h-4 w-28 rounded bg-slate-200 hidden sm:block" />
-                  <div className="h-4 w-24 rounded bg-slate-200 hidden sm:block" />
-                  <div className="h-4 w-16 rounded bg-slate-200 ml-auto" />
-                </div>
-              ))}
+              {/* Enquanto os registros carregam, só o modal "Carregando..." (sem animação na lista). */}
+              <LoadingModal open message="Carregando..." />
             </div>
           ) : pessoasFisicas.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">

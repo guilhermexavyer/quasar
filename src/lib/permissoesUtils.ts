@@ -13,14 +13,16 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
   administracaoSistema: [
     // Acesso aos submódulos (dropdown PAI)
     { key: "acessar_avisos", label: "Permite acessar Avisos" },
-    { key: "acessar_campos", label: "Permite acessar Campos" },
+    { key: "acessar_campos_formularios", label: "Permite acessar Campos x Formulários" },
+    { key: "acessar_campos_modais", label: "Permite acessar Campos x Modais" },
     { key: "acessar_exclusoes", label: "Permite acessar Exclusões" },
     { key: "acessar_imagens", label: "Permite acessar Imagens" },
     { key: "acessar_perfis", label: "Permite acessar Perfis" },
     { key: "acessar_regras", label: "Permite acessar Regras" },
     { key: "acessar_usuarios", label: "Permite acessar Usuários" },
-    // Opção Campos
-    { key: "alterar_status_campo", label: "Permite alterar o status do campo" },
+    // Opções Campos x Formulários e Campos x Modais
+    { key: "alterar_status_campo_formulario", label: "Permite alterar o status do campo" },
+    { key: "alterar_status_campo_modal", label: "Permite alterar o status do campo" },
     // Opção Imagens
     { key: "adicionar_imagem", label: "Permite adicionar" },
     { key: "ver_imagem", label: "Permite ver" },
@@ -203,8 +205,12 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_avisos'],
     },
     {
-      titulo: 'Campos',
-      chaves: ['acessar_campos', 'alterar_status_campo'],
+      titulo: 'Campos x Formulários',
+      chaves: ['acessar_campos_formularios', 'alterar_status_campo_formulario'],
+    },
+    {
+      titulo: 'Campos x Modais',
+      chaves: ['acessar_campos_modais', 'alterar_status_campo_modal'],
     },
     {
       titulo: 'Exclusões',
@@ -345,7 +351,8 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
  */
 export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'avisos', label: 'Avisos', permissao: 'acessar_avisos' },
-  { value: 'campos', label: 'Campos', permissao: 'acessar_campos' },
+  { value: 'camposFormularios', label: 'Campos x Formulários', permissao: 'acessar_campos_formularios' },
+  { value: 'camposModais', label: 'Campos x Modais', permissao: 'acessar_campos_modais' },
   { value: 'exclusoes', label: 'Exclusões', permissao: 'acessar_exclusoes' },
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
@@ -388,18 +395,24 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 21;
+export const PERMISSOES_CONFIG_VERSION = 22;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
  * concedida a quem tinha a antiga — mover um submódulo não amplia acessos.
  * Versão 14: Categoria (ativo) saiu de Cadastros Gerais e foi para Patrimônio.
+ * Versão 22: Campos foi dividido em Campos x Formulários e Campos x Modais
+ * (quem tinha a permissão de Campos recebe a mesma nas duas opções).
  */
 const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
   { de: ["cadastrosGerais", "acessar_categoria_ativo"], para: ["patrimonio", "acessar_categoria"] },
   { de: ["cadastrosGerais", "adicionar_categoria_ativo"], para: ["patrimonio", "adicionar_categoria"] },
   { de: ["cadastrosGerais", "ver_categoria_ativo"], para: ["patrimonio", "ver_categoria"] },
   { de: ["cadastrosGerais", "excluir_categoria_ativo"], para: ["patrimonio", "excluir_categoria"] },
+  { de: ["administracaoSistema", "acessar_campos"], para: ["administracaoSistema", "acessar_campos_formularios"] },
+  { de: ["administracaoSistema", "acessar_campos"], para: ["administracaoSistema", "acessar_campos_modais"] },
+  { de: ["administracaoSistema", "alterar_status_campo"], para: ["administracaoSistema", "alterar_status_campo_formulario"] },
+  { de: ["administracaoSistema", "alterar_status_campo"], para: ["administracaoSistema", "alterar_status_campo_modal"] },
 ];
 
 /**

@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { Ativo } from "@/types/ativo";
@@ -272,7 +273,7 @@ export default function AtivoDetalheView({
 
   const responsaveisOrdenados = useMemo(() => {
     const coluna = sortResp.coluna ?? 'nr_sequencia';
-    const asc = sortResp.coluna ? sortResp.asc : true;
+    const asc = sortResp.coluna ? sortResp.asc : false; // padrão: mais recente primeiro
     return [...responsaveis].sort((a, b) => {
       const cmp = comparar(valorResp(a, coluna), valorResp(b, coluna));
       return asc ? cmp : -cmp;
@@ -678,6 +679,7 @@ export default function AtivoDetalheView({
       ) : aba === 'responsaveis' ? (
         /* ── Lista de responsáveis ── */
         <div className="mt-6 flex-1 flex flex-col min-h-0">
+          {carregando && <LoadingModal open message="Carregando..." />}
           {!carregando && responsaveis.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
@@ -723,6 +725,7 @@ export default function AtivoDetalheView({
       ) : aba === 'transferencias' ? (
         /* ── Transferências de localização (somente leitura, a partir da auditoria) ── */
         <div className="mt-6 flex-1 flex flex-col min-h-0">
+          {logsAtivo === null && !!ativo.id && <LoadingModal open message="Carregando..." />}
           {logsAtivo !== null && transferencias.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>

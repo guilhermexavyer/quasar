@@ -913,7 +913,13 @@ export default function Home() {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditPessoaIdRef = useRef<string | null>(null);
-  const [loading, setLoading] = useState(false);
+  // Carregamentos de listas em andamento (contador): com várias cargas em paralelo,
+  // o modal "Carregando..." só sai quando todas terminam.
+  const [loadingCount, setLoadingCount] = useState(0);
+  const loading = loadingCount > 0;
+  const setLoading = useCallback((ativo: boolean) => {
+    setLoadingCount((n) => (ativo ? n + 1 : Math.max(0, n - 1)));
+  }, []);
   const [submitting, setSubmitting] = useState(false);
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
@@ -1450,7 +1456,7 @@ export default function Home() {
   const [imagemSortAsc, setImagemSortAsc] = useState<boolean | null>(null);
   async function loadImagens() { try { const data = await obterImagens(); setImagens(data); } catch { /* */ } }
   function handleImagemSortChange(logicalIndex: number) { if (imagemSortColumn === logicalIndex) { if (imagemSortAsc === true) setImagemSortAsc(false); else if (imagemSortAsc === false) { setImagemSortColumn(null); setImagemSortAsc(null); } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } }
-  const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => a.nr_sequencia - b.nr_sequencia); /* Ordem padrão: coluna # */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
+  const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => b.nr_sequencia - a.nr_sequencia); /* Ordem padrão: coluna # decrescente */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
   async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
@@ -1541,8 +1547,8 @@ export default function Home() {
   }
 
   const filteredSortedRelatorios = useMemo(() => {
-    // Ordem padrão: coluna # (nr_sequencia).
-    const list = [...relatorios].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+    // Ordem padrão: coluna # decrescente (mais recente primeiro).
+    const list = [...relatorios].sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     if (relatorioSortColumn != null && relatorioSortAsc != null) {
       // Mesma ordem das colunas de RelatorioListView (o índice vem de lá).
       const keys = ['nr_sequencia', 'ds_relatorio', 'ie_formato', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao'];
@@ -1750,7 +1756,7 @@ export default function Home() {
   // (Campos/Perfis/Usuários) conforme as permissões do perfil ativo.
   const allowedAdminSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['avisos', 'campos', 'exclusoes', 'perfis', 'usuarios', 'imagens', 'regras'];
+    if (isAdminSemConfig) return ['avisos', 'camposFormularios', 'camposModais', 'exclusoes', 'perfis', 'usuarios', 'imagens', 'regras'];
     return adminSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -1761,7 +1767,8 @@ export default function Home() {
     const permitida = (permissao: string) =>
       isAdminSemConfig || temPermissao(permissoesAtivas, 'administracaoSistema', permissao);
     return {
-      alterarStatusCampo: permitida('alterar_status_campo'),
+      alterarStatusCampoFormulario: permitida('alterar_status_campo_formulario'),
+      alterarStatusCampoModal: permitida('alterar_status_campo_modal'),
       adicionarImagem: permitida('adicionar_imagem'),
       verImagem: permitida('ver_imagem'),
       renomearImagem: permitida('renomear_imagem'),
@@ -3043,8 +3050,12 @@ export default function Home() {
         if (ehSecao(session.activeSection)) {
           setActiveSection(session.activeSection);
         }
-        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'campos' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'exclusoes')) {
+        if (typeof session.adminManageSelection === "string" && (session.adminManageSelection === 'usuarios' || session.adminManageSelection === 'perfis' || session.adminManageSelection === 'camposFormularios' || session.adminManageSelection === 'camposModais' || session.adminManageSelection === 'imagens' || session.adminManageSelection === 'avisos' || session.adminManageSelection === 'regras' || session.adminManageSelection === 'exclusoes')) {
           setAdminManageSelection(session.adminManageSelection);
+          setAdminInteracted(true);
+        } else if (session.adminManageSelection === 'campos') {
+          // Sessão salva antes da divisão de Campos: abre Campos x Formulários.
+          setAdminManageSelection('camposFormularios');
           setAdminInteracted(true);
         }
         if (typeof session.cgManageSelection === "string" && session.cgManageSelection.trim() !== "") {
@@ -5224,8 +5235,8 @@ export default function Home() {
   const filteredSortedPessoasFisicas = useMemo(() => {
     const sorted = [...filteredPessoasFisicas];
     if (sortColumn === null || sortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = COLUMNS[sortColumn].key;
@@ -5271,8 +5282,8 @@ export default function Home() {
   const filteredSortedAlunos = useMemo(() => {
     const sorted = [...filteredAlunos];
     if (alunoSortColumn === null || alunoSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = ALUNO_COLUMNS[alunoSortColumn].key;
@@ -5321,8 +5332,8 @@ export default function Home() {
   const filteredSortedColaboradores = useMemo(() => {
     const sorted = [...filteredColaboradores];
     if (colaboradorSortColumn === null || colaboradorSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = COLABORADOR_COLUMNS[colaboradorSortColumn].key;
@@ -5350,8 +5361,8 @@ export default function Home() {
       return true;
     });
     if (periodoLetivoSortColumn === null || periodoLetivoSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return filtrados.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return filtrados.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
     const key = PERIODO_LETIVO_COLUMNS[periodoLetivoSortColumn].key;
     return filtrados.sort((a, b) => {
@@ -5448,8 +5459,8 @@ export default function Home() {
       return true;
     });
     if (ativoSortColumn === null || ativoSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = ATIVO_COLUMNS[ativoSortColumn].key;
@@ -5540,8 +5551,8 @@ export default function Home() {
   const filteredSortedPessoasJuridicas = useMemo(() => {
     const sorted = [...filteredPessoasJuridicas];
     if (pjSortColumn === null || pjSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = PJ_COLUMNS[pjSortColumn].key;
@@ -5562,8 +5573,8 @@ export default function Home() {
   const filteredSortedUsuarios = useMemo(() => {
     const sorted = [...filteredUsuarios];
     if (adminSortColumn === null || adminSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = ADMIN_COLUMNS[adminSortColumn].key;
@@ -5600,8 +5611,8 @@ export default function Home() {
   const filteredSortedPerfis = useMemo(() => {
     const sorted = [...filteredPerfis];
     if (perfilSortColumn === null || perfilSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
 
     const key = PERFIL_COLUMNS[perfilSortColumn].key;
@@ -5636,8 +5647,8 @@ export default function Home() {
   const filteredSortedCgItems = useMemo(() => {
     const sorted = [...filteredCgItems];
     if (cgSortColumn === null || cgSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return sorted.sort((a, b) => Number((a as unknown as Record<string, unknown>).nr_sequencia) - Number((b as unknown as Record<string, unknown>).nr_sequencia));
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return sorted.sort((a, b) => Number((b as unknown as Record<string, unknown>).nr_sequencia) - Number((a as unknown as Record<string, unknown>).nr_sequencia));
     }
 
     const key = cgColumns[cgSortColumn].key as string;
@@ -5770,8 +5781,8 @@ export default function Home() {
       return true;
     });
     if (categoriaSortColumn === null || categoriaSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return lista.sort((a, b) => Number(a.nr_sequencia) - Number(b.nr_sequencia));
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
     }
     const key = CATEGORIA_ATIVO_COLUMNS[categoriaSortColumn].key;
     return lista.sort((a, b) => {
@@ -5970,8 +5981,8 @@ export default function Home() {
       return true;
     });
     if (cursoSortColumn === null || cursoSortAsc === null) {
-      // Ordem padrão: coluna # (nr_sequencia).
-      return lista.sort((a, b) => Number(a.nr_sequencia) - Number(b.nr_sequencia));
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
     }
     const key = CURSO_COLUMNS[cursoSortColumn].key;
     return lista.sort((a, b) => {
@@ -8262,8 +8273,8 @@ export default function Home() {
   }), [manutencoes, appliedManutencaoFilterForm]);
 
   const filteredSortedManutencoes = useMemo(() => {
-    // Ordem padrão: coluna # (nr_sequencia).
-    const list = [...filteredManutencoes].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+    // Ordem padrão: coluna # decrescente (mais recente primeiro).
+    const list = [...filteredManutencoes].sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     if (manutencaoSortColumn !== null && manutencaoSortAsc !== null) {
       list.sort((a, b) => {
         const colKey = MANUTENCAO_COLUMNS[manutencaoSortColumn]?.key;
@@ -9675,14 +9686,16 @@ export default function Home() {
                   onSavingChange={setParametrosSaving}
                   onRegraSalva={setRegraSistema}
                 />
-              ) : adminManageSelection === 'campos' ? (
-                <CamposView paineis={paineisPorChave('config_paineis_campos')} colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
+              ) : (adminManageSelection === 'camposFormularios' || adminManageSelection === 'camposModais') ? (
+                <CamposView key={adminManageSelection} modo={adminManageSelection === 'camposModais' ? 'modais' : 'formularios'} {...(adminManageSelection === 'camposModais'
+                  ? { paineis: paineisPorChave('config_paineis_campos_modais'), colunasPerfil: colunasPorChave('config_colunas_campos_modais_perfil'), colunasFuncao: colunasPorChave('config_colunas_campos_modais_funcao'), colunasCampos: colunasPorChave('config_colunas_campos_modais_campo') }
+                  : { paineis: paineisPorChave('config_paineis_campos'), colunasPerfil: colunasPorChave('config_colunas_campos_perfil'), colunasFuncao: colunasPorChave('config_colunas_campos_funcao'), colunasCampos: colunasPorChave('config_colunas_campos_campo') })}
                   perfis={perfis}
                   onChangeStatus={handleCamposStatusChange}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
-                  podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo && !isAdministradorPerfil(perfis.find((p) => p.id === camposPerfilId))}
+                  podeAlterarStatusCampo={(adminManageSelection === 'camposModais' ? permissoesAdmin.alterarStatusCampoModal : permissoesAdmin.alterarStatusCampoFormulario) && !isAdministradorPerfil(perfis.find((p) => p.id === camposPerfilId))}
                   selectedPerfilId={camposPerfilId}
                   onSelectedPerfilIdChange={setCamposPerfilId}
                   selectedFuncao={camposFuncao}
@@ -10294,14 +10307,16 @@ export default function Home() {
                   onSavingChange={setParametrosSaving}
                   onRegraSalva={setRegraSistema}
                 />
-              ) : adminManageSelection === 'campos' ? (
-                  <CamposView paineis={paineisPorChave('config_paineis_campos')} colunasPerfil={colunasPorChave('config_colunas_campos_perfil')} colunasFuncao={colunasPorChave('config_colunas_campos_funcao')} colunasCampos={colunasPorChave('config_colunas_campos_campo')}
+              ) : (adminManageSelection === 'camposFormularios' || adminManageSelection === 'camposModais') ? (
+                  <CamposView key={adminManageSelection} modo={adminManageSelection === 'camposModais' ? 'modais' : 'formularios'} {...(adminManageSelection === 'camposModais'
+                    ? { paineis: paineisPorChave('config_paineis_campos_modais'), colunasPerfil: colunasPorChave('config_colunas_campos_modais_perfil'), colunasFuncao: colunasPorChave('config_colunas_campos_modais_funcao'), colunasCampos: colunasPorChave('config_colunas_campos_modais_campo') }
+                    : { paineis: paineisPorChave('config_paineis_campos'), colunasPerfil: colunasPorChave('config_colunas_campos_perfil'), colunasFuncao: colunasPorChave('config_colunas_campos_funcao'), colunasCampos: colunasPorChave('config_colunas_campos_campo') })}
                     perfis={perfis}
                     onChangeStatus={handleCamposStatusChange}
                     manageSelection={adminManageSelection}
                     onManageSelectionChange={handleAdminManageSelectionChange}
                     allowedSubmodulos={allowedAdminSubmodulos}
-                    podeAlterarStatusCampo={permissoesAdmin.alterarStatusCampo && !isAdministradorPerfil(perfis.find((p) => p.id === camposPerfilId))}
+                    podeAlterarStatusCampo={(adminManageSelection === 'camposModais' ? permissoesAdmin.alterarStatusCampoModal : permissoesAdmin.alterarStatusCampoFormulario) && !isAdministradorPerfil(perfis.find((p) => p.id === camposPerfilId))}
                     selectedPerfilId={camposPerfilId}
                     onSelectedPerfilIdChange={setCamposPerfilId}
                     selectedFuncao={camposFuncao}
@@ -13064,7 +13079,7 @@ export default function Home() {
 
             <div className="p-[15px] overflow-auto">
               {auditLoading ? (
-                <div className="text-sm text-slate-600">Carregando...</div>
+                <LoadingModal open message="Carregando..." />
               ) : auditLogs.length === 0 ? (
                 <div className="text-sm text-slate-600">Nenhum registro de auditoria encontrado.</div>
               ) : (
@@ -14380,9 +14395,7 @@ export default function Home() {
               </div>
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {cidadeLoading ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Carregando cidades...
-                  </div>
+                  <LoadingModal open message="Carregando..." />
                 ) : !cidadeLookupApplied || cidadeResults.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
                     Nenhum registro encontrado.
@@ -14470,9 +14483,7 @@ export default function Home() {
               </div>
               <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
                 {pjCidadeLoading ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Carregando cidades...
-                  </div>
+                  <LoadingModal open message="Carregando..." />
                 ) : !pjCidadeLookupApplied || pjCidadeResults.length === 0 ? (
                   <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
                     Nenhum registro encontrado.
@@ -15467,7 +15478,7 @@ export default function Home() {
                     {responsaveisAtivos.some((r) => r.nr_seq_ativo === ativoView.nr_sequencia) && (
                       <div className="sm:col-span-12 group">
                         <RotuloCampo texto="Responsável" colecao="pat_ativo_responsavel" campo="nr_seq_colaborador" />
-                        {responsaveisAtivos.filter((r) => r.nr_seq_ativo === ativoView.nr_sequencia).sort((a, b) => a.nr_sequencia - b.nr_sequencia).map((resp) => (
+                        {responsaveisAtivos.filter((r) => r.nr_seq_ativo === ativoView.nr_sequencia).sort((a, b) => b.nr_sequencia - a.nr_sequencia).map((resp) => (
                           <input key={resp.id ?? resp.nr_sequencia} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={nomeColaboradorPorSeq(resp.nr_seq_colaborador) || (resp.nr_seq_colaborador ? String(resp.nr_seq_colaborador) : '')} />
                         ))}
                       </div>

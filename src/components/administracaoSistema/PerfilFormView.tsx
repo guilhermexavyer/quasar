@@ -61,7 +61,7 @@ export default function PerfilFormView({
   onOpenAudit,
   manageSelection,
   onManageSelectionChange,
-  allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
+  allowedSubmodulos = ['camposFormularios', 'camposModais', 'perfis', 'usuarios'],
   readOnly = false,
   campoRegras = {},
   campoErros = [],

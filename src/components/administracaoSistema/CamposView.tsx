@@ -8,6 +8,7 @@ import {
   getCampoStatusByKey,
   parseCamposAlteracao,
   parseCamposConfig,
+  type CampoDef,
   type CampoStatus,
 } from "@/lib/camposConfigUtils";
 import { parseFuncoesConfig, type FuncaoId } from "@/lib/perfilUtils";
@@ -37,14 +38,47 @@ const FUNCAO_ORDER_ALPHA = Object.keys(FUNCAO_LABELS).sort((a, b) =>
   (FUNCAO_LABELS[a] ?? a).localeCompare(FUNCAO_LABELS[b] ?? b, "pt-BR")
 );
 
-/** Funções liberadas de um perfil (config_funcoes), em ordem alfabética. */
-function funcoesLiberadasDe(perfil: Perfil | null): string[] {
+/**
+ * Formulários: campos dos formulários de cadastro. Modais: campos dos modais
+ * de ação (coleções com prefixo modal_, ex.: Alterar status, Transferir).
+ */
+export type CamposModo = "formularios" | "modais";
+
+type CampoDaTela = CampoDef & {
+  /** Nome do modal (só no modo modais), ex.: "Transferir". */
+  modal: string;
+  /** Nome do campo sem o prefixo do modal. */
+  campo: string;
+};
+
+function ehCampoDeModal(c: CampoDef): boolean {
+  return c.colecao.startsWith("modal_");
+}
+
+/** Campos da função exibidos no modo informado. */
+function camposDaFuncao(funcao: string, modo: CamposModo): CampoDaTela[] {
+  return (CAMPOS_POR_FUNCAO[funcao] ?? [])
+    .filter((c) => (modo === "modais" ? ehCampoDeModal(c) : !ehCampoDeModal(c)))
+    .map((c) => {
+      if (modo !== "modais") return { ...c, modal: "", campo: c.label };
+      // O label dos campos de modal é "Modal > Campo".
+      const i = c.label.indexOf(" > ");
+      return i >= 0
+        ? { ...c, modal: c.label.slice(0, i), campo: c.label.slice(i + 3) }
+        : { ...c, modal: "", campo: c.label };
+    });
+}
+
+/** Funções liberadas de um perfil (config_funcoes) que têm campos no modo, em ordem alfabética. */
+function funcoesLiberadasDe(perfil: Perfil | null, modo: CamposModo): string[] {
   if (!perfil) return [];
   const ids = parseFuncoesConfig(perfil.config_funcoes);
-  return FUNCAO_ORDER_ALPHA.filter((f) => ids.includes(f as FuncaoId));
+  return FUNCAO_ORDER_ALPHA.filter((f) => ids.includes(f as FuncaoId) && camposDaFuncao(f, modo).length > 0);
 }
 
 interface CamposViewProps {
+  /** Campos x Formulários ou Campos x Modais. */
+  modo?: CamposModo;
   perfis: Perfil[];
   onChangeStatus: (perfil: Perfil, chave: string, status: CampoStatus) => void;
   manageSelection: string;
@@ -71,11 +105,12 @@ interface CamposViewProps {
 }
 
 export default function CamposView({
+  modo = "formularios",
   perfis,
   onChangeStatus,
   manageSelection,
   onManageSelectionChange,
-  allowedSubmodulos = ['campos', 'perfis', 'usuarios'],
+  allowedSubmodulos = ['camposFormularios', 'camposModais', 'perfis', 'usuarios'],
   podeAlterarStatusCampo = true,
   selectedPerfilId: selectedPerfilIdProp,
   onSelectedPerfilIdChange,
@@ -135,7 +170,7 @@ export default function CamposView({
   const selectedPerfil = perfis.find((p) => p.id === selectedPerfilId) ?? null;
 
   // Funções liberadas do perfil selecionado (config_funcoes), em ordem alfabética.
-  const funcoesLiberadas = useMemo(() => funcoesLiberadasDe(selectedPerfil), [selectedPerfil]);
+  const funcoesLiberadas = useMemo(() => funcoesLiberadasDe(selectedPerfil, modo), [selectedPerfil, modo]);
 
   // Nenhuma função vem pré-selecionada: o usuário deve clicar na função para
   // ver os campos. Se a função selecionada deixar de ser liberada, cai para null.
@@ -156,8 +191,8 @@ export default function CamposView({
 
   const campos = useMemo(() => {
     if (!funcaoAtiva) return [];
-    return [...(CAMPOS_POR_FUNCAO[funcaoAtiva] ?? [])];
-  }, [funcaoAtiva]);
+    return camposDaFuncao(funcaoAtiva, modo);
+  }, [funcaoAtiva, modo]);
 
   function togglePerfilSort(key: PerfilSortKey) {
     if (perfilSortKey === key) {
@@ -203,8 +238,8 @@ export default function CamposView({
 
   const sortedPerfis = useMemo(() => {
     if (perfilSortKey === null || perfilSortAsc === null) {
-      // Ordenação padrão: nr_sequencia crescente (mesmo padrão das listagens).
-      return [...perfis].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+      // Ordenação padrão: nr_sequencia decrescente, mais recente primeiro (mesmo padrão das listagens).
+      return [...perfis].sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     }
     const list = [...perfis];
     list.sort((a, b) => {
@@ -238,13 +273,15 @@ export default function CamposView({
       if (key === "ds_usuario_criacao") return alteracoes[c.key]?.ds_usuario_criacao ?? "";
       if (key === "dt_alteracao") return alteracoes[c.key]?.dt_alteracao ?? "";
       if (key === "ds_usuario_alteracao") return alteracoes[c.key]?.ds_usuario_alteracao ?? "";
-      return c.label;
+      if (key === "modal") return c.modal;
+      return c.campo;
     };
     if (campoSortKey === null || campoSortAsc === null) {
-      // Ordenação padrão: agrupa por tipo (ex.: Pessoa Física), depois por label.
+      // Ordenação padrão: agrupa por tipo (ex.: Pessoa Física), depois pelo modal e pelo campo.
       list.sort((a, b) => {
         let cmp = a.tipo.localeCompare(b.tipo, "pt-BR");
-        if (cmp === 0) cmp = a.label.localeCompare(b.label, "pt-BR");
+        if (cmp === 0) cmp = a.modal.localeCompare(b.modal, "pt-BR");
+        if (cmp === 0) cmp = a.campo.localeCompare(b.campo, "pt-BR");
         return cmp;
       });
       return list;
@@ -308,7 +345,7 @@ export default function CamposView({
                   if (funcaoJaSelecionada) {
                     // Campos já estavam sendo exibidos: ao trocar de perfil, mantém a
                     // função escolhida (se o novo perfil a tiver) ou assume a primeira.
-                    const liberadas = funcoesLiberadasDe(p);
+                    const liberadas = funcoesLiberadasDe(p, modo);
                     const manter = selectedFuncao && liberadas.includes(selectedFuncao) ? selectedFuncao : null;
                     setSelectedFuncao(manter ?? liberadas[0] ?? null);
                   } else {
@@ -338,7 +375,9 @@ export default function CamposView({
               </div>
             ) : funcoesLiberadas.length === 0 ? (
               <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
-                Nenhuma função liberada para este perfil.
+                {modo === "modais"
+                  ? "Nenhuma função com modais liberada para este perfil."
+                  : "Nenhuma função liberada para este perfil."}
               </div>
             ) : (
               <>
@@ -390,7 +429,10 @@ export default function CamposView({
                   {...colunasCampos}
                   columns={[
                     { key: "tipo", label: "Dropdown", render: (c) => c.tipo },
-                    { key: "label", label: "Campo", render: (c) => c.label },
+                    ...(modo === "modais"
+                      ? [{ key: "modal", label: "Modal", render: (c: CampoDaTela) => c.modal }]
+                      : []),
+                    { key: "label", label: "Campo", render: (c) => c.campo },
                     {
                       key: "status",
                       label: "Status",
@@ -419,7 +461,8 @@ export default function CamposView({
                   ]}
                   rows={filtrarPesquisa(sortedCampos, pesquisaCampo, (c) => [
                   c.tipo,
-                  c.label,
+                  c.modal,
+                  c.campo,
                   CAMPO_STATUS_LABELS[getCampoStatusByKey(config, c.key)],
                   alteracoes[c.key]?.dt_criacao ? formatDate(alteracoes[c.key].dt_criacao) : "",
                   alteracoes[c.key]?.dt_alteracao ? formatDate(alteracoes[c.key].dt_alteracao) : "",

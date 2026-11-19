@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import Select from "@/components/ui/Select";
@@ -383,7 +384,7 @@ export default function ExclusoesView({
             ) : !funcao ? (
               vazio(funcaoNome ? "Selecione uma opção do dropdown para ver os registros excluídos." : "Selecione uma função.")
             ) : carregando ? (
-              vazio("Carregando...")
+              <LoadingModal open message="Carregando..." />
             ) : registros.length === 0 ? (
               vazio("Nenhum registro excluído.")
             ) : (

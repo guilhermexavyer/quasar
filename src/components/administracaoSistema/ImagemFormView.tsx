@@ -62,7 +62,7 @@ export default function ImagemFormView({
   onOpenAudit,
   manageSelection,
   onManageSelectionChange,
-  allowedSubmodulos = ['campos', 'perfis', 'usuarios', 'imagens'],
+  allowedSubmodulos = ['camposFormularios', 'camposModais', 'perfis', 'usuarios', 'imagens'],
   campoRegras = {},
   campoErros = [],
 }: ImagemFormViewProps) {

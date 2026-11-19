@@ -1,5 +1,6 @@
 "use client";
 
+import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
 import type { PeriodoLetivo } from "@/types/periodoLetivo";
@@ -136,8 +137,8 @@ export default function PeriodoLetivoFeriadosView({
   const feriadoAberto = form?.id ? feriados.find((f) => f.id === form.id) : undefined;
 
   const ordenados = useMemo(() => {
-    const coluna = sortColumn ?? 'dt_feriado';
-    const asc = sortColumn ? sortAsc : true;
+    const coluna = sortColumn ?? 'nr_sequencia';
+    const asc = sortColumn ? sortAsc : false; // padrão: mais recente primeiro
     return [...feriados].sort((a, b) => {
       let cmp: number;
       if (coluna === 'dt_feriado') cmp = chaveData(a.dt_feriado) - chaveData(b.dt_feriado);
@@ -376,6 +377,7 @@ export default function PeriodoLetivoFeriadosView({
       ) : (
         /* ── Lista de feriados ── */
         <div className="mt-6 flex-1 flex flex-col min-h-0">
+          {carregando && <LoadingModal open message="Carregando..." />}
           {!carregando && feriados.length === 0 ? (
             <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
               <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>

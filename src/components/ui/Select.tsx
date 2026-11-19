@@ -375,7 +375,7 @@ export default function Select({
                         ? 'bg-[#2a5f8a] text-white'
                         : 'text-white'
                       : isHighlighted || isSelected
-                        ? 'bg-slate-200 text-slate-900'
+                        ? 'bg-[#cfe4f7] text-slate-900' /* azul claro: destaca do fundo branco da lista */
                         : 'text-slate-800'
                 } ${optionClassName}`}
               >

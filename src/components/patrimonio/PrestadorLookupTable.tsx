@@ -327,7 +327,7 @@ export default function PrestadorLookupTable({ prestadores, pessoasFisicas, pess
 
   const sortedData = useMemo(() => {
     // Ordem padrão: coluna # (nr_sequencia).
-    if (sortColumn === null || sortAsc === null) return [...enrichedData].sort((a, b) => a.nr_sequencia - b.nr_sequencia);
+    if (sortColumn === null || sortAsc === null) return [...enrichedData].sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     const key = lookupColumns[sortColumn].key;
     return [...enrichedData].sort((a, b) => {
       const valA = (a as Record<string, unknown>)[key];
