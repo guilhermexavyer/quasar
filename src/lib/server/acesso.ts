@@ -90,7 +90,10 @@ async function exigirPermissao(sessao: Sessao, permissao: string) {
   }
 }
 
-/** Confere se o usuário logado pode gravar/excluir em `usuario` ou `perfil`. Demais tabelas: basta a sessão. */
+/** Tabelas com regra própria de escrita (exigirAcessoEscrita); nas demais, basta a sessão. */
+export const TABELAS_COM_REGRA_DE_ESCRITA = new Set(["usuario", "perfil", "relatorio_banda", "relatorio_parametro"]);
+
+/** Confere se o usuário logado pode gravar/excluir em `usuario`, `perfil` e nas bandas/parâmetros dos relatórios. Demais tabelas: basta a sessão. */
 export async function exigirAcessoEscrita(
   sessao: Sessao, tabela: string, operacao: "criar" | "atualizar" | "excluir",
   atual: Registro | null, dados?: Registro
@@ -112,6 +115,9 @@ export async function exigirAcessoEscrita(
     if (ehPerfilAdministrador(atual)) throw new ErroAcesso("O perfil Administrador não pode ser alterado.");
     if (operacao !== "excluir" && ehPerfilAdministrador(dados)) throw new ErroAcesso("Nome de perfil reservado.");
     await exigirPermissao(sessao, "acessar_perfis");
+  } else if (tabela === "relatorio_banda" || tabela === "relatorio_parametro") {
+    // A banda guarda o SQL executado pelo relatório: só quem configura bandas grava.
+    await exigirPermissaoDaFuncao(sessao, "relatorio", "bandas_relatorio");
   }
 }
 

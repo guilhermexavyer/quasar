@@ -3,7 +3,7 @@
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
-import { OPERADORES_FILTRO, TAMANHOS_PAGINA } from "@/lib/relatorioUtils";
+import { TAMANHOS_PAGINA } from "@/lib/relatorioUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 
 type Dados = Record<string, unknown>;
@@ -14,7 +14,7 @@ interface CampoGenerico {
   /** Largura na grade de 12 colunas. */
   span: number;
   /** texto (padrão), check (checkbox) ou cor (amostra + código). */
-  tipo?: "texto" | "check" | "cor";
+  tipo?: "texto" | "check" | "cor" | "textoLongo";
   /** Valor a partir dos dados (padrão: dados[campo]). */
   valor?: (d: Dados) => unknown;
   /** Texto exibido (rótulo da opção, data formatada…). */
@@ -52,10 +52,6 @@ const TIPOS_BANDA = [
 const BORDAS_PDF = [
   { value: "", label: "---" }, { value: "solid_fina", label: "Sólida fina" }, { value: "solid_grossa", label: "Sólida grossa" },
   { value: "dupla", label: "Dupla" }, { value: "tracejada", label: "Tracejada" }, { value: "pontilhada", label: "Pontilhada" },
-];
-const MASCARAS = [
-  { value: "texto", label: "Texto" }, { value: "data", label: "Data" }, { value: "decimal", label: "Decimal" },
-  { value: "inteiro", label: "Inteiro" }, { value: "cpf", label: "CPF" }, { value: "telefone", label: "Telefone" },
 ];
 const ALINHAMENTOS = [{ value: "esquerda", label: "Esquerda" }, { value: "centro", label: "Centro" }, { value: "direita", label: "Direita" }];
 
@@ -98,13 +94,13 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       campos: [
         { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
         { campo: "ds_relatorio", rotulo: "Descrição", span: 7 },
-        { campo: "ie_formato", rotulo: "Formato", span: 3, formatar: () => "PDF" },
+        { campo: "ie_formato", rotulo: "Formato", span: 3, formatar: (v) => (v === "pdf" ? "PDF" : "XLS") },
       ],
     },
     {
       titulo: "Saída",
       campos: [
-        { campo: "ds_nome_arquivo", rotulo: "Nome do arquivo", span: 3, valor: (d) => pdf(d).titulo },
+        { campo: "ds_nome_arquivo", rotulo: "Nome do arquivo", span: 3, valor: (d) => d.ds_nome_arquivo ?? pdf(d).titulo },
         { campo: "ie_pagina", rotulo: "Página", span: 3, valor: (d) => pdf(d).tamanhoPagina, formatar: rotuloDe(TAMANHOS_PAGINA) },
         { campo: "ie_orientacao", rotulo: "Orientação", span: 3, valor: (d) => pdf(d).orientacao, formatar: rotuloDe([{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]) },
         { campo: "ie_borda", rotulo: "Borda", span: 3, valor: (d) => pdf(d).estiloBorda, formatar: rotuloDe(BORDAS_PDF) },
@@ -119,15 +115,11 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
     titulo: "Parâmetro",
     campos: [
       { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
-      { campo: "ie_colecao", rotulo: "Coleção", span: 3, formatar: nomeColecao },
-      { campo: "ie_campo", rotulo: "Campo", span: 3, formatar: nomeCampo("ie_colecao") },
-      { campo: "ds_label", rotulo: "Label", span: 4 },
-      { campo: "operador", rotulo: "Operador", span: 2, formatar: rotuloDe(OPERADORES_FILTRO) },
-      { campo: "ie_mascara", rotulo: "Máscara", span: 2, formatar: rotuloDe(MASCARAS) },
-      { campo: "vl_padrao", rotulo: "Valor padrão", span: 3 },
-      { campo: "valorFinal", rotulo: "Valor final", span: 3 },
-      { campo: "ie_conector", rotulo: "Conector", span: 2 },
-      { campo: "ie_parametro", rotulo: "Parâmetro", span: 2, tipo: "check" },
+      { campo: "ds_parametro", rotulo: "Descrição do parâmetro", span: 5 },
+      { campo: "ds_label", rotulo: "Label", span: 5 },
+      { campo: "nr_ordem", rotulo: "Ordem", span: 2 },
+      { campo: "vl_padrao", rotulo: "Valor padrão", span: 6 },
+      { campo: "ie_perguntar", rotulo: "Perguntar", span: 2, tipo: "check" },
       { campo: "ie_obrigatorio", rotulo: "Obrigatório", span: 2, tipo: "check" },
     ],
   }],
@@ -136,7 +128,15 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       titulo: "Banda",
       campos: [
         { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
-        { campo: "ds_banda", rotulo: "Descrição", span: 2 },
+        { campo: "ds_banda", rotulo: "Descrição", span: 10 },
+        { campo: "ds_sql", rotulo: "SQL", span: 12, tipo: "textoLongo" },
+      ],
+    },
+    {
+      titulo: "PDF",
+      // Bandas do PDF (antes do XLS por SQL): os campos de layout.
+      mostrar: (d) => !!d.ie_tipo_banda,
+      campos: [
         { campo: "ie_tipo_banda", rotulo: "Tipo", span: 2, formatar: rotuloDe(TIPOS_BANDA) },
         { campo: "ie_colecao_principal", rotulo: "Coleção principal", span: 2, formatar: nomeColecao },
         { campo: "nr_posicao", rotulo: "Posição", span: 2 },
@@ -249,6 +249,8 @@ export default function FormularioExcluidoGenerico({
                       <div className="flex h-[34px] items-center">
                         <input type="checkbox" className="cg-checkbox" disabled checked={bruto === true || bruto === "S"} readOnly />
                       </div>
+                    ) : c.tipo === "textoLongo" ? (
+                      <textarea disabled rows={10} value={texto(bruto)} className={`${classeInput} font-mono text-[13px] leading-5 resize-y`} />
                     ) : c.tipo === "cor" ? (
                       <div className="flex items-center gap-2">
                         <span className="h-[34px] w-[34px] shrink-0 border border-slate-300" style={{ backgroundColor: texto(bruto) || "transparent" }} />

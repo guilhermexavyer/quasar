@@ -43,7 +43,8 @@ function formatCellValue(key: string, value: any): string {
     return formatDate(String(value));
   }
   if (key === "formato") {
-    return "PDF";
+    // Por enquanto só XLS (o PDF volta depois).
+    return value === "pdf" ? "PDF" : "XLS";
   }
   return String(value);
 }

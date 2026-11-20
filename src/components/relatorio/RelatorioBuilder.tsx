@@ -1,201 +1,125 @@
 "use client";
 
-import { useState, useMemo, useRef, useEffect, useCallback } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import LoadingModal from "@/components/ui/LoadingModal";
-import { DATA_SOURCES, getDataSource } from "@/lib/relatorioDataSources";
-import {
-  defaultConfigPdf,
-  gerarId,
-  OPERADORES_FILTRO,
-  TAMANHOS_PAGINA,
-} from "@/lib/relatorioUtils";
-import type {
-  Relatorio,
-  RelatorioCampo,
-  RelatorioConfigPdf,
-  RelatorioFiltro,
-  RelatorioOrdenacao,
-} from "@/types/relatorio";
-import CamposRelatorioTable, { type CamposRelatorioRow } from "@/components/relatorio/CamposRelatorioTable";
-import FiltrosRelatorioTable from "@/components/relatorio/FiltrosRelatorioTable";
-import OrdenacaoRelatorioTable from "@/components/relatorio/OrdenacaoRelatorioTable";
-import BandasRelatorioTable from "@/components/relatorio/BandasRelatorioTable";
-import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
+import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
+import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import { elementoVisivel } from "@/lib/visibilidade";
+import { formatDate } from "@/lib/pessoaFisicaUtils";
+import { nomeDoParametro, parametrosDoSql } from "@/lib/relatorioSql";
+import { TAMANHOS_PAGINA } from "@/lib/relatorioUtils";
+import {
+  excluirBandaSql,
+  excluirParametroSql,
+  obterBandasSql,
+  obterParametrosSql,
+  ordenarParametros,
+  salvarBandaSql,
+  salvarParametroSql,
+  type BandaSql,
+  type ParametroSql,
+} from "@/services/relatorioSqlService";
+import type { Relatorio } from "@/types/relatorio";
+
+/**
+ * Gerenciador de Relatórios > Relatórios (relatórios XLS por SQL).
+ *
+ *   - viewMode 'form' (Adicionar / Ver): Sequência, Descrição, Formato (só XLS) e Saída.
+ *     Os campos de PDF (Página, Orientação, Borda, margens) ficam desabilitados até o
+ *     PDF voltar.
+ *   - viewMode 'bandas' (duplo clique no relatório): abas Bandas e Parâmetros.
+ *       Bandas: no XLS, uma só (o "Adicionar" fica desabilitado enquanto ela existir);
+ *         campos Sequência, Descrição e SQL — a consulta que gera o relatório.
+ *       Parâmetros: os :nome usados no SQL (Descrição do parâmetro = o nome), com Label,
+ *         Ordem, Valor padrão, Perguntar e Obrigatório.
+ *     Bandas e parâmetros são gravados na hora (cada um com auditoria própria).
+ */
 
 interface ContextMenuItem {
   label: string;
   onClick?: () => void;
-  children?: ContextMenuItem[];
+}
+
+/** Dados do relatório gravados pelo formulário. */
+export interface DadosRelatorioForm {
+  ds_relatorio: string;
+  ie_formato: "excel";
+  ds_nome_arquivo: string;
 }
 
 interface RelatorioBuilderProps {
   relatorio: Relatorio | null;
-  onSave: (relatorio: Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">) => void;
+  /** 'form' mostra o relatório; 'bandas' mostra as abas Bandas e Parâmetros. */
+  viewMode?: "form" | "bandas";
+  onSave: (dados: DadosRelatorioForm) => void;
   onCancel: () => void;
   saving?: boolean;
   manageSelection?: string;
   onManageSelectionChange?: (v: string) => void;
   allowedSubmodulos?: string[];
-  /** Context menu */
   contextMenuItems?: ContextMenuItem[];
-  onChange?: (relatorio: Relatorio) => void;
-  userId?: string;
-  /** Nome exibido do usuário para os logs de auditoria (ds_usuario_criacao / ds_usuario_alteracao). */
-  userDisplayName?: string;
-  /** Resolve o ds_usuario para o nome da pessoa física vinculada (exibição no rodapé). */
-  resolverNomeAutorExibicao?: (dsUsuario: string) => string;
-  /** Exibe uma mensagem/aviso/erro como toast (via page.tsx). */
-  onToast?: (message: string, status: 'success' | 'warning' | 'error') => void;
-  /** Configuração de colunas salva por usuário */
-  initialListaColumns?: { order: string[]; widths: Record<string, number> } | null;
-  onListaColumnsChange?: (order: string[], widths: Record<string, number>) => void;
-  initialDadosColumns?: { order: string[]; widths: Record<string, number> } | null;
-  onDadosColumnsChange?: (order: string[], widths: Record<string, number>) => void;
-  initialFiltrosColumns?: { order: string[]; widths: Record<string, number> } | null;
-  onFiltrosColumnsChange?: (order: string[], widths: Record<string, number>) => void;
-  initialOrdenacaoColumns?: { order: string[]; widths: Record<string, number> } | null;
-  onOrdenacaoColumnsChange?: (order: string[], widths: Record<string, number>) => void;
-  initialBandasColumns?: { order: string[]; widths: Record<string, number> } | null;
-  onBandasColumnsChange?: (order: string[], widths: Record<string, number>) => void;
-  /** Navegação entre registros */
   onPrevRecord?: () => void;
   onNextRecord?: () => void;
   hasPrevRecord?: boolean;
   hasNextRecord?: boolean;
-  /** Auditoria */
   createdAt?: string;
   updatedAt?: string;
   createdBy?: string;
   updatedBy?: string;
+  resolverNomeAutorExibicao?: (dsUsuario: string) => string;
   onOpenAudit?: (relatorioId?: string | null) => void;
   onOpenBandaAudit?: (relatorioId?: string | null, bandaId?: string | null) => void;
-  /** Abrir histórico de auditoria de um elemento (relatorio_banda_elemento). */
-  onOpenCampoAudit?: (relatorioId?: string | null, campoId?: string | null) => void;
-  /** Abrir histórico de auditoria de um parâmetro (relatorio_parametro). */
-  onOpenFiltroAudit?: (relatorioId?: string | null, filtroId?: string | null) => void;
-  /** Save direto no banco ao salvar a banda (gera log de auditoria). Retorna as bandas salvas. */
-  onBandaSave?: (bandas: any[], bandaDetailId?: string | null) => Promise<any[] | void> | any[] | void;
-  /** Regras de campos por perfil (colecao relatorios): campo → status (N/O/D). */
+  onOpenFiltroAudit?: (relatorioId?: string | null, parametroId?: string | null) => void;
+  /** Regras de campo do perfil (N/O/D) do relatório, da banda e do parâmetro. */
   campoRegras?: Record<string, CampoStatus>;
-  /** Regras de campos por perfil (colecao relatorio_banda): campo → status (N/O/D). */
   bandaCampoRegras?: Record<string, CampoStatus>;
-  /** Regras de campos por perfil (colecao relatorio_banda_elemento): campo → status (N/O/D). */
-  elementoCampoRegras?: Record<string, CampoStatus>;
-  /** Regras de campos por perfil (colecao relatorio_parametro): campo → status (N/O/D). */
   parametroCampoRegras?: Record<string, CampoStatus>;
-  /** Campos obrigatórios vazios no último submit (borda vermelha). */
   campoErros?: string[];
-  /** Lista de imagens cadastradas. */
-  imagens?: { id: string; ds_imagem: string; ie_arquivo: string }[];
-  /** Modo de exibição: 'form' mostra Relatório+Saída, 'bandas' mostra apenas Bandas. */
-  viewMode?: 'form' | 'bandas';
-  /** Dark mode ativo. */
   darkMode?: boolean;
-  /** Navegação do breadcrumb: volta para a lista de relatórios. */
   onNavigateToList?: () => void;
-  /** Excluir elemento (modal de confirmação). */
-  onDeleteCampo?: (campo: CamposRelatorioRow) => void;  /** Excluir banda (modal de confirmação). */
-  onDeleteBanda?: (banda: any) => void;
-  /** Excluir parâmetro (modal de confirmação). */
-  onDeleteFiltro?: (filtro: RelatorioFiltro) => void;
-  /** Ref para expor funções de exclusão para page.tsx. */
-  stateActionsRef?: React.MutableRefObject<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>;
+  onToast?: (message: string, status: "success" | "warning" | "error") => void;
+  /** Abre o modal de confirmação de exclusão; `acao` roda se o usuário confirmar. */
+  onConfirmarExclusao?: (mensagem: string, acao: () => void) => void;
+  /** Colunas (ordem e largura) salvas das listas de bandas e de parâmetros. */
+  colunasBandas?: ConfigColunasTabela;
+  colunasParametros?: ConfigColunasTabela;
 }
 
-/** Normaliza bordas do elemento para 'S'/'N' (aceita booleano de dados antigos). */
-function simNao(v: unknown): 'S' | 'N' {
-  return v === 'S' || v === true ? 'S' : 'N';
-}
-
-function mapRelatorioCampoToRow(c: any, idx: number, colecaoPrincipal: string): CamposRelatorioRow {
-  return {
-    id: c.id || gerarId(),
-    _idRegistro: c._idRegistro || c.id || undefined,
-    nr_sequencia: c.nr_sequencia ?? 0,
-    ds_elemento: c.ds_elemento ?? '',
-    dt_criacao: c.dt_criacao ?? '',
-    dt_alteracao: c.dt_alteracao ?? '',
-    ds_usuario_criacao: c.ds_usuario_criacao ?? '',
-    ds_usuario_alteracao: c.ds_usuario_alteracao ?? '',
-    ie_colecao: c.ie_colecao || colecaoPrincipal,
-    ie_campo: c.ie_campo || '',
-    label: c.rotulo || c.label || '',
-    backgroundLabel: c.backgroundLabel || '#e2e8f0',
-    corLabel: c.corLabel || '#1a1a1a',
-    cd_cor: c.cd_cor || '#1a1a1a',
-    cd_background: c.cd_background || '',
-    transparentCampo: c.transparentCampo ?? false,
-    qt_padding_superior: c.qt_padding_superior ?? 0,
-    qt_padding_direita: c.qt_padding_direita ?? 0,
-    qt_padding_inferior: c.qt_padding_inferior ?? 0,
-    qt_padding_esquerda: c.qt_padding_esquerda ?? 0,
-    ie_borda_superior: c.ie_borda_superior ?? 'N',
-    ie_borda_direita: c.ie_borda_direita ?? 'N',
-    ie_borda_inferior: c.ie_borda_inferior ?? 'N',
-    ie_borda_esquerda: c.ie_borda_esquerda ?? 'N',
-    qt_esquerda: c.qt_esquerda ?? 0,
-    topoLabel: c.topoLabel ?? 0,
-    qt_topo: c.qt_topo ?? 0,
-    ie_alinhamento: c.ie_alinhamento ?? 'esquerda',
-    ie_estilo_label: c.ie_estilo_label ?? '',
-    ie_estilo: c.ie_estilo ?? '',
-    ie_estilo_soma: c.ie_estilo_soma ?? '',
-    qt_largura: c.qt_largura ?? 30,
-    formatacao: c.formatacao || 'texto',
-    statusSistema: c.statusSistema ?? false,
-    soma: c.soma ?? false,
-    ie_tipo_elemento: c.ie_tipo_elemento,
-    ie_primeira_pagina: c.ie_primeira_pagina ?? false,
-    conteudo: c.conteudo,
-    ie_fonte: c.ie_fonte,
-    qt_fonte: c.qt_fonte,
-    nr_seq_imagem: c.nr_seq_imagem,
-    qt_tamanho_imagem: c.qt_tamanho_imagem,
-  };
-}
-
-const EMPTY_FILTRO: () => RelatorioFiltro = () => ({
-  id: gerarId(),
-  ie_campo: "",
-  operador: "igual",
-  vl_padrao: "",
-  valorFinal: "",
-  ie_mascara: "texto",
-  ie_parametro: false,
-});
-
-const RELATORIO_SELECT_OPTIONS = [
-  { value: 'relatorio', label: 'Relatórios' },
+const RELATORIO_SELECT_OPTIONS = [{ value: "relatorio", label: "Relatórios" }];
+const FORMATO_OPTIONS = [{ value: "excel", label: "XLS" }];
+const ORIENTACAO_OPTIONS = [{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }];
+const BORDA_OPTIONS = [
+  { value: "", label: "---" },
+  { value: "solid_fina", label: "Sólida fina" },
+  { value: "solid_grossa", label: "Sólida grossa" },
+  { value: "dupla", label: "Dupla" },
+  { value: "tracejada", label: "Tracejada" },
+  { value: "pontilhada", label: "Pontilhada" },
 ];
+
+const INPUT = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500";
+const BOTAO_LINK = "inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2 disabled:text-slate-400 disabled:cursor-not-allowed disabled:outline-none";
+const BOTAO_NAV = "inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300 disabled:opacity-40 disabled:cursor-default disabled:hover:bg-[#ddd]";
+
+type Detalhe = { tipo: "banda"; banda: BandaSql } | { tipo: "parametro"; parametro: ParametroSql } | null;
+
+function simNao(v: unknown): string {
+  return v === "S" ? "Sim" : v === "N" ? "Não" : "";
+}
 
 export default function RelatorioBuilder({
   relatorio,
+  viewMode = "form",
   onSave,
   onCancel,
   saving = false,
-  manageSelection = 'relatorio',
+  manageSelection = "relatorio",
   onManageSelectionChange,
-  allowedSubmodulos = ['relatorio'],
+  allowedSubmodulos = ["relatorio"],
   contextMenuItems = [],
-  onChange,
-  userId,
-  userDisplayName = '',
-  resolverNomeAutorExibicao,
-  onToast,
-  initialListaColumns,
-  onListaColumnsChange,
-  initialDadosColumns,
-  onDadosColumnsChange,
-  initialFiltrosColumns,
-  onFiltrosColumnsChange,
-  initialOrdenacaoColumns,
-  onOrdenacaoColumnsChange,
-  initialBandasColumns,
-  onBandasColumnsChange,
   onPrevRecord,
   onNextRecord,
   hasPrevRecord = false,
@@ -204,1012 +128,290 @@ export default function RelatorioBuilder({
   updatedAt,
   createdBy,
   updatedBy,
+  resolverNomeAutorExibicao,
   onOpenAudit,
   onOpenBandaAudit,
-  onOpenCampoAudit,
   onOpenFiltroAudit,
-  onBandaSave,
   campoRegras = {},
   bandaCampoRegras = {},
-  elementoCampoRegras = {},
   parametroCampoRegras = {},
   campoErros = [],
-  imagens = [],
-  viewMode = 'form',
   darkMode = false,
   onNavigateToList,
-  onDeleteCampo,
-  onDeleteBanda,
-  onDeleteFiltro,
-  stateActionsRef,
+  onToast,
+  onConfirmarExclusao,
+  colunasBandas,
+  colunasParametros,
 }: RelatorioBuilderProps) {
-  const isBandasMode = viewMode === 'bandas';
-  const isDark = darkMode;
-  const onBandaSaveRef = useRef(onBandaSave);
-  useEffect(() => { onBandaSaveRef.current = onBandaSave; }, [onBandaSave]);
-
-  // Expor setters para page.tsx (estável, sem causar re-renders)
-  const removeCampoRef = useRef<(campoId: string) => void>(() => {});
-  const removeBandaRef = useRef<(bandaId: string) => void>(() => {});
-  removeCampoRef.current = (campoId: string) => {
-    setCampos((prev) => {
-      const next = prev.filter((c) => c.id !== campoId);
-      const currentBandaId = bandaDetailIdRef.current;
-      if (currentBandaId) {
-        setBandas((prevB) => prevB.map((b) => b.id === currentBandaId ? { ...b, campos: next } : b));
-      }
-      return next;
-    });
-  };
-  removeBandaRef.current = (bandaId: string) => setBandas((prev) => prev.filter((b) => b.id !== bandaId));
-  useEffect(() => {
-    if (stateActionsRef) {
-      stateActionsRef.current = {
-        removeCampo: (id: string) => removeCampoRef.current(id),
-        removeBanda: (id: string) => removeBandaRef.current(id),
-      };
-    }
-  }, [stateActionsRef]);
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
-
-  useEffect(() => {
-    if (!contextMenu) return;
-    const close = () => setContextMenu(null);
-    window.addEventListener("click", close);
-    return () => window.removeEventListener("click", close);
-  }, [contextMenu]);
-
-  function handleContextMenu(e: React.MouseEvent) {
-    e.preventDefault();
-    setContextMenu({ x: e.clientX, y: e.clientY });
-  }
+  const ehBandas = viewMode === "bandas";
   const formRef = useRef<HTMLFormElement | null>(null);
+  const nrRelatorio = relatorio?.nr_sequencia ?? null;
+  const pdf = relatorio?.configPdf;
 
-  const [bandaSaving, setBandaSaving] = useState(false);
-
-  // ── Dirty state: detecta alterações não salvas ──
-  // Armazena o bandas/campos/filtros/ordenacao no momento do último save/load.
-  const savedBandasRef = useRef<string>('');
-  const savedCamposRef = useRef<string>('');
-  const savedFiltrosRef = useRef<string>('');
-  const savedOrdenacaoRef = useRef<string>('');
-  const [isDirty, setIsDirty] = useState(false);
-  const [showUnsavedModal, setShowUnsavedModal] = useState(false);
-  const [pendingNav, setPendingNav] = useState<'prev' | 'next' | null>(null);
-  const pendingNavRef = useRef<'prev' | 'next' | null>(null);
-
-  /** Captura o estado "limpo" (salvo) para comparação futura. */
-  function refreshSnapshot() {
-    savedBandasRef.current = JSON.stringify(bandas);
-    savedCamposRef.current = JSON.stringify(campos);
-    savedFiltrosRef.current = JSON.stringify(filtros);
-    savedOrdenacaoRef.current = JSON.stringify(ordenacao);
-  }
-
-  /** Verifica se há alterações em relação ao último snapshot. */
-  function computeDirty(): boolean {
-    if (JSON.stringify(bandas) !== savedBandasRef.current) return true;
-    if (JSON.stringify(campos) !== savedCamposRef.current) return true;
-    if (JSON.stringify(filtros) !== savedFiltrosRef.current) return true;
-    if (JSON.stringify(ordenacao) !== savedOrdenacaoRef.current) return true;
-    return false;
-  }
-
+  /* ── Formulário do relatório ── */
   const [dsRelatorio, setDsRelatorio] = useState(relatorio?.ds_relatorio ?? "");
-  const [colecao, setColecao] = useState(relatorio?.colecao ?? "");
-  const [campos, setCampos] = useState<CamposRelatorioRow[]>(
-    relatorio?.campos?.length
-      ? relatorio.campos.map((c, i) => mapRelatorioCampoToRow(c, i, relatorio.colecao))
-      : []
+  const [nomeArquivo, setNomeArquivo] = useState(
+    relatorio?.ds_nome_arquivo ?? pdf?.titulo ?? ""
   );
-  const [filtros, setFiltros] = useState<RelatorioFiltro[]>(relatorio?.filtros?.length ? relatorio.filtros : []);
-  const [ordenacao, setOrdenacao] = useState<RelatorioOrdenacao[]>(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-  type BandaState = { id: string; ds_banda: string; ie_colecao_principal?: string; nr_posicao: number; ie_tipo_banda?: 'lista' | 'texto_valor' | 'cabecalho' | 'rodape'; nr_altura?: number; nr_sequencia?: number; nr_seq_relatorio?: number; ie_borda_superior?: boolean; ie_borda_inferior?: boolean; ie_borda_esquerda?: boolean; ie_borda_direita?: boolean; espessuraLabel?: number; topoLabel?: number; espessuraCampo?: number; topoRegistro?: number; bgLabel?: string; bgCampo?: string; corLabelGlobal?: string; corCampoGlobal?: string; fonteLabel?: string; tamanhoFonteLabel?: number; fonteCampo?: string; tamanhoFonteCampo?: number; campos?: any[]; filtros?: any[]; ordenacao?: any[]; _idRegistro?: string; dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string };
-  const [bandas, setBandas] = useState<BandaState[]>(
-    relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []
+
+  /* ── Bandas e parâmetros ── */
+  const [aba, setAba] = useState<"bandas" | "parametros">("bandas");
+  const [bandas, setBandas] = useState<BandaSql[]>([]);
+  const [parametros, setParametros] = useState<ParametroSql[]>([]);
+  const [carregando, setCarregando] = useState(ehBandas);
+  const [gravando, setGravando] = useState(false);
+  const [detalhe, setDetalhe] = useState<Detalhe>(null);
+  const [errosDetalhe, setErrosDetalhe] = useState<string[]>([]);
+  const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
+  const [menu, setMenu] = useState<{ x: number; y: number; acoes: ContextMenuItem[] } | null>(null);
+
+  // Carga das bandas e parâmetros ao abrir (resultado aplicado só se a tela ainda estiver aberta).
+  const onToastRef = useRef(onToast);
+  useEffect(() => { onToastRef.current = onToast; }, [onToast]);
+  useEffect(() => {
+    if (!ehBandas || nrRelatorio == null) return;
+    let ativo = true;
+    Promise.all([obterBandasSql(nrRelatorio), obterParametrosSql(nrRelatorio)])
+      .then(([b, p]) => {
+        if (!ativo) return;
+        setBandas(b);
+        setParametros(p);
+      })
+      .catch(() => { if (ativo) onToastRef.current?.("Erro ao carregar as bandas e os parâmetros.", "error"); })
+      .finally(() => { if (ativo) setCarregando(false); });
+    return () => { ativo = false; };
+  }, [ehBandas, nrRelatorio]);
+
+  // Menu de contexto fecha com qualquer clique.
+  useEffect(() => {
+    if (!menu) return;
+    const fechar = () => setMenu(null);
+    window.addEventListener("click", fechar);
+    return () => window.removeEventListener("click", fechar);
+  }, [menu]);
+
+  const autor = (nome?: string) => {
+    if (!nome) return "-";
+    return resolverNomeAutorExibicao ? resolverNomeAutorExibicao(nome) || nome : nome;
+  };
+  const statusDe = (regras: Record<string, CampoStatus>, campo: string): CampoStatus => regras[campo] ?? "N";
+  const rotulo = (texto: string, colecao: string, campo: string, regras: Record<string, CampoStatus>) => (
+    <RotuloCampo texto={texto} colecao={colecao} campo={campo} prefixo={statusDe(regras, campo) === "O" ? <RequiredAsterisk /> : undefined} />
   );
-  // Sincroniza bandas quando o pai atualiza relatorio.bandas (ex.: após fetch async)
-  const bandasDataRef = useRef(relatorio?.bandas ?? []);
-  useEffect(() => {
-    const next = relatorio?.bandas ?? [];
-    if (JSON.stringify(next) !== JSON.stringify(bandasDataRef.current)) {
-      bandasDataRef.current = next;
-      setBandas(next.length ? next.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
-    }
-  }, [relatorio?.bandas]);
-  // Sincroniza filtros (parâmetros) quando o pai atualiza relatorio.filtros (ex.: após fetch async)
-  const filtrosDataRef = useRef(relatorio?.filtros ?? []);
-  useEffect(() => {
-    const next = relatorio?.filtros ?? [];
-    if (JSON.stringify(next) !== JSON.stringify(filtrosDataRef.current)) {
-      filtrosDataRef.current = next;
-      setFiltros(next.length ? next : []);
-    }
-  }, [relatorio?.filtros]);
-  const [bandaDetailId, setBandaDetailId] = useState<string | null>(null);
-  const lastBandaDetailIdRef = useRef<string | null>(null);
-  useEffect(() => { if (bandaDetailId) lastBandaDetailIdRef.current = bandaDetailId; }, [bandaDetailId]);
-  const [bandaViewMode, setBandaViewMode] = useState<'ver' | 'content'>('content');
-  const [bandasSubView, setBandasSubView] = useState<'bandas' | 'parametros'>('bandas');
-  const [bandaContentSubView, setBandaContentSubView] = useState<'dados' | 'ordenacao'>('dados');
-  const [campoDetailId, setCampoDetailId] = useState<string | null>(null);
-  const [filtroDetailId, setFiltroDetailId] = useState<string | null>(null);
-  const [pendingBanda, setPendingBanda] = useState<BandaState | null>(null);
-  const [pendingCampo, setPendingCampo] = useState<CamposRelatorioRow | null>(null);
-  const [pendingFiltro, setPendingFiltro] = useState<RelatorioFiltro | null>(null);
-  const filtroSel = useMemo(() => {
-    if (pendingFiltro && pendingFiltro.id === filtroDetailId) return pendingFiltro;
-    return filtros.find((f) => f.id === filtroDetailId);
-  }, [filtros, filtroDetailId, pendingFiltro]);
-  const campoSel = useMemo(() => {
-    if (pendingCampo && pendingCampo.id === campoDetailId) return pendingCampo;
-    return campos.find((c) => c.id === campoDetailId);
-  }, [campos, campoDetailId, pendingCampo]);
-  const bandaTipo = useMemo(() => {
-    if (pendingBanda && pendingBanda.id === bandaDetailId) return pendingBanda.ie_tipo_banda;
-    return bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda;
-  }, [bandas, bandaDetailId, pendingBanda]);
+  const comErro = (lista: string[], campo: string) => (lista.includes(campo) ? `${INPUT} !border-red-500` : INPUT);
 
-  // Audit info da banda atual (quando dentro de uma banda)
-  const bandaSel = useMemo(() => {
-    if (pendingBanda && pendingBanda.id === bandaDetailId) return pendingBanda;
-    return bandas.find((b) => b.id === bandaDetailId);
-  }, [bandas, bandaDetailId, pendingBanda]);
-  const bandaCreatedAt = bandaSel?.dt_criacao ?? '';
-  const bandaUpdatedAt = bandaSel?.dt_alteracao ?? '';
-  const bandaCreatedBy = bandaSel?.ds_usuario_criacao ?? '';
-  const bandaUpdatedBy = bandaSel?.ds_usuario_alteracao ?? '';
-
-  // Contexto de auditoria do rodapé: elemento > parâmetro > banda > relatório.
-  const auditCtx = campoDetailId ? 'elemento' : filtroDetailId ? 'parametro' : bandaDetailId ? 'banda' : 'relatorio';
-  const auditCtxCreatedBy = auditCtx === 'elemento' ? (campoSel?.ds_usuario_criacao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.ds_usuario_criacao || '') : auditCtx === 'banda' ? bandaCreatedBy : (createdBy || '');
-  const auditCtxUpdatedBy = auditCtx === 'elemento' ? (campoSel?.ds_usuario_alteracao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.ds_usuario_alteracao || '') : auditCtx === 'banda' ? bandaUpdatedBy : (updatedBy || '');
-  const auditCtxCreatedAt = auditCtx === 'elemento' ? (campoSel?.dt_criacao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.dt_criacao || '') : auditCtx === 'banda' ? bandaCreatedAt : (createdAt || '');
-  const auditCtxUpdatedAt = auditCtx === 'elemento' ? (campoSel?.dt_alteracao || '') : auditCtx === 'parametro' ? ((filtroSel as any)?.dt_alteracao || '') : auditCtx === 'banda' ? bandaUpdatedAt : (updatedAt || '');
-  function openAuditForCtx() {
-    if (!relatorio) return;
-    if (auditCtx === 'elemento') {
-      onOpenCampoAudit?.(relatorio.id ?? null, campoSel?._idRegistro || campoSel?.id || null);
-    } else if (auditCtx === 'parametro') {
-      onOpenFiltroAudit?.(relatorio.id ?? null, (filtroSel as any)?._idRegistro || filtroSel?.id || null);
-    } else if (auditCtx === 'banda') {
-      onOpenBandaAudit?.(relatorio.id ?? null, bandaDetailId);
-    } else {
-      onOpenAudit?.(relatorio.id ?? null);
-    }
-  }
-  /** Nome exibido no rodapé: nome da pessoa física vinculada (se houver), senão o ds_usuario. */
-  function exibirNomeAutor(nome: string): string {
-    if (!nome || nome === '-') return nome;
-    return resolverNomeAutorExibicao ? (resolverNomeAutorExibicao(nome) || nome) : nome;
-  }
-  // O rodapé de auditoria/ações só ocupa espaço quando há conteúdo (nas listagens de bandas/elementos ele fica vazio).
-  const temAuditInfo = !!relatorio && (!isBandasMode || !!campoDetailId || !!filtroDetailId || (!!bandaDetailId && bandaViewMode === 'ver'));
-  const temAcoesRodape = !isBandasMode || (!!bandaDetailId && bandaViewMode === 'ver') || !!campoDetailId || !!filtroDetailId;
-  const temRodapeConteudo = temAuditInfo || temAcoesRodape;
-
-  // Refs para evitar stale closures no Ctrl+S do modal banda
-  const camposRef = useRef(campos);
-  const filtrosRef = useRef(filtros);
-  const ordenacaoRef = useRef(ordenacao);
-  const bandaDetailIdRef = useRef(bandaDetailId);
-  useEffect(() => { camposRef.current = campos; }, [campos]);
-  useEffect(() => { filtrosRef.current = filtros; }, [filtros]);
-  useEffect(() => { ordenacaoRef.current = ordenacao; }, [ordenacao]);
-  useEffect(() => { bandaDetailIdRef.current = bandaDetailId; }, [bandaDetailId]);
-  // Contador de sequência de bandas: nunca reutiliza números de bandas excluídas.
-  const nextBandaSeqRef = useRef(Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1);
-  useEffect(() => { nextBandaSeqRef.current = Math.max(nextBandaSeqRef.current, Math.max(0, ...bandas.map((b) => b.nr_sequencia ?? 0)) + 1); }, [bandas]);
-  function getNextBandaSeq() { const v = nextBandaSeqRef.current; nextBandaSeqRef.current = v + 1; return v; }
-  // Contadores de sequência por seção (nunca reutilizam números excluídos).
-  const nextCampoSeqRef = useRef(Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1);
-  const nextFiltroSeqRef = useRef(Math.max(0, ...filtros.map((f) => f.nr_sequencia ?? 0)) + 1);
-  const nextOrdSeqRef = useRef(Math.max(0, ...ordenacao.map((o) => o.nr_sequencia ?? 0)) + 1);
-  useEffect(() => { nextCampoSeqRef.current = Math.max(nextCampoSeqRef.current, Math.max(0, ...campos.map((c) => c.nr_sequencia ?? 0)) + 1); }, [campos]);
-  useEffect(() => { nextFiltroSeqRef.current = Math.max(nextFiltroSeqRef.current, Math.max(0, ...filtros.map((f) => f.nr_sequencia ?? 0)) + 1); }, [filtros]);
-  useEffect(() => { nextOrdSeqRef.current = Math.max(nextOrdSeqRef.current, Math.max(0, ...ordenacao.map((o) => o.nr_sequencia ?? 0)) + 1); }, [ordenacao]);
-  function getNextCampoSeq() { const v = nextCampoSeqRef.current; nextCampoSeqRef.current = v + 1; return v; }
-  function getNextFiltroSeq() { const v = nextFiltroSeqRef.current; nextFiltroSeqRef.current = v + 1; return v; }
-  function getNextOrdSeq() { const v = nextOrdSeqRef.current; nextOrdSeqRef.current = v + 1; return v; }
-
-  /** Sincroniza campos entre o state local e bandas[i].campos */
-  const syncCampos = useCallback((updater: React.SetStateAction<CamposRelatorioRow[]>) => {
-    setCampos((prev) => {
-      const next = typeof updater === 'function' ? updater(prev) : updater;
-      const currentBandaId = bandaDetailIdRef.current;
-      if (currentBandaId) {
-        setBandas((prevB) => prevB.map((b) => b.id === currentBandaId ? { ...b, campos: next } : b));
-      }
-      return next;
-    });
-  }, []);
-
-  /** Abre o modal da banda: salva dados globais na banda anterior e carrega dados da banda alvo */
-  function openBandaDetail(bandaId: string) {
-    const currentBandaId = bandaDetailIdRef.current;
-    if (currentBandaId) {
-      const c = camposRef.current;
-      const f = filtrosRef.current;
-      const o = ordenacaoRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
-    }
-    // Limpar estado de campo anterior para não abrir formulário de elemento
-    setPendingCampo(null);
-    setCampoDetailId(null);
-    const target = bandas.find((b) => b.id === bandaId);
-    if (target) {
-      setCampos(target.campos?.length ? [...target.campos] : []);
-      setOrdenacao((target.ordenacao ?? []).map((o: RelatorioOrdenacao) => ({ ...o, id: o.id || gerarId() })));
-    }
-    setBandaDetailId(bandaId);
-    setBandaViewMode('content');
-    setBandaContentSubView('dados');
-    // Carregar configurações visuais da banda selecionada
-    if (target) {
-      setEspessuraLabel(target.espessuraLabel ?? 16);
-      setTopoLabelVal(target.topoLabel ?? 0);
-      setEspessuraCampo(target.espessuraCampo ?? 24);
-      setTopoRegistroVal(target.topoRegistro ?? 0);
-      setBgLabel(target.bgLabel ?? '#e2e8f0');
-      setBgCampo(target.bgCampo ?? '');
-      setCorLabelGlobal(target.corLabelGlobal ?? '#1a1a1a');
-      setCorCampoGlobal(target.corCampoGlobal ?? '#1a1a1a');
-      setFonteLabel(target.fonteLabel ?? 'Arial');
-      setTamanhoFonteLabel(target.tamanhoFonteLabel ?? 10);
-      setFonteCampo(target.fonteCampo ?? 'Arial');
-      setTamanhoFonteCampo(target.tamanhoFonteCampo ?? 10);
-    }
-  }
-
-  function openBandaVer(bandaId: string) {
-    const currentBandaId = bandaDetailIdRef.current;
-    if (currentBandaId && !pendingBanda) {
-      const c = camposRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
-    }
-    setBandaDetailId(bandaId);
-    setBandaViewMode('ver');
-    setBandaContentSubView('dados');
-    // Carregar configurações visuais da banda selecionada
-    const bSel = (pendingBanda && pendingBanda.id === bandaId) ? pendingBanda : bandas.find((b) => b.id === bandaId);
-    // Elementos da própria banda: o Salvar/Voltar grava camposRef na banda aberta.
-    setCampos(bSel?.campos?.length ? [...bSel.campos] : []);
-    bandaSnapshotRef.current = bSel && !(pendingBanda && pendingBanda.id === bandaId) ? JSON.parse(JSON.stringify(bSel)) : null;
-    if (bSel) {
-      setEspessuraLabel(bSel.espessuraLabel ?? 16);
-      setTopoLabelVal(bSel.topoLabel ?? 0);
-      setEspessuraCampo(bSel.espessuraCampo ?? 24);
-      setTopoRegistroVal(bSel.topoRegistro ?? 0);
-      setBgLabel(bSel.bgLabel ?? '#e2e8f0');
-      setBgCampo(bSel.bgCampo ?? '');
-      setCorLabelGlobal(bSel.corLabelGlobal ?? '#1a1a1a');
-      setCorCampoGlobal(bSel.corCampoGlobal ?? '#1a1a1a');
-      setFonteLabel(bSel.fonteLabel ?? 'Arial');
-      setTamanhoFonteLabel(bSel.tamanhoFonteLabel ?? 10);
-      setFonteCampo(bSel.fonteCampo ?? 'Arial');
-      setTamanhoFonteCampo(bSel.tamanhoFonteCampo ?? 10);
-    }
-  }
-
-  function openFiltroVer(filtroId: string) {
-    const atual = filtros.find((f) => f.id === filtroId);
-    filtroSnapshotRef.current = atual ? JSON.parse(JSON.stringify(atual)) : null;
-    setFiltroDetailId(filtroId);
-    setPendingFiltro(null);
-  }
-
-  // ── Navegação anterior/próximo nas telas Ver de banda, elemento e parâmetro ──
-  // As setas percorrem os registros da tabela de origem na ordem exibida (com a
-  // ordenação atual); nas demais telas navegam entre relatórios.
-  const bandaSnapshotRef = useRef<BandaState | null>(null);
-  const filtroSnapshotRef = useRef<RelatorioFiltro | null>(null);
-  const [ordemBandas, setOrdemBandas] = useState<string[]>([]);
-  const [ordemCampos, setOrdemCampos] = useState<string[]>([]);
-  const [ordemFiltros, setOrdemFiltros] = useState<string[]>([]);
-
-  /** Ordem exibida pela tabela; itens ainda não refletidos nela vão para o fim. */
-  function ordemDe(ordem: string[], ids: string[]): string[] {
-    const exibidos = ordem.filter((id) => ids.includes(id));
-    return [...exibidos, ...ids.filter((id) => !exibidos.includes(id))];
-  }
-
-  /** Descarta alterações não salvas da banda aberta no Ver. */
-  function restaurarBandaVer() {
-    const snap = bandaSnapshotRef.current;
-    bandaSnapshotRef.current = null;
-    if (snap) setBandas((prev) => prev.map((b) => (b.id === snap.id ? snap : b)));
-  }
-
-  /** Descarta alterações não salvas do parâmetro aberto no Ver. */
-  function restaurarFiltroVer() {
-    const snap = filtroSnapshotRef.current;
-    filtroSnapshotRef.current = null;
-    if (snap) setFiltros((prev) => prev.map((f) => (f.id === snap.id ? snap : f)));
-  }
-
-  const navContexto: 'relatorio' | 'banda' | 'elemento' | 'parametro' =
-    campoDetailId ? 'elemento' : filtroDetailId ? 'parametro' : bandaDetailId && bandaViewMode === 'ver' ? 'banda' : 'relatorio';
-  const navLista =
-    navContexto === 'elemento' ? ordemDe(ordemCampos, campos.map((c) => c.id))
-    : navContexto === 'parametro' ? ordemDe(ordemFiltros, filtros.map((f) => f.id))
-    : navContexto === 'banda' ? ordemDe(ordemBandas, bandas.map((b) => b.id))
-    : [];
-  // Item novo (ainda não salvo) não está na lista: setas desabilitadas.
-  const navAtual = navContexto === 'elemento' ? campoDetailId : navContexto === 'parametro' ? filtroDetailId : bandaDetailId;
-  const navIndice = navAtual ? navLista.indexOf(navAtual) : -1;
-  const temAnterior = navContexto === 'relatorio' ? hasPrevRecord : navIndice > 0;
-  const temProximo = navContexto === 'relatorio' ? hasNextRecord : navIndice >= 0 && navIndice < navLista.length - 1;
-
-  function navegarRegistro(direcao: 'prev' | 'next') {
-    if (navContexto === 'relatorio') { handleNavClick(direcao); return; }
-    const alvo = navLista[navIndice + (direcao === 'prev' ? -1 : 1)];
-    if (!alvo || navIndice < 0) return;
-    if (navContexto === 'elemento') {
-      // Mesmo comportamento do Cancelar: descarta o que não foi salvo.
-      const originalBanda = bandas.find((b) => b.id === bandaDetailId);
-      if (originalBanda?.campos) syncCampos(originalBanda.campos);
-      setPendingCampo(null);
-      setCampoDetailId(alvo);
-    } else if (navContexto === 'parametro') {
-      restaurarFiltroVer();
-      openFiltroVer(alvo);
-    } else {
-      restaurarBandaVer();
-      openBandaVer(alvo);
-    }
-  }
-
-  /** Atualiza a banda selecionada (funciona tanto para banda existente quanto pendente) */
-  function updateBandaSelecionada(updater: (b: BandaState) => BandaState) {
-    if (pendingBanda && pendingBanda.id === bandaDetailId) {
-      setPendingBanda((prev) => prev ? updater(prev) : prev);
-    } else {
-      setBandas((prev) => prev.map((b) => b.id === bandaDetailId ? updater(b) : b));
-    }
-  }
-
-  /** Atualiza o campo selecionado (salva apenas ao clicar Salvar/Ctrl+S) */
-  function updateCampoSelecionado(updater: (c: CamposRelatorioRow) => CamposRelatorioRow) {
-    if (pendingCampo && pendingCampo.id === campoDetailId) {
-      setPendingCampo((prev) => prev ? updater(prev) : prev);
-    } else {
-      // Atualiza apenas o state local (NÃO sincroniza com bandas)
-      // para que Cancelar possa restaurar os dados originais
-      setCampos((prev) => prev.map((c) => c.id === campoDetailId ? updater(c) : c));
-    }
-  }
-
-  // ── Ordenação da banda (tipo Lista) ──
-  // A ordenação pertence à banda: fica em bandas[i].ordenacao e é gravada no
-  // banco junto com a banda assim que a linha deixa de estar em edição.
-  const bandasRef = useRef(bandas);
-  useEffect(() => { bandasRef.current = bandas; }, [bandas]);
-  const ordenacaoPendenteRef = useRef(false);
-  const [ordenacaoEditRequest, setOrdenacaoEditRequest] = useState<string | null>(null);
-
-  function alterarOrdenacaoBanda(next: RelatorioOrdenacao[]) {
-    const agora = new Date().toISOString();
-    const autor = userDisplayName || '-';
-    const anterior = ordenacaoRef.current;
-    const comAuditoria = next.map((o) => {
-      const antes = anterior.find((a) => a.id === o.id);
-      if (!antes) return { ...o, dt_criacao: agora, ds_usuario_criacao: autor, dt_alteracao: agora, ds_usuario_alteracao: autor };
-      if (antes.campo !== o.campo || antes.direcao !== o.direcao) return { ...o, dt_alteracao: agora, ds_usuario_alteracao: autor };
-      return o;
-    });
-    setOrdenacao(comAuditoria);
-    const bandaId = bandaDetailIdRef.current;
-    if (bandaId) {
-      const atualizadas = bandasRef.current.map((b) => (b.id === bandaId ? { ...b, ordenacao: comAuditoria } : b));
-      bandasRef.current = atualizadas;
-      setBandas(atualizadas);
-      ordenacaoPendenteRef.current = true;
-    }
-  }
-
-  function adicionarOrdenacaoBanda() {
-    const id = gerarId();
-    alterarOrdenacaoBanda([...ordenacaoRef.current, { id, nr_sequencia: getNextOrdSeq(), campo: '', direcao: 'asc' }]);
-    setOrdenacaoEditRequest(id);
-  }
-
-  /** Grava no banco um elemento editado direto na tabela (lápis). */
-  async function gravarElementoEditado(row: CamposRelatorioRow) {
-    if (!row._idRegistro) return;
-    const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
-    const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-    const nrSeqBanda = bandasRef.current.find((b) => b.id === bandaDetailIdRef.current)?.nr_sequencia ?? 0;
-    const audit = await atualizarElemento(row._idRegistro, { ...row, nr_seq_banda: nrSeqBanda }, auditAutor);
-    syncCampos((prev) => prev.map((c) => (c.id === row.id ? { ...c, dt_alteracao: audit.dt_alteracao, ds_usuario_alteracao: audit.ds_usuario_alteracao } : c)));
-  }
-
-  /** Grava no banco um parâmetro editado direto na tabela (lápis). */
-  async function gravarParametroEditado(row: RelatorioFiltro) {
-    const idRegistro = (row as RelatorioFiltro & { _idRegistro?: string })._idRegistro;
-    if (!idRegistro) return;
-    const { atualizarParametro } = await import('@/services/relatorioServiceParametros');
-    const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-    const audit = await atualizarParametro(idRegistro, { ...row, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-    setFiltros((prev) => prev.map((f) => (f.id === row.id ? { ...f, dt_alteracao: audit.dt_alteracao, ds_usuario_alteracao: audit.ds_usuario_alteracao } : f)));
-  }
-
-  /** Duplica um parâmetro gravando a cópia no banco. */
-  async function duplicarParametro(original: RelatorioFiltro): Promise<RelatorioFiltro | null> {
-    setBandaSaving(true);
-    try {
-      const { criarParametro } = await import('@/services/relatorioServiceParametros');
-      const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-      // A cópia ganha identificação e auditoria próprias.
-      const dados: Record<string, unknown> = { ...original };
-      for (const chave of ['id', '_idRegistro', 'nr_sequencia', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']) delete dados[chave];
-      const salvo = await criarParametro({ ...dados, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-      return { ...dados, id: salvo.id, _idRegistro: salvo.id, nr_sequencia: salvo.nr_sequencia, dt_criacao: salvo.dt_criacao, dt_alteracao: salvo.dt_alteracao, ds_usuario_criacao: salvo.ds_usuario_criacao, ds_usuario_alteracao: salvo.ds_usuario_alteracao } as unknown as RelatorioFiltro;
-    } catch {
-      return null;
-    } finally {
-      setBandaSaving(false);
-    }
-  }
-
-  /** Grava as bandas após editar uma banda direto na tabela (lápis). */
-  async function gravarBandaEditada(row: BandaState) {
-    if (!row._idRegistro) return;
-    setBandaSaving(true);
-    try {
-      const atualizadas = bandasRef.current.map((b) => (b.id === row.id ? row : b));
-      const salvas = await onBandaSaveRef.current?.(atualizadas, undefined);
-      if (salvas) setBandas(salvas);
-    } finally {
-      setBandaSaving(false);
-    }
-  }
-
-  /** Fecha o modal da banda: salva dados na banda e limpa. Usa refs para evitar stale closures. */
-  function closeBandaDetail() {
-    const currentBandaId = bandaDetailIdRef.current;
-    if (currentBandaId) {
-      const c = camposRef.current;
-      const f = filtrosRef.current;
-      const o = ordenacaoRef.current;
-      setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
-    }
-    setBandaDetailId(null);
-    setCampoDetailId(null);
-    setCampos([]);
-    setOrdenacao([]);
-  }
-  const [formato] = useState<'pdf'>('pdf');
-  const [configPdf, setConfigPdf] = useState(relatorio?.configPdf ?? defaultConfigPdf());
-  const [espessuraLabel, setEspessuraLabel] = useState(relatorio?.espessuraLabel ?? 16);
-  const [topoLabelVal, setTopoLabelVal] = useState(relatorio?.topoLabel ?? 0);
-  const [espessuraCampo, setEspessuraCampo] = useState(relatorio?.espessuraCampo ?? 24);
-  const [topoRegistroVal, setTopoRegistroVal] = useState(relatorio?.topoRegistro ?? 0);
-  const [bgLabel, setBgLabel] = useState(relatorio?.bgLabel ?? '#e2e8f0');
-  const [bgCampo, setBgCampo] = useState(relatorio?.bgCampo ?? '');
-  const [corLabelGlobal, setCorLabelGlobal] = useState(relatorio?.corLabelGlobal ?? '#1a1a1a');
-  const [corCampoGlobal, setCorCampoGlobal] = useState(relatorio?.corCampoGlobal ?? '#1a1a1a');
-  const [fonteLabel, setFonteLabel] = useState(relatorio?.fonteLabel ?? 'Arial');
-  const [tamanhoFonteLabel, setTamanhoFonteLabel] = useState(relatorio?.tamanhoFonteLabel ?? 10);
-  const [fonteCampo, setFonteCampo] = useState(relatorio?.fonteCampo ?? 'Arial');
-  const [tamanhoFonteCampo, setTamanhoFonteCampo] = useState(relatorio?.tamanhoFonteCampo ?? 10);
-  const [erros, setErros] = useState<string[]>([]);
-  const [editingCampo, setEditingCampo] = useState(false);
-  const [editingBanda, setEditingBanda] = useState(false);
-  const [editingFiltro, setEditingFiltro] = useState(false);
-  const [editingOrdenacao, setEditingOrdenacao] = useState(false);
-  const isEditingAnyTable = editingCampo || editingBanda || editingFiltro || editingOrdenacao;
-
-  // Grava a ordenação da banda quando nenhuma linha está em edição.
-  useEffect(() => {
-    if (!ordenacaoPendenteRef.current || editingOrdenacao) return;
-    const timer = setTimeout(async () => {
-      ordenacaoPendenteRef.current = false;
-      setBandaSaving(true);
-      try {
-        const salvas = await onBandaSaveRef.current?.(bandasRef.current, bandaDetailIdRef.current);
-        if (salvas) setBandas(salvas);
-        else ordenacaoPendenteRef.current = true; // não gravou (outro salvamento em andamento)
-      } catch {
-        ordenacaoPendenteRef.current = true;
-      } finally {
-        setBandaSaving(false);
-      }
-    }, 400);
-    return () => clearTimeout(timer);
-  }, [ordenacao, editingOrdenacao]);
-
-  // ── Infobutton / FieldInfoPopup ──
-  const [infoPopupField, setInfoPopupField] = useState<string | null>(null);
-  const [infoAnchor, setInfoAnchor] = useState<HTMLElement | null>(null);
-
-  /** fieldInfos para o formulário do relatório */
-  const relatorioFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
-    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio' },
-    ds_relatorio: { type: 'string', field: 'ds_relatorio', collection: 'relatorio' },
-    ie_formato: { type: 'string', field: 'ie_formato', collection: 'relatorio' },
-    ds_nome_arquivo: { type: 'string', field: 'ds_nome_arquivo', collection: 'relatorio' },
-    ie_pagina: { type: 'string', field: 'ie_pagina', collection: 'relatorio' },
-    ie_orientacao: { type: 'string', field: 'ie_orientacao', collection: 'relatorio' },
-    ie_borda: { type: 'string', field: 'ie_borda', collection: 'relatorio' },
-    nr_margem_superior: { type: 'int64', field: 'nr_margem_superior', collection: 'relatorio' },
-    nr_margem_inferior: { type: 'int64', field: 'nr_margem_inferior', collection: 'relatorio' },
-    nr_margem_esquerda: { type: 'int64', field: 'nr_margem_esquerda', collection: 'relatorio' },
-    nr_margem_direita: { type: 'int64', field: 'nr_margem_direita', collection: 'relatorio' },
-  };
-
-  /** fieldInfos para os campos da banda */
-  const bandaFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
-    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio_banda' },
-    ds_banda:{ type: 'string', field: 'ds_banda', collection: 'relatorio_banda' },
-    ie_tipo_banda: { type: 'string', field: 'ie_tipo_banda', collection: 'relatorio_banda' },
-    ie_colecao_principal: { type: 'string', field: 'ie_colecao_principal', collection: 'relatorio_banda' },
-    nr_posicao: { type: 'int64', field: 'nr_posicao', collection: 'relatorio_banda' },
-    nr_altura: { type: 'int64', field: 'nr_altura', collection: 'relatorio_banda' },
-    ie_borda_superior: { type: 'boolean', field: 'ie_borda_superior', collection: 'relatorio_banda' },
-    ie_borda_inferior: { type: 'boolean', field: 'ie_borda_inferior', collection: 'relatorio_banda' },
-    ie_borda_esquerda: { type: 'boolean', field: 'ie_borda_esquerda', collection: 'relatorio_banda' },
-    ie_borda_direita: { type: 'boolean', field: 'ie_borda_direita', collection: 'relatorio_banda' },
-    espessuraLabel: { type: 'int64', field: 'espessuraLabel', collection: 'relatorio_banda' },
-    topoLabel: { type: 'int64', field: 'topoLabel', collection: 'relatorio_banda' },
-    espessuraCampo: { type: 'int64', field: 'espessuraCampo', collection: 'relatorio_banda' },
-    topoRegistro: { type: 'int64', field: 'topoRegistro', collection: 'relatorio_banda' },
-    bgLabel: { type: 'string', field: 'bgLabel', collection: 'relatorio_banda' },
-    bgCampo: { type: 'string', field: 'bgCampo', collection: 'relatorio_banda' },
-    corLabelGlobal: { type: 'string', field: 'corLabelGlobal', collection: 'relatorio_banda' },
-    corCampoGlobal: { type: 'string', field: 'corCampoGlobal', collection: 'relatorio_banda' },
-    fonteLabel: { type: 'string', field: 'fonteLabel', collection: 'relatorio_banda' },
-    tamanhoFonteLabel: { type: 'int64', field: 'tamanhoFonteLabel', collection: 'relatorio_banda' },
-    fonteCampo: { type: 'string', field: 'fonteCampo', collection: 'relatorio_banda' },
-    tamanhoFonteCampo: { type: 'int64', field: 'tamanhoFonteCampo', collection: 'relatorio_banda' },
-  };
-
-  /** fieldInfos para os elementos da banda (relatorio_banda_elemento) */
-  const elementoFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
-    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio_banda_elemento' },
-    ds_elemento: { type: 'string', field: 'ds_elemento', collection: 'relatorio_banda_elemento' },
-    ie_tipo_elemento: { type: 'string', field: 'ie_tipo_elemento', collection: 'relatorio_banda_elemento' },
-    ie_primeira_pagina: { type: 'boolean', field: 'ie_primeira_pagina', collection: 'relatorio_banda_elemento' },
-    ie_colecao: { type: 'string', field: 'ie_colecao', collection: 'relatorio_banda_elemento' },
-    ie_campo: { type: 'string', field: 'ie_campo', collection: 'relatorio_banda_elemento' },
-    label: { type: 'string', field: 'label', collection: 'relatorio_banda_elemento' },
-    ie_fonte: { type: 'string', field: 'ie_fonte', collection: 'relatorio_banda_elemento' },
-    qt_fonte: { type: 'int64', field: 'qt_fonte', collection: 'relatorio_banda_elemento' },
-    ie_estilo: { type: 'string', field: 'ie_estilo', collection: 'relatorio_banda_elemento' },
-    ie_estilo_label: { type: 'string', field: 'ie_estilo_label', collection: 'relatorio_banda_elemento' },
-    ie_estilo_soma: { type: 'string', field: 'ie_estilo_soma', collection: 'relatorio_banda_elemento' },
-    cd_cor: { type: 'string', field: 'cd_cor', collection: 'relatorio_banda_elemento' },
-    cd_background: { type: 'string', field: 'cd_background', collection: 'relatorio_banda_elemento' },
-    qt_padding_superior: { type: 'int64', field: 'qt_padding_superior', collection: 'relatorio_banda_elemento' },
-    qt_padding_direita: { type: 'int64', field: 'qt_padding_direita', collection: 'relatorio_banda_elemento' },
-    qt_padding_inferior: { type: 'int64', field: 'qt_padding_inferior', collection: 'relatorio_banda_elemento' },
-    qt_padding_esquerda: { type: 'int64', field: 'qt_padding_esquerda', collection: 'relatorio_banda_elemento' },
-    ie_borda_superior: { type: 'string', field: 'ie_borda_superior', collection: 'relatorio_banda_elemento' },
-    ie_borda_direita: { type: 'string', field: 'ie_borda_direita', collection: 'relatorio_banda_elemento' },
-    ie_borda_inferior: { type: 'string', field: 'ie_borda_inferior', collection: 'relatorio_banda_elemento' },
-    ie_borda_esquerda: { type: 'string', field: 'ie_borda_esquerda', collection: 'relatorio_banda_elemento' },
-    nr_seq_imagem: { type: 'string', field: 'nr_seq_imagem', collection: 'relatorio_banda_elemento' },
-    qt_tamanho_imagem: { type: 'int64', field: 'qt_tamanho_imagem', collection: 'relatorio_banda_elemento' },
-    conteudo: { type: 'string', field: 'conteudo', collection: 'relatorio_banda_elemento' },
-    qt_esquerda: { type: 'int64', field: 'qt_esquerda', collection: 'relatorio_banda_elemento' },
-    qt_topo: { type: 'int64', field: 'qt_topo', collection: 'relatorio_banda_elemento' },
-    qt_largura: { type: 'int64', field: 'qt_largura', collection: 'relatorio_banda_elemento' },
-    ie_alinhamento: { type: 'string', field: 'ie_alinhamento', collection: 'relatorio_banda_elemento' },
-    soma: { type: 'boolean', field: 'soma', collection: 'relatorio_banda_elemento' },
-  };
-
-  /** fieldInfos para os campos do parâmetro (relatorio_parametro) */
-  const parametroFieldInfos: Record<string, { type: string; field: string; collection: string }> = {
-    nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'relatorio_parametro' },
-    ie_colecao: { type: 'string', field: 'ie_colecao', collection: 'relatorio_parametro' },
-    ie_campo: { type: 'string', field: 'ie_campo', collection: 'relatorio_parametro' },
-    operador: { type: 'string', field: 'operador', collection: 'relatorio_parametro' },
-    ie_mascara: { type: 'string', field: 'ie_mascara', collection: 'relatorio_parametro' },
-    vl_padrao: { type: 'string', field: 'vl_padrao', collection: 'relatorio_parametro' },
-    valorFinal: { type: 'string', field: 'valorFinal', collection: 'relatorio_parametro' },
-    ie_conector: { type: 'string', field: 'ie_conector', collection: 'relatorio_parametro' },
-    ie_parametro: { type: 'boolean', field: 'ie_parametro', collection: 'relatorio_parametro' },
-    ds_label: { type: 'string', field: 'ds_label', collection: 'relatorio_parametro' },
-    ie_obrigatorio: { type: 'boolean', field: 'ie_obrigatorio', collection: 'relatorio_parametro' },
-  };
-
-  /** Retorna o status (N/O/D) de um campo nas regras do perfil. */
-  function statusDe(regras: Record<string, CampoStatus>, campo: string): CampoStatus {
-    return regras?.[campo] ?? 'N';
-  }
-
-  function renderFieldLabel(fieldKey: string, label: string, infos: Record<string, { type: string; field: string; collection: string }>, collectionName: string, regras?: Record<string, CampoStatus>) {
-    const meta = infos[fieldKey] ?? { type: 'string', field: fieldKey, collection: collectionName };
-    const obrigatorio = regras ? statusDe(regras, fieldKey) === 'O' : false;
-    // A mesma chave (ex.: nr_sequencia) existe no relatório, banda, elemento e
-    // parâmetro, que podem estar na tela ao mesmo tempo (modal sobre o
-    // formulário): o pop-up é identificado por coleção + campo.
-    const popupKey = `${collectionName}.${fieldKey}`;
-    return (
-      <div className="relative inline-block text-sm mb-1" style={{ color: '#666' }}>
-        <div className="inline-flex items-center gap-2 w-full">
-          <span className="inline-flex items-center gap-1">
-            {obrigatorio && <RequiredAsterisk />}
-            <span>{label}</span>
-          </span>
-          <button
-            type="button"
-            onClick={(event) => {
-              event.stopPropagation();
-              setInfoAnchor(event.currentTarget);
-              setInfoPopupField((current) => (current === popupKey ? null : popupKey));
-            }}
-            tabIndex={-1}
-            aria-label={`Informações do campo ${label}`}
-            className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === popupKey ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-          >
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <circle cx="12" cy="12" r="10" />
-              <path d="M12 8v4" />
-              <circle cx="12" cy="16" r="0.5" />
-            </svg>
-          </button>
-          {infoPopupField === popupKey && (
-            <FieldInfoPopup
-              anchor={infoAnchor}
-              meta={{ type: meta.type, field: meta.field, collection: meta.collection }}
-              onClose={() => setInfoPopupField(null)}
-            />
-          )}
-        </div>
-      </div>
-    );
-  }
-
-  // Reset estado quando relatório muda (navegação por setas)
-  const justNavigatedRef = useRef(false);
-  const prevRelatorioIdRef = useRef(relatorio?.id);
-  useEffect(() => {
-    if (relatorio?.id !== prevRelatorioIdRef.current) {
-      prevRelatorioIdRef.current = relatorio?.id;
-      setDsRelatorio(relatorio?.ds_relatorio ?? "");
-      setColecao(relatorio?.colecao ?? "");
-      setCampos(
-        relatorio?.campos?.length
-          ? relatorio.campos.map((c, i) => mapRelatorioCampoToRow(c, i, relatorio.colecao))
-          : []
-      );
-      setFiltros(relatorio?.filtros?.length ? relatorio.filtros : []);
-      setOrdenacao(relatorio?.ordenacao?.length ? relatorio.ordenacao.map((o) => ({ ...o, id: o.id || gerarId() })) : []);
-      setBandas(relatorio?.bandas?.length ? relatorio.bandas.map((b: any) => ({ ...b, id: b.id || gerarId() })) : []);
-      // formato é sempre 'pdf' (Excel removido)
-      setConfigPdf(relatorio?.configPdf ?? defaultConfigPdf());
-      setEspessuraLabel(relatorio?.espessuraLabel ?? 16);
-      setTopoLabelVal(relatorio?.topoLabel ?? 0);
-      setEspessuraCampo(relatorio?.espessuraCampo ?? 24);
-      setTopoRegistroVal(relatorio?.topoRegistro ?? 0);
-      setBgLabel(relatorio?.bgLabel ?? '#e2e8f0');
-      setBgCampo(relatorio?.bgCampo ?? '');
-      setCorLabelGlobal(relatorio?.corLabelGlobal ?? '#1a1a1a');
-      setCorCampoGlobal(relatorio?.corCampoGlobal ?? '#1a1a1a');
-      setFonteLabel(relatorio?.fonteLabel ?? 'Arial');
-      setTamanhoFonteLabel(relatorio?.tamanhoFonteLabel ?? 10);
-      setFonteCampo(relatorio?.fonteCampo ?? 'Arial');
-      setTamanhoFonteCampo(relatorio?.tamanhoFonteCampo ?? 10);
-      setEditingCampo(false);
-      setEditingBanda(false);
-      setEditingFiltro(false);
-      setEditingOrdenacao(false);
-      // Marca que o relatório mudou — o snapshot será atualizado no próximo
-      // render (quando o estado já refletir os novos valores).
-      justNavigatedRef.current = true;
-    }
-  }, [relatorio]);
-
-  // ── Detectar alterações não salvas ──
-  // Usa justNavigatedRef para garantir que o snapshot seja capturado AFTER
-  // o estado ter sido atualizado pelo reset effect (no render seguinte).
-  useEffect(() => {
-    if (justNavigatedRef.current) {
-      // Navegação recém-ocorrida: o estado agora reflete o novo relatório.
-      // Atualizar snapshot e marcar como limpo.
-      justNavigatedRef.current = false;
-      refreshSnapshot();
-      setIsDirty(false);
+  /* ── Salvar ── */
+  function salvarRelatorio() {
+    const faltantes = ["ds_relatorio", "ds_nome_arquivo"].filter((c) => statusDe(campoRegras, c) === "O" && !(c === "ds_relatorio" ? dsRelatorio : nomeArquivo).trim());
+    if (!dsRelatorio.trim() && !faltantes.includes("ds_relatorio")) faltantes.push("ds_relatorio");
+    if (faltantes.length > 0) {
+      setErrosDetalhe(faltantes);
+      onToast?.("Preencha os campos obrigatórios.", "error");
       return;
     }
-    setIsDirty(computeDirty());
-  }, [bandas, campos, filtros, ordenacao, dsRelatorio]);
+    setErrosDetalhe([]);
+    onSave({ ds_relatorio: dsRelatorio.trim(), ie_formato: "excel", ds_nome_arquivo: nomeArquivo.trim() });
+  }
 
-  const dataSource = useMemo(() => (colecao ? getDataSource(colecao) : undefined), [colecao]);
-  const camposDisponiveis = dataSource?.campos ?? [];
-  // Campos disponíveis baseados na coleção da banda atual (para Filtros dentro do modal)
-  const bandaColecaoAtual = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal ?? '';
-  const camposDisponiveisBanda = useMemo(() => (bandaColecaoAtual ? (getDataSource(bandaColecaoAtual)?.campos ?? []) : []), [bandaColecaoAtual]);
-  const opcoesColecao = DATA_SOURCES.map((ds) => ({ value: ds.value, label: ds.value })).sort((a, b) => a.label.localeCompare(b.label, 'pt-BR'));
+  async function salvarDetalhe() {
+    if (!detalhe || nrRelatorio == null) return;
+    if (detalhe.tipo === "banda") {
+      const b = detalhe.banda;
+      const faltantes = ["ds_banda", "ds_sql"].filter((c) => (c === "ds_sql" || statusDe(bandaCampoRegras, c) === "O") && !String(b[c as keyof BandaSql] ?? "").trim());
+      if (faltantes.length > 0) {
+        setErrosDetalhe(faltantes);
+        onToast?.(faltantes.includes("ds_sql") ? "Informe o SQL da banda." : "Preencha os campos obrigatórios.", "error");
+        return;
+      }
+    } else {
+      const p = detalhe.parametro;
+      const faltantes = ["ds_parametro", "ds_label", "nr_ordem", "vl_padrao"].filter((c) => {
+        const vazio = String(p[c as keyof ParametroSql] ?? "").trim() === "";
+        return vazio && (c === "ds_parametro" || statusDe(parametroCampoRegras, c) === "O");
+      });
+      if (faltantes.length > 0) {
+        setErrosDetalhe(faltantes);
+        onToast?.("Preencha os campos obrigatórios.", "error");
+        return;
+      }
+      const nome = nomeDoParametro(p.ds_parametro);
+      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nome)) {
+        setErrosDetalhe(["ds_parametro"]);
+        onToast?.("A descrição do parâmetro deve ser o nome usado no SQL (letras, números e _, sem espaços).", "error");
+        return;
+      }
+      if (parametros.some((x) => x.id !== p.id && nomeDoParametro(x.ds_parametro).toLowerCase() === nome.toLowerCase())) {
+        setErrosDetalhe(["ds_parametro"]);
+        onToast?.(`Já existe o parâmetro :${nome} neste relatório.`, "error");
+        return;
+      }
+    }
+    setErrosDetalhe([]);
+    setGravando(true);
+    try {
+      if (detalhe.tipo === "banda") {
+        const salva = await salvarBandaSql({ ...detalhe.banda, nr_seq_relatorio: nrRelatorio });
+        setBandas((lista) => (detalhe.banda.id ? lista.map((b) => (b.id === salva.id ? salva : b)) : [...lista, salva]));
+        setSelecionadoId(salva.id ?? null);
+        onToast?.(detalhe.banda.id ? "Banda atualizada com sucesso!" : "Banda cadastrada com sucesso!", "success");
+      } else {
+        const salvo = await salvarParametroSql({ ...detalhe.parametro, nr_seq_relatorio: nrRelatorio });
+        setParametros((lista) => ordenarParametros(detalhe.parametro.id ? lista.map((p) => (p.id === salvo.id ? salvo : p)) : [...lista, salvo]));
+        setSelecionadoId(salvo.id ?? null);
+        onToast?.(detalhe.parametro.id ? "Parâmetro atualizado com sucesso!" : "Parâmetro cadastrado com sucesso!", "success");
+      }
+      setDetalhe(null);
+    } catch (e) {
+      onToast?.(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
+    } finally {
+      setGravando(false);
+    }
+  }
 
-  // Ctrl+S handler ref — always points to latest closure values
-  const ctrlSHandlerRef = useRef<() => void>(() => {});
-  useEffect(() => {
-    ctrlSHandlerRef.current = () => {
-      if (campoDetailId) {
-        if (pendingCampo && pendingCampo.id === campoDetailId) {
-          // Salvar campo novo → banco
-          (async () => {
-            setBandaSaving(true);
-            try {
-              const seq = getNextCampoSeq();
-              const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-              const { criarElemento } = await import('@/services/relatorioServiceBandas');
-              const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-              const campoData = {
-                ...pendingCampo,
-                nr_sequencia: seq,
-                nr_seq_banda: nrSeqBanda ?? 0,
-                nr_seq_relatorio: relatorio?.nr_sequencia ?? 0,
-              };
-              const { id: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
-              const novoCampo = { ...campoData, id: idRegistro, _idRegistro: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
-              syncCampos((prev) => [...prev, novoCampo]);
-              setPendingCampo(null);
-            } finally {
-              setBandaSaving(false);
-            }
-          })();
-          setCampoDetailId(null);
-          return;
+  function excluir(tipo: "banda" | "parametro", item: BandaSql | ParametroSql) {
+    if (!item.id) return;
+    const id = item.id;
+    const mensagem = tipo === "banda" ? `Deseja mesmo excluir a banda ${item.nr_sequencia ?? ""}?` : `Deseja mesmo excluir o parâmetro ${item.nr_sequencia ?? ""}?`;
+    const acao = async () => {
+      setGravando(true);
+      try {
+        if (tipo === "banda") {
+          await excluirBandaSql(id);
+          setBandas((lista) => lista.filter((b) => b.id !== id));
+          onToast?.("Banda excluída com sucesso!", "success");
+        } else {
+          await excluirParametroSql(id);
+          setParametros((lista) => lista.filter((p) => p.id !== id));
+          onToast?.("Parâmetro excluído com sucesso!", "success");
         }
-        // Campo existente: salvar explicitamente no banco
-        (async () => {
-          setBandaSaving(true);
-          try {
-            const campoAtual = campos.find((c) => c.id === campoDetailId);
-            if (campoAtual?._idRegistro) {
-              const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
-              const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-              const auditAtualizado = await atualizarElemento(campoAtual._idRegistro, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
-              syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
-            }
-          } finally {
-            setBandaSaving(false);
-          }
-        })();
-        setCampoDetailId(null);
-        return;
-      }
-      if (filtroDetailId) {
-        // Salvar filtro no banco
-        (async () => {
-          setBandaSaving(true);
-          try {
-            const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
-            const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-            if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-              const { id: _oldId, ...filtroData } = pendingFiltro;
-              const { id: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-              setFiltros((prev) => [...prev, { ...filtroData, id: newId, _idRegistro: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
-            } else {
-              const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
-              if ((filtroAtual as any)?._idRegistro) {
-                const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._idRegistro, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, dt_alteracao: auditAtualizadoF.dt_alteracao, ds_usuario_alteracao: auditAtualizadoF.ds_usuario_alteracao } : f));
-              }
-            }
-          } finally {
-            setBandaSaving(false);
-          }
-        })();
-        setPendingFiltro(null);
-        setFiltroDetailId(null);
-        return;
-      }
-      if (bandaDetailId && bandaViewMode === 'ver') {
-        // Formulário de banda → salvar banda
-        (async () => {
-          let finalBandas: any[] = bandas;
-          if (pendingBanda && pendingBanda.id === bandaDetailId) {
-            const seq = getNextBandaSeq();
-            const newBanda = { ...pendingBanda, nr_sequencia: seq };
-            finalBandas = [...bandas, newBanda];
-            setBandas(finalBandas);
-            setPendingBanda(null);
-          }
-          const currentBandaId = bandaDetailIdRef.current;
-          if (currentBandaId) {
-            const c = camposRef.current;
-            finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
-            setBandas(finalBandas);
-          }
-          setBandaSaving(true);
-          try {
-            const bandasSalvas = await onBandaSaveRef.current?.(finalBandas, currentBandaId);
-            if (bandasSalvas) setBandas(bandasSalvas);
-          } catch { /* handled inside handleBandaSave */ }
-          setBandaDetailId(null);
-          setBandaViewMode('content');
-          setCampos([]);
-          setBandaSaving(false);
-          refreshSnapshot();
-          setIsDirty(false);
-        })();
-        return;
-      }
-      // Tabelas (bandas/elementos) e outros: nada
-      if (isBandasMode || saving || isEditingAnyTable) return;
-      const f = formRef.current;
-      if (f && typeof (f as any).requestSubmit === 'function') {
-        (f as any).requestSubmit();
+        setDetalhe((d) => (d && ((d.tipo === "banda" && d.banda.id === id) || (d.tipo === "parametro" && d.parametro.id === id)) ? null : d));
+      } catch (e) {
+        onToast?.(e instanceof Error && e.message ? e.message : "Erro ao excluir.", "error");
+      } finally {
+        setGravando(false);
       }
     };
-  }); // No deps — runs every render to keep handler current
+    if (onConfirmarExclusao) onConfirmarExclusao(mensagem, () => { void acao(); });
+    else if (window.confirm(mensagem)) void acao();
+  }
 
+  // Ctrl+S salva o que estiver aberto.
+  const salvarRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    salvarRef.current = () => {
+      if (ehBandas) { if (detalhe && !gravando) void salvarDetalhe(); }
+      else if (!saving) salvarRelatorio();
+    };
+  });
   useEffect(() => {
     function onKeyDown(e: KeyboardEvent) {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
-        // Função escondida (aberta em segundo plano): não salva.
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "s") {
         if (!elementoVisivel(formRef.current)) return;
         e.preventDefault();
-        ctrlSHandlerRef.current();
+        salvarRef.current();
       }
     }
-    document.addEventListener('keydown', onKeyDown);
-    return () => document.removeEventListener('keydown', onKeyDown);
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
   }, []);
 
-  // Sync form state back to parent so that "Gerar relatório" uses current data.
-  useEffect(() => {
-    if (!onChange || !relatorio) return;
-    const synced: Relatorio = {
-      ...relatorio,
-      ds_relatorio: dsRelatorio.trim(),
-      colecao,
-      campos: campos.map((c) => ({
-        id: c.id, nr_sequencia: c.nr_sequencia, ds_elemento: c.ds_elemento, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
-        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
-        qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
-        ie_borda_superior: simNao(c.ie_borda_superior), ie_borda_direita: simNao(c.ie_borda_direita), ie_borda_inferior: simNao(c.ie_borda_inferior), ie_borda_esquerda: simNao(c.ie_borda_esquerda),
-        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
-        dt_criacao: c.dt_criacao, dt_alteracao: c.dt_alteracao, ds_usuario_criacao: c.ds_usuario_criacao, ds_usuario_alteracao: c.ds_usuario_alteracao,
-      })),
-      filtros: filtros.map((f) => ({ ...f })),
-      ordenacao: ordenacao.map((o) => ({ id: o.id, campo: o.campo, direcao: o.direcao })),
-      bandas: bandas.map((b) => ({ ...b })),
-      ie_formato: formato,
-      configExcel: undefined,
-      configPdf: formato === 'pdf' ? configPdf : undefined,
-      espessuraLabel,
-      espessuraCampo,
-      bgLabel,
-      bgCampo,
-      corLabelGlobal,
-      corCampoGlobal,
-      fonteLabel,
-      tamanhoFonteLabel,
-      fonteCampo,
-      tamanhoFonteCampo,
-    };
-    onChange(synced);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [dsRelatorio, colecao, campos, filtros, ordenacao, bandas, formato, configPdf, espessuraLabel, topoLabelVal, espessuraCampo, topoRegistroVal, bgLabel, bgCampo, corLabelGlobal, corCampoGlobal, fonteLabel, tamanhoFonteLabel, fonteCampo, tamanhoFonteCampo]);
+  /* ── Listas ── */
+  const colunasAuditoria = <T extends { dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string }>(): ResizableTableColumn<T>[] => [
+    { key: "dt_criacao", label: "Criação", render: (r) => (r.dt_criacao ? formatDate(r.dt_criacao) : "") },
+    { key: "dt_alteracao", label: "Alteração", render: (r) => (r.dt_alteracao ? formatDate(r.dt_alteracao) : "") },
+    { key: "ds_usuario_criacao", label: "Usuário criação", render: (r) => autor(r.ds_usuario_criacao) },
+    { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (r) => autor(r.ds_usuario_alteracao) },
+  ];
+  const colunasDeBanda: ResizableTableColumn<BandaSql>[] = [
+    { key: "nr_sequencia", label: "#", render: (b) => String(b.nr_sequencia ?? "") },
+    { key: "ds_banda", label: "Descrição", render: (b) => b.ds_banda ?? "" },
+    ...colunasAuditoria<BandaSql>(),
+  ];
+  const colunasDeParametro: ResizableTableColumn<ParametroSql>[] = [
+    { key: "nr_sequencia", label: "#", render: (p) => String(p.nr_sequencia ?? "") },
+    { key: "ds_parametro", label: "Descrição do parâmetro", render: (p) => p.ds_parametro ?? "" },
+    { key: "ds_label", label: "Label", render: (p) => p.ds_label ?? "" },
+    { key: "nr_ordem", label: "Ordem", render: (p) => (p.nr_ordem ?? "") === "" ? "" : String(p.nr_ordem ?? "") },
+    { key: "vl_padrao", label: "Valor padrão", render: (p) => p.vl_padrao ?? "" },
+    { key: "ie_perguntar", label: "Perguntar", render: (p) => simNao(p.ie_perguntar) },
+    { key: "ie_obrigatorio", label: "Obrigatório", render: (p) => simNao(p.ie_obrigatorio) },
+    ...colunasAuditoria<ParametroSql>(),
+  ];
 
-  // ── Handlers ──
-
-
-  function adicionarFiltro() { setFiltros((prev) => [...prev, EMPTY_FILTRO()]); }
-  function removerFiltro(id: string) { setFiltros((prev) => prev.filter((f) => f.id !== id)); }
-  function atualizarFiltro(id: string, updates: Partial<RelatorioFiltro>) {
-    setFiltros((prev) => prev.map((f) => (f.id === id ? { ...f, ...updates } : f)));
-  }
-
-  function adicionarOrdenacao() { const seq = getNextOrdSeq(); setOrdenacao((prev) => [...prev, { id: gerarId(), nr_sequencia: seq, campo: "", direcao: "asc" }]); }
-  function removerOrdenacao(idx: number) { setOrdenacao((prev) => prev.filter((_, i) => i !== idx)); }
-  function atualizarOrdenacao(idx: number, updates: Partial<RelatorioOrdenacao>) {
-    setOrdenacao((prev) => prev.map((o, i) => (i === idx ? { ...o, ...updates } : o)));
-  }
-
-  function validar(): boolean {
-    const errs: string[] = [];
-    if (!dsRelatorio.trim()) errs.push("Descrição é obrigatória.");
-    const todosCampos = bandas.flatMap((b) => b.campos ?? []);
-    if (todosCampos.some((c: any) => c.ie_tipo_elemento && c.ie_tipo_elemento !== 'conteudo' && c.ie_tipo_elemento !== 'data_geracao' && c.ie_tipo_elemento !== 'horario_geracao' && c.ie_tipo_elemento !== 'data_horario_geracao' && c.ie_tipo_elemento !== 'usuario_geracao' && c.ie_tipo_elemento !== 'imagem' && c.ie_tipo_elemento !== 'numero_pagina' && !c.ie_campo)) errs.push("Todos os campos devem ter uma chave selecionada.");
-    setErros(errs);
-    if (errs.length > 0 && onToast) {
-      onToast(errs.join('\n'), 'error');
-    }
-    return errs.length === 0;
-  }
-
-  /** Remove recursivamente chaves com valor undefined antes de gravar. */
-  function deepClean(obj: any): any {
-    if (obj === undefined || obj === null) return obj;
-    if (Array.isArray(obj)) return obj.map(deepClean);
-    if (typeof obj === 'object') {
-      return Object.fromEntries(
-        Object.entries(obj)
-          .filter(([, v]) => v !== undefined)
-          .map(([k, v]) => [k, deepClean(v)])
-      );
-    }
-    return obj;
-  }
-
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    if (bandaDetailId || isBandasMode) return; // Don't submit form when inside banda detail or bandas mode
-    if (!validar()) return;
-    const result: Omit<Relatorio, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao"> = {
-      ds_relatorio: dsRelatorio.trim(),
-      colecao: bandas[0]?.ie_colecao_principal || '',
-      campos: bandas.flatMap((b) => (b.campos ?? []).map((c: any) => ({
-        id: c.id, nr_sequencia: c.nr_sequencia, ds_elemento: c.ds_elemento, ie_colecao: c.ie_colecao, ie_campo: c.ie_campo, rotulo: c.label, label: c.label,
-        backgroundLabel: c.backgroundLabel, corLabel: c.corLabel, cd_cor: c.cd_cor, cd_background: c.cd_background, transparentCampo: c.transparentCampo,
-        qt_padding_superior: c.qt_padding_superior, qt_padding_direita: c.qt_padding_direita, qt_padding_inferior: c.qt_padding_inferior, qt_padding_esquerda: c.qt_padding_esquerda,
-        qt_largura: c.qt_largura, qt_esquerda: c.qt_esquerda, topoLabel: c.topoLabel, qt_topo: c.qt_topo, ie_alinhamento: c.ie_alinhamento as RelatorioCampo["ie_alinhamento"], ie_estilo_label: c.ie_estilo_label as RelatorioCampo['ie_estilo_label'], ie_estilo: c.ie_estilo as RelatorioCampo['ie_estilo'], ie_estilo_soma: c.ie_estilo_soma as RelatorioCampo['ie_estilo_soma'], formatacao: c.formatacao, statusSistema: c.statusSistema, soma: c.soma, ie_tipo_elemento: c.ie_tipo_elemento, conteudo: c.conteudo, ie_fonte: c.ie_fonte, qt_fonte: c.qt_fonte, nr_seq_imagem: c.nr_seq_imagem, qt_tamanho_imagem: c.qt_tamanho_imagem,
-      }))),
-      filtros: filtros,
-      ordenacao: ordenacao,
-      bandas: bandas.map((b) => ({ ...b })),
-      ie_formato: formato,
-      configExcel: undefined,
-      configPdf: formato === "pdf" ? configPdf : undefined,
-    };
-    onSave(deepClean(result));
-  }
-
-  // ── Navegação com verificação de alterações não salvas ──
-  function handleNavClick(direction: 'prev' | 'next') {
-    if (isDirty) {
-      pendingNavRef.current = direction;
-      setPendingNav(direction);
-      setShowUnsavedModal(true);
+  const xlsTemBanda = bandas.length >= 1;
+  function adicionar() {
+    setErrosDetalhe([]);
+    if (aba === "bandas") {
+      if (xlsTemBanda) return;
+      setDetalhe({ tipo: "banda", banda: { ds_banda: "", ds_sql: "" } });
     } else {
-      direction === 'prev' ? onPrevRecord?.() : onNextRecord?.();
+      setDetalhe({ tipo: "parametro", parametro: { ds_parametro: "", ds_label: "", nr_ordem: null, vl_padrao: "", ie_perguntar: "N", ie_obrigatorio: "N" } });
     }
   }
-
-  async function handleSaveAndNavigate() {
-    const dir = pendingNavRef.current;
-    if (!dir) return;
-    setBandaSaving(true);
-    try {
-      await onBandaSaveRef.current?.(bandas, undefined);
-    } catch { /* error handled inside handleBandaSave */ }
-    refreshSnapshot();
-    setIsDirty(false);
-    setBandaSaving(false);
-    setShowUnsavedModal(false);
-    pendingNavRef.current = null;
-    setPendingNav(null);
-    dir === 'prev' ? onPrevRecord?.() : onNextRecord?.();
+  function abrir(item: BandaSql | ParametroSql) {
+    setErrosDetalhe([]);
+    setSelecionadoId(item.id ?? null);
+    setDetalhe(aba === "bandas" ? { tipo: "banda", banda: { ...(item as BandaSql) } } : { tipo: "parametro", parametro: { ...(item as ParametroSql) } });
   }
 
-  const labelClass = "block text-sm mb-1";
-  const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
+  /* ── Parâmetros do SQL (ajuda ao editar a banda) ── */
+  const sqlEmEdicao = detalhe?.tipo === "banda" ? detalhe.banda.ds_sql ?? "" : "";
+  const nomesNoSql = useMemo(() => (sqlEmEdicao ? parametrosDoSql(sqlEmEdicao) : []), [sqlEmEdicao]);
+  const naoCadastrados = nomesNoSql.filter((n) => !parametros.some((p) => nomeDoParametro(p.ds_parametro).toLowerCase() === n.toLowerCase()));
+
+  /* ── Rodapé (auditoria do que está aberto) ── */
+  const auditoria = ehBandas
+    ? detalhe?.tipo === "banda" && detalhe.banda.id
+      ? { criadoPor: detalhe.banda.ds_usuario_criacao, criadoEm: detalhe.banda.dt_criacao, alteradoPor: detalhe.banda.ds_usuario_alteracao, alteradoEm: detalhe.banda.dt_alteracao, abrir: () => onOpenBandaAudit?.(relatorio?.id ?? null, detalhe.banda.id ?? null) }
+      : detalhe?.tipo === "parametro" && detalhe.parametro.id
+        ? { criadoPor: detalhe.parametro.ds_usuario_criacao, criadoEm: detalhe.parametro.dt_criacao, alteradoPor: detalhe.parametro.ds_usuario_alteracao, alteradoEm: detalhe.parametro.dt_alteracao, abrir: () => onOpenFiltroAudit?.(relatorio?.id ?? null, detalhe.parametro.id ?? null) }
+        : null
+    : relatorio?.id
+      ? { criadoPor: createdBy, criadoEm: createdAt, alteradoPor: updatedBy, alteradoEm: updatedAt, abrir: () => onOpenAudit?.(relatorio.id ?? null) }
+      : null;
+
+  const iconeInfo = (
+    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10" />
+      <path d="M12 8v4" />
+      <circle cx="12" cy="16" r="0.5" />
+    </svg>
+  );
+  const corBorda = darkMode ? "#2c2c31 #38383e #38383e #2c2c31" : "#999 #ccc #ccc #999";
+  const corTexto = darkMode ? "#fff" : "#000";
+  const mostraRodape = !ehBandas || !!detalhe;
 
   return (
-    <div className="flex-1 flex flex-col min-h-0" onContextMenu={handleContextMenu}>
-      {contextMenu && contextMenuItems.length > 0 && (
-        <>
-          <div
-            className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
-            style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
-          >
-            {contextMenuItems.map((item) => (
-              <button
-                key={item.label}
-                type="button"
-                className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
-                style={{ padding: '0.2rem 0.4rem' }}
-                onClick={() => {
-                  item.onClick?.();
-                  setContextMenu(null);
-                }}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </>
+    <div
+      className="flex-1 flex flex-col min-h-0"
+      onContextMenu={(e) => {
+        if (ehBandas || contextMenuItems.length === 0) return;
+        e.preventDefault();
+        setMenu({ x: e.clientX, y: e.clientY, acoes: contextMenuItems });
+      }}
+    >
+      {menu && menu.acoes.length > 0 && (
+        <div
+          className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+          style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
+        >
+          {menu.acoes.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer"
+              style={{ padding: "0.2rem 0.4rem" }}
+              onClick={() => { item.onClick?.(); setMenu(null); }}
+            >
+              {item.label}
+            </button>
+          ))}
+        </div>
       )}
-      {/* ── Toolbar ── */}
+
+      {/* ── Cabeçalho ── */}
       <div className="flex items-center justify-between gap-3 min-h-[42px]">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 min-w-0">
           <Select
             value={manageSelection}
             onChange={onManageSelectionChange ?? (() => {})}
@@ -1217,1417 +419,351 @@ export default function RelatorioBuilder({
             showPlaceholder={false}
             className="!w-[180px]"
             disabled
-                              visibleOptions={7}
-                  />
-          <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={() => navegarRegistro('prev')}
-              disabled={!temAnterior}
-              className={temAnterior ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
-              style={{ borderBottomColor: '#000' }}
-              aria-label="Registro anterior"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M15 18 9 12l6-6" />
-              </svg>
-            </button>
-            <button
-              type="button"
-              onClick={() => navegarRegistro('next')}
-              disabled={!temProximo}
-              className={temProximo ? 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300' : 'inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'}
-              style={{ borderBottomColor: '#000' }}
-              aria-label="Próximo registro"
-            >
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M9 18 15 12 9 6" />
-              </svg>
-            </button>
-          </div>
-          {/* ── Breadcrumb ── */}
+          />
+          {!ehBandas && (
+            <div className="flex items-center gap-1">
+              <button type="button" onClick={onPrevRecord} disabled={!hasPrevRecord} className={BOTAO_NAV} style={{ borderBottomColor: "#000" }} aria-label="Registro anterior">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M15 18 9 12l6-6" /></svg>
+              </button>
+              <button type="button" onClick={onNextRecord} disabled={!hasNextRecord} className={BOTAO_NAV} style={{ borderBottomColor: "#000" }} aria-label="Próximo registro">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 15 12 9 6" /></svg>
+              </button>
+            </div>
+          )}
           {relatorio && (
-            <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: isDark ? '#fff' : '#000', border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999' }}>
-              <span
-                className="cursor-pointer hover-breadcrumb"
-                style={{ borderBottom: '1px solid transparent' }}
-                onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = isDark ? '#fff' : '#000'; }}
-                onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'; }}
-                onClick={() => onNavigateToList?.()}
-              >
-                <span style={{ color: isDark ? '#ddd' : '#333' }}>Relatório: {relatorio.nr_sequencia}</span>
-                <span className="ml-1" style={{ color: isDark ? '#ddd' : '#333' }}>{dsRelatorio}</span>
-              </span>
-              {bandaDetailId && (() => {
-                const banda = bandas.find((b) => b.id === bandaDetailId);
-                if (!banda) return null;
-                return (
-                  <>
-                    <span className="mx-1" style={{ color: isDark ? '#fff' : '#000' }}>&gt;</span>
-                    <span
-                      className="cursor-pointer hover-breadcrumb"
-                      style={{ borderBottom: '1px solid transparent' }}
-                      onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = isDark ? '#fff' : '#000'; }}
-                      onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderBottomColor = 'transparent'; }}
-                      onClick={() => {
-                        // Fecha a banda diretamente (sem async) — bandas já estão em state
-                        const currentBandaId = bandaDetailIdRef.current;
-                        if (currentBandaId) {
-                          const c = camposRef.current;
-                          setBandas((prev) => prev.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b));
-                        }
-                        setPendingCampo(null);
-                        setCampoDetailId(null);
-                        setBandaDetailId(null);
-                        setBandaViewMode('content');
-                        setBandasSubView('bandas');
-                        setCampos([]);
-                        setOrdenacao([]);
-                      }}
-                    >
-                      <span style={{ color: isDark ? '#ddd' : '#333' }}>Banda: {banda.nr_sequencia}</span>
-                      <span className="ml-1" style={{ color: isDark ? '#ddd' : '#333' }}>{banda.ds_banda}</span>
-                    </span>
-                  </>
-                );
-              })()}
+            <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: corTexto, border: "1px solid", borderColor: corBorda }}>
+              <button type="button" className="cursor-pointer hover:underline" onClick={() => onNavigateToList?.()}>
+                Relatório: {relatorio.nr_sequencia} {relatorio.ds_relatorio}
+              </button>
+              {detalhe && (
+                <>
+                  <span className="mx-1">&gt;</span>
+                  <button type="button" className="cursor-pointer hover:underline" onClick={() => setDetalhe(null)}>
+                    {detalhe.tipo === "banda"
+                      ? `Banda: ${detalhe.banda.nr_sequencia ?? "nova"} ${detalhe.banda.ds_banda ?? ""}`
+                      : `Parâmetro: ${detalhe.parametro.nr_sequencia ?? "novo"} ${detalhe.parametro.ds_parametro ?? ""}`}
+                  </button>
+                </>
+              )}
             </div>
           )}
         </div>
         <div className="flex items-center gap-3">
-          {isBandasMode && !bandaDetailId && (
-            <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: isDark ? '#fff' : '#000' }}>
-              <button type="button" onClick={() => setBandasSubView('bandas')}
-                className="text-xs font-medium cursor-pointer transition"
-                style={{ borderBottom: bandasSubView === 'bandas' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Bandas</button>
-              <button type="button" onClick={() => setBandasSubView('parametros')}
-                className="text-xs font-medium cursor-pointer transition"
-                style={{ borderBottom: bandasSubView === 'parametros' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Parâmetros</button>
+          {ehBandas && !detalhe && (
+            <div className="flex items-center text-xs whitespace-nowrap px-2 py-1 gap-2" style={{ border: "1px solid", borderColor: corBorda, color: corTexto }}>
+              {(["bandas", "parametros"] as const).map((a) => (
+                <button
+                  key={a}
+                  type="button"
+                  onClick={() => { setAba(a); setSelecionadoId(null); }}
+                  className="text-xs font-medium cursor-pointer"
+                  style={{ borderBottom: `1px solid ${aba === a ? corTexto : "transparent"}`, color: corTexto }}
+                >
+                  {a === "bandas" ? "Bandas" : "Parâmetros"}
+                </button>
+              ))}
             </div>
           )}
-          {bandaDetailId && bandaTipo === 'lista' && (
-            <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: isDark ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: isDark ? '#fff' : '#000' }}>
-              <button type="button" onClick={() => setBandaContentSubView('dados')}
-                className="text-xs font-medium cursor-pointer transition"
-                style={{ borderBottom: bandaContentSubView === 'dados' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Elementos</button>
-              <button type="button" onClick={() => setBandaContentSubView('ordenacao')}
-                className="text-xs font-medium cursor-pointer transition"
-                style={{ borderBottom: bandaContentSubView === 'ordenacao' ? `1px solid ${isDark ? '#fff' : '#000'}` : '1px solid transparent', color: isDark ? '#fff' : '#000' }}>Ordenação</button>
-            </div>
+          {ehBandas && !detalhe && (
+            <button
+              type="button"
+              onClick={adicionar}
+              disabled={aba === "bandas" && xlsTemBanda}
+              className={BOTAO_LINK}
+            >
+              Adicionar
+            </button>
           )}
-          <button
-            type="button"
-            onClick={
-              bandaDetailId && bandaViewMode === 'content' && bandaContentSubView === 'ordenacao' && bandaTipo === 'lista' ? adicionarOrdenacaoBanda
-              : bandaDetailId ? () => {
-                // Adicionar campo na banda → abre tela Ver do elemento (pendente)
-                const bColecao = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
-                const newId = gerarId();
-                const newCampo: CamposRelatorioRow = { id: newId, ie_colecao: bandaTipo === 'lista' ? bColecao : '', ie_campo: '', ds_elemento: '', label: '', backgroundLabel: '#e2e8f0', corLabel: '#1a1a1a', cd_cor: '#000000', cd_background: '', transparentCampo: true, qt_esquerda: 0, topoLabel: 0, qt_topo: 0, ie_alinhamento: "esquerda", ie_estilo_label: '', ie_estilo: '', ie_estilo_soma: '', qt_largura: 100, formatacao: 'texto', statusSistema: false, soma: false, ie_fonte: 'Arial', qt_fonte: 10, nr_seq_imagem: undefined, qt_tamanho_imagem: 100, qt_padding_superior: 0, qt_padding_direita: 0, qt_padding_inferior: 0, qt_padding_esquerda: 0, ie_borda_superior: 'N', ie_borda_direita: 'N', ie_borda_inferior: 'N', ie_borda_esquerda: 'N' };
-                setPendingCampo(newCampo);
-                setCampoDetailId(newId);
-              }
-              : isBandasMode ? () => {
-                  if (bandasSubView === 'bandas') {
-                    // Criar banda pendente e abrir tela Ver
-                    const newId = gerarId();
-                    const novaBanda: BandaState = { id: newId, ds_banda: '', ie_colecao_principal: '', nr_posicao: (Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1), nr_seq_relatorio: relatorio?.nr_sequencia, campos: [] };
-                    setPendingBanda(novaBanda);
-                    openBandaVer(newId);
-                  } else {
-                    const newId = gerarId();
-                    const seq = getNextFiltroSeq();
-                    const novoFiltro: RelatorioFiltro = { id: newId, nr_sequencia: seq, ie_campo: '', operador: 'igual' as const, vl_padrao: '', valorFinal: '', ie_conector: 'E' as const, ie_mascara: 'texto' as const };
-                    setPendingFiltro(novoFiltro);
-                    setFiltroDetailId(newId);
-                  }
-                }
-              : onCancel
-            }
-            disabled={(!!bandaDetailId || !!campoDetailId) && bandaTipo === 'lista' && !bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal}
-            className={`inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2 disabled:text-slate-400 disabled:cursor-not-allowed ${campoDetailId ? 'hidden' : ''}`}
-          >
-            {bandaDetailId ? 'Adicionar' : isBandasMode ? 'Adicionar' : 'Fechar'}
-          </button>
         </div>
       </div>
 
-      {/* ── Formulário ── */}
-      <form ref={formRef} onSubmit={handleSubmit} className="mt-6 flex-1 flex flex-col min-h-0">
+      {/* ── Conteúdo ── */}
+      <form
+        ref={formRef}
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (ehBandas) void salvarDetalhe();
+          else salvarRelatorio();
+        }}
+        className="mt-6 flex-1 flex flex-col min-h-0"
+      >
         <div className="flex-1 min-h-0 overflow-y-auto pr-1 space-y-9">
-          {!bandaDetailId && !isBandasMode && (
-          <>
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Relatório ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section>
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Relatório</h2>
-          <div className="grid gap-[15px] sm:grid-cols-12">
-
-            {/* ── Linha 1: Sequência + Descrição + Formato ── */}
-            <div className="sm:col-span-2 group">
-              {renderFieldLabel('nr_sequencia', 'Sequência', relatorioFieldInfos, 'relatorio', campoRegras)}
-              <input disabled value={String(relatorio?.nr_sequencia ?? '')} className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-            </div>
-            <div className="sm:col-span-7 group">
-              {renderFieldLabel('ds_relatorio', 'Descrição', relatorioFieldInfos, 'relatorio', campoRegras)}
-              <input value={dsRelatorio} onChange={(e) => setDsRelatorio(e.target.value)} disabled={statusDe(campoRegras, 'ds_relatorio') === 'D'} className={inputClass} />
-            </div>
-            <div className="sm:col-span-3 group">
-              {renderFieldLabel('ie_formato', 'Formato', relatorioFieldInfos, 'relatorio', campoRegras)}
-              <input value="PDF" disabled
-                className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-            </div>
-
-          </div>
-          </section>
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Saída ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section>
-            <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Saída</h2>
-
-            <div className="space-y-[15px]">
-                <div className="grid gap-[15px] sm:grid-cols-4">
-                  <div className="group">
-                    {renderFieldLabel('ds_nome_arquivo', 'Nome do arquivo', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <input value={configPdf.titulo ?? ""} onChange={(e) => setConfigPdf({ ...configPdf, titulo: e.target.value })} disabled={statusDe(campoRegras, 'ds_nome_arquivo') === 'D'} className={inputClass} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_pagina', 'Página', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <Select value={configPdf.tamanhoPagina} onChange={(v) => setConfigPdf({ ...configPdf, tamanhoPagina: v as any })} options={[...TAMANHOS_PAGINA]} showPlaceholder={false} disabled={statusDe(campoRegras, 'ie_pagina') === 'D'} visibleOptions={7} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_orientacao', 'Orientação', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <Select value={configPdf.orientacao} onChange={(v) => setConfigPdf({ ...configPdf, orientacao: v as any })} options={[{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]} showPlaceholder={false} disabled={statusDe(campoRegras, 'ie_orientacao') === 'D'} visibleOptions={7} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_borda', 'Borda', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <Select
-                      value={configPdf.estiloBorda ?? ''}
-                      onChange={(v) => setConfigPdf({ ...configPdf, estiloBorda: (v || null) as RelatorioConfigPdf['estiloBorda'] })}
-                      options={[
-                        { value: '', label: '---' },
-                        { value: 'solid_fina', label: 'Sólida fina' },
-                        { value: 'solid_grossa', label: 'Sólida grossa' },
-                        { value: 'dupla', label: 'Dupla' },
-                        { value: 'tracejada', label: 'Tracejada' },
-                        { value: 'pontilhada', label: 'Pontilhada' },
-                      ]}
-                      showPlaceholder={false}
-                      disabled={statusDe(campoRegras, 'ie_borda') === 'D'}
-                      visibleOptions={7}
-                    />
-                  </div>
-                </div>
-                {/* Margens */}
-                <div className="grid gap-[15px] sm:grid-cols-4">
-                  <div className="group">
-                    {renderFieldLabel('nr_margem_superior', 'Margem superior', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <input type="text" inputMode="numeric" value={configPdf.margens.superior} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, superior: v ? Number(v) : 5 } }); }} disabled={statusDe(campoRegras, 'nr_margem_superior') === 'D'} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('nr_margem_inferior', 'Margem inferior', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <input type="text" inputMode="numeric" value={configPdf.margens.inferior} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, inferior: v ? Number(v) : 5 } }); }} disabled={statusDe(campoRegras, 'nr_margem_inferior') === 'D'} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('nr_margem_esquerda', 'Margem esquerda', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <input type="text" inputMode="numeric" value={configPdf.margens.esquerda} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, esquerda: v ? Number(v) : 5 } }); }} disabled={statusDe(campoRegras, 'nr_margem_esquerda') === 'D'} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('nr_margem_direita', 'Margem direita', relatorioFieldInfos, 'relatorio', campoRegras)}
-                    <input type="text" inputMode="numeric" value={configPdf.margens.direita} onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); setConfigPdf({ ...configPdf, margens: { ...configPdf.margens, direita: v ? Number(v) : 5 } }); }} disabled={statusDe(campoRegras, 'nr_margem_direita') === 'D'} className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
-                  </div>
-                </div>
-              </div>
-          </section>
-          </>
-          )}
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Bandas (modo bandas) ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          {!bandaDetailId && isBandasMode && bandasSubView === 'bandas' && (
-          <>
-          <section className="h-full flex min-h-0 flex-col">
-            <BandasRelatorioTable
-              bandas={bandas}
-              onChange={setBandas}
-              colecaoOptions={opcoesColecao}
-              onEditingChange={setEditingBanda}
-              userId={userId}
-              initialColumns={initialBandasColumns}
-              onColumnsChange={onBandasColumnsChange}
-              onOpenBanda={(b) => openBandaDetail(b.id)}
-              onViewBanda={(b) => openBandaVer(b.id)}
-              onOrdemChange={setOrdemBandas}
-              getNextBandaSeq={getNextBandaSeq}
-              selectedRecordId={lastBandaDetailIdRef.current}
-              onDeleteBanda={onDeleteBanda}
-              onRowCommit={(row) => { void gravarBandaEditada(row as BandaState); }}
-              onDuplicateBanda={async (original) => {
-                setBandaSaving(true);
-                try {
-                  const { criarBanda, criarElemento } = await import('@/services/relatorioServiceBandas');
-                  const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                  const { id: _oldId, _idRegistro: _oldFs, campos: _oldCampos, filtros: _oldFiltros, ordenacao: _oldOrd, ...rest } = original as any;
-                  // A cópia vai para o fim (posição própria), sem empatar com a original no PDF.
-                  rest.nr_posicao = Math.max(0, ...bandas.map((b) => b.nr_posicao ?? 0)) + 1;
-                  const { id: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda({ ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                  // Duplicar elementos filhos
-                  const novosCampos: any[] = [];
-                  for (const c of (_oldCampos ?? [])) {
-                    const { id: _cId, _idRegistro: _cFs, ...cRest } = c;
-                    const { id: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt } = await criarElemento({ ...cRest, nr_seq_banda: savedSeq, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                    novosCampos.push({ ...cRest, id: cNewId, _idRegistro: cNewId, nr_sequencia: cSeq, dt_criacao: cDtCriacao, dt_alteracao: cDtAlt, ds_usuario_criacao: cUsrCriacao, ds_usuario_alteracao: cUsrAlt });
-                  }
-                  return { ...rest, ...(_oldOrd ? { ordenacao: _oldOrd } : {}), id: newBandaId, _idRegistro: newBandaId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao, campos: novosCampos } as any;
-                } finally {
-                  setBandaSaving(false);
-                }
-              }}
-            />
-          </section>
-          </>
-          )}
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Parâmetros (modo bandas) ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          {!bandaDetailId && !filtroDetailId && isBandasMode && bandasSubView === 'parametros' && (
-          <>
-          <section className="h-full flex min-h-0 flex-col">
-            <FiltrosRelatorioTable
-              filtros={filtros}
-              onChange={setFiltros}
-              camposDisponiveis={camposDisponiveis}
-              onEditingChange={setEditingFiltro}
-              userId={userId}
-              initialColumns={initialFiltrosColumns}
-              onColumnsChange={onFiltrosColumnsChange}
-              getNextSeq={getNextFiltroSeq}
-              colecaoOptions={opcoesColecao}
-              onViewFiltro={(f) => openFiltroVer(f.id)}
-              onOrdemChange={setOrdemFiltros}
-              onDeleteFiltro={onDeleteFiltro}
-              onRowCommit={(row) => { void gravarParametroEditado(row); }}
-              onDuplicateFiltro={duplicarParametro}
-            />
-          </section>
-          </>
-          )}
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Filtro Detail View (inline) ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          {filtroDetailId && !bandaDetailId && isBandasMode && (
-          <section className="mb-4">
-            <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-              <h2 className="text-sm font-semibold text-slate-900">Parâmetro</h2>
-            </div>
-            {filtroSel && (
-            <div className="space-y-[15px]">
-            <div className="grid grid-cols-7 gap-[15px]">
-              <div className="group col-span-1">
-                {renderFieldLabel('nr_sequencia', 'Sequência', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <input type="text" inputMode="numeric" value={filtroSel.nr_sequencia ?? ''} disabled
-                  className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('ie_colecao', 'Coleção', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <Select
-                  value={filtroSel.ie_colecao ?? ''}
-                  onChange={(v) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ie_colecao: v, ie_campo: '' } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_colecao: v, ie_campo: '' } : f));
-                    }
-                  }}
-                  options={[{ value: '', label: '---' }, ...opcoesColecao]}
-                  showPlaceholder={false}
-                  visibleOptions={7}
-                  className={inputClass}
-                />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('ie_campo', 'Campo', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <Select
-                  value={filtroSel.ie_campo}
-                  onChange={(v) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ie_campo: v } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_campo: v } : f));
-                    }
-                  }}
-                  options={(filtroSel.ie_colecao ? (getDataSource(filtroSel.ie_colecao)?.campos ?? []) : []).map((cd) => ({ value: cd.key, label: cd.key }))}
-                  showPlaceholder
-                  disabled={!filtroSel.ie_colecao}
-                  visibleOptions={7}
-                  className={inputClass}
-                />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('ds_label', 'Label', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <input type="text" value={filtroSel.ds_label ?? ''}
-                  onChange={(e) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ds_label: e.target.value } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ds_label: e.target.value } : f));
-                    }
-                  }}
-                  className={inputClass} />
-              </div>
-            </div>
-            <div className="grid grid-cols-8 gap-[15px] mt-[15px]">
-              <div className="group col-span-2">
-                {renderFieldLabel('operador', 'Operador', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <Select
-                  value={filtroSel.operador ?? 'igual'}
-                  onChange={(v) => {
-                    const operador = v as RelatorioFiltro['operador'];
-                    // Valor final só existe no "Entre"; vazio/não vazio não usam valor.
-                    const extra: Partial<RelatorioFiltro> = operador === 'entre' ? {} : { valorFinal: '' };
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, operador, ...extra } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, operador, ...extra } : f));
-                    }
-                  }}
-                  options={[...OPERADORES_FILTRO]}
-                  showPlaceholder={false}
-                  visibleOptions={7}
-                  className={inputClass}
-                />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('ie_mascara', 'Máscara', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <Select
-                  value={filtroSel.ie_mascara ?? 'texto'}
-                  onChange={(v) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ie_mascara: v as any } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_mascara: v as any } : f));
-                    }
-                  }}
-                  options={[
-                    { value: 'texto', label: 'Texto' },
-                    { value: 'data', label: 'Data' },
-                    { value: 'decimal', label: 'Decimal' },
-                    { value: 'inteiro', label: 'Inteiro' },
-                    { value: 'cpf', label: 'CPF' },
-                    { value: 'telefone', label: 'Telefone' },
-                  ]}
-                  showPlaceholder={false}
-                  visibleOptions={7}
-                  className={inputClass}
-                />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('vl_padrao', 'Valor padrão', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <input type="text" value={filtroSel.vl_padrao ?? ''}
-                  disabled={filtroSel.operador === 'vazio' || filtroSel.operador === 'nao_vazio'}
-                  onChange={(e) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, vl_padrao: e.target.value } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, vl_padrao: e.target.value } : f));
-                    }
-                  }}
-                  className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('valorFinal', 'Valor final', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <input type="text" value={filtroSel.valorFinal ?? ''}
-                  disabled={filtroSel.operador !== 'entre'}
-                  onChange={(e) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, valorFinal: e.target.value } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, valorFinal: e.target.value } : f));
-                    }
-                  }}
-                  className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-              </div>
-              <div className="group col-span-2">
-                {renderFieldLabel('ie_conector', 'Conector', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                <Select
-                  value={filtroSel.ie_conector ?? 'E'}
-                  onChange={(v) => {
-                    if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                      setPendingFiltro((prev) => prev ? { ...prev, ie_conector: v as any } : prev);
-                    } else {
-                      setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_conector: v as any } : f));
-                    }
-                  }}
-                  options={[{ value: 'E', label: 'E' }, { value: 'OU', label: 'OU' }]}
-                  showPlaceholder={false}
-                  visibleOptions={7}
-                  className={inputClass}
-                />
-              </div>
-              <div className="group col-span-1">
-                <label className="flex items-center h-[34px] gap-2 cursor-pointer">
-                  <input type="checkbox" checked={filtroSel.ie_parametro ?? false}
-                    onChange={(e) => {
-                      if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                        setPendingFiltro((prev) => prev ? { ...prev, ie_parametro: e.target.checked, ie_obrigatorio: e.target.checked ? prev.ie_obrigatorio : false } : prev);
-                      } else {
-                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_parametro: e.target.checked, ie_obrigatorio: e.target.checked ? f.ie_obrigatorio : false } : f));
-                      }
-                    }}
-                    className="cg-checkbox" />
-                  {renderFieldLabel('ie_parametro', 'Parâmetro', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                </label>
-              </div>
-              <div className="group col-span-1">
-                <label className="flex items-center h-[34px] gap-2 cursor-pointer">
-                  <input type="checkbox" checked={filtroSel.ie_obrigatorio ?? false}
-                    disabled={!filtroSel.ie_parametro}
-                    onChange={(e) => {
-                      if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                        setPendingFiltro((prev) => prev ? { ...prev, ie_obrigatorio: e.target.checked } : prev);
-                      } else {
-                        setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, ie_obrigatorio: e.target.checked } : f));
-                      }
-                    }}
-                    className="cg-checkbox" />
-                  {renderFieldLabel('ie_obrigatorio', 'Obrigatório', parametroFieldInfos, 'relatorio_parametro', parametroCampoRegras)}
-                </label>
-              </div>
-            </div>
-            </div>
-            )}
-          </section>
-          )}
-
-          {bandaDetailId ? (
-          /* ── Banda Detail View (inline) ── */
-          <>
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Banda (dados da banda selecionada) — somente no modo 'ver' ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          {bandaViewMode === 'ver' && (() => {
-            const bSel = (pendingBanda && pendingBanda.id === bandaDetailId) ? pendingBanda : bandas.find((b) => b.id === bandaDetailId);
-            if (!bSel) return null;
-            return (
+          {!ehBandas && (
+            <>
               <section>
-                <div className="flex items-center justify-between mb-3 border-b border-slate-200 pb-1">
-                  <h2 className="text-sm font-semibold text-slate-900">Banda</h2>
-                </div>
-                <div className="grid grid-cols-6 gap-[15px]">
-                  <div className="group">
-                    {renderFieldLabel('nr_sequencia', 'Sequência', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                    <input type="text" inputMode="numeric" value={bSel.nr_sequencia ?? ''} disabled
-                      className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
+                <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Relatório</h2>
+                <div className="grid gap-[15px] sm:grid-cols-12">
+                  <div className="sm:col-span-2">
+                    {rotulo("Sequência", "relatorio", "nr_sequencia", campoRegras)}
+                    <input disabled value={String(relatorio?.nr_sequencia ?? "")} className={INPUT} />
                   </div>
-                  <div className="group">
-                    {renderFieldLabel('ds_banda', 'Descrição', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                    <input type="text" value={bSel.ds_banda}
-                      onChange={(e) => updateBandaSelecionada((b) => ({ ...b, ds_banda: e.target.value }))}
-                      className={inputClass} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_tipo_banda', 'Tipo', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                    <Select
-                      value={bSel.ie_tipo_banda ?? ''}
-                      onChange={(v) => updateBandaSelecionada((b) => ({
-                        ...b,
-                        ie_tipo_banda: v as any,
-                        // Cabeçalho/Rodapé não têm coleção (o campo fica desabilitado):
-                        // limpa uma coleção escolhida antes de trocar o tipo.
-                        ...(v === 'cabecalho' || v === 'rodape' ? { ie_colecao_principal: '' } : {}),
-                      }))}
-                      options={[
-                        { value: '', label: '---' },
-                        { value: 'lista', label: 'Lista' },
-                        { value: 'texto_valor', label: 'Dados' },
-                        ...(!bandas.some((b) => b.id !== bandaDetailId && b.ie_tipo_banda === 'cabecalho') ? [{ value: 'cabecalho', label: 'Cabeçalho' }] : []),
-                        ...(!bandas.some((b) => b.id !== bandaDetailId && b.ie_tipo_banda === 'rodape') ? [{ value: 'rodape', label: 'Rodapé' }] : []),
-                      ]}
-                      showPlaceholder={false}
-                      visibleOptions={7}
+                  <div className="sm:col-span-7">
+                    {rotulo("Descrição", "relatorio", "ds_relatorio", { ...campoRegras, ds_relatorio: campoRegras.ds_relatorio === "D" ? "D" : "O" })}
+                    <input
+                      value={dsRelatorio}
+                      onChange={(e) => setDsRelatorio(e.target.value)}
+                      disabled={statusDe(campoRegras, "ds_relatorio") === "D"}
+                      className={comErro([...errosDetalhe, ...campoErros], "ds_relatorio")}
                     />
                   </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_colecao_principal', 'Coleção principal', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                    <Select
-                      value={bSel.ie_colecao_principal ?? ''}
-                      onChange={(v) => updateBandaSelecionada((b) => ({ ...b, ie_colecao_principal: v }))}
-                      options={[{ value: '', label: '---' }, ...opcoesColecao]}
-                      showPlaceholder={false}
-                      visibleOptions={7}
-                      disabled={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
-                    />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('nr_posicao', 'Posição', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                    <input type="text" inputMode="numeric" value={bSel.nr_posicao ?? ''}
-                      onChange={(e) => updateBandaSelecionada((b) => ({ ...b, nr_posicao: Number(e.target.value) || 0 }))}
-                      className={inputClass} />
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('nr_altura', 'Altura', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                    <input type="text" inputMode="numeric" value={bSel.nr_altura ?? ''}
-                      onChange={(e) => updateBandaSelecionada((b) => ({ ...b, nr_altura: Number(e.target.value) || 0 }))}
-                      className={inputClass} />
+                  <div className="sm:col-span-3">
+                    {rotulo("Formato", "relatorio", "ie_formato", campoRegras)}
+                    {/* Por enquanto só XLS (o PDF volta depois). */}
+                    <Select value="excel" onChange={() => {}} options={FORMATO_OPTIONS} showPlaceholder={false} disabled={statusDe(campoRegras, "ie_formato") === "D"} />
                   </div>
                 </div>
-                {/* ── Bordas da banda ── */}
-                <div className="flex items-center gap-6 mt-3">
-                  {([
-                    { key: 'ie_borda_superior', label: 'Borda superior', id: 'borda_sup' },
-                    { key: 'ie_borda_inferior', label: 'Borda inferior', id: 'borda_inf' },
-                    { key: 'ie_borda_esquerda', label: 'Borda esquerda', id: 'borda_esq' },
-                    { key: 'ie_borda_direita', label: 'Borda direita', id: 'borda_dir' },
-                  ] as const).map(({ key, label, id }) => (
-                    <div key={key} className="group flex items-center gap-2">
-                      <input
-                        type="checkbox"
-                        id={`${id}_${bSel.id}`}
-                        checked={bSel[key] ?? false}
-                        onChange={(e) => updateBandaSelecionada((b) => ({ ...b, [key]: e.target.checked }))}
-                        className="cg-checkbox"
-                      />
-                      <label htmlFor={`${id}_${bSel.id}`} className="text-sm text-slate-700 cursor-pointer">
-                        {label}
-                      </label>
-                      <button
-                        type="button"
-                        onClick={(event) => {
-                          event.stopPropagation();
-                          setInfoAnchor(event.currentTarget);
-                          setInfoPopupField((current) => (current === `relatorio_banda.${key}` ? null : `relatorio_banda.${key}`));
-                        }}
-                        tabIndex={-1}
-                        aria-label={`Informações do campo ${label}`}
-                        className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoPopupField === `relatorio_banda.${key}` ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}`}
-                      >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 8v4" />
-                          <circle cx="12" cy="16" r="0.5" />
-                        </svg>
-                      </button>
-                      {infoPopupField === `relatorio_banda.${key}` && (
-                        <FieldInfoPopup
-                          anchor={infoAnchor}
-                          meta={{ type: 'boolean', field: key, collection: 'relatorio_banda' }}
-                          onClose={() => setInfoPopupField(null)}
-                        />
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {/* ── Configurações (somente para banda tipo Lista) ── */}
-                {bandaTipo === 'lista' && (
-                <>
-                  <div className="flex items-center justify-between mb-3 mt-6 border-b border-slate-200 pb-1">
-                    <h2 className="text-sm font-semibold text-slate-900">Configurações</h2>
-                  </div>
-                  <div className="grid grid-cols-6 gap-[15px]">
-                    {/* Linha 1: Espessura/Topo/Bg/Cor/Fonte/Tamanho label */}
-                    <div className="group">
-                      {renderFieldLabel('espessuraLabel', 'Espessura label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <input type="text" inputMode="numeric" value={espessuraLabel}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '');
-                          const val = v ? Math.max(1, Number(v)) : 1;
-                          setEspessuraLabel(val);
-                          updateBandaSelecionada((b) => ({ ...b, espessuraLabel: val }));
-                        }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('topoLabel', 'Topo label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <input type="text" inputMode="numeric" value={topoLabelVal}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '');
-                          const val = v ? Math.max(0, Number(v)) : 0;
-                          setTopoLabelVal(val);
-                          updateBandaSelecionada((b) => ({ ...b, topoLabel: val }));
-                        }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('bgLabel', 'Background label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <Select
-                        value={bgLabel}
-                        onChange={(v) => { setBgLabel(v); updateBandaSelecionada((b) => ({ ...b, bgLabel: v })); }}
-                        options={[{ value: '', label: '---' }, { value: '#e2e8f0', label: '#e2e8f0' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#334155', label: '#334155' }, { value: '#475569', label: '#475569' }, { value: '#64748b', label: '#64748b' }, { value: '#94a3b8', label: '#94a3b8' }, { value: '#cbd5e1', label: '#cbd5e1' }, { value: '#f1f5f9', label: '#f1f5f9' }, { value: '#fefce8', label: '#fefce8' }]}
-                        showPlaceholder={false}
-                        renderOption={(opt) => (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {opt.value ? (
-                              <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
-                            ) : null}
-                            <span>{opt.label}</span>
-                          </span>
-                        )}
-                      visibleOptions={7}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('corLabelGlobal', 'Cor label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <Select
-                        value={corLabelGlobal}
-                        onChange={(v) => { setCorLabelGlobal(v); updateBandaSelecionada((b) => ({ ...b, corLabelGlobal: v })); }}
-                        options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
-                        showPlaceholder={false}
-                        renderOption={(opt) => (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
-                            <span>{opt.label}</span>
-                          </span>
-                        )}
-                      visibleOptions={7}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('fonteLabel', 'Fonte label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <Select
-                        value={fonteLabel}
-                        onChange={(v) => { setFonteLabel(v); updateBandaSelecionada((b) => ({ ...b, fonteLabel: v })); }}
-                        options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
-                        showPlaceholder={false}
-                        visibleOptions={7}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('tamanhoFonteLabel', 'Tamanho fonte label', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <input type="text" inputMode="numeric" value={tamanhoFonteLabel}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '');
-                          const val = v ? Math.max(1, Number(v)) : 1;
-                          setTamanhoFonteLabel(val);
-                          updateBandaSelecionada((b) => ({ ...b, tamanhoFonteLabel: val }));
-                        }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                      />
-                    </div>
-                    {/* Linha 2: Espessura/Topo/Bg/Cor/Fonte/Tamanho registro */}
-                    <div className="group">
-                      {renderFieldLabel('espessuraCampo', 'Espessura registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <input type="text" inputMode="numeric" value={espessuraCampo}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '');
-                          const val = v ? Math.max(1, Number(v)) : 1;
-                          setEspessuraCampo(val);
-                          updateBandaSelecionada((b) => ({ ...b, espessuraCampo: val }));
-                        }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('topoRegistro', 'Topo registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <input type="text" inputMode="numeric" value={topoRegistroVal}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '');
-                          const val = v ? Math.max(0, Number(v)) : 0;
-                          setTopoRegistroVal(val);
-                          updateBandaSelecionada((b) => ({ ...b, topoRegistro: val }));
-                        }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('bgCampo', 'Background registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <Select
-                        value={bgCampo}
-                        onChange={(v) => { setBgCampo(v); updateBandaSelecionada((b) => ({ ...b, bgCampo: v })); }}
-                        options={[{ value: '', label: '---' }, { value: 'zebrado', label: 'Linhas zebradas' }]}
-                        showPlaceholder={false}
-                        renderOption={(opt) => (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            {opt.value === 'zebrado' ? (
-                              <span style={{ display: 'inline-flex', width: 14, height: 14, flexShrink: 0, border: '1px solid #ccc', borderRadius: 2, overflow: 'hidden' }}>
-                                <span style={{ flex: 1, background: '#fff' }} />
-                                <span style={{ flex: 1, background: '#ccc' }} />
-                              </span>
-                            ) : null}
-                            <span>{opt.label}</span>
-                          </span>
-                        )}
-                      visibleOptions={7}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('corCampoGlobal', 'Cor registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <Select
-                        value={corCampoGlobal}
-                        onChange={(v) => { setCorCampoGlobal(v); updateBandaSelecionada((b) => ({ ...b, corCampoGlobal: v })); }}
-                        options={[{ value: '#1a1a1a', label: '#1a1a1a' }, { value: '#000000', label: '#000000' }, { value: '#333333', label: '#333333' }, { value: '#555555', label: '#555555' }, { value: '#666666', label: '#666666' }, { value: '#999999', label: '#999999' }, { value: '#ffffff', label: '#ffffff' }, { value: '#003056', label: '#003056' }, { value: '#1a4567', label: '#1a4567' }, { value: '#c0392b', label: '#c0392b' }]}
-                        showPlaceholder={false}
-                        renderOption={(opt) => (
-                          <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
-                            <span style={{ display: 'inline-block', width: 14, height: 14, background: opt.value, border: '1px solid #ccc', borderRadius: 2, flexShrink: 0 }} />
-                            <span>{opt.label}</span>
-                          </span>
-                        )}
-                      visibleOptions={7}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('fonteCampo', 'Fonte registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <Select
-                        value={fonteCampo}
-                        onChange={(v) => { setFonteCampo(v); updateBandaSelecionada((b) => ({ ...b, fonteCampo: v })); }}
-                        options={[{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }]}
-                        showPlaceholder={false}
-                        visibleOptions={7}
-                      />
-                    </div>
-                    <div className="group">
-                      {renderFieldLabel('tamanhoFonteCampo', 'Tamanho fonte registro', bandaFieldInfos, 'relatorio_banda', bandaCampoRegras)}
-                      <input type="text" inputMode="numeric" value={tamanhoFonteCampo}
-                        onChange={(e) => {
-                          const v = e.target.value.replace(/[^0-9]/g, '');
-                          const val = v ? Math.max(1, Number(v)) : 1;
-                          setTamanhoFonteCampo(val);
-                          updateBandaSelecionada((b) => ({ ...b, tamanhoFonteCampo: val }));
-                        }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`}
-                      />
-                    </div>
-                  </div>
-                </>
-                )}
               </section>
-            );
-          })()}
 
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Element (Campo) Ver Form ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          {campoDetailId && campoSel && (() => {
-            const tipoBanda = bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda;
-            const isTextoValor = tipoBanda === 'texto_valor';
-            const isCabeOuRodape = tipoBanda === 'cabecalho' || tipoBanda === 'rodape';
-            const ocultarColecaoCampo = false;
-            const textoValorHidden = tipoBanda !== 'lista';
-            const ESTILO_OPTS = [{ value: '', label: '---' }, { value: 'negrito', label: 'Negrito' }, { value: 'italico', label: 'Itálico' }, { value: 'sublinhado', label: 'Sublinhado' }, { value: 'negrito_italico', label: 'Negrito + Itálico' }, { value: 'negrito_sublinhado', label: 'Negrito + Sublinhado' }, { value: 'italico_sublinhado', label: 'Itálico + Sublinhado' }, { value: 'negrito_italico_sublinhado', label: 'Negrito + Itálico + Sublinhado' }];
-            const FONTES_OPTS = [{ value: 'Arial', label: 'Arial' }, { value: 'Calibri', label: 'Calibri' }, { value: 'Times New Roman', label: 'Times New Roman' }, { value: 'Courier New', label: 'Courier New' }, { value: 'Tahoma', label: 'Tahoma' }, { value: 'Trebuchet MS', label: 'Trebuchet MS' }];
-            return (
               <section>
-                {/* ── Identificação ── */}
-                <div className="mb-2 mt-2 border-b border-slate-200 pb-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Identificação</h3>
+                <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Saída</h2>
+                <div className="space-y-[15px]">
+                  <div className="grid gap-[15px] sm:grid-cols-4">
+                    <div>
+                      {rotulo("Nome do arquivo", "relatorio", "ds_nome_arquivo", campoRegras)}
+                      <input
+                        value={nomeArquivo}
+                        onChange={(e) => setNomeArquivo(e.target.value)}
+                        disabled={statusDe(campoRegras, "ds_nome_arquivo") === "D"}
+                        placeholder={dsRelatorio.trim() || undefined}
+                        className={`${comErro(errosDetalhe, "ds_nome_arquivo")} placeholder:text-[#aaa]`}
+                      />
+                    </div>
+                    {/* Campos do PDF: desabilitados até o PDF voltar. */}
+                    <div>
+                      {rotulo("Página", "relatorio", "ie_pagina", campoRegras)}
+                      <Select value={pdf?.tamanhoPagina ?? "A4"} onChange={() => {}} options={[...TAMANHOS_PAGINA]} showPlaceholder={false} disabled />
+                    </div>
+                    <div>
+                      {rotulo("Orientação", "relatorio", "ie_orientacao", campoRegras)}
+                      <Select value={pdf?.orientacao ?? "retrato"} onChange={() => {}} options={ORIENTACAO_OPTIONS} showPlaceholder={false} disabled />
+                    </div>
+                    <div>
+                      {rotulo("Borda", "relatorio", "ie_borda", campoRegras)}
+                      <Select value={pdf?.estiloBorda ?? ""} onChange={() => {}} options={BORDA_OPTIONS} showPlaceholder={false} disabled />
+                    </div>
+                  </div>
+                  <div className="grid gap-[15px] sm:grid-cols-4">
+                    {([
+                      ["nr_margem_superior", "Margem superior", pdf?.margens?.superior],
+                      ["nr_margem_inferior", "Margem inferior", pdf?.margens?.inferior],
+                      ["nr_margem_esquerda", "Margem esquerda", pdf?.margens?.esquerda],
+                      ["nr_margem_direita", "Margem direita", pdf?.margens?.direita],
+                    ] as const).map(([campo, texto, valor]) => (
+                      <div key={campo}>
+                        {rotulo(texto, "relatorio", campo, campoRegras)}
+                        <input disabled value={valor ?? ""} className={INPUT} />
+                      </div>
+                    ))}
+                  </div>
                 </div>
-                <div className="flex flex-wrap gap-[15px]">
-                  <div className="group flex-none w-[100px]">
-                    {renderFieldLabel('nr_sequencia', 'Sequência', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <input type="text" inputMode="numeric" value={campoSel.nr_sequencia ?? ''} disabled
-                      className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`} />
-                  </div>
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ds_elemento', 'Descrição', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <input type="text" value={campoSel.ds_elemento ?? ''}
-                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ds_elemento: e.target.value }))}
-                      className={inputClass} />
-                  </div>
+              </section>
+            </>
+          )}
+
+          {ehBandas && !detalhe && (
+            <section className="h-full flex min-h-0 flex-col">
+              {carregando ? (
+                <LoadingModal open message="Carregando..." />
+              ) : (aba === "bandas" ? bandas : parametros).length === 0 ? (
+                <div className="flex flex-col items-center justify-center flex-1 py-16 text-center">
+                  <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
+                  <p className="mt-1 text-sm text-slate-500">
+                    {aba === "bandas"
+                      ? 'Clique em "Adicionar" para cadastrar a banda com o SQL do relatório.'
+                      : 'Clique em "Adicionar" para cadastrar os parâmetros usados no SQL (ex.: :teste).'}
+                  </p>
                 </div>
-                <div className="flex flex-wrap gap-[15px] mt-2">
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ie_tipo_elemento', 'Tipo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <Select
-                      value={campoSel.ie_tipo_elemento ?? ''}
-                      onChange={(v) => updateCampoSelecionado((c) => ({
-                        ...c,
-                        ie_tipo_elemento: (v || undefined) as any,
-                        // "Primeira página" só vale para Número da página.
-                        ie_primeira_pagina: v === 'numero_pagina' ? (c.ie_primeira_pagina ?? false) : false,
-                      }))}
-                      options={
-                        tipoBanda === 'lista'
-                          ? [{ value: 'valor', label: 'Valor' }]
-                          : [{ value: 'conteudo', label: 'Conteúdo' }, { value: 'data_horario_geracao', label: 'Data + horário da geração' }, { value: 'data_geracao', label: 'Data da geração' }, { value: 'horario_geracao', label: 'Horário da geração' }, { value: 'imagem', label: 'Imagem' }, { value: 'numero_pagina', label: 'Número da página' }, { value: 'usuario_geracao', label: 'Usuário da geração' }, { value: 'valor', label: 'Valor' }]
-                      }
-                      showPlaceholder={true}
-                      className={inputClass}
-                    />
-                  </div>
-                  {tipoBanda !== 'lista' && (
-                  <div className="group flex-none">
-                    {renderFieldLabel('ie_primeira_pagina', 'Primeira página', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <label className={`flex h-[34px] items-center gap-2 text-sm ${campoSel.ie_tipo_elemento === 'numero_pagina' ? 'cursor-pointer' : 'cursor-default opacity-50'}`}>
+              ) : aba === "bandas" ? (
+                <ResizableTable<BandaSql>
+                  {...colunasBandas}
+                  columns={colunasDeBanda}
+                  rows={bandas}
+                  rowKey={(b) => String(b.id ?? b.nr_sequencia)}
+                  onRowClick={(b) => setSelecionadoId(b.id ?? null)}
+                  onRowDoubleClick={abrir}
+                  rowClassName={(b) => (b.id === selecionadoId ? "row-selected" : "")}
+                  onRowContextMenu={(b, e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelecionadoId(b.id ?? null);
+                    setMenu({ x: e.clientX, y: e.clientY, acoes: [{ label: "Ver", onClick: () => abrir(b) }, { label: "Excluir", onClick: () => excluir("banda", b) }] });
+                  }}
+                />
+              ) : (
+                <ResizableTable<ParametroSql>
+                  {...colunasParametros}
+                  columns={colunasDeParametro}
+                  rows={parametros}
+                  rowKey={(p) => String(p.id ?? p.nr_sequencia)}
+                  onRowClick={(p) => setSelecionadoId(p.id ?? null)}
+                  onRowDoubleClick={abrir}
+                  rowClassName={(p) => (p.id === selecionadoId ? "row-selected" : "")}
+                  onRowContextMenu={(p, e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    setSelecionadoId(p.id ?? null);
+                    setMenu({ x: e.clientX, y: e.clientY, acoes: [{ label: "Ver", onClick: () => abrir(p) }, { label: "Excluir", onClick: () => excluir("parametro", p) }] });
+                  }}
+                />
+              )}
+            </section>
+          )}
+
+          {detalhe?.tipo === "banda" && (
+            <section>
+              <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Banda</h2>
+              <div className="grid gap-[15px] sm:grid-cols-12">
+                <div className="sm:col-span-2">
+                  {rotulo("Sequência", "relatorio_banda", "nr_sequencia", bandaCampoRegras)}
+                  <input disabled value={String(detalhe.banda.nr_sequencia ?? "")} className={INPUT} />
+                </div>
+                <div className="sm:col-span-10">
+                  {rotulo("Descrição", "relatorio_banda", "ds_banda", bandaCampoRegras)}
+                  <input
+                    value={detalhe.banda.ds_banda ?? ""}
+                    onChange={(e) => setDetalhe({ tipo: "banda", banda: { ...detalhe.banda, ds_banda: e.target.value } })}
+                    disabled={statusDe(bandaCampoRegras, "ds_banda") === "D"}
+                    className={comErro(errosDetalhe, "ds_banda")}
+                  />
+                </div>
+                <div className="sm:col-span-12">
+                  {rotulo("SQL", "relatorio_banda", "ds_sql", { ...bandaCampoRegras, ds_sql: "O" })}
+                  <textarea
+                    value={detalhe.banda.ds_sql ?? ""}
+                    onChange={(e) => setDetalhe({ tipo: "banda", banda: { ...detalhe.banda, ds_sql: e.target.value } })}
+                    disabled={statusDe(bandaCampoRegras, "ds_sql") === "D"}
+                    rows={16}
+                    spellCheck={false}
+                    placeholder="select * from pat_ativo where nr_sequencia = :teste"
+                    className={`${comErro(errosDetalhe, "ds_sql")} font-mono text-[13px] leading-5 resize-y placeholder:text-[#aaa]`}
+                  />
+                  <p className="mt-1 text-xs text-slate-500">
+                    Uma consulta (SELECT ou WITH). Parâmetros como <code>:nome</code>, cadastrados na aba Parâmetros.
+                    {nomesNoSql.length > 0 && <> Parâmetros neste SQL: {nomesNoSql.map((n) => `:${n}`).join(", ")}.</>}
+                    {naoCadastrados.length > 0 && (
+                      <span className="text-[#b46a00]"> Ainda não cadastrados: {naoCadastrados.map((n) => `:${n}`).join(", ")}.</span>
+                    )}
+                  </p>
+                </div>
+              </div>
+            </section>
+          )}
+
+          {detalhe?.tipo === "parametro" && (
+            <section>
+              <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Parâmetro</h2>
+              <div className="grid gap-[15px] sm:grid-cols-12">
+                <div className="sm:col-span-2">
+                  {rotulo("Sequência", "relatorio_parametro", "nr_sequencia", parametroCampoRegras)}
+                  <input disabled value={String(detalhe.parametro.nr_sequencia ?? "")} className={INPUT} />
+                </div>
+                <div className="sm:col-span-5">
+                  {rotulo("Descrição do parâmetro", "relatorio_parametro", "ds_parametro", { ...parametroCampoRegras, ds_parametro: "O" })}
+                  <input
+                    value={detalhe.parametro.ds_parametro ?? ""}
+                    onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, ds_parametro: e.target.value.replace(/\s/g, "") } })}
+                    disabled={statusDe(parametroCampoRegras, "ds_parametro") === "D"}
+                    placeholder="teste"
+                    className={`${comErro(errosDetalhe, "ds_parametro")} placeholder:text-[#aaa]`}
+                  />
+                </div>
+                <div className="sm:col-span-5">
+                  {rotulo("Label", "relatorio_parametro", "ds_label", parametroCampoRegras)}
+                  <input
+                    value={detalhe.parametro.ds_label ?? ""}
+                    onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, ds_label: e.target.value } })}
+                    disabled={statusDe(parametroCampoRegras, "ds_label") === "D"}
+                    className={comErro(errosDetalhe, "ds_label")}
+                  />
+                </div>
+                <div className="sm:col-span-2">
+                  {rotulo("Ordem", "relatorio_parametro", "nr_ordem", parametroCampoRegras)}
+                  <input
+                    inputMode="numeric"
+                    value={detalhe.parametro.nr_ordem ?? ""}
+                    onChange={(e) => {
+                      const digitos = e.target.value.replace(/\D/g, "").slice(0, 6);
+                      setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, nr_ordem: digitos === "" ? null : Number(digitos) } });
+                    }}
+                    disabled={statusDe(parametroCampoRegras, "nr_ordem") === "D"}
+                    className={comErro(errosDetalhe, "nr_ordem")}
+                  />
+                </div>
+                <div className="sm:col-span-6">
+                  {rotulo("Valor padrão", "relatorio_parametro", "vl_padrao", parametroCampoRegras)}
+                  <input
+                    value={detalhe.parametro.vl_padrao ?? ""}
+                    onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, vl_padrao: e.target.value } })}
+                    disabled={statusDe(parametroCampoRegras, "vl_padrao") === "D"}
+                    className={comErro(errosDetalhe, "vl_padrao")}
+                  />
+                </div>
+                {([
+                  ["ie_perguntar", "Perguntar"],
+                  ["ie_obrigatorio", "Obrigatório"],
+                ] as const).map(([campo, texto]) => (
+                  <div key={campo} className="sm:col-span-2">
+                    {rotulo(texto, "relatorio_parametro", campo, parametroCampoRegras)}
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
                       <input
                         type="checkbox"
                         className="cg-checkbox"
-                        disabled={campoSel.ie_tipo_elemento !== 'numero_pagina'}
-                        checked={campoSel.ie_tipo_elemento === 'numero_pagina' && !!campoSel.ie_primeira_pagina}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_primeira_pagina: e.target.checked }))}
+                        checked={detalhe.parametro[campo] === "S"}
+                        disabled={statusDe(parametroCampoRegras, campo) === "D"}
+                        onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, [campo]: e.target.checked ? "S" : "N" } })}
                       />
                       <span>Sim</span>
                     </label>
                   </div>
-                  )}
-                  {!ocultarColecaoCampo && (() => {
-                    const campoColecaoPrincipal = bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || '';
-                    const dsPrincipal = getDataSource(campoColecaoPrincipal);
-                    const fkFields = dsPrincipal?.campos.filter((c) => c.isFK && c.fkColecao) ?? [];
-                    const colecoesEl: { value: string; label: string }[] = [
-                      { value: campoColecaoPrincipal, label: campoColecaoPrincipal },
-                      ...fkFields.map((fk) => ({ value: fk.fkColecao!, label: fk.fkColecao! })).filter((o) => o.value !== campoColecaoPrincipal),
-                    ];
-                    const dsSel = getDataSource(campoSel.ie_colecao || '');
-                    const camposDaColecao = dsSel?.campos ?? [];
-                    return (
-                      <>
-                        <div className="group flex-1 min-w-[140px]">
-                          {renderFieldLabel('ie_colecao', 'Coleção', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                          <Select
-                            value={campoSel.ie_colecao ?? ''}
-                            onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_colecao: v, ie_campo: v !== c.ie_colecao ? '' : c.ie_campo }))}
-                            options={colecoesEl}
-                            showPlaceholder
-                            className={`${inputClass} ${textoValorHidden && campoSel.ie_tipo_elemento !== 'valor' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={textoValorHidden && campoSel.ie_tipo_elemento !== 'valor'}
-                            visibleOptions={7}
-                          />
-                        </div>
-                        <div className="group flex-1 min-w-[140px]">
-                          {renderFieldLabel('ie_campo', 'Campo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                          <Select
-                            value={campoSel.statusSistema ? campoSel.ie_campo + '__sistema' : campoSel.ie_campo}
-                            onChange={(v) => {
-                              const isSistema = v.endsWith('__sistema');
-                              const chave = isSistema ? v.replace('__sistema', '') : v;
-                              updateCampoSelecionado((c) => ({ ...c, ie_campo: chave, statusSistema: isSistema }));
-                            }}
-                            options={camposDaColecao.flatMap((cd) => {
-                              if (cd.key === 'ie_status' || cd.key === 'ie_status_manutencao') {
-                                return [
-                                  { value: cd.key, label: cd.key + ' (banco)' },
-                                  { value: cd.key + '__sistema', label: cd.key + ' (sistema)' },
-                                ];
-                              }
-                              return [{ value: cd.key, label: cd.key }];
-                            })}
-                            showPlaceholder
-                            className={`${inputClass} ${textoValorHidden && campoSel.ie_tipo_elemento !== 'valor' ? 'opacity-50 cursor-not-allowed' : ''}`}
-                            disabled={textoValorHidden && campoSel.ie_tipo_elemento !== 'valor'}
-                            visibleOptions={7}
-                          />
-                        </div>
-                      </>
-                    );
-                  })()}
-                  {!textoValorHidden && (
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('label', 'Label', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <input type="text" value={campoSel.label ?? ''}
-                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, label: e.target.value }))}
-                      className={inputClass} />
-                  </div>
-                  )}
-                </div>
-
-                {/* ── Aparência ── */}
-                <div className="mb-2 mt-5 border-b border-slate-200 pb-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Aparência</h3>
-                </div>
-                <div>
-                  {/* Linha 1: Fonte, Tamanho fonte, Estilo, Estilo label, Estilo registro, Estilo soma, Cor, Background */}
-                  <div className="flex flex-wrap gap-[15px]">
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_fonte', 'Fonte', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <Select value={campoSel.ie_fonte ?? 'Arial'} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_fonte: v }))} options={FONTES_OPTS} showPlaceholder={false} visibleOptions={7} />
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_fonte', 'Tamanho fonte', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <input type="text" inputMode="numeric" value={campoSel.qt_fonte ?? ''}
-                        onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_fonte: v ? Math.max(1, Number(v)) : 1 })); }}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield]`} />
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo', tipoBanda === 'lista' ? 'Estilo registro' : 'Estilo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <Select value={campoSel.ie_estilo ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
-                    </div>
-                    {!textoValorHidden && (
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo_label', 'Estilo label', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <Select value={campoSel.ie_estilo_label ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_label: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
-                    </div>
-                    )}
-                    {!textoValorHidden && (
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('ie_estilo_soma', 'Estilo soma', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <Select value={campoSel.ie_estilo_soma ?? ''} onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_estilo_soma: v }))} options={ESTILO_OPTS} showPlaceholder={false} visibleOptions={7} />
-                    </div>
-                    )}
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('cd_cor', 'Cor', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <div className="relative" style={{ height: 34 }}>
-                        <input type="color" id={`cor-campo-${campoSel.id}`} value={campoSel.cd_cor || '#000000'}
-                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, cd_cor: e.target.value }))}
-                          className="absolute opacity-0 w-0 h-0 pointer-events-none" />
-                        <div className="w-full h-full cursor-pointer border border-slate-300"
-                          style={{ backgroundColor: campoSel.cd_cor || '#000000' }}
-                          onClick={() => document.getElementById(`cor-campo-${campoSel.id}`)?.click()} />
-                      </div>
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('cd_background', 'Background', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <div className="flex items-center gap-1">
-                        <div className="relative flex-1" style={{ height: 34 }}>
-                          <input type="color" id={`bg-campo-${campoSel.id}`} value={campoSel.cd_background || '#ffffff'}
-                            onChange={(e) => updateCampoSelecionado((c) => ({ ...c, cd_background: e.target.value }))}
-                            className="absolute opacity-0 w-0 h-0 pointer-events-none" />
-                          <div className="w-full h-full cursor-pointer border border-slate-300"
-                            style={{ backgroundColor: campoSel.transparentCampo ? 'transparent' : (campoSel.cd_background || '#ffffff'), backgroundImage: campoSel.transparentCampo ? 'repeating-conic-gradient(#ccc 0% 25%, transparent 0% 50%) 50% / 8px 8px' : 'none' }}
-                            onClick={() => document.getElementById(`bg-campo-${campoSel.id}`)?.click()} />
-                        </div>
-                        <label className="flex items-center cursor-pointer" title="Fundo transparente">
-                          <input type="checkbox" checked={campoSel.transparentCampo ?? false}
-                            onChange={(e) => updateCampoSelecionado((c) => ({ ...c, transparentCampo: e.target.checked }))}
-                            className="cg-checkbox" />
-                        </label>
-                      </div>
-                    </div>
-                  </div>
-                  {/* Linha 2: Paddings e Bordas */}
-                  <div className="flex flex-wrap gap-[15px] mt-2">
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_superior', 'Padding superior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <input type="text" inputMode="numeric"
-                        value={campoSel.qt_padding_superior === 0 ? '' : (campoSel.qt_padding_superior ?? '')}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_superior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                        className={inputClass} />
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_direita', 'Padding direita', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <input type="text" inputMode="numeric"
-                        value={campoSel.qt_padding_direita === 0 ? '' : (campoSel.qt_padding_direita ?? '')}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_direita: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                        className={inputClass} />
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_inferior', 'Padding inferior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <input type="text" inputMode="numeric"
-                        value={campoSel.qt_padding_inferior === 0 ? '' : (campoSel.qt_padding_inferior ?? '')}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_inferior: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                        className={inputClass} />
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_padding_esquerda', 'Padding esquerda', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <input type="text" inputMode="numeric"
-                        value={campoSel.qt_padding_esquerda === 0 ? '' : (campoSel.qt_padding_esquerda ?? '')}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_padding_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                        className={inputClass} />
-                    </div>
-                    <div className="group flex-none w-auto min-w-[110px]">
-                      <div className="flex items-center h-[34px] gap-2">
-                        <input type="checkbox" checked={campoSel.ie_borda_superior === 'S'}
-                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_superior: e.target.checked ? 'S' : 'N' }))}
-                          className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_superior', 'Borda superior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      </div>
-                    </div>
-                    <div className="group flex-none w-auto min-w-[110px]">
-                      <div className="flex items-center h-[34px] gap-2">
-                        <input type="checkbox" checked={campoSel.ie_borda_direita === 'S'}
-                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_direita: e.target.checked ? 'S' : 'N' }))}
-                          className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_direita', 'Borda direita', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      </div>
-                    </div>
-                    <div className="group flex-none w-auto min-w-[110px]">
-                      <div className="flex items-center h-[34px] gap-2">
-                        <input type="checkbox" checked={campoSel.ie_borda_inferior === 'S'}
-                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_inferior: e.target.checked ? 'S' : 'N' }))}
-                          className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_inferior', 'Borda inferior', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      </div>
-                    </div>
-                    <div className="group flex-none w-auto min-w-[110px]">
-                      <div className="flex items-center h-[34px] gap-2">
-                        <input type="checkbox" checked={campoSel.ie_borda_esquerda === 'S'}
-                          onChange={(e) => updateCampoSelecionado((c) => ({ ...c, ie_borda_esquerda: e.target.checked ? 'S' : 'N' }))}
-                          className="cg-checkbox" />
-                        {renderFieldLabel('ie_borda_esquerda', 'Borda esquerda', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      </div>
-                    </div>
-                  </div>
-                  {/* Linha 3: Imagem, Tamanho imagem */}
-                  <div className="flex flex-wrap gap-[15px] mt-2">
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('nr_seq_imagem', 'Imagem', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <Select
-                        value={campoSel.nr_seq_imagem ?? ''}
-                        onChange={(v) => updateCampoSelecionado((c) => ({ ...c, nr_seq_imagem: v || undefined }))}
-                        options={[{ value: '', label: '---' }, ...(imagens ?? []).map((img: any) => ({ value: img.id || img.nr_sequencia, label: img.ds_imagem || img.ie_arquivo?.split('/').pop() || 'Imagem' }))!]}
-                        showPlaceholder={false} visibleOptions={7}
-                        disabled={campoSel.ie_tipo_elemento !== 'imagem'}
-                        className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                      />
-                    </div>
-                    <div className="group flex-1 min-w-[140px]">
-                      {renderFieldLabel('qt_tamanho_imagem', 'Tamanho imagem', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <input type="text" inputMode="numeric"
-                        value={campoSel.qt_tamanho_imagem === 0 ? '' : (campoSel.qt_tamanho_imagem ?? '')}
-                        onChange={(e) => { const v = e.target.value.replace(/[^0-9]/g, ''); updateCampoSelecionado((c) => ({ ...c, qt_tamanho_imagem: v ? Math.max(1, Number(v)) : 0 })); }}
-                        disabled={campoSel.ie_tipo_elemento !== 'imagem'}
-                        className={`${inputClass} [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none [-moz-appearance:textfield] ${campoSel.ie_tipo_elemento !== 'imagem' ? 'disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500' : ''}`} />
-                    </div>
-                  </div>
-                  {/* Linha 4: Conteúdo */}
-                  <div className="flex flex-wrap gap-[15px] mt-2">
-                    <div className="group flex-1 min-w-full">
-                      {renderFieldLabel('conteudo', 'Conteúdo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                      <textarea
-                        value={campoSel.conteudo ?? ''}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, conteudo: e.target.value }))}
-                        disabled={campoSel.ie_tipo_elemento !== 'conteudo'}
-                        className={`${inputClass} min-h-[80px] resize-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* ── Posicionamento ── */}
-                <div className="mb-2 mt-5 border-b border-slate-200 pb-1">
-                  <h3 className="text-sm font-semibold text-slate-900">Posicionamento</h3>
-                </div>
-                <div className="flex flex-wrap gap-[15px]">
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_esquerda', 'Esquerda', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <input type="text" inputMode="numeric"
-                      value={campoSel.qt_esquerda === 0 ? '' : (campoSel.qt_esquerda ?? '')}
-                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_esquerda: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                      className={inputClass} />
-                  </div>
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_topo', 'Topo', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <input type="text" inputMode="numeric"
-                      value={campoSel.qt_topo === 0 ? '' : (campoSel.qt_topo ?? '')}
-                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_topo: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                      className={inputClass} />
-                  </div>
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('qt_largura', 'Largura', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <input type="text" inputMode="numeric"
-                      value={campoSel.qt_largura === 0 ? '' : (campoSel.qt_largura ?? '')}
-                      onChange={(e) => updateCampoSelecionado((c) => ({ ...c, qt_largura: e.target.value === '' ? 0 : Number(e.target.value) || 0 }))}
-                      className={inputClass} />
-                  </div>
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('ie_alinhamento', 'Alinhamento', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <Select
-                      value={campoSel.ie_alinhamento ?? 'esquerda'}
-                      onChange={(v) => updateCampoSelecionado((c) => ({ ...c, ie_alinhamento: v }))}
-                      options={[{ value: 'esquerda', label: 'Esquerda' }, { value: 'centro', label: 'Centro' }, { value: 'direita', label: 'Direita' }]}
-                      showPlaceholder={false} visibleOptions={7}
-                    />
-                  </div>
-                  {!textoValorHidden && (
-                  <div className="group flex-1 min-w-[140px]">
-                    {renderFieldLabel('soma', 'Soma', elementoFieldInfos, 'relatorio_banda_elemento', elementoCampoRegras)}
-                    <div className="flex items-center h-[34px]">
-                      <input type="checkbox" checked={campoSel.soma ?? false}
-                        onChange={(e) => updateCampoSelecionado((c) => ({ ...c, soma: e.target.checked }))}
-                        className="cg-checkbox" />
-                    </div>
-                  </div>
-                  )}
-                </div>
-              </section>
-            );
-          })()}
-
-          {bandaViewMode === 'content' && !campoDetailId && bandaContentSubView === 'dados' && (bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'lista' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'texto_valor' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'cabecalho' || bandas.find((b) => b.id === bandaDetailId)?.ie_tipo_banda === 'rodape') && (
-          <>
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Lista/Dados ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          <section className="h-full flex min-h-0 flex-col">
-              <CamposRelatorioTable
-                onOrdemChange={setOrdemCampos}
-                campos={campos}
-                onChange={syncCampos}
-                camposDisponiveis={camposDisponiveis}
-                colecaoPrincipal={bandas.find((b) => b.id === bandaDetailId)?.ie_colecao_principal || ''}
-                onEditingChange={setEditingCampo}
-                userId={userId}
-                initialColumns={bandaTipo === 'lista' ? initialListaColumns : (initialDadosColumns ?? initialListaColumns)}
-                onColumnsChange={bandaTipo === 'lista' ? onListaColumnsChange : (onDadosColumnsChange ?? onListaColumnsChange)}
-                variant={bandaTipo === 'lista' ? 'lista' : 'texto_valor'}
-                ocultarColecaoCampo={bandaTipo === 'cabecalho' || bandaTipo === 'rodape'}
-                getNextSeq={getNextCampoSeq}
-                imagens={imagens}
-                bandaTipo={bandaTipo}
-                onViewCampo={(campo) => {
-                  // Ver elemento: abre o formulário do campo em modo leitura
-                  setPendingCampo(null);
-                  setCampoDetailId(campo.id);
-                }}
-                onDeleteCampo={onDeleteCampo}
-                onRowCommit={(row) => { void gravarElementoEditado(row); }}
-                onDuplicateCampo={async (original) => {
-                  setBandaSaving(true);
-                  try {
-                    const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-                    const { criarElemento } = await import('@/services/relatorioServiceBandas');
-                    const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                    const { id: _oldId, _idRegistro: _oldFs, ...rest } = original;
-                    const campoData = { ...rest, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
-                    const { id: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
-                    return { ...campoData, id: idRegistro, _idRegistro: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as CamposRelatorioRow;
-                  } finally {
-                    setBandaSaving(false);
-                  }
-                }}
-              />
-
-          </section>
-          </>
-          )}
-
-          {/* ═══════════════════════════════════════════════ */}
-          {/* ── Seção: Ordenação (apenas banda tipo Lista) ── */}
-          {/* ═══════════════════════════════════════════════ */}
-          {bandaViewMode === 'content' && !campoDetailId && bandaContentSubView === 'ordenacao' && bandaTipo === 'lista' && (
-          <>
-          <section className="h-full flex min-h-0 flex-col">
-            <OrdenacaoRelatorioTable
-              ordenacao={ordenacao}
-              onChange={alterarOrdenacaoBanda}
-              editRequestId={ordenacaoEditRequest}
-              camposDisponiveis={camposDisponiveisBanda}
-              onEditingChange={setEditingOrdenacao}
-              userId={userId}
-              initialColumns={initialOrdenacaoColumns}
-              onColumnsChange={onOrdenacaoColumnsChange}
-              getNextSeq={getNextOrdSeq}
-            />
-          </section>
-          </>
-          )}
-
-
-          </>
-          ) : null}
-        </div>
-
-        {/* ── Auditoria + Botões de ação ── */}
-        {temRodapeConteudo && (
-        <div className="mt-auto pt-4">
-          <div className="flex items-center justify-between gap-3">            {/* Audit info - relatório, banda, elemento ou parâmetro conforme o formulário aberto */}
-            {relatorio && (!isBandasMode || campoDetailId || filtroDetailId || (bandaDetailId && bandaViewMode === 'ver')) && (
-              <div className="flex flex-col text-[12px] text-slate-500 min-w-0">
-                <div className="relative group flex items-center gap-2">
-                  <span>Criado por {exibirNomeAutor(auditCtxCreatedBy) || '-'} em {auditCtxCreatedAt ? new Date(auditCtxCreatedAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
-                  <button
-                    type="button"
-                    onClick={openAuditForCtx}
-                    className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
-                    aria-label="Abrir histórico de auditoria"
-                  >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 8v4" />
-                          <path d="M12 16h.01" />
-                        </svg>
-                  </button>
-                </div>
-                <div className="relative group flex items-center gap-2 mt-1">
-                  <span>Alterado por {exibirNomeAutor(auditCtxUpdatedBy) || '-'} em {auditCtxUpdatedAt ? new Date(auditCtxUpdatedAt).toLocaleString('pt-BR').replace(',', '') : '-'}</span>
-                  <button
-                    type="button"
-                    onClick={openAuditForCtx}
-                    className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
-                    aria-label="Abrir histórico de auditoria"
-                  >
-                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                          <circle cx="12" cy="12" r="10" />
-                          <path d="M12 8v4" />
-                          <path d="M12 16h.01" />
-                        </svg>
-                  </button>
-                </div>
+                ))}
               </div>
-            )}
-            {(!isBandasMode || (bandaDetailId && bandaViewMode === 'ver') || campoDetailId || filtroDetailId) && (
-            <div className="flex items-center gap-3 ml-auto">
-              <button
-                type="button"
-                onClick={campoDetailId ? () => {
-                  // Cancelar elemento: restaurar dados originais
-                  const originalBanda = bandas.find((b) => b.id === bandaDetailId);
-                  if (originalBanda?.campos) {
-                    syncCampos(originalBanda.campos);
-                  }
-                  setPendingCampo(null);
-                  setCampoDetailId(null);
-                } : filtroDetailId ? () => {
-                  // Cancelar filtro: restaurar dados originais se existente
-                  const originalFiltro = filtros.find((f) => f.id === filtroDetailId);
-                  if (pendingFiltro && pendingFiltro.id === filtroDetailId && originalFiltro) {
-                    // Filtro novo cancelado: remover do array
-                    setFiltros((prev) => prev.filter((f) => f.id !== filtroDetailId));
-                  }
-                  else restaurarFiltroVer();
-                  setPendingFiltro(null);
-                  setFiltroDetailId(null);
-                } : bandaDetailId ? () => { restaurarBandaVer(); setPendingBanda(null); closeBandaDetail(); } : onCancel}
-                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
-              >
-                {(bandaDetailId && !campoDetailId && !filtroDetailId) ? 'Voltar' : 'Cancelar'}
-              </button>
-              <button
-                type={(bandaDetailId && !campoDetailId) || isBandasMode ? 'button' : 'submit'}
-                disabled={saving}
-                onClick={campoDetailId ? () => {
-                  // Salvar campo: pendente (novo) → salva direto no banco
-                  if (pendingCampo && pendingCampo.id === campoDetailId) {
-                    (async () => {
-                      setBandaSaving(true);
-                      try {
-                        const seq = getNextCampoSeq();
-                        const nrSeqBanda = bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia;
-                        const { criarElemento } = await import('@/services/relatorioServiceBandas');
-                        const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                        const campoData = { ...pendingCampo, nr_sequencia: seq, nr_seq_banda: nrSeqBanda ?? 0, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 };
-                        const { id: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarElemento(campoData, auditAutor);
-                        const novoCampo = { ...campoData, id: idRegistro, _idRegistro: idRegistro, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao };
-                        syncCampos((prev) => [...prev, novoCampo]);
-                        setPendingCampo(null);
-                      } finally {
-                        setBandaSaving(false);
-                      }
-                    })();
-                  } else {
-                    // Campo existente: salvar explicitamente no banco
-                    (async () => {
-                      setBandaSaving(true);
-                      try {
-                        const campoAtual = campos.find((c) => c.id === campoDetailId);
-                        if (campoAtual?._idRegistro) {
-                          const { atualizarElemento } = await import('@/services/relatorioServiceBandas');
-                          const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                          const auditAtualizado = await atualizarElemento(campoAtual._idRegistro, { ...campoAtual, nr_seq_banda: bandas.find((b) => b.id === bandaDetailId)?.nr_sequencia ?? 0 }, auditAutor);
-                          syncCampos((prev) => prev.map((c) => c.id === campoDetailId ? { ...c, dt_alteracao: auditAtualizado.dt_alteracao, ds_usuario_alteracao: auditAtualizado.ds_usuario_alteracao } : c));
-                        }
-                      } finally {
-                        setBandaSaving(false);
-                      }
-                    })();
-                  }
-                  setCampoDetailId(null);
-                } : filtroDetailId ? () => {
-                  // Salvar filtro no banco
-                  (async () => {
-                    setBandaSaving(true);
-                    try {
-                      const { criarParametro, atualizarParametro } = await import('@/services/relatorioServiceParametros');
-                      const auditAutor = { usuarioId: userId ?? null, usuarioNome: userDisplayName || '-' };
-                      if (pendingFiltro && pendingFiltro.id === filtroDetailId) {
-                        const { id: _oldId, ...filtroData } = pendingFiltro;
-                        const { id: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarParametro({ ...filtroData, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                        setFiltros((prev) => [...prev, { ...filtroData, id: newId, _idRegistro: newId, nr_sequencia: savedSeq, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } as any]);
-                      } else {
-                        const filtroAtual = filtros.find((f) => f.id === filtroDetailId);
-                        if ((filtroAtual as any)?._idRegistro) {
-                          const auditAtualizadoF = await atualizarParametro((filtroAtual as any)._idRegistro, { ...filtroAtual, nr_seq_relatorio: relatorio?.nr_sequencia ?? 0 }, auditAutor);
-                          setFiltros((prev) => prev.map((f) => f.id === filtroDetailId ? { ...f, dt_alteracao: auditAtualizadoF.dt_alteracao, ds_usuario_alteracao: auditAtualizadoF.ds_usuario_alteracao } : f));
-                        }
-                      }
-                    } finally {
-                      setBandaSaving(false);
-                    }
-                  })();
-                  setPendingFiltro(null);
-                  setFiltroDetailId(null);
-                } : bandaDetailId ? async () => {
-                  let finalBandas: any[] = bandas;
-                  if (pendingBanda && pendingBanda.id === bandaDetailId) {
-                    const seq = getNextBandaSeq();
-                    const newBanda = { ...pendingBanda, nr_sequencia: seq };
-                    finalBandas = [...bandas, newBanda];
-                    setBandas(finalBandas);
-                    setPendingBanda(null);
-                  }
-                  const currentBandaId = bandaDetailIdRef.current;
-                  if (currentBandaId) {
-                    const c = camposRef.current;
-                    finalBandas = finalBandas.map((b) => b.id === currentBandaId ? { ...b, campos: [...c] } : b);
-                    setBandas(finalBandas);
-                  }
-                  setBandaSaving(true);
-                  try {
-                    const bandasSalvas = await onBandaSaveRef.current?.(finalBandas, currentBandaId);
-                    if (bandasSalvas) setBandas(bandasSalvas);
-                  } catch { /* handled inside handleBandaSave */ }
-                  setBandaDetailId(null);
-                  setBandaViewMode('content');
-                  setCampos([]);
-                  setBandaSaving(false);
-                  refreshSnapshot();
-                  setIsDirty(false);
-                } : undefined}
-                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-40"
-                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-              >
-                Salvar
-              </button>
-            </div>
-            )}
-          </div>
+            </section>
+          )}
         </div>
+
+        {mostraRodape && (
+          <div className="mt-auto pt-4">
+            <div className="flex items-center justify-between gap-3">
+              {auditoria && (
+                <div className="text-[13px] text-slate-500">
+                  <div className="relative group flex items-center gap-2">
+                    <span>Criado por {autor(auditoria.criadoPor)} em {auditoria.criadoEm ? formatDate(auditoria.criadoEm) : "-"}</span>
+                    <button type="button" onClick={auditoria.abrir} className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none" aria-label="Abrir histórico de auditoria">
+                      {iconeInfo}
+                    </button>
+                  </div>
+                  <div className="relative group flex items-center gap-2 mt-1">
+                    <span>Alterado por {autor(auditoria.alteradoPor)} em {auditoria.alteradoEm ? formatDate(auditoria.alteradoEm) : "-"}</span>
+                    <button type="button" onClick={auditoria.abrir} className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none" aria-label="Abrir histórico de auditoria">
+                      {iconeInfo}
+                    </button>
+                  </div>
+                </div>
+              )}
+              <div className="flex items-center gap-3 ml-auto">
+                <button
+                  type="button"
+                  onClick={() => (ehBandas ? setDetalhe(null) : onCancel())}
+                  className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                  style={{ backgroundColor: "#bdbdbd", borderBottomColor: "#000" }}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving || gravando}
+                  className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+                  style={{ backgroundColor: "#003056", borderBottomColor: "#000" }}
+                >
+                  Salvar
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </form>
 
-      {/* ── Modal: Alterações não salvas ── */}
-      {showUnsavedModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4 py-6">
-          <div className="absolute inset-0" onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }} />
-          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
-            <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
-              <h3 className="text-base font-semibold" style={{ color: '#000' }}>Alterações não salvas</h3>
-              <button
-                type="button"
-                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }}
-                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
-                aria-label="Fechar"
-              >
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-              </button>
-            </div>
-            <div className="p-[15px]">
-              <p className="text-sm text-slate-700">As alterações não foram salvas. Deseja salvar?</p>
-            </div>
-            <div className="flex-shrink-0 flex items-center justify-end gap-3 px-[15px] py-3">
-              <button
-                type="button"
-                onClick={() => { setShowUnsavedModal(false); pendingNavRef.current = null; setPendingNav(null); }}
-                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={handleSaveAndNavigate}
-                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
-                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-              >
-                Salvar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <LoadingModal open={saving} message="Carregando..." />
-      <LoadingModal open={bandaSaving} message="Carregando..." />
+      {gravando && <LoadingModal open message="Carregando..." />}
     </div>
   );
 }

@@ -238,22 +238,19 @@ import ImagemListView from "@/components/administracaoSistema/ImagemListView";
 import ImagemFormView from "@/components/administracaoSistema/ImagemFormView";
 import type { Imagem } from "@/types/imagem";
 import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem, excluirArquivoImagem, renomearArquivoImagem } from "@/services/imagemService";
-import RelatorioBuilder from "@/components/relatorio/RelatorioBuilder";
+import RelatorioBuilder, { type DadosRelatorioForm } from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
-import type { Relatorio, RelatorioFiltro } from "@/types/relatorio";
-import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio, obterRelatorioPorId, atualizarBandasDoRelatorio } from "@/services/relatorioService";
+import type { Relatorio } from "@/types/relatorio";
+import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio } from "@/services/relatorioService";
 
-import { gerarPdf } from "@/lib/relatorioPdf";
-import { executarConsultaRelatorio, resolverChaveCampo } from "@/lib/relatorioQueryBuilder";
-import { removerUndefinedProfundo } from "@/lib/registroUtils";
+import { baixarPlanilha, obterDadosRelatorio, obterParametrosSql, type ParametroSql } from "@/services/relatorioSqlService";
+import { nomeDoParametro } from "@/lib/relatorioSql";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
 import AvisoModal from "@/components/ui/AvisoModal";
 import { filtrarAuditoriaDoAviso, type CampoAviso } from "@/services/avisoService";
 import RegrasView from "@/components/administracaoSistema/RegrasView";
 import { obterRegra, filtrarAuditoriaDaRegra, CAMPOS_REGRA, type IdRegra, type Regra } from "@/services/regraService";
 import { ultimoLogoutProgramado, rotuloDiaLogout } from "@/lib/regraUtils";
-import { OPERADORES_FILTRO } from "@/lib/relatorioUtils";
-import { getDataSource, resolverStatusLabel } from "@/lib/relatorioDataSources";
 
 import {
   parseCamposConfig,
@@ -1684,7 +1681,7 @@ export default function Home() {
   const [relatorioForm, setRelatorioForm] = useState<Relatorio | null>(null);
   const [relatorioSubmitting, setRelatorioSubmitting] = useState(false);
   const [relatorioGerando, setRelatorioGerando] = useState(false);
-  const [relatorioParamModal, setRelatorioParamModal] = useState<{ relatorio: Relatorio; parametros: RelatorioFiltro[] } | null>(null);
+  const [relatorioParamModal, setRelatorioParamModal] = useState<{ relatorio: Relatorio; parametros: ParametroSql[] } | null>(null);
   const [relatorioParamValues, setRelatorioParamValues] = useState<Record<string, string>>({});
   // Parâmetros obrigatórios vazios após tentar gerar (borda vermelha no modal).
   const [paramGerarFaltantes, setParamGerarFaltantes] = useState<string[]>([]);
@@ -1707,7 +1704,6 @@ export default function Home() {
   const [relatorioAuditItemId, setRelatorioAuditItemId] = useState<string | null>(null);
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
-  const bandaJustSavedRef = useRef(false);
 
   // ── Callbacks de exclusão remota (campo / banda) ──
   const relatorioStateActionsRef = useRef<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>(null);
@@ -3915,11 +3911,12 @@ export default function Home() {
     openRelatorioBandas(relatorio);
   }
 
-  async function openRelatorioEditForm(relatorio: Relatorio) {
+  /** Ver: formulário do relatório (Sequência, Descrição, Formato e Saída). */
+  function openRelatorioEditForm(relatorio: Relatorio) {
     setRelatorioEditingId(relatorio.id ?? null);
+    setRelatorioForm(relatorio);
     setRelatorioView('builder');
     setRelatorioBandasMode(false);
-    bandaJustSavedRef.current = false;
     setMessage('');
     setRelatorioAuditInfo({
       createdAt: relatorio.dt_criacao ?? '',
@@ -3927,61 +3924,12 @@ export default function Home() {
       createdBy: relatorio.ds_usuario_criacao ?? '',
       updatedBy: relatorio.ds_usuario_alteracao ?? '',
     });
-    // Carregar parâmetros frescos da coleção relatorio_parametro
-    const nrSeqRelatorio = (relatorio as any).nr_sequencia;
-    if (nrSeqRelatorio) {
-      try {
-        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
-        const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
-        const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
-        setRelatorioForm({ ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any);
-        return;
-      } catch { /* usar dados locais */ }
-    }
-    setRelatorioForm(relatorio);
   }
 
-  async function openRelatorioBandas(relatorio: Relatorio) {
-    setRelatorioEditingId(relatorio.id ?? null);
-    setRelatorioForm(relatorio);
-    setRelatorioView('builder');
+  /** Duplo clique: abas Bandas e Parâmetros (o construtor carrega e grava cada um). */
+  function openRelatorioBandas(relatorio: Relatorio) {
+    openRelatorioEditForm(relatorio);
     setRelatorioBandasMode(true);
-    bandaJustSavedRef.current = false;
-    setMessage('');
-    setRelatorioAuditInfo({
-      createdAt: relatorio.dt_criacao ?? '',
-      updatedAt: relatorio.dt_alteracao ?? '',
-      createdBy: relatorio.ds_usuario_criacao ?? '',
-      updatedBy: relatorio.ds_usuario_alteracao ?? '',
-    });
-    // Load bandas from relatorio_banda collection
-    const nrSeqRelatorio = (relatorio as any).nr_sequencia;
-    if (nrSeqRelatorio) {
-      try {
-        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
-        const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
-        // Carregar elementos de cada banda da coleção relatorio_banda_elemento
-        const bandasComElementos = await Promise.all(
-          bandasDb.map(async (b: any) => {
-            const elementosRaw = b.nr_sequencia ? await obterElementosPorBandaSeq(b.nr_sequencia) : [];
-            const elementos = elementosRaw.map((e: any) => ({ ...e, _idRegistro: e.id }));
-            return { ...b, _idRegistro: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
-          })
-        );
-        // Carregar parâmetros da coleção relatorio_parametro
-        let parametrosDb: any[] = [];
-        const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
-        try {
-          parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
-        } catch { /* ignore */ }
-        const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
-        setRelatorioForm({ ...relatorio, bandas: bandasComElementos, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any);
-      } catch {
-        setRelatorioForm(relatorio);
-      }
-    } else {
-      setRelatorioForm(relatorio);
-    }
   }
 
   function closeRelatorioBuilder() {
@@ -3991,27 +3939,17 @@ export default function Home() {
     setRelatorioBandasMode(false);
   }
 
-  async function handleRelatorioSave(data: Omit<Relatorio, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>) {
-    // Se a banda já salvou, mostrar loading e fechar (não re-salvar bandas)
-    if (bandaJustSavedRef.current) {
-      bandaJustSavedRef.current = false;
-      setRelatorioSubmitting(true);
-      await new Promise((r) => setTimeout(r, 600));
-      setRelatorioSubmitting(false);
-      closeRelatorioBuilder();
-      return;
-    }
+  async function handleRelatorioSave(data: DadosRelatorioForm) {
     if (relatorioEditingId && bloquearEdicaoSemPermissao(permissoesRelatorio.editar)) return;
     setRelatorioSubmitting(true);
     setMessage('');
     try {
       const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
       if (!relatorioEditingId) {
-        const savedId = await criarRelatorio(data, auditAutor);
+        await criarRelatorio(data as unknown as Parameters<typeof criarRelatorio>[0], auditAutor);
         setMessage('Relatório criado com sucesso!');
-        // Bandas são salvas exclusivamente via handleBandaSave (relatorio_banda collection)
       } else {
-        await atualizarRelatorio(relatorioEditingId, data, auditAutor);
+        await atualizarRelatorio(relatorioEditingId, data as unknown as Parameters<typeof atualizarRelatorio>[1], auditAutor);
         setMessage('Relatório atualizado com sucesso!');
       }
       await loadRelatorios();
@@ -4020,89 +3958,6 @@ export default function Home() {
       setMessage('Erro ao salvar relatório.');
     } finally {
       setRelatorioSubmitting(false);
-    }
-  }
-
-  /** Salva bandas na coleção relatorio_banda (coleção separada) e mantém relatorio.bandas sincronizado para retrocompatibilidade. */
-  const savingBandaRef = useRef(false);
-  async function handleBandaSave(bandasAtualizadas: any[], bandaDetailId?: string | null): Promise<any[] | undefined> {
-    if (savingBandaRef.current) return;
-    savingBandaRef.current = true;
-    const safetyTimer = setTimeout(() => { savingBandaRef.current = false; }, 30000);
-    try {
-      if (!relatorioEditingId || !relatorioForm) return;
-      if (!bandasAtualizadas || bandasAtualizadas.length === 0) return;
-      const auditAutor = { usuarioId: currentUser?.id ?? null, usuarioNome: currentUser?.ds_usuario || '' };
-      const nrSeqRelatorio = (relatorioForm as any).nr_sequencia;
-      const { criarBanda, atualizarBanda } = await import('@/services/relatorioServiceBandas');
-
-      // ── Salvar cada banda individualmente na coleção relatorio_banda ──
-      const bandasSalvas: any[] = [];
-      for (const b of bandasAtualizadas) {
-        // Limpeza profunda: elementos embutidos em `campos` podem ter chaves undefined.
-        const bandaData: Record<string, any> = removerUndefinedProfundo({
-          nr_seq_relatorio: nrSeqRelatorio,
-          ds_banda: b.ds_banda ?? '',
-          ie_tipo_banda: b.ie_tipo_banda ?? '',
-          ie_colecao_principal: b.ie_colecao_principal ?? '',
-          nr_posicao: b.nr_posicao ?? 0,
-          nr_altura: b.nr_altura ?? 0,
-          ie_borda_superior: b.ie_borda_superior ?? false,
-          ie_borda_inferior: b.ie_borda_inferior ?? false,
-          ie_borda_esquerda: b.ie_borda_esquerda ?? false,
-          ie_borda_direita: b.ie_borda_direita ?? false,
-          espessuraLabel: b.espessuraLabel,
-          topoLabel: b.topoLabel,
-          espessuraCampo: b.espessuraCampo,
-          topoRegistro: b.topoRegistro,
-          bgLabel: b.bgLabel,
-          bgCampo: b.bgCampo,
-          corLabelGlobal: b.corLabelGlobal,
-          corCampoGlobal: b.corCampoGlobal,
-          fonteLabel: b.fonteLabel,
-          tamanhoFonteLabel: b.tamanhoFonteLabel,
-          fonteCampo: b.fonteCampo,
-          tamanhoFonteCampo: b.tamanhoFonteCampo,
-          campos: b.campos ?? [],
-          ordenacao: b.ordenacao, // undefined (banda antiga sem ordenação própria) não é gravado
-        });
-
-        if (b._idRegistro) {
-          // Banda já existe no banco — atualizar
-          // Usa o retorno do serviço: banda sem alterações mantém a data/autor anteriores.
-          const auditBanda = await atualizarBanda(b._idRegistro, bandaData, auditAutor);
-          bandasSalvas.push({ ...b, dt_alteracao: auditBanda.dt_alteracao || b.dt_alteracao, ds_usuario_alteracao: auditBanda.ds_usuario_alteracao || b.ds_usuario_alteracao });
-        } else {
-          // Banda nova — criar
-          // A sequência definitiva vem do banco (os elementos da
-          // banda são vinculados por nr_seq_banda, então precisa ser a mesma do banco).
-          const { id: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao } = await criarBanda(bandaData, auditAutor);
-          bandasSalvas.push({ ...b, _idRegistro: newId, nr_sequencia: seqSalva, dt_criacao, dt_alteracao, ds_usuario_criacao, ds_usuario_alteracao });
-        }
-      }
-
-      // ── Excluir bandas removidas da lista ──
-      const { obterBandasPorRelatorio, excluirBanda } = await import('@/services/relatorioServiceBandas');
-      const bandasExistentes = await obterBandasPorRelatorio(nrSeqRelatorio);
-      const idsMantidos = new Set(bandasSalvas.map((b) => b._idRegistro).filter(Boolean));
-      for (const be of bandasExistentes) {
-        if (!idsMantidos.has(be.id)) {
-          await excluirBanda(be.id);
-        }
-      }
-
-      // ── Manter relatorio.bandas sincronizado (retrocompatibilidade) ──
-      await atualizarBandasDoRelatorio(relatorioEditingId, bandasSalvas);
-
-      bandaJustSavedRef.current = true;
-      setRelatorioForm((prev) => prev ? { ...prev, bandas: bandasSalvas } : prev);
-      await loadRelatorios();
-      return bandasSalvas;
-    } catch (err) {
-      console.error('[BANDA SAVE] ERRO:', err);
-    } finally {
-      clearTimeout(safetyTimer);
-      savingBandaRef.current = false;
     }
   }
 
@@ -4128,183 +3983,36 @@ export default function Home() {
     }
   }
 
-  function handleRelatorioGerar(relatorio: Relatorio) {
-    // Sempre buscar dados atualizados do banco antes de gerar
-    (async () => {
-      try {
-        const relatorioAtual = await obterRelatorioPorId(relatorio.id!);
-        if (relatorioAtual) relatorio = relatorioAtual;
-        // Buscar bandas frescas
-        const { obterBandasPorRelatorio, obterElementosPorBandaSeq } = await import('@/services/relatorioServiceBandas');
-        const nrSeqRelatorio = (relatorio as any).nr_sequencia;
-        if (nrSeqRelatorio) {
-          const bandasDb = await obterBandasPorRelatorio(nrSeqRelatorio);
-          const bandasComElementos = await Promise.all(
-            bandasDb.map(async (b: any) => {
-              const elementosRaw = b.nr_sequencia ? await obterElementosPorBandaSeq(b.nr_sequencia) : [];
-              const elementos = elementosRaw.map((e: any) => ({ ...e, _idRegistro: e.id }));
-              return { ...b, _idRegistro: b.id, id: b.id, campos: elementos.length > 0 ? elementos : (b.campos ?? []) };
-            })
-          );
-          relatorio = { ...relatorio, bandas: bandasComElementos } as any;
-        }
-        // Carregar parâmetros frescos da coleção relatorio_parametro
-        if (nrSeqRelatorio) {
-          try {
-            const { obterParametrosPorRelatorio, normalizarParametroDoc } = await import('@/services/relatorioServiceParametros');
-            const parametrosDb = await obterParametrosPorRelatorio(nrSeqRelatorio);
-            const filtrosLocais = (relatorio.filtros ?? []).map((f: any) => ({ ...normalizarParametroDoc(f) }));
-            relatorio = { ...relatorio, filtros: parametrosDb.length > 0 ? parametrosDb : filtrosLocais } as any;
-          } catch { /* usar dados locais */ }
-        }
-      } catch { /* usar dados locais como fallback */ }
-      // "Está vazio"/"Não está vazio" não pedem valor: não entram no modal.
-      const parametros = (relatorio.filtros ?? []).filter((f) => f.ie_parametro && f.operador !== 'vazio' && f.operador !== 'nao_vazio');
-      if (parametros.length > 0) {
-        setRelatorioParamValues((prev) => {
-          const initialValues: Record<string, string> = { ...prev };
-          for (const p of parametros) {
-            if (initialValues[p.id] === undefined) {
-              initialValues[p.id] = p.vl_padrao ?? '';
-            }
-            if (p.operador === 'entre' && initialValues[`${p.id}__fim`] === undefined) {
-              initialValues[`${p.id}__fim`] = p.valorFinal ?? '';
-            }
-          }
-          return initialValues;
-        });
+  /**
+   * "Gerar relatório": os parâmetros com Perguntar marcado aparecem num modal (na ordem
+   * do campo Ordem; empate pela Sequência), já com o Valor padrão. Sem eles, gera direto.
+   */
+  async function handleRelatorioGerar(relatorio: Relatorio) {
+    if (relatorio.nr_sequencia == null) return;
+    try {
+      const perguntar = (await obterParametrosSql(relatorio.nr_sequencia)).filter((p) => p.ie_perguntar === 'S');
+      if (perguntar.length > 0) {
+        setRelatorioParamValues(Object.fromEntries(perguntar.map((p) => [nomeDoParametro(p.ds_parametro), p.vl_padrao ?? ''])));
         setParamGerarFaltantes([]);
-        setRelatorioParamModal({ relatorio, parametros });
+        setRelatorioParamModal({ relatorio, parametros: perguntar });
         return;
       }
-      executarRelatorioGerar(relatorio);
-    })();
+      await executarRelatorioGerar(relatorio, {});
+    } catch {
+      setMessage('Erro ao carregar os parâmetros do relatório.');
+    }
   }
 
-  async function executarRelatorioGerar(relatorio: Relatorio) {
+  /** Executa o SQL do relatório no servidor e baixa a planilha (colunas e linhas da consulta). */
+  async function executarRelatorioGerar(relatorio: Relatorio, valores: Record<string, string>) {
     setRelatorioGerando(true);
     setMessage('');
     try {
-      const todasBandas = relatorio.bandas ?? [];
-      const bandasComColecao = todasBandas.filter((b) => b.ie_colecao_principal);
-      const bandasSemColecao = todasBandas.filter((b) => !b.ie_colecao_principal);
-
-      if (todasBandas.length > 0) {
-        // Modo Bandas: consultar cada banda separadamente
-        const bandasPdfData: import('@/lib/relatorioPdf').BandaPdfData[] = [];
-        let totalRegistros = 0;
-
-        for (const banda of bandasComColecao) {
-          const relatorioBanda: Relatorio = { ...relatorio, colecao: banda.ie_colecao_principal!, campos: banda.campos ?? [], filtros: relatorio.filtros ?? [], ordenacao: banda.ordenacao ?? relatorio.ordenacao ?? [] };
-          const resultado = await executarConsultaRelatorio(relatorioBanda);
-          const dsBanda = getDataSource(banda.ie_colecao_principal!);
-          const camposResolvidos = (banda.campos ?? []).map((c) => ({
-            ...c,
-            ie_campo: resolverChaveCampo(c, banda.ie_colecao_principal!, dsBanda?.campos ?? []),
-          }));
-          const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
-            const regResolvido = { ...reg };
-            for (const c of camposResolvidos) {
-              if (c.statusSistema && c.ie_campo) {
-                const partes = c.ie_campo.split('.');
-                let obj: any = regResolvido;
-                for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
-                const campoFinal = partes[partes.length - 1];
-                if (obj && typeof obj[campoFinal] === 'string') {
-                  obj[campoFinal] = resolverStatusLabel(c.ie_colecao || banda.ie_colecao_principal!, obj[campoFinal]);
-                }
-              }
-            }
-            return regResolvido;
-          });
-          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo, campos: camposResolvidos, registros: registrosResolvidos });
-          totalRegistros += registrosResolvidos.length;
-        }
-
-        // Bandas sem coleção (Cabeçalho/Rodapé) — sem consulta, apenas dados estáticos
-        for (const banda of bandasSemColecao) {
-          bandasPdfData.push({ nome: banda.ds_banda || 'Banda', posicao: banda.nr_posicao, tipo: banda.ie_tipo_banda as any, altura: banda.nr_altura, ie_borda_superior: banda.ie_borda_superior, ie_borda_inferior: banda.ie_borda_inferior, ie_borda_esquerda: banda.ie_borda_esquerda, ie_borda_direita: banda.ie_borda_direita, espessuraLabel: banda.espessuraLabel, topoLabel: banda.topoLabel, espessuraCampo: banda.espessuraCampo, topoRegistro: banda.topoRegistro, bgLabel: banda.bgLabel, bgCampo: banda.bgCampo, corLabelGlobal: banda.corLabelGlobal, corCampoGlobal: banda.corCampoGlobal, fonteLabel: banda.fonteLabel, tamanhoFonteLabel: banda.tamanhoFonteLabel, fonteCampo: banda.fonteCampo, tamanhoFonteCampo: banda.tamanhoFonteCampo, campos: banda.campos ?? [], registros: [{}] });
-        }
-
-        // Pré-buscar imagens referenciadas nos campos
-        const nr_seq_imagems = new Set<string>();
-        for (const banda of (relatorio.bandas ?? [])) {
-          for (const c of (banda.campos ?? [])) {
-            if ((c as any).ie_tipo_elemento === 'imagem' && (c as any).nr_seq_imagem) nr_seq_imagems.add((c as any).nr_seq_imagem);
-          }
-        }
-        const imagensMap: Record<string, string> = {};
-        for (const imgId of nr_seq_imagems) {
-          const img = imagens.find((i) => i.id === imgId);
-          if (img?.ie_arquivo) {
-            try {
-              const resp = await fetch(img.ie_arquivo);
-              const blob = await resp.blob();
-              const dataUrl = await new Promise<string>((resolve) => {
-                const reader = new FileReader();
-                reader.onloadend = () => resolve(reader.result as string);
-                reader.readAsDataURL(blob);
-              });
-              imagensMap[imgId] = dataUrl;
-            } catch (e) { console.error('Erro ao buscar imagem:', imgId, e); }
-          }
-        }
-        gerarPdf(relatorio, [], bandasPdfData, currentUser?.ds_usuario ?? undefined, imagensMap);
-        setMessage(`Relatório gerado com sucesso! ${totalRegistros} registro(s) encontrado(s).`);
-      } else {
-        const resultado = await executarConsultaRelatorio(relatorio);
-        if (resultado.total === 0) {
-          setMessage('Nenhum registro encontrado com os filtros aplicados.');
-          setRelatorioGerando(false);
-          return;
-        }
-        const dsPrincipal = getDataSource(relatorio.colecao);
-        const camposResolvidos = relatorio.campos.map((c) => ({
-          ...c,
-          ie_campo: resolverChaveCampo(c, relatorio.colecao, dsPrincipal?.campos ?? []),
-        }));
-        const registrosResolvidos = resultado.registrosResolvidos.map((reg) => {
-          const regResolvido = { ...reg };
-          for (const c of camposResolvidos) {
-            if (c.statusSistema && c.ie_campo) {
-              const partes = c.ie_campo.split('.');
-              let obj: any = regResolvido;
-              for (let i = 0; i < partes.length - 1; i++) obj = obj?.[partes[i]];
-              const campoFinal = partes[partes.length - 1];
-              if (obj && typeof obj[campoFinal] === 'string') {
-                obj[campoFinal] = resolverStatusLabel(c.ie_colecao || relatorio.colecao, obj[campoFinal]);
-              }
-            }
-          }
-          return regResolvido;
-        });
-        const relatorioResolvido = { ...relatorio, campos: camposResolvidos };
-        // Pré-buscar imagens referenciadas nos campos
-          const nr_seq_imagems2 = new Set<string>();
-          for (const c of (relatorioResolvido.campos ?? [])) {
-            if ((c as any).ie_tipo_elemento === 'imagem' && (c as any).nr_seq_imagem) nr_seq_imagems2.add((c as any).nr_seq_imagem);
-          }
-          const imagensMap2: Record<string, string> = {};
-          for (const imgId of nr_seq_imagems2) {
-            const img = imagens.find((i) => i.id === imgId);
-            if (img?.ie_arquivo) {
-              try {
-                const resp = await fetch(img.ie_arquivo);
-                const blob = await resp.blob();
-                const dataUrl = await new Promise<string>((resolve) => {
-                  const reader = new FileReader();
-                  reader.onloadend = () => resolve(reader.result as string);
-                  reader.readAsDataURL(blob);
-                });
-                imagensMap2[imgId] = dataUrl;
-              } catch (e) { console.error('Erro ao buscar imagem:', imgId, e); }
-            }
-          }
-          gerarPdf(relatorioResolvido, registrosResolvidos, undefined, currentUser?.ds_usuario ?? undefined, imagensMap2);
-        setMessage(`Relatório gerado com sucesso! ${resultado.total} registro(s) encontrado(s).`);
-      }
-    } catch (err: any) {
-      setMessage(`Erro ao gerar relatório: ${err.message || 'Erro desconhecido'}`);
+      const dados = await obterDadosRelatorio(relatorio.nr_sequencia, valores);
+      baixarPlanilha(dados, (relatorio.ds_nome_arquivo ?? '').trim() || relatorio.ds_relatorio || 'relatorio');
+      setMessage(`Relatório gerado com sucesso! ${dados.linhas.length} registro(s).`);
+    } catch (err) {
+      setMessage(err instanceof Error && err.message ? err.message : 'Erro ao gerar relatório.');
     } finally {
       setRelatorioGerando(false);
     }
@@ -4312,31 +4020,20 @@ export default function Home() {
 
   function handleRelatorioParamConfirm() {
     if (!relatorioParamModal) return;
-    const faltantes = relatorioParamModal.parametros.filter((p) => p.ie_obrigatorio
-      && !(relatorioParamValues[p.id] ?? '').trim()
-      && !(p.operador === 'entre' && (relatorioParamValues[`${p.id}__fim`] ?? '').trim()));
+    const faltantes = relatorioParamModal.parametros
+      .filter((p) => p.ie_obrigatorio === 'S' && !(relatorioParamValues[nomeDoParametro(p.ds_parametro)] ?? '').trim())
+      .map((p) => nomeDoParametro(p.ds_parametro));
     if (faltantes.length > 0) {
-      setParamGerarFaltantes(faltantes.map((p) => p.id));
+      setParamGerarFaltantes(faltantes);
       setMessage('Preencha todos os campos obrigatórios antes de gerar o relatório.');
       return;
     }
-    const updatedFiltros = relatorioParamModal.relatorio.filtros.map((f) => {
-      if (!f.ie_parametro) return f;
-      let atualizado = f;
-      if (relatorioParamValues[f.id] !== undefined && relatorioParamValues[f.id] !== '') {
-        atualizado = { ...atualizado, vl_padrao: relatorioParamValues[f.id] };
-      }
-      const fim = relatorioParamValues[`${f.id}__fim`];
-      if (f.operador === 'entre' && fim !== undefined && fim !== '') {
-        atualizado = { ...atualizado, valorFinal: fim };
-      }
-      return atualizado;
-    });
-    const updatedRelatorio = { ...relatorioParamModal.relatorio, filtros: updatedFiltros };
+    const { relatorio } = relatorioParamModal;
+    const valores = { ...relatorioParamValues };
     setParamGerarFaltantes([]);
     setRelatorioParamModal(null);
-    executarRelatorioGerar(updatedRelatorio);
     setRelatorioParamValues({});
+    void executarRelatorioGerar(relatorio, valores);
   }
 
   async function handleRelatorioDuplicate(relatorio: Relatorio) {
@@ -12461,81 +12158,49 @@ export default function Home() {
                 )
               ) : activeSection === "relatorio" ? (
                 relatorioView === 'builder' ? (
-                  <div className="flex flex-col h-full">                   <RelatorioBuilder
-                       key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
-                       relatorio={relatorioForm}
-                       onSave={handleRelatorioSave}
-                       onCancel={closeRelatorioBuilder}
-                       onChange={(r) => setRelatorioForm(r)}
-                       saving={relatorioSubmitting}
-                       manageSelection={relatorioManageSelection}
-                       onManageSelectionChange={handleRelatorioManageSelectionChange}
-                       allowedSubmodulos={allowedRelatorioSubmodulos}
-                       userId={currentUser?.id}
-                       userDisplayName={currentUser?.ds_usuario || ''}
-                       resolverNomeAutorExibicao={resolverNomeAutorExibicao}
-                       onToast={mostrarToast}
-                       initialListaColumns={relatorioListaColunasConfig}
-                       onListaColumnsChange={handleRelatorioListaColumnsChange}
-                       initialDadosColumns={relatorioDadosColunasConfig}
-                       onDadosColumnsChange={handleRelatorioDadosColumnsChange}
-                       initialFiltrosColumns={relatorioFiltrosColunasConfig}
-                       onFiltrosColumnsChange={handleRelatorioFiltrosColumnsChange}
-                       initialOrdenacaoColumns={relatorioOrdenacaoColunasConfig}                      onOrdenacaoColumnsChange={handleRelatorioOrdenacaoColumnsChange}
-                        initialBandasColumns={relatorioBandasColunasConfig}
-                        onBandasColumnsChange={handleRelatorioBandasColumnsChange}
-                        contextMenuItems={relatorioEditingId ? [
-                         ...(permissoesRelatorio.gerar ? [{ label: 'Gerar relatório', onClick: () => { if (relatorioForm) handleRelatorioGerar(relatorioForm); } }] : []),
-                         ...(permissoesRelatorio.duplicar ? [{ label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } }] : []),
-                         ...(permissoesRelatorio.excluir ? [{ label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } }] : []),
-                       ] : []}
-                       onPrevRecord={goToPrevRelatorioRecord}
-                       onNextRecord={goToNextRelatorioRecord}
-                       hasPrevRecord={hasPrevRelatorioRecord}
-                       hasNextRecord={hasNextRelatorioRecord}
-                       createdAt={relatorioAuditInfo.createdAt}
-                       updatedAt={relatorioAuditInfo.updatedAt}
-                       createdBy={relatorioAuditInfo.createdBy}
-                       updatedBy={relatorioAuditInfo.updatedBy}
-                       onOpenAudit={(rid) => openRelatorioAuditModal(rid, null, 'relatorio')}
-                        onOpenBandaAudit={(rid, bid) => openRelatorioAuditModal(rid, bid, 'relatorio_banda')}
-                        onOpenCampoAudit={(rid, cid) => openRelatorioAuditModal(rid, cid, 'relatorio_banda_elemento')}
-                        onOpenFiltroAudit={(rid, fid) => openRelatorioAuditModal(rid, fid, 'relatorio_parametro')}
-                        onBandaSave={handleBandaSave}
-                        imagens={imagens}
-                        viewMode={relatorioBandasMode ? 'bandas' : 'form'}
-                        darkMode={darkMode}
-                        campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
-                        bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
-                        elementoCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda_elemento')}
-                        parametroCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_parametro')}
-                        onNavigateToList={closeRelatorioBuilder}
-                        onDeleteCampo={(campo) => {
-                          setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${campo.nr_sequencia ?? ''}?`);
-                          setConfirmDeleteType('campo');
-                          setConfirmDeleteItemId(campo.id);
-                          setConfirmDeleteExtra({ _idRegistro: campo._idRegistro });
-                          setConfirmDeleteAction(null);
-                          setConfirmDeleteOpen(true);
-                        }}
-                        onDeleteBanda={(banda) => {
-                          setConfirmDeleteMessage(`Deseja mesmo excluir a banda ${banda.nr_sequencia ?? ''}?`);
-                          setConfirmDeleteType('banda');
-                          setConfirmDeleteItemId(banda.id);
-                          setConfirmDeleteExtra({ _idRegistro: banda._idRegistro });
-                          setConfirmDeleteAction(null);
-                          setConfirmDeleteOpen(true);
-                        }}
-                        onDeleteFiltro={(f) => {
-                          setConfirmDeleteMessage(`Deseja mesmo excluir o parâmetro ${f.nr_sequencia ?? ''}?`);
-                          setConfirmDeleteType('filtro');
-                          setConfirmDeleteItemId(f.id);
-                          setConfirmDeleteExtra({ _idRegistro: (f as any)._idRegistro });
-                          setConfirmDeleteAction(null);
-                          setConfirmDeleteOpen(true);
-                        }}
-                        stateActionsRef={relatorioStateActionsRef}
-                      />
+                  <div className="flex flex-col h-full">
+                    <RelatorioBuilder
+                      key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
+                      relatorio={relatorioForm}
+                      viewMode={relatorioBandasMode ? 'bandas' : 'form'}
+                      onSave={handleRelatorioSave}
+                      onCancel={closeRelatorioBuilder}
+                      saving={relatorioSubmitting}
+                      manageSelection={relatorioManageSelection}
+                      onManageSelectionChange={handleRelatorioManageSelectionChange}
+                      allowedSubmodulos={allowedRelatorioSubmodulos}
+                      resolverNomeAutorExibicao={resolverNomeAutorExibicao}
+                      onToast={mostrarToast}
+                      contextMenuItems={relatorioEditingId ? [
+                        ...(permissoesRelatorio.gerar ? [{ label: 'Gerar relatório', onClick: () => { if (relatorioForm) void handleRelatorioGerar(relatorioForm); } }] : []),
+                        ...(permissoesRelatorio.duplicar ? [{ label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } }] : []),
+                        ...(permissoesRelatorio.excluir ? [{ label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } }] : []),
+                      ] : []}
+                      onPrevRecord={goToPrevRelatorioRecord}
+                      onNextRecord={goToNextRelatorioRecord}
+                      hasPrevRecord={hasPrevRelatorioRecord}
+                      hasNextRecord={hasNextRelatorioRecord}
+                      createdAt={relatorioAuditInfo.createdAt}
+                      updatedAt={relatorioAuditInfo.updatedAt}
+                      createdBy={relatorioAuditInfo.createdBy}
+                      updatedBy={relatorioAuditInfo.updatedBy}
+                      onOpenAudit={(rid) => openRelatorioAuditModal(rid, null, 'relatorio')}
+                      onOpenBandaAudit={(rid, bid) => openRelatorioAuditModal(rid, bid, 'relatorio_banda')}
+                      onOpenFiltroAudit={(rid, fid) => openRelatorioAuditModal(rid, fid, 'relatorio_parametro')}
+                      darkMode={darkMode}
+                      campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
+                      bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
+                      parametroCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_parametro')}
+                      onNavigateToList={closeRelatorioBuilder}
+                      onConfirmarExclusao={(mensagem, acao) => {
+                        setConfirmDeleteMessage(mensagem);
+                        setConfirmDeleteType('');
+                        setConfirmDeleteAction(() => acao);
+                        setConfirmDeleteOpen(true);
+                      }}
+                      colunasBandas={{ initialColumns: relatorioBandasColunasConfig, onColumnsChange: handleRelatorioBandasColumnsChange }}
+                      colunasParametros={{ initialColumns: relatorioFiltrosColunasConfig, onColumnsChange: handleRelatorioFiltrosColumnsChange }}
+                    />
                   </div>
                 ) : (
                   <RelatorioListView
@@ -18864,13 +18529,17 @@ export default function Home() {
       {relatorioParamModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={() => setRelatorioParamModal(null)} />
-          <div className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form
+            onSubmit={(e) => { e.preventDefault(); handleRelatorioParamConfirm(); }}
+            className="relative w-full max-w-[520px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Parâmetros</h2>
               <button
                 type="button"
                 onClick={() => setRelatorioParamModal(null)}
                 className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar"
               >
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                   <path d="M18 6 6 18" />
@@ -18879,70 +18548,30 @@ export default function Home() {
               </button>
             </div>
 
-            <div className="grid gap-[15px] p-[15px]">
-              {relatorioParamModal.parametros.map((filtro) => {
-                const ds = getDataSource(filtro.ie_colecao || relatorioParamModal.relatorio.colecao);
-                const campoLabel = ds?.campos.find((cd) => cd.key === filtro.ie_campo)?.label || filtro.ie_campo;
-                const operadorLabel = OPERADORES_FILTRO.find((o) => o.value === filtro.operador)?.label || filtro.operador;
-                const rotuloParametro = (filtro.ds_label || '').trim() || `${campoLabel} ${operadorLabel}`;
+            {/* Um campo por parâmetro com Perguntar, na ordem (Ordem; empate pela Sequência). */}
+            <div className="grid gap-[15px] p-[15px] max-h-[60vh] overflow-y-auto">
+              {relatorioParamModal.parametros.map((parametro, i) => {
+                const nome = nomeDoParametro(parametro.ds_parametro);
+                const texto = (parametro.ds_label ?? '').trim() || nome;
                 return (
-                  <div key={filtro.id}>
+                  <div key={parametro.id ?? nome}>
                     <RotuloCampo
-                      texto={rotuloParametro}
-                      prefixo={filtro.ie_obrigatorio ? <RequiredAsterisk /> : undefined}
-                      colecao={filtro.ie_colecao || relatorioParamModal.relatorio.colecao}
-                      campo={filtro.ie_campo}
+                      texto={texto}
+                      prefixo={parametro.ie_obrigatorio === 'S' ? <RequiredAsterisk /> : undefined}
+                      colecao="relatorio_parametro"
+                      campo="vl_padrao"
                     />
-                    {(() => {
-                      const renderInput = (chave: string, ariaLabel: string) => (
-                        <input
-                          type="text"
-                          aria-label={ariaLabel}
-                          inputMode={filtro.ie_mascara === 'decimal' ? 'decimal' : filtro.ie_mascara === 'inteiro' || filtro.ie_mascara === 'data' || filtro.ie_mascara === 'cpf' || filtro.ie_mascara === 'telefone' ? 'numeric' : undefined}
-                          maxLength={filtro.ie_mascara === 'data' ? 10 : filtro.ie_mascara === 'cpf' ? 14 : filtro.ie_mascara === 'telefone' ? 15 : undefined}
-                          placeholder={filtro.ie_mascara === 'data' ? 'DD/MM/AAAA' : filtro.ie_mascara === 'cpf' ? 'XXX.XXX.XXX-XX' : filtro.ie_mascara === 'telefone' ? '(XX) XXXXX-XXXX' : undefined}
-                          value={relatorioParamValues[chave] ?? ''}
-                          onChange={(e) => {
-                            setParamGerarFaltantes((prev) => prev.filter((id) => id !== filtro.id));
-                            let val = e.target.value;
-                            if (filtro.ie_mascara === 'data') {
-                              const digits = val.replace(/\D/g, '').slice(0, 8);
-                              if (digits.length <= 2) val = digits;
-                              else if (digits.length <= 4) val = digits.slice(0, 2) + '/' + digits.slice(2);
-                              else val = digits.slice(0, 2) + '/' + digits.slice(2, 4) + '/' + digits.slice(4);
-                            } else if (filtro.ie_mascara === 'inteiro') {
-                              val = val.replace(/\D/g, '');
-                            } else if (filtro.ie_mascara === 'decimal') {
-                              const digits = val.replace(/\D/g, '');
-                              if (digits) val = (Number(digits) / 100).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-                              else val = '';
-                            } else if (filtro.ie_mascara === 'cpf') {
-                              const digits = val.replace(/\D/g, '').slice(0, 11);
-                              if (digits.length <= 3) val = digits;
-                              else if (digits.length <= 6) val = digits.slice(0, 3) + '.' + digits.slice(3);
-                              else if (digits.length <= 9) val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6);
-                              else val = digits.slice(0, 3) + '.' + digits.slice(3, 6) + '.' + digits.slice(6, 9) + '-' + digits.slice(9);
-                            } else if (filtro.ie_mascara === 'telefone') {
-                              const digits = val.replace(/\D/g, '').slice(0, 11);
-                              if (digits.length <= 2) val = digits;
-                              else if (digits.length <= 6) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2);
-                              else if (digits.length <= 10) val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 6) + '-' + digits.slice(6);
-                              else val = '(' + digits.slice(0, 2) + ') ' + digits.slice(2, 7) + '-' + digits.slice(7);
-                            }
-                            setRelatorioParamValues((prev) => ({ ...prev, [chave]: val }));
-                          }}
-                          className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] ${paramGerarFaltantes.includes(filtro.id) ? 'border-red-500' : 'border-slate-300'}`}
-                        />
-                      );
-                      if (filtro.operador !== 'entre') return renderInput(filtro.id, rotuloParametro);
-                      // "Entre": valor inicial e final (qualquer um pode ficar vazio = intervalo aberto).
-                      return (
-                        <div className="grid grid-cols-2 gap-2">
-                          {renderInput(filtro.id, `${rotuloParametro} (de)`)}
-                          {renderInput(`${filtro.id}__fim`, `${rotuloParametro} (até)`)}
-                        </div>
-                      );
-                    })()}
+                    <input
+                      type="text"
+                      aria-label={texto}
+                      autoFocus={i === 0}
+                      value={relatorioParamValues[nome] ?? ''}
+                      onChange={(e) => {
+                        setParamGerarFaltantes((prev) => prev.filter((n) => n !== nome));
+                        setRelatorioParamValues((prev) => ({ ...prev, [nome]: e.target.value }));
+                      }}
+                      className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${paramGerarFaltantes.includes(nome) ? 'border-red-500' : 'border-slate-300'}`}
+                    />
                   </div>
                 );
               })}
@@ -18958,15 +18587,14 @@ export default function Home() {
                 Cancelar
               </button>
               <button
-                type="button"
-                onClick={handleRelatorioParamConfirm}
+                type="submit"
                 className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
                 style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
               >
                 Gerar
               </button>
             </div>
-          </div>
+          </form>
         </div>
       )}
 

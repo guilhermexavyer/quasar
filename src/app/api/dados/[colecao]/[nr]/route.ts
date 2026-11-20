@@ -1,5 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
-import { exigirAcessoEscrita, perfilEmUso } from "@/lib/server/acesso";
+import { exigirAcessoEscrita, perfilEmUso, TABELAS_COM_REGRA_DE_ESCRITA } from "@/lib/server/acesso";
 import { ErroValidacao, TABELAS_DADOS, type Registro } from "@/lib/server/esquema";
 import { corpo, erro, numeroDaUrl, rota } from "@/lib/server/http";
 import { atualizar, excluir, obter, obterLinha, opcoesDeAuditoria } from "@/lib/server/repositorio";
@@ -29,7 +29,7 @@ export async function PATCH(request: NextRequest, { params }: Contexto) {
     const numero = numeroDaUrl(nr);
     const { dados, auditoria, copiaEmbutida, trocaPropriaSenha } = await corpo(request);
     const registro = (dados ?? {}) as Registro;
-    if (colecao === "usuario" || colecao === "perfil") {
+    if (TABELAS_COM_REGRA_DE_ESCRITA.has(colecao)) {
       await exigirAcessoEscrita(sessao, colecao, "atualizar", await obterLinha(colecao, numero), registro);
     }
     if (copiaEmbutida === true) {
@@ -51,7 +51,7 @@ export async function DELETE(request: NextRequest, { params }: Contexto) {
   if (!TABELAS_DADOS.has(colecao)) return erro("Coleção desconhecida.", 404);
   return rota(request, async (sessao) => {
     const numero = numeroDaUrl(nr);
-    if (colecao === "usuario" || colecao === "perfil") {
+    if (TABELAS_COM_REGRA_DE_ESCRITA.has(colecao)) {
       await exigirAcessoEscrita(sessao, colecao, "excluir", await obterLinha(colecao, numero));
     }
     const perfilBruto = request.nextUrl.searchParams.get("perfil");
