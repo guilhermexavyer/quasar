@@ -11,6 +11,9 @@ import { DISCIPLINA_COLUMNS } from "@/lib/disciplinaUtils";
 import { TURMA_COLUMNS } from "@/lib/turmaUtils";
 import { TURMA_DISCIPLINA_COLUMNS } from "@/lib/turmaDisciplinaUtils";
 import { MODALIDADE_ENSINO_COLUMNS } from "@/lib/modalidadeEnsinoUtils";
+import { FORMATO_PAPEL_COLUMNS } from "@/lib/formatoPapelUtils";
+import { TIPO_PAPEL_COLUMNS } from "@/lib/tipoPapelUtils";
+import { COPIA_COLUMNS, formatCopiaCellValue } from "@/lib/copiaUtils";
 import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
 import { PERFIL_COLUMNS, formatPerfilCellValue } from "@/lib/perfilUtils";
@@ -84,6 +87,7 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   CG("cg_combustivel", "Combustível", COMBUSTIVEL_COLUMNS),
   CG("cg_cor_raca", "Cor/Raça", COR_RACA_COLUMNS),
   CG("cg_estado_civil", "Estado civil", ESTADO_CIVIL_COLUMNS),
+  CG("cg_formato_papel", "Formato do papel", FORMATO_PAPEL_COLUMNS),
   CG("cg_grau_parentesco", "Grau de parentesco", GRAU_PARENTESCO_COLUMNS),
   CG("cg_localizacao", "Localização", LOCALIZACAO_COLUMNS),
   CG("cg_logradouro", "Logradouro", LOGRADOURO_COLUMNS),
@@ -93,7 +97,9 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   CG("cg_profissao", "Profissão", PROFISSAO_COLUMNS),
   CG("cg_sexo", "Sexo", SEXO_COLUMNS),
   CG("cg_sistema_operacional", "Sistema operacional", SISTEMA_OPERACIONAL_COLUMNS),
+  CG("cg_tipo_papel", "Tipo de papel", TIPO_PAPEL_COLUMNS),
   CG("cg_vinculo_contratual", "Vínculo contratual", VINCULO_CONTRATUAL_COLUMNS),
+  { colecao: "copia", funcao: "Controle de Cópias", dropdown: "Cópias", colunas: proprias(COPIA_COLUMNS.filter((c) => !c.clipe)), formatar: formatCopiaCellValue },
   { colecao: "aluno", funcao: "Estrutura Acadêmica", dropdown: "Alunos", colunas: proprias(ALUNO_COLUMNS), formatar: f(formatAluno) },
   {
     colecao: "aluno_responsavel", funcao: "Estrutura Acadêmica", dropdown: "Alunos > Responsáveis",

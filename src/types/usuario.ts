@@ -24,6 +24,10 @@ export interface Usuario {
   config_colunas_disciplina?: string;
   config_colunas_turma?: string;
   config_colunas_turma_disciplina?: string;
+  /* Controle de Cópias */
+  config_colunas_copia?: string;
+  config_colunas_parametros_funcao_cc?: string;
+  config_paineis_parametros_funcao_cc?: string;
   config_colunas_periodo_letivo_feriado?: string;
   /* Estrutura Acadêmica > Alunos > duplo clique (Responsáveis) */
   config_colunas_aluno_responsavel?: string;
@@ -39,6 +43,7 @@ export interface Usuario {
   config_colunas_lookup_pessoa_fisica?: string;
   config_colunas_lookup_pessoa_juridica?: string;
   config_colunas_lookup_ativo?: string;
+  config_colunas_lookup_turma_disciplina?: string;
   config_colunas_lookup_prestador?: string;
   config_colunas_lookup_cidade?: string;
   /* Administração do Sistema > Campos (painéis) e Patrimônio > Parâmetros */
@@ -85,6 +90,8 @@ export interface Usuario {
   config_colunas_cg_sistema_operacional?: string;
   config_colunas_cg_combustivel?: string;
   config_colunas_cg_modalidade_ensino?: string;
+  config_colunas_cg_formato_papel?: string;
+  config_colunas_cg_tipo_papel?: string;
   config_colunas_pat_ativo?: string;
   config_colunas_pat_manutencao?: string;
   config_colunas_relatorio?: string;

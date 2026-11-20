@@ -116,6 +116,11 @@ export default function ManutencaoFormView({
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [submitting]);
 
+  /** Ativo, Prestador e Data de envio: editáveis só no cadastro, e desde que a regra do campo não os desabilite. */
+  function bloqueado(campo: string): boolean {
+    return !!editingId || statusDe(campo) === "D";
+  }
+
   function statusDe(campo: string): CampoStatus {
     return campoRegras?.[campo] ?? "N";
   }
@@ -238,8 +243,8 @@ export default function ManutencaoFormView({
                     <input
                       inputMode="numeric"
                       maxLength={10}
-                      disabled={!!editingId}
-                      className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-500 cursor-default' : 'border-slate-300 bg-white text-slate-900 focus:border-[#003056]'}`}
+                      disabled={bloqueado("nr_seq_ativo")}
+                      className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${campoErros.includes("nr_seq_ativo") ? 'border-red-500' : 'border-slate-300'} ${bloqueado("nr_seq_ativo") ? 'bg-slate-100 text-slate-500 cursor-default' : 'bg-white text-slate-900 focus:border-[#003056]'}`}
                       value={form.nr_seq_ativo ? String(form.nr_seq_ativo) : ""}
                       onChange={(e) => {
                         const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -262,7 +267,7 @@ export default function ManutencaoFormView({
                       <button
                         type="button"
                         onClick={() => onOpenAtivoLookup?.()}
-                        disabled={!!editingId}
+                        disabled={bloqueado("nr_seq_ativo")}
                         className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                         aria-label="Localizar ativo"
                       >
@@ -286,8 +291,8 @@ export default function ManutencaoFormView({
                     <input
                       inputMode="numeric"
                       maxLength={10}
-                      disabled={!!editingId}
-                      className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${editingId ? 'border-slate-300 bg-slate-100 text-slate-500 cursor-default' : 'border-slate-300 bg-white text-slate-900 focus:border-[#003056]'}`}
+                      disabled={bloqueado("nr_seq_prestador_servico")}
+                      className={`w-full rounded-[3px] border px-2 py-1.5 text-sm transition focus:outline-none ${campoErros.includes("nr_seq_prestador_servico") ? 'border-red-500' : 'border-slate-300'} ${bloqueado("nr_seq_prestador_servico") ? 'bg-slate-100 text-slate-500 cursor-default' : 'bg-white text-slate-900 focus:border-[#003056]'}`}
                       value={form.nr_seq_prestador_servico ? String(form.nr_seq_prestador_servico) : ""}
                       onChange={(e) => {
                         const raw = e.target.value.replace(/\D/g, '').slice(0, 10);
@@ -310,7 +315,7 @@ export default function ManutencaoFormView({
                       <button
                         type="button"
                         onClick={() => onOpenPrestadorLookup?.()}
-                        disabled={!!editingId}
+                        disabled={bloqueado("nr_seq_prestador_servico")}
                         className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                         aria-label="Localizar prestador de serviço"
                       >
@@ -328,7 +333,7 @@ export default function ManutencaoFormView({
                   inputMode="numeric"
                   maxLength={10}
                   placeholder="DD/MM/AAAA"
-                  disabled={!!editingId}
+                  disabled={bloqueado("dt_envio")}
                   className={`${inputClass("dt_envio")} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                   value={form.dt_envio ?? ""}
                   onChange={(e) => setForm({ ...form, dt_envio: applyDateMask(e.target.value) })}

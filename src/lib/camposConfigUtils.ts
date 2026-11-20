@@ -142,6 +142,7 @@ export interface CampoDef {
  */
 export const MODAL_ALUNO_ALTERAR_STATUS = "modal_aluno_alterar_status";
 export const MODAL_COLABORADOR_ALTERAR_STATUS = "modal_colaborador_alterar_status";
+export const MODAL_COPIA_ALTERAR_STATUS = "modal_copia_alterar_status";
 export const MODAL_ATIVO_OPERACIONAL = "modal_ativo_operacional";
 export const MODAL_ATIVO_ESTOQUE = "modal_ativo_estoque";
 export const MODAL_ATIVO_DESCARTAR = "modal_ativo_descartar";
@@ -217,6 +218,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "perfil.ie_status", label: "Status", tipo: "Perfis", colecao: "perfil" },
 
     { key: "imagem.ds_imagem", label: "Descrição", tipo: "Imagens", colecao: "imagem" },
+    { key: "imagem.ie_arquivo", label: "Arquivo", tipo: "Imagens", colecao: "imagem" },
   ],
   cadastrosGerais: [
     { key: "cg_sexo.ds_sexo", label: "Descrição", tipo: "Sexo", colecao: "cg_sexo" },
@@ -232,7 +234,13 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "cg_logradouro.ds_logradouro", label: "Descrição", tipo: "Logradouro", colecao: "cg_logradouro" },
 
     { key: "cg_combustivel.ds_combustivel", label: "Descrição", tipo: "Combustível", colecao: "cg_combustivel" },
+    { key: "cg_combustivel.ie_status", label: "Status", tipo: "Combustível", colecao: "cg_combustivel" },
     { key: "cg_modalidade_ensino.ds_modalidade_ensino", label: "Descrição", tipo: "Modalidade de ensino", colecao: "cg_modalidade_ensino" },
+    { key: "cg_modalidade_ensino.ie_status", label: "Status", tipo: "Modalidade de ensino", colecao: "cg_modalidade_ensino" },
+    { key: "cg_formato_papel.ds_formato_papel", label: "Descrição", tipo: "Formato do papel", colecao: "cg_formato_papel" },
+    { key: "cg_formato_papel.ie_status", label: "Status", tipo: "Formato do papel", colecao: "cg_formato_papel" },
+    { key: "cg_tipo_papel.ds_tipo_papel", label: "Descrição", tipo: "Tipo de papel", colecao: "cg_tipo_papel" },
+    { key: "cg_tipo_papel.ie_status", label: "Status", tipo: "Tipo de papel", colecao: "cg_tipo_papel" },
     { key: "cg_marca.ds_marca", label: "Descrição", tipo: "Marca", colecao: "cg_marca" },
 
     { key: "cg_grau_parentesco.ds_grau_parentesco", label: "Descrição", tipo: "Grau de parentesco", colecao: "cg_grau_parentesco" },
@@ -307,10 +315,15 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     // Manutenções
     // Ativo, Prestador, Data de envio, Status, Data de término, Valor total, Motivo e
     // Correções são campos fixos no formulário (preenchidos pelos modais de enviar/concluir).
+    // Ativo, Prestador e Data de envio: editáveis só no cadastro (depois, fixos).
+    { key: "pat_manutencao.nr_seq_ativo", label: "Ativo", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.nr_seq_prestador_servico", label: "Prestador de serviço", tipo: "Manutenções", colecao: "pat_manutencao" },
+    { key: "pat_manutencao.dt_envio", label: "Data de envio", tipo: "Manutenções", colecao: "pat_manutencao" },
     { key: "pat_manutencao.ds_observacao", label: "Observação", tipo: "Manutenções", colecao: "pat_manutencao" },
     // Responsáveis do ativo (duplo clique em Ativos; Sequência é preenchida pelo sistema).
     { key: "pat_ativo_responsavel.nr_seq_colaborador", label: "Colaborador", tipo: "Ativos > Responsáveis", colecao: "pat_ativo_responsavel" },
     { key: "modal_concluir_manutencao.dt_termino", label: "Concluir manutenção > Data de término", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
+    { key: "modal_concluir_manutencao.ie_isento", label: "Concluir manutenção > Isento", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
     { key: "modal_concluir_manutencao.vl_total", label: "Concluir manutenção > Valor total", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
     { key: "modal_concluir_manutencao.ds_correcoes", label: "Concluir manutenção > Correções", tipo: "Manutenções", colecao: "modal_concluir_manutencao" },
   ],
@@ -409,9 +422,9 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Alunos", colecao: "aluno" },
     { key: "aluno_responsavel.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
     { key: "aluno_responsavel.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
-    { key: "modal_aluno_alterar_status.dt_status", label: "Alterar status > Data do status", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
+    { key: "modal_aluno_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
     { key: "modal_aluno_alterar_status.ds_status", label: "Alterar status > Motivo", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
-    { key: "modal_colaborador_alterar_status.dt_status", label: "Alterar status > Data do status", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
+    { key: "modal_colaborador_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
     { key: "modal_colaborador_alterar_status.ds_motivo_status", label: "Alterar status > Motivo", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
     // Colaboradores: Matrícula, Status, Data do status e Motivo do status são
     // campos fixos (alterados pelas ações do menu de contexto).
@@ -449,4 +462,53 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "periodo_letivo_feriado.ds_feriado", label: "Descrição", tipo: "Período letivo > Feriados", colecao: "periodo_letivo_feriado" },
     { key: "periodo_letivo_feriado.ie_tipo_feriado", label: "Tipo", tipo: "Período letivo > Feriados", colecao: "periodo_letivo_feriado" },
   ],
+  controleCopias: [
+    // Status: escolhido só no cadastro. Data do status e Motivo status são fixos (menu de contexto).
+    { key: "copia.ie_status", label: "Status", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.dt_recebimento", label: "Data do recebimento", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.dt_impressao", label: "Data da impressão", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.dt_entrega", label: "Data da entrega", tipo: "Cópias", colecao: "copia" },
+    { key: "modal_copia_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Cópias", colecao: "modal_copia_alterar_status" },
+    { key: "modal_copia_alterar_status.ds_motivo_status", label: "Alterar status > Motivo", tipo: "Cópias", colecao: "modal_copia_alterar_status" },
+    { key: "copia.nr_seq_solicitante", label: "Solicitante", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.nr_seq_turma_disciplina", label: "Turma x Disciplina", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.qt_copias", label: "Cópias", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.qt_folhas", label: "Folhas", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.ie_frente_verso", label: "Frente e verso", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.ie_grampear", label: "Grampear", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.ie_guilhotinar", label: "Guilhotinar", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.nr_seq_formato_papel", label: "Formato do papel", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.nr_seq_tipo_papel", label: "Tipo de papel", tipo: "Cópias", colecao: "copia" },
+    { key: "copia.ie_arquivo", label: "Arquivo", tipo: "Cópias", colecao: "copia" },
+  ],
 };
+
+/**
+ * Histórico do status de um campo em um perfil (menu de contexto "Auditoria" em
+ * Campos x Formulários/Modais). O status fica dentro de perfil.config_campos, então a
+ * auditoria vem dos logs do perfil: entra cada log em que o status do campo mudou em
+ * relação ao log anterior. O primeiro vira a criação ("create"), os demais alterações.
+ * Recebe e devolve os logs do mais recente para o mais antigo; `detalhes` passa a ter
+ * só o campo (ds_campo) e o status (ie_status_campo).
+ */
+export function auditoriaDoCampo<T extends { acao?: string; detalhes?: unknown }>(logs: T[], chave: string, rotulo: string): T[] {
+  const statusDoLog = (log: T): CampoStatus | undefined => {
+    const detalhes = log.detalhes as { config_campos?: unknown } | undefined;
+    const bruto = detalhes?.config_campos;
+    if (bruto === undefined || bruto === null) return undefined;
+    return parseCamposConfig(typeof bruto === "string" ? bruto : JSON.stringify(bruto))[chave];
+  };
+  const resultado: T[] = [];
+  let anterior: CampoStatus | undefined;
+  for (const log of [...logs].reverse()) {
+    const status = statusDoLog(log);
+    if (status === undefined || status === anterior) continue;
+    resultado.push({
+      ...log,
+      acao: resultado.length === 0 ? "create" : "update",
+      detalhes: { ds_campo: rotulo, ie_status_campo: status },
+    });
+    anterior = status;
+  }
+  return resultado.reverse();
+}

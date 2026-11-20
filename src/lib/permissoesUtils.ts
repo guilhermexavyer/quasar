@@ -26,17 +26,23 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     // Opção Imagens
     { key: "adicionar_imagem", label: "Permite adicionar" },
     { key: "ver_imagem", label: "Permite ver" },
+
+    { key: "editar_imagem", label: "Permite editar" },
     { key: "renomear_imagem", label: "Permite renomear" },
     { key: "excluir_imagem", label: "Permite excluir" },
     // Opção Perfis
     { key: "adicionar_perfil", label: "Permite adicionar" },
     { key: "ver_perfil", label: "Permite ver" },
+
+    { key: "editar_perfil", label: "Permite editar" },
     { key: "delegar_funcoes_perfil", label: "Permite delegar funções" },
     { key: "duplicar_perfil", label: "Permite duplicar" },
     { key: "excluir_perfil", label: "Permite excluir" },
     // Opção Usuários
     { key: "adicionar_usuario", label: "Permite adicionar" },
     { key: "ver_usuario", label: "Permite ver" },
+
+    { key: "editar_usuario", label: "Permite editar" },
     { key: "alterar_senha_usuario", label: "Permite alterar senha" },
     { key: "delegar_perfis_usuario", label: "Permite delegar perfis" },
     { key: "excluir_usuario", label: "Permite excluir" },
@@ -46,12 +52,16 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_pessoa_fisica", label: "Permite acessar Pessoas Físicas" },
     { key: "adicionar_pessoa_fisica", label: "Permite adicionar" },
     { key: "ver_pessoa_fisica", label: "Permite ver" },
+
+    { key: "editar_pessoa_fisica", label: "Permite editar" },
     { key: "detalhes_pessoa_fisica", label: "Permite acessar residencial, comercial e saúde" },
     { key: "excluir_pessoa_fisica", label: "Permite excluir" },
     // Pessoas Jurídicas
     { key: "acessar_pessoa_juridica", label: "Permite acessar Pessoas Jurídicas" },
     { key: "adicionar_pessoa_juridica", label: "Permite adicionar" },
     { key: "ver_pessoa_juridica", label: "Permite ver" },
+
+    { key: "editar_pessoa_juridica", label: "Permite editar" },
     { key: "excluir_pessoa_juridica", label: "Permite excluir" },
   ],
   estruturaAcademica: [
@@ -61,6 +71,8 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_aluno", label: "Permite acessar Alunos" },
     { key: "adicionar_aluno", label: "Permite adicionar" },
     { key: "ver_aluno", label: "Permite ver" },
+
+    { key: "editar_aluno", label: "Permite editar" },
     { key: "gerar_matricula_aluno", label: "Permite gerar matrícula" },
     { key: "alterar_data_ingresso_aluno", label: "Permite alterar data de ingresso" },
     { key: "alterar_status_aluno", label: "Permite alterar status" },
@@ -70,6 +82,8 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_colaborador", label: "Permite acessar Colaboradores" },
     { key: "adicionar_colaborador", label: "Permite adicionar" },
     { key: "ver_colaborador", label: "Permite ver" },
+
+    { key: "editar_colaborador", label: "Permite editar" },
     { key: "gerar_matricula_colaborador", label: "Permite gerar matrícula" },
     { key: "alterar_data_admissao_colaborador", label: "Permite alterar data de admissão" },
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
@@ -79,16 +93,22 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_curso", label: "Permite acessar Cursos" },
     { key: "adicionar_curso", label: "Permite adicionar" },
     { key: "ver_curso", label: "Permite ver" },
+
+    { key: "editar_curso", label: "Permite editar" },
     { key: "excluir_curso", label: "Permite excluir" },
     // Disciplinas
     { key: "acessar_disciplina", label: "Permite acessar Disciplinas" },
     { key: "adicionar_disciplina", label: "Permite adicionar" },
     { key: "ver_disciplina", label: "Permite ver" },
+
+    { key: "editar_disciplina", label: "Permite editar" },
     { key: "excluir_disciplina", label: "Permite excluir" },
     // Período letivo
     { key: "acessar_periodo_letivo", label: "Permite acessar Período letivo" },
     { key: "adicionar_periodo_letivo", label: "Permite adicionar" },
     { key: "ver_periodo_letivo", label: "Permite ver" },
+
+    { key: "editar_periodo_letivo", label: "Permite editar" },
     { key: "encerrar_periodo_letivo", label: "Permite encerrar" },
     { key: "reativar_periodo_letivo", label: "Permite reativar" },
     { key: "feriados_periodo_letivo", label: "Permite configurar feriados" },
@@ -97,11 +117,15 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_turma", label: "Permite acessar Turmas" },
     { key: "adicionar_turma", label: "Permite adicionar" },
     { key: "ver_turma", label: "Permite ver" },
+
+    { key: "editar_turma", label: "Permite editar" },
     { key: "excluir_turma", label: "Permite excluir" },
     // Turmas x Disciplinas
     { key: "acessar_turma_disciplina", label: "Permite acessar Turmas x Disciplinas" },
     { key: "adicionar_turma_disciplina", label: "Permite adicionar" },
     { key: "ver_turma_disciplina", label: "Permite ver" },
+
+    { key: "editar_turma_disciplina", label: "Permite editar" },
     { key: "excluir_turma_disciplina", label: "Permite excluir" },
   ],
   patrimonio: [
@@ -111,6 +135,8 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_ativo", label: "Permite acessar Ativos" },
     { key: "adicionar_ativo", label: "Permite adicionar" },
     { key: "ver_ativo", label: "Permite ver" },
+
+    { key: "editar_ativo", label: "Permite editar" },
     { key: "mudar_para_operacional", label: "Permite mudar para Operacional" },
     { key: "enviar_para_manutencao", label: "Permite enviar para manutenção" },
     { key: "mover_para_estoque", label: "Permite mover para o estoque" },
@@ -123,11 +149,15 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_categoria", label: "Permite acessar Categoria" },
     { key: "adicionar_categoria", label: "Permite adicionar" },
     { key: "ver_categoria", label: "Permite ver" },
+
+    { key: "editar_categoria", label: "Permite editar" },
     { key: "excluir_categoria", label: "Permite excluir" },
     // Manutenções
     { key: "acessar_manutencao", label: "Permite acessar Manutenções" },
     { key: "adicionar_manutencao", label: "Permite adicionar" },
     { key: "ver_manutencao", label: "Permite ver" },
+
+    { key: "editar_manutencao", label: "Permite editar" },
     { key: "concluir_manutencao", label: "Permite concluir manutenção" },
     { key: "concluir_manutencao_registro", label: "Permite concluir manutenção" },
     { key: "cancelar_manutencao", label: "Permite cancelar manutenção" },
@@ -138,9 +168,23 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_acessos", label: "Permite acessar Acessos" },
     { key: "acessar_exclusoes", label: "Permite acessar Exclusões" },
   ],
+  controleCopias: [
+    // Cópias
+    { key: "acessar_copias", label: "Permite acessar Cópias" },
+    { key: "adicionar_copia", label: "Permite adicionar" },
+    { key: "ver_copia", label: "Permite ver" },
+
+    { key: "editar_copia", label: "Permite editar" },
+    { key: "alterar_status_copia", label: "Permite alterar status" },
+    { key: "excluir_copia", label: "Permite excluir" },
+    // Parâmetros
+    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros" },
+  ],
   relatorio: [
     { key: "adicionar_relatorio", label: "Permite adicionar" },
     { key: "ver_relatorio", label: "Permite ver" },
+
+    { key: "editar_relatorio", label: "Permite editar" },
     { key: "gerar_relatorio", label: "Permite gerar relatório" },
     { key: "duplicar_relatorio", label: "Permite duplicar" },
     { key: "bandas_relatorio", label: "Permite configurar bandas" },
@@ -151,71 +195,113 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "acessar_cor_raca", label: "Permite acessar Cor/Raça" },
     { key: "adicionar_cor_raca", label: "Permite adicionar" },
     { key: "ver_cor_raca", label: "Permite ver" },
+
+    { key: "editar_cor_raca", label: "Permite editar" },
     { key: "excluir_cor_raca", label: "Permite excluir" },
     // Estado civil
     { key: "acessar_estado_civil", label: "Permite acessar Estado civil" },
     { key: "adicionar_estado_civil", label: "Permite adicionar" },
     { key: "ver_estado_civil", label: "Permite ver" },
+
+    { key: "editar_estado_civil", label: "Permite editar" },
     { key: "excluir_estado_civil", label: "Permite excluir" },
     // Logradouro
     { key: "acessar_logradouro", label: "Permite acessar Logradouro" },
     { key: "adicionar_logradouro", label: "Permite adicionar" },
     { key: "ver_logradouro", label: "Permite ver" },
+
+    { key: "editar_logradouro", label: "Permite editar" },
     { key: "excluir_logradouro", label: "Permite excluir" },
     // Marca
     { key: "acessar_marca", label: "Permite acessar Marca" },
     { key: "adicionar_marca", label: "Permite adicionar" },
     { key: "ver_marca", label: "Permite ver" },
+
+    { key: "editar_marca", label: "Permite editar" },
     { key: "excluir_marca", label: "Permite excluir" },
     // Órgão emissor
     { key: "acessar_orgao_emissor", label: "Permite acessar Órgão emissor" },
     { key: "adicionar_orgao_emissor", label: "Permite adicionar" },
     { key: "ver_orgao_emissor", label: "Permite ver" },
+
+    { key: "editar_orgao_emissor", label: "Permite editar" },
     { key: "excluir_orgao_emissor", label: "Permite excluir" },
     // Profissão
     { key: "acessar_profissao", label: "Permite acessar Profissão" },
     { key: "adicionar_profissao", label: "Permite adicionar" },
     { key: "ver_profissao", label: "Permite ver" },
+
+    { key: "editar_profissao", label: "Permite editar" },
     { key: "excluir_profissao", label: "Permite excluir" },
     // Sexo
     { key: "acessar_sexo", label: "Permite acessar Sexo" },
     { key: "adicionar_sexo", label: "Permite adicionar" },
     { key: "ver_sexo", label: "Permite ver" },
+
+    { key: "editar_sexo", label: "Permite editar" },
     { key: "excluir_sexo", label: "Permite excluir" },
     // Grau de parentesco
     { key: "acessar_grau_parentesco", label: "Permite acessar Grau de parentesco" },
     { key: "adicionar_grau_parentesco", label: "Permite adicionar" },
     { key: "ver_grau_parentesco", label: "Permite ver" },
+
+    { key: "editar_grau_parentesco", label: "Permite editar" },
     { key: "excluir_grau_parentesco", label: "Permite excluir" },
     // Localização
     { key: "acessar_localizacao", label: "Permite acessar Localização" },
     { key: "adicionar_localizacao", label: "Permite adicionar" },
     { key: "ver_localizacao", label: "Permite ver" },
+
+    { key: "editar_localizacao", label: "Permite editar" },
     { key: "excluir_localizacao", label: "Permite excluir" },
     // Cargo
     { key: "acessar_cargo", label: "Permite acessar Cargo" },
     { key: "adicionar_cargo", label: "Permite adicionar" },
     { key: "ver_cargo", label: "Permite ver" },
+
+    { key: "editar_cargo", label: "Permite editar" },
     { key: "excluir_cargo", label: "Permite excluir" },
     // Vínculo contratual
     { key: "acessar_vinculo_contratual", label: "Permite acessar Vínculo contratual" },
     { key: "adicionar_vinculo_contratual", label: "Permite adicionar" },
     { key: "ver_vinculo_contratual", label: "Permite ver" },
+
+    { key: "editar_vinculo_contratual", label: "Permite editar" },
     { key: "excluir_vinculo_contratual", label: "Permite excluir" },
     // Combustível
     { key: "acessar_combustivel", label: "Permite acessar Combustível" },
     { key: "adicionar_combustivel", label: "Permite adicionar" },
     { key: "ver_combustivel", label: "Permite ver" },
+
+    { key: "editar_combustivel", label: "Permite editar" },
     { key: "excluir_combustivel", label: "Permite excluir" },
+    // Formato do papel
+    { key: "acessar_formato_papel", label: "Permite acessar Formato do papel" },
+    { key: "adicionar_formato_papel", label: "Permite adicionar" },
+    { key: "ver_formato_papel", label: "Permite ver" },
+
+    { key: "editar_formato_papel", label: "Permite editar" },
+    { key: "excluir_formato_papel", label: "Permite excluir" },
     // Modalidade de ensino
     { key: "acessar_modalidade_ensino", label: "Permite acessar Modalidade de ensino" },
     { key: "adicionar_modalidade_ensino", label: "Permite adicionar" },
     { key: "ver_modalidade_ensino", label: "Permite ver" },
+
+    { key: "editar_modalidade_ensino", label: "Permite editar" },
     { key: "excluir_modalidade_ensino", label: "Permite excluir" },
+    // Tipo de papel
+    { key: "acessar_tipo_papel", label: "Permite acessar Tipo de papel" },
+    { key: "adicionar_tipo_papel", label: "Permite adicionar" },
+    { key: "ver_tipo_papel", label: "Permite ver" },
+
+    { key: "editar_tipo_papel", label: "Permite editar" },
+    { key: "excluir_tipo_papel", label: "Permite excluir" },
     // Sistema operacional
     { key: "acessar_sistema_operacional", label: "Permite acessar Sistema operacional" },
     { key: "adicionar_sistema_operacional", label: "Permite adicionar" },
     { key: "ver_sistema_operacional", label: "Permite ver" },
+
+    { key: "editar_sistema_operacional", label: "Permite editar" },
     { key: "excluir_sistema_operacional", label: "Permite excluir" },
   ],
 };
@@ -240,11 +326,11 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Imagens',
-      chaves: ['acessar_imagens', 'adicionar_imagem', 'ver_imagem', 'renomear_imagem', 'excluir_imagem'],
+      chaves: ['acessar_imagens', 'adicionar_imagem', 'ver_imagem', 'editar_imagem', 'renomear_imagem', 'excluir_imagem'],
     },
     {
       titulo: 'Perfis',
-      chaves: ['acessar_perfis', 'adicionar_perfil', 'ver_perfil', 'delegar_funcoes_perfil', 'duplicar_perfil', 'excluir_perfil'],
+      chaves: ['acessar_perfis', 'adicionar_perfil', 'ver_perfil', 'editar_perfil', 'delegar_funcoes_perfil', 'duplicar_perfil', 'excluir_perfil'],
     },
     {
       titulo: 'Parâmetros',
@@ -256,35 +342,35 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Usuários',
-      chaves: ['acessar_usuarios', 'adicionar_usuario', 'ver_usuario', 'alterar_senha_usuario', 'delegar_perfis_usuario', 'excluir_usuario'],
+      chaves: ['acessar_usuarios', 'adicionar_usuario', 'ver_usuario', 'editar_usuario', 'alterar_senha_usuario', 'delegar_perfis_usuario', 'excluir_usuario'],
     },
   ],
   pessoaFisica: [
     {
       titulo: 'Pessoas Físicas',
-      chaves: ['acessar_pessoa_fisica', 'adicionar_pessoa_fisica', 'ver_pessoa_fisica', 'detalhes_pessoa_fisica', 'excluir_pessoa_fisica'],
+      chaves: ['acessar_pessoa_fisica', 'adicionar_pessoa_fisica', 'ver_pessoa_fisica', 'editar_pessoa_fisica', 'detalhes_pessoa_fisica', 'excluir_pessoa_fisica'],
     },
     {
       titulo: 'Pessoas Jurídicas',
-      chaves: ['acessar_pessoa_juridica', 'adicionar_pessoa_juridica', 'ver_pessoa_juridica', 'excluir_pessoa_juridica'],
+      chaves: ['acessar_pessoa_juridica', 'adicionar_pessoa_juridica', 'ver_pessoa_juridica', 'editar_pessoa_juridica', 'excluir_pessoa_juridica'],
     },
   ],
   estruturaAcademica: [
     {
       titulo: 'Alunos',
-      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'gerar_matricula_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'detalhes_aluno', 'excluir_aluno'],
+      chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'editar_aluno', 'gerar_matricula_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'detalhes_aluno', 'excluir_aluno'],
     },
     {
       titulo: 'Colaboradores',
-      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'gerar_matricula_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'assumir_ativos_colaborador', 'excluir_colaborador'],
+      chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'editar_colaborador', 'gerar_matricula_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'assumir_ativos_colaborador', 'excluir_colaborador'],
     },
     {
       titulo: 'Cursos',
-      chaves: ['acessar_curso', 'adicionar_curso', 'ver_curso', 'excluir_curso'],
+      chaves: ['acessar_curso', 'adicionar_curso', 'ver_curso', 'editar_curso', 'excluir_curso'],
     },
     {
       titulo: 'Disciplinas',
-      chaves: ['acessar_disciplina', 'adicionar_disciplina', 'ver_disciplina', 'excluir_disciplina'],
+      chaves: ['acessar_disciplina', 'adicionar_disciplina', 'ver_disciplina', 'editar_disciplina', 'excluir_disciplina'],
     },
     {
       titulo: 'Parâmetros',
@@ -292,29 +378,29 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Período letivo',
-      chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'feriados_periodo_letivo', 'excluir_periodo_letivo'],
+      chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'editar_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'feriados_periodo_letivo', 'excluir_periodo_letivo'],
     },
     {
       titulo: 'Turmas',
-      chaves: ['acessar_turma', 'adicionar_turma', 'ver_turma', 'excluir_turma'],
+      chaves: ['acessar_turma', 'adicionar_turma', 'ver_turma', 'editar_turma', 'excluir_turma'],
     },
     {
       titulo: 'Turmas x Disciplinas',
-      chaves: ['acessar_turma_disciplina', 'adicionar_turma_disciplina', 'ver_turma_disciplina', 'excluir_turma_disciplina'],
+      chaves: ['acessar_turma_disciplina', 'adicionar_turma_disciplina', 'ver_turma_disciplina', 'editar_turma_disciplina', 'excluir_turma_disciplina'],
     },
   ],
   patrimonio: [
     {
       titulo: 'Ativos',
-      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'transferir_ativo', 'detalhes_ativo', 'excluir_ativo'],
+      chaves: ['acessar_ativo', 'adicionar_ativo', 'ver_ativo', 'editar_ativo', 'alterar_status_descartado', 'mudar_para_operacional', 'enviar_para_manutencao', 'concluir_manutencao', 'mover_para_estoque', 'descartar_ativo', 'transferir_ativo', 'detalhes_ativo', 'excluir_ativo'],
     },
     {
       titulo: 'Categoria',
-      chaves: ['acessar_categoria', 'adicionar_categoria', 'ver_categoria', 'excluir_categoria'],
+      chaves: ['acessar_categoria', 'adicionar_categoria', 'ver_categoria', 'editar_categoria', 'excluir_categoria'],
     },
     {
       titulo: 'Manutenções',
-      chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'concluir_manutencao_registro', 'cancelar_manutencao', 'excluir_manutencao'],
+      chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'editar_manutencao', 'concluir_manutencao_registro', 'cancelar_manutencao', 'excluir_manutencao'],
     },
     {
       titulo: 'Parâmetros',
@@ -331,68 +417,86 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_exclusoes'],
     },
   ],
+  controleCopias: [
+    {
+      titulo: 'Cópias',
+      chaves: ['acessar_copias', 'adicionar_copia', 'ver_copia', 'editar_copia', 'alterar_status_copia', 'excluir_copia'],
+    },
+    {
+      titulo: 'Parâmetros',
+      chaves: ['acessar_parametros_funcao'],
+    },
+  ],
   relatorio: [
     {
       titulo: 'Relatórios',
-      chaves: ['adicionar_relatorio', 'ver_relatorio', 'gerar_relatorio', 'duplicar_relatorio', 'bandas_relatorio', 'excluir_relatorio'],
+      chaves: ['adicionar_relatorio', 'ver_relatorio', 'editar_relatorio', 'gerar_relatorio', 'duplicar_relatorio', 'bandas_relatorio', 'excluir_relatorio'],
     },
   ],
   cadastrosGerais: [
     {
       titulo: 'Cargo',
-      chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'excluir_cargo'],
+      chaves: ['acessar_cargo', 'adicionar_cargo', 'ver_cargo', 'editar_cargo', 'excluir_cargo'],
     },
     {
       titulo: 'Cor/Raça',
-      chaves: ['acessar_cor_raca', 'adicionar_cor_raca', 'ver_cor_raca', 'excluir_cor_raca'],
+      chaves: ['acessar_cor_raca', 'adicionar_cor_raca', 'ver_cor_raca', 'editar_cor_raca', 'excluir_cor_raca'],
     },
     {
       titulo: 'Estado civil',
-      chaves: ['acessar_estado_civil', 'adicionar_estado_civil', 'ver_estado_civil', 'excluir_estado_civil'],
+      chaves: ['acessar_estado_civil', 'adicionar_estado_civil', 'ver_estado_civil', 'editar_estado_civil', 'excluir_estado_civil'],
     },
     {
       titulo: 'Grau de parentesco',
-      chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'excluir_grau_parentesco'],
+      chaves: ['acessar_grau_parentesco', 'adicionar_grau_parentesco', 'ver_grau_parentesco', 'editar_grau_parentesco', 'excluir_grau_parentesco'],
     },
     {
       titulo: 'Localização',
-      chaves: ['acessar_localizacao', 'adicionar_localizacao', 'ver_localizacao', 'excluir_localizacao'],
+      chaves: ['acessar_localizacao', 'adicionar_localizacao', 'ver_localizacao', 'editar_localizacao', 'excluir_localizacao'],
     },
     {
       titulo: 'Logradouro',
-      chaves: ['acessar_logradouro', 'adicionar_logradouro', 'ver_logradouro', 'excluir_logradouro'],
+      chaves: ['acessar_logradouro', 'adicionar_logradouro', 'ver_logradouro', 'editar_logradouro', 'excluir_logradouro'],
     },
     {
       titulo: 'Marca',
-      chaves: ['acessar_marca', 'adicionar_marca', 'ver_marca', 'excluir_marca'],
+      chaves: ['acessar_marca', 'adicionar_marca', 'ver_marca', 'editar_marca', 'excluir_marca'],
     },
     {
       titulo: 'Órgão emissor',
-      chaves: ['acessar_orgao_emissor', 'adicionar_orgao_emissor', 'ver_orgao_emissor', 'excluir_orgao_emissor'],
+      chaves: ['acessar_orgao_emissor', 'adicionar_orgao_emissor', 'ver_orgao_emissor', 'editar_orgao_emissor', 'excluir_orgao_emissor'],
     },
     {
       titulo: 'Profissão',
-      chaves: ['acessar_profissao', 'adicionar_profissao', 'ver_profissao', 'excluir_profissao'],
+      chaves: ['acessar_profissao', 'adicionar_profissao', 'ver_profissao', 'editar_profissao', 'excluir_profissao'],
     },
     {
       titulo: 'Sexo',
-      chaves: ['acessar_sexo', 'adicionar_sexo', 'ver_sexo', 'excluir_sexo'],
+      chaves: ['acessar_sexo', 'adicionar_sexo', 'ver_sexo', 'editar_sexo', 'excluir_sexo'],
     },
     {
       titulo: 'Vínculo contratual',
-      chaves: ['acessar_vinculo_contratual', 'adicionar_vinculo_contratual', 'ver_vinculo_contratual', 'excluir_vinculo_contratual'],
+      chaves: ['acessar_vinculo_contratual', 'adicionar_vinculo_contratual', 'ver_vinculo_contratual', 'editar_vinculo_contratual', 'excluir_vinculo_contratual'],
     },
     {
       titulo: 'Combustível',
-      chaves: ['acessar_combustivel', 'adicionar_combustivel', 'ver_combustivel', 'excluir_combustivel'],
+      chaves: ['acessar_combustivel', 'adicionar_combustivel', 'ver_combustivel', 'editar_combustivel', 'excluir_combustivel'],
     },
     {
       titulo: 'Modalidade de ensino',
-      chaves: ['acessar_modalidade_ensino', 'adicionar_modalidade_ensino', 'ver_modalidade_ensino', 'excluir_modalidade_ensino'],
+      chaves: ['acessar_modalidade_ensino', 'adicionar_modalidade_ensino', 'ver_modalidade_ensino', 'editar_modalidade_ensino', 'excluir_modalidade_ensino'],
+    },
+    {
+      titulo: 'Formato do papel',
+      chaves: ['acessar_formato_papel', 'adicionar_formato_papel', 'ver_formato_papel', 'editar_formato_papel', 'excluir_formato_papel'],
+    },
+    {
+      titulo: 'Tipo de papel',
+      chaves: ['acessar_tipo_papel', 'adicionar_tipo_papel', 'ver_tipo_papel', 'editar_tipo_papel', 'excluir_tipo_papel'],
     },
     {
       titulo: 'Sistema operacional',
-      chaves: ['acessar_sistema_operacional', 'adicionar_sistema_operacional', 'ver_sistema_operacional', 'excluir_sistema_operacional'],
+      chaves: ['acessar_sistema_operacional', 'adicionar_sistema_operacional', 'ver_sistema_operacional', 'editar_sistema_operacional', 'excluir_sistema_operacional'],
     },
   ],
 };
@@ -450,7 +554,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 27;
+export const PERMISSOES_CONFIG_VERSION = 30;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
@@ -637,6 +741,19 @@ export function logsSubmodulosPermitidos(config: PermissoesConfig | undefined): 
   return LOGS_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
 }
 
+/** Submódulos da função Controle de Cópias (dropdown PAI) e a permissão que libera o acesso a cada um deles. */
+export const CC_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
+  { value: 'copias', label: 'Cópias', permissao: 'acessar_copias' },
+  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
+];
+
+/** Submódulos de Controle de Cópias liberados conforme as permissões salvas (sem configuração = tudo liberado). */
+export function ccSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
+  const salvos = config?.["controleCopias"];
+  if (!salvos) return CC_SUBMODULOS.map((s) => s.value);
+  return CC_SUBMODULOS.filter((s) => salvos.includes(s.permissao)).map((s) => s.value);
+}
+
 export function patrimonioSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {
   const salvos = config?.["patrimonio"];
   // Sem configuração salva para a função: comportamento padrão (tudo liberado).
@@ -654,6 +771,7 @@ export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'combustivel', label: 'Combustível', permissao: 'acessar_combustivel' },
   { value: 'corRaca', label: 'Cor/Raça', permissao: 'acessar_cor_raca' },
   { value: 'estadoCivil', label: 'Estado civil', permissao: 'acessar_estado_civil' },
+  { value: 'formatoPapel', label: 'Formato do papel', permissao: 'acessar_formato_papel' },
   { value: 'grauParentesco', label: 'Grau de parentesco', permissao: 'acessar_grau_parentesco' },
   { value: 'localizacao', label: 'Localização', permissao: 'acessar_localizacao' },
   { value: 'logradouro', label: 'Logradouro', permissao: 'acessar_logradouro' },
@@ -663,6 +781,7 @@ export const CG_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'profissao', label: 'Profissão', permissao: 'acessar_profissao' },
   { value: 'sexo', label: 'Sexo', permissao: 'acessar_sexo' },
   { value: 'sistemaOperacional', label: 'Sistema operacional', permissao: 'acessar_sistema_operacional' },
+  { value: 'tipoPapel', label: 'Tipo de papel', permissao: 'acessar_tipo_papel' },
   { value: 'vinculoContratual', label: 'Vínculo contratual', permissao: 'acessar_vinculo_contratual' },
 ];
 

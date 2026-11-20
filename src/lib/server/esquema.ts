@@ -23,15 +23,18 @@ export const TABELAS_REGISTRO_UNICO = new Set([
   "pat_param_cor_manutencao_concluida", "pat_param_cor_manutencao_cancelada", "ea_param_matricula_aluno",
   "ea_param_matricula_colaborador", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado",
   "ea_param_encerramento_automatico_periodo_letivo", "as_param_alterar_senha_proximo_login",
+  "cc_param_tipos_arquivo_copia", "cc_param_cor_copia_aguardando", "cc_param_cor_copia_cancelado",
+  "cc_param_cor_copia_entregue", "cc_param_cor_copia_impresso", "cc_param_data_recebimento_automatica",
 ]);
 
 /** Tabelas acessíveis pelas rotas genéricas /api/dados/<colecao>. */
 export const TABELAS_DADOS = new Set([
   "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor", "cg_logradouro",
   "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual", "cg_localizacao", "cg_marca",
-  "cg_sistema_operacional", "cg_combustivel", "cg_modalidade_ensino", "pat_categoria", "curso", "disciplina", "turma", "turma_disciplina",
+  "cg_sistema_operacional", "cg_combustivel", "cg_modalidade_ensino", "cg_formato_papel", "cg_tipo_papel", "pat_categoria", "curso", "disciplina", "turma", "turma_disciplina",
   "pessoa_fisica", "pessoa_fisica_residencial", "pessoa_fisica_comercial", "pessoa_fisica_saude", "pessoa_juridica", "aluno", "aluno_responsavel", "colaborador", "periodo_letivo", "periodo_letivo_feriado",
   "pat_ativo", "pat_ativo_responsavel", "pat_manutencao",
+  "copia",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro",
   ...TABELAS_REGISTRO_UNICO,
@@ -126,11 +129,22 @@ function tipoDe(dataType: string): TipoColuna {
   }
 }
 
-const globalEsquema = globalThis as unknown as { __quasarEsquema?: Promise<Map<string, Colunas>> };
+const globalEsquema = globalThis as unknown as { __quasarEsquema?: Promise<Map<string, Colunas>>; __quasarEsquemaEm?: number };
 
-/** Colunas de todas as tabelas (lidas do banco uma vez por instância). */
-async function esquema(): Promise<Map<string, Colunas>> {
-  if (!globalEsquema.__quasarEsquema) {
+/**
+ * O esquema é relido de tempos em tempos: uma migração aplicada com o servidor no ar
+ * (tabelas/colunas novas) passa a valer sem reiniciar. Uma tabela desconhecida força a
+ * releitura na hora (ver colunasDe).
+ */
+const VALIDADE_ESQUEMA_MS = 30_000;
+const INTERVALO_MINIMO_RELEITURA_MS = 2_000;
+
+/** Colunas de todas as tabelas (lidas do banco e renovadas a cada VALIDADE_ESQUEMA_MS). */
+async function esquema(forcar = false): Promise<Map<string, Colunas>> {
+  const idade = Date.now() - (globalEsquema.__quasarEsquemaEm ?? 0);
+  const vencido = idade > VALIDADE_ESQUEMA_MS || (forcar && idade > INTERVALO_MINIMO_RELEITURA_MS);
+  if (!globalEsquema.__quasarEsquema || vencido) {
+    globalEsquema.__quasarEsquemaEm = Date.now();
     globalEsquema.__quasarEsquema = query<{ table_name: string; column_name: string; data_type: string }>(
       "select table_name, column_name, data_type from information_schema.columns where table_schema = 'public' order by table_name, ordinal_position"
     )
@@ -151,7 +165,8 @@ async function esquema(): Promise<Map<string, Colunas>> {
 }
 
 export async function colunasDe(tabela: string): Promise<Colunas> {
-  const colunas = (await esquema()).get(tabela);
+  // Tabela que o cache não conhece (ex.: criada por uma migração há pouco): relê o esquema antes de recusar.
+  const colunas = (await esquema()).get(tabela) ?? (await esquema(true)).get(tabela);
   if (!colunas) throw new ErroValidacao(`Coleção desconhecida: ${tabela}`);
   return colunas;
 }

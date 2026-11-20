@@ -145,6 +145,12 @@ import {
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
   COLECAO_PARAM_MATRICULA_COLABORADOR,
+  COLECAO_PARAM_TIPOS_ARQUIVO_COPIA,
+  COLECAO_PARAM_COR_COPIA_AGUARDANDO,
+  COLECAO_PARAM_COR_COPIA_CANCELADO,
+  COLECAO_PARAM_COR_COPIA_ENTREGUE,
+  COLECAO_PARAM_COR_COPIA_IMPRESSO,
+  COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
   obterParametro,
 } from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
@@ -210,7 +216,7 @@ import AtivoDetalheView, { type AtivoDetalheAba } from "@/components/patrimonio/
 import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
 import { excluirResponsaveisDoAluno } from "@/services/alunoResponsavelService";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
-import ParametrosDaFuncaoView, { PARAMETROS_ADMINISTRACAO_SISTEMA, PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
+import ParametrosDaFuncaoView, { PARAMETROS_ADMINISTRACAO_SISTEMA, PARAMETROS_CONTROLE_COPIAS, PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
 import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
@@ -250,6 +256,8 @@ import {
   parseCamposConfig,
   serializeCamposConfig,
   parseCamposAlteracao,
+  auditoriaDoCampo,
+  CAMPO_STATUS_LABELS,
   serializeCamposAlteracao,
   campoRegrasDaColecao,
   camposObrigatoriosVazios,
@@ -260,6 +268,7 @@ import {
   MODAL_ATIVO_ESTOQUE,
   MODAL_ATIVO_OPERACIONAL,
   MODAL_COLABORADOR_ALTERAR_STATUS,
+  MODAL_COPIA_ALTERAR_STATUS,
   MODAL_CONCLUIR_MANUTENCAO,
   MODAL_ENVIAR_MANUTENCAO,
   MODAL_ATIVO_TRANSFERIR,
@@ -280,6 +289,7 @@ import {
   eaSubmodulosPermitidos,
   patrimonioSubmodulosPermitidos,
   logsSubmodulosPermitidos,
+  ccSubmodulosPermitidos,
   temPermissao,
 } from "@/lib/permissoesUtils";
 import type { PermissaoDef } from "@/lib/permissoesUtils";
@@ -341,6 +351,19 @@ import type { TurmaDisciplina } from "@/types/turmaDisciplina";
 import { MODALIDADE_ENSINO_COLUMNS, MODALIDADE_ENSINO_FIELD_INFOS } from "@/lib/modalidadeEnsinoUtils";
 import { atualizarModalidadeEnsino, criarModalidadeEnsino, excluirModalidadeEnsino, obterModalidadesEnsino } from "@/services/modalidadeEnsinoService";
 import type { ModalidadeEnsino } from "@/types/modalidadeEnsino";
+import { FORMATO_PAPEL_COLUMNS, FORMATO_PAPEL_FIELD_INFOS } from "@/lib/formatoPapelUtils";
+import { atualizarFormatoPapel, criarFormatoPapel, excluirFormatoPapel, obterFormatosPapel } from "@/services/formatoPapelService";
+import type { FormatoPapel } from "@/types/formatoPapel";
+import { TIPO_PAPEL_COLUMNS, TIPO_PAPEL_FIELD_INFOS } from "@/lib/tipoPapelUtils";
+import { atualizarTipoPapel, criarTipoPapel, excluirTipoPapel, obterTiposPapel } from "@/services/tipoPapelService";
+import type { TipoPapel } from "@/types/tipoPapel";
+import { CORES_STATUS_COPIA_PADRAO, COPIA_COLUMNS, COPIA_COLUNAS_REFERENCIA, COPIA_FIELD_INFOS, STATUS_COPIA_OPTIONS, formatCopiaCellValue, rotuloStatusCopia } from "@/lib/copiaUtils";
+import CopiaListView from "@/components/controleCopias/CopiaListView";
+import { atualizarCopia, criarCopia, enviarArquivoCopia, excluirCopia, obterCopias } from "@/services/copiaService";
+import type { Copia } from "@/types/copia";
+import CopiaCamposFormView, { COPIA_CAMPOS_VAZIOS, type CopiaCamposForm } from "@/components/controleCopias/CopiaCamposForm";
+import { EXTENSOES_COPIA_PADRAO, extensoesPermitidasCopia } from "@/lib/copiaArquivoUtils";
+import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import type { Curso } from "@/types/curso";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { COMBUSTIVEL_COLUMNS, COMBUSTIVEL_FIELD_INFOS } from "@/lib/combustivelUtils";
@@ -416,9 +439,9 @@ function getActivePerfilKey(userId?: string | null): string {
 }
 
 type ViewType = "list" | "form";
-type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio" | "logs";
+type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio" | "logs" | "controleCopias";
 
-const SECOES: readonly SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs"];
+const SECOES: readonly SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs", "controleCopias"];
 
 function ehSecao(valor: unknown): valor is SectionType {
   return SECOES.includes(valor as SectionType);
@@ -473,6 +496,7 @@ const CG_SELECT_OPTIONS = [
   { value: 'combustivel', label: 'Combustível' },
   { value: 'corRaca', label: 'Cor/Raça' },
   { value: 'estadoCivil', label: 'Estado civil' },
+  { value: 'formatoPapel', label: 'Formato do papel' },
   { value: 'grauParentesco', label: 'Grau de parentesco' },
   { value: 'localizacao', label: 'Localização' },
   { value: 'logradouro', label: 'Logradouro' },
@@ -482,6 +506,7 @@ const CG_SELECT_OPTIONS = [
   { value: 'profissao', label: 'Profissão' },
   { value: 'sexo', label: 'Sexo' },
   { value: 'sistemaOperacional', label: 'Sistema operacional' },
+  { value: 'tipoPapel', label: 'Tipo de papel' },
   { value: 'vinculoContratual', label: 'Vínculo contratual' },
 ];
 
@@ -555,6 +580,28 @@ const PATRIMONIO_SELECT_OPTIONS = [
 const RELATORIO_SELECT_OPTIONS = [
   { value: 'relatorio', label: 'Gerenciador de Relatórios' },
 ];
+
+/* Opções do dropdown da função Controle de Cópias */
+const CC_SELECT_OPTIONS = [
+  { value: 'copias', label: 'Cópias' },
+  { value: 'parametrosFuncao', label: 'Parâmetros' },
+];
+
+/** Filtro extra de Cópias (rascunho e aplicado). */
+const COPIA_FILTRO_VAZIO = { ie_status: '', nr_seq_solicitante: '', nr_seq_turma_disciplina: '', nr_seq_formato_papel: '', nr_seq_tipo_papel: '' };
+
+/** Datas digitadas (DD/MM/AAAA) que não formam uma data válida. */
+function datasInvalidas<T extends Record<string, unknown>>(dados: T, campos: (keyof T)[]): (keyof T)[] {
+  return campos.filter((campo) => {
+    const texto = String(dados[campo] ?? '').trim();
+    if (!texto) return false;
+    const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(texto);
+    if (!m) return true;
+    const [dia, mes, ano] = [Number(m[1]), Number(m[2]), Number(m[3])];
+    const d = new Date(Date.UTC(ano, mes - 1, dia));
+    return d.getUTCFullYear() !== ano || d.getUTCMonth() !== mes - 1 || d.getUTCDate() !== dia;
+  });
+}
 
 type PjFormData = Omit<PessoaJuridica, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao">;
 
@@ -697,13 +744,13 @@ const emptyPjFilterForm: PjFilterFormData = {
   cd_ibge_cidade: '',
 };
 
-type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional | Combustivel | ModalidadeEnsino;
+type CgItem = Sexo | EstadoCivil | CorRaca | Profissao | OrgaoEmissor | Logradouro | GrauParentesco | Cargo | VinculoContratual | Localizacao | Marca | CategoriaAtivo | SistemaOperacional | Combustivel | ModalidadeEnsino | FormatoPapel | TipoPapel;
 
 /* ------------------------------------------------------------------ */
 /*  Funções do menu lateral (ordenáveis por arrastar)                */
 /* ------------------------------------------------------------------ */
 
-const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs"];
+const DEFAULT_SECTION_ORDER: SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs", "controleCopias"];
 
 function normalizeMenuOrder(parsed: SectionType[]): SectionType[] {
   const result = [...new Set(parsed)];
@@ -718,7 +765,7 @@ function parseMenuOrder(raw?: string | null): SectionType[] | null {
   try {
     const parsed = JSON.parse(raw) as unknown;
     if (!Array.isArray(parsed)) return null;
-    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio" || s === "relatorio" || s === "logs") as SectionType[];
+    const valid = parsed.filter((s) => s === "pessoaFisica" || s === "administracaoSistema" || s === "cadastrosGerais" || s === "estruturaAcademica" || s === "patrimonio" || s === "relatorio" || s === "logs" || s === "controleCopias") as SectionType[];
     if (valid.length === 0) return null;
     return valid;
   } catch {
@@ -914,6 +961,25 @@ const SECTION_DEFS: Record<SectionType, { label: string; icon: React.ReactNode }
       </svg>
     ),
   },
+  controleCopias: {
+    label: "Controle de Cópias",
+    icon: (
+      <svg
+        width="14"
+        height="14"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      >
+        <path d="M6 9V2h12v7" />
+        <path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2" />
+        <path d="M6 14h12v8H6z" />
+      </svg>
+    ),
+  },
 };
 
 /* Ordem alfabética das funções (pelos nomes do menu lateral) */
@@ -1008,7 +1074,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   const [message, setMessage] = useState("");
@@ -1082,6 +1148,8 @@ export default function Home() {
   const [sistemasOperacionais, setSistemasOperacionais] = useState<SistemaOperacional[]>([]);
   const [combustiveis, setCombustiveis] = useState<Combustivel[]>([]);
   const [modalidadesEnsino, setModalidadesEnsino] = useState<ModalidadeEnsino[]>([]);
+  const [formatosPapel, setFormatosPapel] = useState<FormatoPapel[]>([]);
+  const [tiposPapel, setTiposPapel] = useState<TipoPapel[]>([]);
   const [estados, setEstados] = useState<{ value: string; label: string }[]>([]);
   const [cgForm, setCgForm] = useState<CadastroGeralFormData>(emptyCgForm);
   const [cgEditingId, setCgEditingId] = useState<string | null>(null);
@@ -1199,6 +1267,30 @@ export default function Home() {
   const [turmaDisciplinaFiltroExtraAplicado, setTurmaDisciplinaFiltroExtraAplicado] = useState({ nr_seq_turma: '', nr_seq_disciplina: '' });
   /** Lookup aberto no formulário de Turmas x Disciplinas. */
   const [turmaDisciplinaLookupCampo, setTurmaDisciplinaLookupCampo] = useState<'nr_seq_turma' | 'nr_seq_disciplina' | null>(null);
+  /* Controle de Cópias > Cópias (coleção copia). */
+  const [copias, setCopias] = useState<Copia[]>([]);
+  const [copiaForm, setCopiaForm] = useState<CadastroGeralFormData>(emptyCgForm);
+  const [copiaExtra, setCopiaExtra] = useState<CopiaCamposForm>(COPIA_CAMPOS_VAZIOS);
+  /** Arquivo escolhido no formulário e ainda não enviado (vai ao Storage no Salvar). */
+  const [copiaArquivoNovo, setCopiaArquivoNovo] = useState<File | null>(null);
+  const [copiaEditingId, setCopiaEditingId] = useState<string | null>(null);
+  const [copiaSubmitting, setCopiaSubmitting] = useState(false);
+  const [copiaAuditInfo, setCopiaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+  const auditCopiaIdRef = useRef<string | null>(null);
+  const [copiaCampoErros, setCopiaCampoErros] = useState<string[]>([]);
+  const [copiaSortColumn, setCopiaSortColumn] = useState<number | null>(null);
+  const [copiaSortAsc, setCopiaSortAsc] = useState<boolean | null>(null);
+  const [copiaFilterModalOpen, setCopiaFilterModalOpen] = useState(false);
+  const [copiaFilterForm, setCopiaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedCopiaFilterForm, setAppliedCopiaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [copiaFiltroExtra, setCopiaFiltroExtra] = useState(COPIA_FILTRO_VAZIO);
+  const [copiaFiltroExtraAplicado, setCopiaFiltroExtraAplicado] = useState(COPIA_FILTRO_VAZIO);
+  /** Lookup de Turma x Disciplina aberto: no formulário ou no filtro. */
+  const [copiaTurmaDisciplinaLookup, setCopiaTurmaDisciplinaLookup] = useState<'form' | 'filtro' | null>(null);
+  /** Extensões liberadas no parâmetro "Tipos de arquivo para anexar em 'Cópias'". */
+  const [extensoesCopia, setExtensoesCopia] = useState<string[]>(EXTENSOES_COPIA_PADRAO);
+  /** Parâmetro: a Data do recebimento de uma cópia nova já vem com a data atual. */
+  const [recebimentoAutomaticoCopia, setRecebimentoAutomaticoCopia] = useState(false);
   const [categoriaEditingId, setCategoriaEditingId] = useState<string | null>(null);
   const [categoriaSubmitting, setCategoriaSubmitting] = useState(false);
   const [categoriaAuditInfo, setCategoriaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1388,7 +1480,7 @@ export default function Home() {
   const [enviarManutPrestLookupForm, setEnviarManutPrestLookupForm] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
-  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor'>('modal');
+  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante'>('modal');
   /** O lookup lista só os colaboradores com "Fornecedor" marcado (Fornecedor do ativo). */
   const [lookupColaboradorFornecedor, setLookupColaboradorFornecedor] = useState(false);
   /** O lookup lista todos os colaboradores (Responsável do ativo), não só os prestadores de serviço. */
@@ -1519,6 +1611,12 @@ export default function Home() {
   const [coresStatusPeriodoLetivo, setCoresStatusPeriodoLetivo] = useState<Record<string, string>>(CORES_STATUS_PERIODO_LETIVO_PADRAO);
   // Cores da bolinha de status dos Ativos (Patrimônio > Parâmetros).
   const [coresStatusAtivo, setCoresStatusAtivo] = useState<Record<string, string>>(CORES_STATUS_ATIVO_PADRAO);
+  // Controle de Cópias > Cópias: cores das bolinhas de status e o modal "Alterar status".
+  const [coresStatusCopia, setCoresStatusCopia] = useState<Record<string, string>>(CORES_STATUS_COPIA_PADRAO);
+  const [alterarStatusCopiaModalOpen, setAlterarStatusCopiaModalOpen] = useState(false);
+  const [alterarStatusCopia, setAlterarStatusCopia] = useState<Copia | null>(null);
+  const [alterarStatusCopiaForm, setAlterarStatusCopiaForm] = useState({ dt_status: '', ie_status: '', ds_motivo_status: '' });
+  const [alterarStatusCopiaSaving, setAlterarStatusCopiaSaving] = useState(false);
   // Cores da bolinha de status das Manutenções (Patrimônio > Parâmetros).
   const [coresStatusManutencao, setCoresStatusManutencao] = useState<Record<string, string>>(CORES_STATUS_MANUTENCAO_PADRAO);
 
@@ -1575,6 +1673,8 @@ export default function Home() {
   const [relatorioInteracted, setRelatorioInteracted] = useState(false);
   // ── Logs (Acessos e Exclusões) ──
   const [logsManageSelection, setLogsManageSelection] = useState('');
+  // ── Controle de Cópias (Cópias e Parâmetros) ──
+  const [ccManageSelection, setCcManageSelection] = useState('');
   const [acessosFiltro, setAcessosFiltro] = useState<FiltroAcessos>(FILTRO_ACESSOS_VAZIO);
   const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const [bandaAuditInfo, setBandaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1603,7 +1703,7 @@ export default function Home() {
   const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => b.nr_sequencia - a.nr_sequencia); /* Ordem padrão: coluna # decrescente */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
-  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
+  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); if (imagemEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarImagem)) return; const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
   async function handleImagemDelete(id: string) { setMessage(''); try { const img = imagens.find((i) => i.id === id); if (img?.ie_arquivo) { await excluirArquivoImagem(img.ie_arquivo); } await excluirImagem(id); setMessage('Excluído com sucesso!'); await loadImagens(); } catch { setMessage('Erro ao excluir.'); } if (view === 'form') setView('list'); }
   const imagemAuditInfo = useMemo(() => { const img = imagens.find((i) => i.id === imagemEditingId); return { createdAt: img?.dt_criacao || '', updatedAt: img?.dt_alteracao || '', createdBy: img?.ds_usuario_criacao || '', updatedBy: img?.ds_usuario_alteracao || '' }; }, [imagens, imagemEditingId]);
   const imagemIndex = useMemo(() => { if (!imagemEditingId) return -1; return filteredSortedImagens.findIndex((i) => i.id === imagemEditingId); }, [filteredSortedImagens, imagemEditingId]);
@@ -1920,6 +2020,42 @@ export default function Home() {
     setMessage("");
   }
 
+  // Submódulos da função Controle de Cópias (Cópias/Parâmetros) liberados ao usuário logado.
+  const allowedCcSubmodulos = useMemo(() => {
+    if (isAdminSemConfig) return ['copias', 'parametrosFuncao'];
+    return ccSubmodulosPermitidos(permissoesAtivas);
+  }, [isAdminSemConfig, permissoesAtivas]);
+
+  // Permissões de Controle de Cópias para o usuário logado (administrador: tudo liberado).
+  const permissoesCC = useMemo(() => {
+    const permitida = (permissao: string) =>
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'controleCopias', permissao);
+    return {
+      adicionarCopia: permitida('adicionar_copia'),
+      verCopia: permitida('ver_copia'),
+      editarCopia: permitida('editar_copia'),
+      alterarStatusCopia: permitida('alterar_status_copia'),
+      excluirCopia: permitida('excluir_copia'),
+    };
+  }, [isAdminSemConfig, permissoesAtivas]);
+
+  // Opção de Controle de Cópias que deixou de ser permitida: volta para a seleção vazia.
+  useEffect(() => {
+    if (ccManageSelection && !allowedCcSubmodulos.includes(ccManageSelection)) setCcManageSelection('');
+  }, [allowedCcSubmodulos, ccManageSelection]);
+
+  function handleCcManageSelectionChange(value: string) {
+    setCcManageSelection(value);
+    // Ao trocar a seleção no meio da edição, zera o registro em edição.
+    setCopiaForm(emptyCgForm);
+    setCopiaExtra(COPIA_CAMPOS_VAZIOS);
+    setCopiaArquivoNovo(null);
+    setCopiaEditingId(null);
+    setCopiaFilterModalOpen(false);
+    setMessage("");
+    setView("list");
+  }
+
   // Permissões das opções de Administração do Sistema (menu de contexto) para
   // o usuário logado: o administrador tem tudo liberado; os demais seguem o
   // perfil ativo (sem configuração salva = tudo liberado).
@@ -1931,15 +2067,18 @@ export default function Home() {
       alterarStatusCampoModal: permitida('alterar_status_campo_modal'),
       adicionarImagem: permitida('adicionar_imagem'),
       verImagem: permitida('ver_imagem'),
+      editarImagem: permitida('editar_imagem'),
       renomearImagem: permitida('renomear_imagem'),
       excluirImagem: permitida('excluir_imagem'),
       adicionarPerfil: permitida('adicionar_perfil'),
       verPerfil: permitida('ver_perfil'),
+      editarPerfil: permitida('editar_perfil'),
       delegarFuncoesPerfil: permitida('delegar_funcoes_perfil'),
       duplicarPerfil: permitida('duplicar_perfil'),
       excluirPerfil: permitida('excluir_perfil'),
       adicionarUsuario: permitida('adicionar_usuario'),
       verUsuario: permitida('ver_usuario'),
+      editarUsuario: permitida('editar_usuario'),
       alterarSenhaUsuario: permitida('alterar_senha_usuario'),
       delegarPerfisUsuario: permitida('delegar_perfis_usuario'),
       excluirUsuario: permitida('excluir_usuario'),
@@ -1955,10 +2094,12 @@ export default function Home() {
     return {
       adicionarPessoaFisica: permitida('adicionar_pessoa_fisica'),
       verPessoaFisica: permitida('ver_pessoa_fisica'),
+      editarPessoaFisica: permitida('editar_pessoa_fisica'),
       detalhesPessoaFisica: permitida('detalhes_pessoa_fisica'),
       excluirPessoaFisica: permitida('excluir_pessoa_fisica'),
       adicionarPessoaJuridica: permitida('adicionar_pessoa_juridica'),
       verPessoaJuridica: permitida('ver_pessoa_juridica'),
+      editarPessoaJuridica: permitida('editar_pessoa_juridica'),
       excluirPessoaJuridica: permitida('excluir_pessoa_juridica'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
@@ -1993,12 +2134,15 @@ export default function Home() {
       sistemaOperacional: 'sistema_operacional',
       combustivel: 'combustivel',
       modalidadeEnsino: 'modalidade_ensino',
+      formatoPapel: 'formato_papel',
+      tipoPapel: 'tipo_papel',
     };
-    const resultado: Record<string, { adicionar: boolean; ver: boolean; excluir: boolean }> = {};
+    const resultado: Record<string, { adicionar: boolean; ver: boolean; editar: boolean; excluir: boolean }> = {};
     for (const [chave, sufixo] of Object.entries(secoes)) {
       resultado[chave] = {
         adicionar: permitida(`adicionar_${sufixo}`),
         ver: permitida(`ver_${sufixo}`),
+        editar: permitida(`editar_${sufixo}`),
         excluir: permitida(`excluir_${sufixo}`),
       };
     }
@@ -2009,7 +2153,7 @@ export default function Home() {
   // logado conforme as permissões do perfil ativo.
   const allowedCgSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional', 'combustivel', 'modalidadeEnsino'];
+    if (isAdminSemConfig) return ['cargo', 'vinculoContratual', 'sexo', 'estadoCivil', 'corRaca', 'grauParentesco', 'localizacao', 'marca', 'profissao', 'orgaoEmissor', 'logradouro', 'sistemaOperacional', 'combustivel', 'modalidadeEnsino', 'formatoPapel', 'tipoPapel'];
     return cgSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2058,6 +2202,7 @@ export default function Home() {
       acessarAluno: permitida('acessar_aluno'),
       adicionarAluno: permitida('adicionar_aluno'),
       verAluno: permitida('ver_aluno'),
+      editarAluno: permitida('editar_aluno'),
       gerarMatricula: permitida('gerar_matricula_aluno'),
       alterarDataIngresso: permitida('alterar_data_ingresso_aluno'),
       alterarStatusAluno: permitida('alterar_status_aluno'),
@@ -2066,6 +2211,7 @@ export default function Home() {
       acessarColaborador: permitida('acessar_colaborador'),
       adicionarColaborador: permitida('adicionar_colaborador'),
       verColaborador: permitida('ver_colaborador'),
+      editarColaborador: permitida('editar_colaborador'),
       gerarMatriculaColaborador: permitida('gerar_matricula_colaborador'),
       alterarDataAdmissao: permitida('alterar_data_admissao_colaborador'),
       alterarStatusColaborador: permitida('alterar_status_colaborador'),
@@ -2073,21 +2219,26 @@ export default function Home() {
       excluirColaborador: permitida('excluir_colaborador'),
       adicionarPeriodoLetivo: permitida('adicionar_periodo_letivo'),
       verPeriodoLetivo: permitida('ver_periodo_letivo'),
+      editarPeriodoLetivo: permitida('editar_periodo_letivo'),
       encerrarPeriodoLetivo: permitida('encerrar_periodo_letivo'),
       reativarPeriodoLetivo: permitida('reativar_periodo_letivo'),
       feriadosPeriodoLetivo: permitida('feriados_periodo_letivo'),
       excluirPeriodoLetivo: permitida('excluir_periodo_letivo'),
       adicionarCurso: permitida('adicionar_curso'),
       verCurso: permitida('ver_curso'),
+      editarCurso: permitida('editar_curso'),
       excluirCurso: permitida('excluir_curso'),
       adicionarDisciplina: permitida('adicionar_disciplina'),
       verDisciplina: permitida('ver_disciplina'),
+      editarDisciplina: permitida('editar_disciplina'),
       excluirDisciplina: permitida('excluir_disciplina'),
       adicionarTurma: permitida('adicionar_turma'),
       verTurma: permitida('ver_turma'),
+      editarTurma: permitida('editar_turma'),
       excluirTurma: permitida('excluir_turma'),
       adicionarTurmaDisciplina: permitida('adicionar_turma_disciplina'),
       verTurmaDisciplina: permitida('ver_turma_disciplina'),
+      editarTurmaDisciplina: permitida('editar_turma_disciplina'),
       excluirTurmaDisciplina: permitida('excluir_turma_disciplina'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
@@ -2118,6 +2269,7 @@ export default function Home() {
       acessarAtivo: permitida('acessar_ativo'),
       adicionarAtivo: permitida('adicionar_ativo'),
       verAtivo: permitida('ver_ativo'),
+      editarAtivo: permitida('editar_ativo'),
       mudarParaOperacional: permitida('mudar_para_operacional'),
       enviarParaManutencao: permitida('enviar_para_manutencao'),
       moverParaEstoque: permitida('mover_para_estoque'),
@@ -2130,12 +2282,14 @@ export default function Home() {
       acessarManutencao: permitida('acessar_manutencao'),
       adicionarManutencao: permitida('adicionar_manutencao'),
       verManutencao: permitida('ver_manutencao'),
+      editarManutencao: permitida('editar_manutencao'),
       concluirManutencao: permitida('concluir_manutencao'),
       concluirManutencaoRegistro: permitida('concluir_manutencao_registro'),
       cancelarManutencao: permitida('cancelar_manutencao'),
       excluirManutencao: permitida('excluir_manutencao'),
       adicionarCategoria: permitida('adicionar_categoria'),
       verCategoria: permitida('ver_categoria'),
+      editarCategoria: permitida('editar_categoria'),
       excluirCategoria: permitida('excluir_categoria'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
@@ -2148,6 +2302,7 @@ export default function Home() {
     return {
       adicionar: permitida('adicionar_relatorio'),
       ver: permitida('ver_relatorio'),
+      editar: permitida('editar_relatorio'),
       gerar: permitida('gerar_relatorio'),
       duplicar: permitida('duplicar_relatorio'),
       bandas: permitida('bandas_relatorio'),
@@ -2399,9 +2554,27 @@ export default function Home() {
       items: (): CgItem[] => modalidadesEnsino,
       emptyMessage: 'Clique em "Adicionar" para cadastrar uma modalidade de ensino.',
     },
+    formatoPapel: {
+      descKey: 'ds_formato_papel',
+      collection: 'cg_formato_papel',
+      configKey: 'config_colunas_cg_formato_papel',
+      columns: FORMATO_PAPEL_COLUMNS,
+      fieldInfos: FORMATO_PAPEL_FIELD_INFOS,
+      items: (): CgItem[] => formatosPapel,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um formato do papel.',
+    },
+    tipoPapel: {
+      descKey: 'ds_tipo_papel',
+      collection: 'cg_tipo_papel',
+      configKey: 'config_colunas_cg_tipo_papel',
+      columns: TIPO_PAPEL_COLUMNS,
+      fieldInfos: TIPO_PAPEL_FIELD_INFOS,
+      items: (): CgItem[] => tiposPapel,
+      emptyMessage: 'Clique em "Adicionar" para cadastrar um tipo de papel.',
+    },
   } as const;
 
-  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : cgManageSelection === 'combustivel' ? 'combustivel' : cgManageSelection === 'modalidadeEnsino' ? 'modalidadeEnsino' : 'sexo';
+  const cgKind = cgManageSelection === 'estadoCivil' ? 'estadoCivil' : cgManageSelection === 'corRaca' ? 'corRaca' : cgManageSelection === 'grauParentesco' ? 'grauParentesco' : cgManageSelection === 'cargo' ? 'cargo' : cgManageSelection === 'vinculoContratual' ? 'vinculoContratual' : cgManageSelection === 'profissao' ? 'profissao' : cgManageSelection === 'orgaoEmissor' ? 'orgaoEmissor' : cgManageSelection === 'logradouro' ? 'logradouro' : cgManageSelection === 'localizacao' ? 'localizacao' : cgManageSelection === 'marca' ? 'marca' : cgManageSelection === 'sistemaOperacional' ? 'sistemaOperacional' : cgManageSelection === 'combustivel' ? 'combustivel' : cgManageSelection === 'modalidadeEnsino' ? 'modalidadeEnsino' : cgManageSelection === 'formatoPapel' ? 'formatoPapel' : cgManageSelection === 'tipoPapel' ? 'tipoPapel' : 'sexo';
   const cgDef = CG_DEFS[cgKind];
   const cgDescKey = cgDef.descKey;
   const cgCollection = cgDef.collection;
@@ -2597,6 +2770,34 @@ export default function Home() {
         E: estoque?.cd_cor || CORES_STATUS_ATIVO_PADRAO.E,
         M: manutencao?.cd_cor || CORES_STATUS_ATIVO_PADRAO.M,
         O: operacional?.cd_cor || CORES_STATUS_ATIVO_PADRAO.O,
+      });
+    } catch {
+      // mantém as cores atuais em caso de falha
+    }
+  }, []);
+
+  const loadRecebimentoAutomaticoCopia = useCallback(async () => {
+    try {
+      const doc = await obterParametro(COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA);
+      setRecebimentoAutomaticoCopia(doc?.ie_regra === 'S');
+    } catch {
+      // mantém o valor atual em caso de falha
+    }
+  }, []);
+
+  const loadCoresStatusCopia = useCallback(async () => {
+    try {
+      const [aguardando, cancelado, entregue, impresso] = await Promise.all([
+        obterParametro(COLECAO_PARAM_COR_COPIA_AGUARDANDO),
+        obterParametro(COLECAO_PARAM_COR_COPIA_CANCELADO),
+        obterParametro(COLECAO_PARAM_COR_COPIA_ENTREGUE),
+        obterParametro(COLECAO_PARAM_COR_COPIA_IMPRESSO),
+      ]);
+      setCoresStatusCopia({
+        A: aguardando?.cd_cor || CORES_STATUS_COPIA_PADRAO.A,
+        C: cancelado?.cd_cor || CORES_STATUS_COPIA_PADRAO.C,
+        E: entregue?.cd_cor || CORES_STATUS_COPIA_PADRAO.E,
+        I: impresso?.cd_cor || CORES_STATUS_COPIA_PADRAO.I,
       });
     } catch {
       // mantém as cores atuais em caso de falha
@@ -2811,6 +3012,49 @@ export default function Home() {
     }
   }, []);
 
+  const loadFormatosPapel = useCallback(async () => {
+    setLoading(true);
+    try {
+      setFormatosPapel(await obterFormatosPapel());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadTiposPapel = useCallback(async () => {
+    setLoading(true);
+    try {
+      setTiposPapel(await obterTiposPapel());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const loadCopias = useCallback(async () => {
+    setLoading(true);
+    try {
+      setCopias(await obterCopias());
+    } catch {
+      setMessage("Erro ao carregar registros.");
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /** Tipos de arquivo liberados para o anexo de Cópias (parâmetro de Controle de Cópias). */
+  const loadExtensoesCopia = useCallback(async () => {
+    try {
+      const doc = await obterParametro(COLECAO_PARAM_TIPOS_ARQUIVO_COPIA);
+      setExtensoesCopia(extensoesPermitidasCopia(doc?.id ? (doc.ds_regra ?? '') : null));
+    } catch {
+      // mantém o valor atual em caso de falha
+    }
+  }, []);
+
   const loadDisciplinas = useCallback(async () => {
     setLoading(true);
     try {
@@ -2958,10 +3202,14 @@ export default function Home() {
       await loadCombustiveis();
     } else if (cgKind === 'modalidadeEnsino') {
       await loadModalidadesEnsino();
+    } else if (cgKind === 'formatoPapel') {
+      await loadFormatosPapel();
+    } else if (cgKind === 'tipoPapel') {
+      await loadTiposPapel();
     } else {
       await loadOrgaosEmissores();
     }
-  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais, loadCombustiveis, loadModalidadesEnsino]);
+  }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais, loadCombustiveis, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel]);
 
   /* Enter em qualquer modal de filtro aciona o botão "Filtrar". Os filtros
    * dentro de <form> já disparam o submit nativamente; aqui cobrimos os
@@ -3015,6 +3263,12 @@ export default function Home() {
     loadSistemasOperacionais();
     loadCombustiveis();
     loadModalidadesEnsino();
+    loadFormatosPapel();
+    loadTiposPapel();
+    loadCopias();
+    loadExtensoesCopia();
+    loadCoresStatusCopia();
+    loadRecebimentoAutomaticoCopia();
     loadAtivos();
     loadManutencoes();
     loadRelatorios();
@@ -3026,7 +3280,7 @@ export default function Home() {
     loadEncerramentoAutomaticoPeriodoLetivo();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel, loadCopias, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -3098,6 +3352,7 @@ export default function Home() {
       patrimonioManageSelection: ativoManageSelection,
       relatorioManageSelection,
       logsManageSelection,
+      ccManageSelection,
     };
     try {
       window.sessionStorage.setItem(SESSION_NAV_KEY, JSON.stringify(navegacao));
@@ -3116,7 +3371,7 @@ export default function Home() {
     } catch {
       /* storage indisponível — sessão não persiste */
     }
-  }, [isAuthenticated, currentUser, sessaoInicio, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection, logsManageSelection]);
+  }, [isAuthenticated, currentUser, sessaoInicio, activeSection, secoesAbertas, adminManageSelection, cgManageSelection, pjManageSelection, alunoManageSelection, ativoManageSelection, relatorioManageSelection, logsManageSelection, ccManageSelection]);
 
   /* ── Aplicar preferência de tema do usuário logado ── */
   useEffect(() => {
@@ -3241,6 +3496,7 @@ export default function Home() {
           patrimonioManageSelection?: string;
           relatorioManageSelection?: string;
           logsManageSelection?: string;
+          ccManageSelection?: string;
           sessaoInicio?: number;
         };
 
@@ -3305,6 +3561,9 @@ export default function Home() {
         if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
           setAtivoManageSelection(session.patrimonioManageSelection);
           setAtivoInteracted(true);
+        }
+        if (session.ccManageSelection === 'copias' || session.ccManageSelection === 'parametrosFuncao') {
+          setCcManageSelection(session.ccManageSelection);
         }
         if (session.logsManageSelection === 'acessos' || session.logsManageSelection === 'exclusoes') {
           setLogsManageSelection(session.logsManageSelection);
@@ -3686,6 +3945,7 @@ export default function Home() {
       closeRelatorioBuilder();
       return;
     }
+    if (relatorioEditingId && bloquearEdicaoSemPermissao(permissoesRelatorio.editar)) return;
     setRelatorioSubmitting(true);
     setMessage('');
     try {
@@ -4078,6 +4338,7 @@ export default function Home() {
       if (contextMenu?.item && ativosAlvoDoContexto(contextMenu.item as Ativo).length > 1) return false;
       return permissoesPatrimonio.verAtivo;
     }
+    if (s === 'controleCopias') return permissoesCC.verCopia;
     if (s === 'relatorio') return permissoesRelatorio.ver;
     return true;
   }
@@ -4117,6 +4378,7 @@ export default function Home() {
       if (ativoManageSelection === 'categoria') return permissoesPatrimonio.excluirCategoria;
       return permissoesPatrimonio.excluirAtivo;
     }
+    if (s === 'controleCopias') return permissoesCC.excluirCopia;
     if (s === 'relatorio') return permissoesRelatorio.excluir;
     return true;
   }
@@ -4339,7 +4601,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino');
+    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -4492,6 +4754,21 @@ export default function Home() {
     setAuditLoading(true);
     try {
       setAuditLogs(filtrarAuditoriaDoAviso(await fetchAuditByDocumentId('aviso', avisoId), campo));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  /** Campos x Formulários/Modais > "Auditoria": histórico do status de um campo no perfil. */
+  async function openCampoAuditModal(perfil: Perfil, chave: string, rotulo: string) {
+    if (!perfil.id) return;
+    setAuditDocumentType('campo');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(auditoriaDoCampo(await fetchAuditByDocumentId('perfil', perfil.id), chave, rotulo));
     } catch {
       setAuditLogs([]);
     } finally {
@@ -6217,6 +6494,7 @@ export default function Home() {
 
   async function handleCategoriaSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (categoriaEditingId && bloquearEdicaoSemPermissao(permissoesPatrimonio.editarCategoria)) return;
     setMessage("");
     const payload = {
       ds_categoria: categoriaForm.descricao,
@@ -6417,6 +6695,7 @@ export default function Home() {
 
   async function handleCursoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (cursoEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarCurso)) return;
     setMessage("");
     const payload = {
       ds_curso: cursoForm.descricao,
@@ -6616,6 +6895,7 @@ export default function Home() {
 
   async function handleDisciplinaSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (disciplinaEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarDisciplina)) return;
     setMessage("");
     const payload = {
       ds_disciplina: disciplinaForm.descricao,
@@ -6848,6 +7128,7 @@ export default function Home() {
 
   async function handleTurmaSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (turmaEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarTurma)) return;
     setMessage("");
     const numero = (v: string) => (v.trim() === '' ? null : Number(v));
     const payload = {
@@ -7077,6 +7358,7 @@ export default function Home() {
 
   async function handleTurmaDisciplinaSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (turmaDisciplinaEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarTurmaDisciplina)) return;
     setMessage("");
     const numero = (v: string) => (v.trim() === '' ? null : Number(v));
     const payload = {
@@ -7139,6 +7421,369 @@ export default function Home() {
       setMessage("Erro ao excluir.");
     }
     if (view === 'form') goToTurmaDisciplinaList();
+  }
+
+  /* ── Controle de Cópias > Cópias ── */
+  /** "[turma] x [disciplina]" de um registro de Turmas x Disciplinas. */
+  function descricaoTurmaDisciplinaPorSeq(seq: number): string {
+    const td = turmasDisciplinas.find((t) => t.nr_sequencia === seq);
+    if (!td) return '';
+    const turma = turmas.find((t) => t.nr_sequencia === td.nr_seq_turma)?.ds_turma ?? '';
+    const disciplina = disciplinas.find((d) => d.nr_sequencia === td.nr_seq_disciplina)?.ds_disciplina ?? '';
+    return [turma, disciplina].filter(Boolean).join(' x ') || `#${seq}`;
+  }
+
+  /** Descrição de uma referência da cópia (Solicitante, Turma x Disciplina, Formato e Tipo de papel). */
+  function descricaoReferenciaCopia(key: string, valor: unknown): string {
+    if (valor === null || valor === undefined || valor === '') return '';
+    const seq = Number(valor);
+    if (key === 'nr_seq_solicitante') return nomeColaboradorPorSeq(seq);
+    if (key === 'nr_seq_turma_disciplina') return descricaoTurmaDisciplinaPorSeq(seq);
+    if (key === 'nr_seq_formato_papel') return formatosPapel.find((f) => f.nr_sequencia === seq)?.ds_formato_papel ?? '';
+    if (key === 'nr_seq_tipo_papel') return tiposPapel.find((t) => t.nr_sequencia === seq)?.ds_tipo_papel ?? '';
+    return String(valor);
+  }
+
+  /** Célula da lista: referências pela descrição; Sim/Não, nome do arquivo e o resto como nos Cadastros Gerais. */
+  function formatCopiaListaCellValue(key: string, value: unknown): string {
+    if ((COPIA_COLUNAS_REFERENCIA as readonly string[]).includes(key)) return descricaoReferenciaCopia(key, value);
+    return formatCopiaCellValue(key, value);
+  }
+
+  const filteredSortedCopias = useMemo(() => {
+    const filtro = appliedCopiaFilterForm;
+    const extra = copiaFiltroExtraAplicado;
+    const lista = copias.filter((c) => {
+      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+      if (extra.nr_seq_solicitante && String(c.nr_seq_solicitante ?? '') !== extra.nr_seq_solicitante) return false;
+      if (extra.nr_seq_turma_disciplina && String(c.nr_seq_turma_disciplina ?? '') !== extra.nr_seq_turma_disciplina) return false;
+      if (extra.nr_seq_formato_papel && String(c.nr_seq_formato_papel ?? '') !== extra.nr_seq_formato_papel) return false;
+      if (extra.nr_seq_tipo_papel && String(c.nr_seq_tipo_papel ?? '') !== extra.nr_seq_tipo_papel) return false;
+      if (extra.ie_status && (c.ie_status ?? '') !== extra.ie_status) return false;
+      return true;
+    });
+    if (copiaSortColumn === null || copiaSortAsc === null) {
+      // Ordem padrão: coluna # decrescente (mais recente primeiro).
+      return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
+    }
+    const key = COPIA_COLUMNS[copiaSortColumn].key;
+    const referencia = (COPIA_COLUNAS_REFERENCIA as readonly string[]).includes(key);
+    return lista.sort((a, b) => {
+      // Referências ordenam pela descrição exibida.
+      const valA = referencia ? descricaoReferenciaCopia(key, a[key]) : a[key];
+      const valB = referencia ? descricaoReferenciaCopia(key, b[key]) : b[key];
+      if (typeof valA === 'number' && typeof valB === 'number') return copiaSortAsc ? valA - valB : valB - valA;
+      const strA = String(valA ?? '').toLowerCase();
+      const strB = String(valB ?? '').toLowerCase();
+      if (strA < strB) return copiaSortAsc ? -1 : 1;
+      if (strA > strB) return copiaSortAsc ? 1 : -1;
+      return 0;
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [copias, appliedCopiaFilterForm, copiaFiltroExtraAplicado, copiaSortColumn, copiaSortAsc, colaboradores, pessoasFisicas, pessoasJuridicas, turmasDisciplinas, turmas, disciplinas, formatosPapel, tiposPapel]);
+
+  const currentCopiaEditIndex = copiaEditingId ? filteredSortedCopias.findIndex((c) => c.id === copiaEditingId) : -1;
+  const hasPrevCopiaRecord = currentCopiaEditIndex > 0;
+  const hasNextCopiaRecord = currentCopiaEditIndex >= 0 && currentCopiaEditIndex < filteredSortedCopias.length - 1;
+
+  function handleCopiaSortChange(logicalIndex: number) {
+    if (copiaSortColumn === logicalIndex) {
+      if (copiaSortAsc) {
+        setCopiaSortAsc(false);
+      } else {
+        setCopiaSortColumn(null);
+        setCopiaSortAsc(null);
+      }
+    } else {
+      setCopiaSortColumn(logicalIndex);
+      setCopiaSortAsc(true);
+    }
+  }
+
+  // Botão "Adicionar": sem a permissão, mostra aviso.
+  function handleCopiaNewForm() {
+    if (!permissoesCC.adicionarCopia) {
+      setMessage("Você não tem permissão para adicionar.");
+      return;
+    }
+    setCopiaForm(emptyCgForm);
+    // Parâmetro "'Data de recebimento' é automaticamente preenchido com a data atual".
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setCopiaExtra(recebimentoAutomaticoCopia
+      ? { ...COPIA_CAMPOS_VAZIOS, dt_recebimento: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}` }
+      : COPIA_CAMPOS_VAZIOS);
+    setCopiaArquivoNovo(null);
+    setCopiaEditingId(null);
+    setCopiaAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setMessage("");
+    setCopiaCampoErros([]);
+    setView("form");
+    setActiveSection("controleCopias");
+  }
+
+  async function carregarAutorAuditoriaCopia(id: string) {
+    try {
+      const logs = await fetchAuditByDocumentId('copia', id);
+      if (auditCopiaIdRef.current !== id) return;
+      const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
+      const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
+      setCopiaAuditInfo((prev) => ({
+        ...prev,
+        createdBy: createLog?.usuarioNome ?? prev.createdBy,
+        updatedBy: lastChangeLog?.usuarioNome ?? prev.updatedBy,
+      }));
+    } catch {
+      // mantém vazio em caso de falha
+    }
+  }
+
+  function openCopiaEditForm(c: Copia) {
+    const texto = (v: number | undefined) => (v != null ? String(v) : '');
+    setCopiaForm(emptyCgForm);
+    setCopiaExtra({
+      dt_recebimento: c.dt_recebimento ?? '',
+      dt_impressao: c.dt_impressao ?? '',
+      dt_entrega: c.dt_entrega ?? '',
+      ie_status: c.ie_status ?? 'A',
+      dt_status: c.dt_status ?? '',
+      ds_motivo_status: c.ds_motivo_status ?? '',
+      nr_seq_solicitante: texto(c.nr_seq_solicitante),
+      nr_seq_turma_disciplina: texto(c.nr_seq_turma_disciplina),
+      qt_copias: texto(c.qt_copias),
+      qt_folhas: texto(c.qt_folhas),
+      ie_frente_verso: c.ie_frente_verso === 'S' ? 'S' : 'N',
+      ie_grampear: c.ie_grampear === 'S' ? 'S' : 'N',
+      ie_guilhotinar: c.ie_guilhotinar === 'S' ? 'S' : 'N',
+      nr_seq_formato_papel: texto(c.nr_seq_formato_papel),
+      nr_seq_tipo_papel: texto(c.nr_seq_tipo_papel),
+      ie_arquivo: c.ie_arquivo ?? '',
+    });
+    setCopiaArquivoNovo(null);
+    setCopiaEditingId(c.id ?? null);
+    setCopiaAuditInfo({
+      createdAt: c.dt_criacao ?? '',
+      updatedAt: c.dt_alteracao ?? '',
+      createdBy: c.ds_usuario_criacao ?? '',
+      updatedBy: c.ds_usuario_alteracao ?? '',
+    });
+    auditCopiaIdRef.current = c.id ?? null;
+    setMessage("");
+    setCopiaCampoErros([]);
+    setView("form");
+    setActiveSection("controleCopias");
+    if (c.id) carregarAutorAuditoriaCopia(c.id);
+  }
+
+  function goToCopiaList() {
+    setCopiaForm(emptyCgForm);
+    setCopiaExtra(COPIA_CAMPOS_VAZIOS);
+    setCopiaArquivoNovo(null);
+    setCopiaEditingId(null);
+    setMessage("");
+    setView("list");
+    setActiveSection("controleCopias");
+  }
+
+  function goToPrevCopiaRecord() {
+    const anterior = hasPrevCopiaRecord ? filteredSortedCopias[currentCopiaEditIndex - 1] : undefined;
+    if (anterior) openCopiaEditForm(anterior);
+  }
+
+  function goToNextCopiaRecord() {
+    const proximo = hasNextCopiaRecord ? filteredSortedCopias[currentCopiaEditIndex + 1] : undefined;
+    if (proximo) openCopiaEditForm(proximo);
+  }
+
+  async function openCopiaAuditModal(id?: string | null) {
+    if (!id) return;
+    setAuditDocumentType('copia');
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('copia', id));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  function openCopiaFilterModal() {
+    setCopiaFilterForm(appliedCopiaFilterForm);
+    setCopiaFiltroExtra(copiaFiltroExtraAplicado);
+    setCopiaFilterModalOpen(true);
+  }
+
+  function clearCopiaFilter() {
+    setCopiaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedCopiaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setCopiaFiltroExtra(COPIA_FILTRO_VAZIO);
+    setCopiaFiltroExtraAplicado(COPIA_FILTRO_VAZIO);
+  }
+
+  function handleCopiaFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedCopiaFilterForm({ ...copiaFilterForm, ie_status: 'T' });
+    setCopiaFiltroExtraAplicado(copiaFiltroExtra);
+    setCopiaFilterModalOpen(false);
+  }
+
+  async function handleCopiaSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (copiaEditingId && bloquearEdicaoSemPermissao(permissoesCC.editarCopia)) return;
+    setMessage("");
+    const numero = (v: string) => (v.trim() === '' ? null : Number(v));
+    const data = (v: string) => (v.trim() === '' ? null : v.trim());
+    const payload = {
+      dt_recebimento: data(copiaExtra.dt_recebimento),
+      dt_impressao: data(copiaExtra.dt_impressao),
+      dt_entrega: data(copiaExtra.dt_entrega),
+      nr_seq_solicitante: numero(copiaExtra.nr_seq_solicitante),
+      nr_seq_turma_disciplina: numero(copiaExtra.nr_seq_turma_disciplina),
+      qt_copias: numero(copiaExtra.qt_copias),
+      qt_folhas: numero(copiaExtra.qt_folhas),
+      ie_frente_verso: copiaExtra.ie_frente_verso === 'S' ? 'S' : 'N',
+      ie_grampear: copiaExtra.ie_grampear === 'S' ? 'S' : 'N',
+      ie_guilhotinar: copiaExtra.ie_guilhotinar === 'S' ? 'S' : 'N',
+      nr_seq_formato_papel: numero(copiaExtra.nr_seq_formato_papel),
+      nr_seq_tipo_papel: numero(copiaExtra.nr_seq_tipo_papel),
+      ie_arquivo: copiaExtra.ie_arquivo.trim() === '' ? null : copiaExtra.ie_arquivo,
+    };
+    // Campos obrigatórios (perfil ativo) precisam estar preenchidos (o arquivo novo conta como preenchido).
+    const faltantes = camposObrigatoriosVazios(
+      { ...payload, ie_arquivo: copiaArquivoNovo ? copiaArquivoNovo.name : payload.ie_arquivo },
+      campoRegrasDaColecao(campoRegrasAtivas, 'copia')
+    );
+    if (faltantes.length > 0) {
+      setCopiaCampoErros(faltantes);
+      setMessage("Preencha os campos obrigatórios.");
+      return;
+    }
+    // Datas digitadas precisam ser válidas.
+    const datasErradas = datasInvalidas(payload, ['dt_recebimento', 'dt_impressao', 'dt_entrega']);
+    if (datasErradas.length > 0) {
+      setCopiaCampoErros(datasErradas as string[]);
+      setMessage("Data inválida: informe no formato DD/MM/AAAA.");
+      return;
+    }
+    // Solicitante e Turma x Disciplina digitados precisam existir.
+    const invalidos = [
+      payload.nr_seq_solicitante != null && !colaboradores.some((c) => c.nr_sequencia === payload.nr_seq_solicitante) ? 'nr_seq_solicitante' : '',
+      payload.nr_seq_turma_disciplina != null && !turmasDisciplinas.some((td) => td.nr_sequencia === payload.nr_seq_turma_disciplina) ? 'nr_seq_turma_disciplina' : '',
+    ].filter(Boolean);
+    if (invalidos.length > 0) {
+      setCopiaCampoErros(invalidos);
+      setMessage(invalidos.includes('nr_seq_solicitante') ? "Solicitante não encontrado." : "Turma x Disciplina não encontrada.");
+      return;
+    }
+    setCopiaCampoErros([]);
+    setCopiaSubmitting(true);
+    try {
+      // Arquivo novo: vai ao Storage antes de gravar o registro.
+      if (copiaArquivoNovo) {
+        try {
+          payload.ie_arquivo = await enviarArquivoCopia(copiaArquivoNovo);
+        } catch (e) {
+          setCopiaCampoErros(['ie_arquivo']);
+          setMessage(e instanceof Error && e.message ? e.message : "Erro ao enviar o arquivo.");
+          return;
+        }
+      }
+      if (copiaEditingId) {
+        const atual = copias.find((c) => c.id === copiaEditingId);
+        const mudou = !atual || (Object.keys(payload) as (keyof typeof payload)[]).some((k) => String(atual[k] ?? '') !== String(payload[k] ?? ''));
+        if (!mudou) {
+          setMessage("Nenhuma alteração detectada.");
+        } else {
+          await atualizarCopia(copiaEditingId, payload as unknown as Partial<Copia>, auditAutor);
+          setMessage("Atualizado com sucesso!");
+        }
+      } else {
+        // O status só é escolhido no cadastro (depois, pelo "Alterar status").
+        await criarCopia({ ...payload, ie_status: copiaExtra.ie_status || 'A' } as unknown as Omit<Copia, 'id' | 'nr_sequencia' | 'dt_criacao' | 'dt_alteracao' | 'ds_usuario_criacao' | 'ds_usuario_alteracao'>, auditAutor);
+        setMessage("Cadastrado com sucesso!");
+      }
+      setCopiaForm(emptyCgForm);
+      setCopiaExtra(COPIA_CAMPOS_VAZIOS);
+      setCopiaArquivoNovo(null);
+      setCopiaEditingId(null);
+      await loadCopias();
+      setView("list");
+    } catch {
+      setMessage("Erro ao salvar.");
+    } finally {
+      setCopiaSubmitting(false);
+    }
+  }
+
+  function openAlterarStatusCopiaModal(copia: Copia) {
+    setModalCampoErros([]);
+    setAlterarStatusCopia(copia);
+    // Como em Colaboradores: a data vem com a de hoje; status e motivo começam vazios
+    // (o status atual não fica disponível no dropdown).
+    const hoje = new Date();
+    const pad = (n: number) => String(n).padStart(2, '0');
+    setAlterarStatusCopiaForm({ dt_status: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, ie_status: '', ds_motivo_status: '' });
+    setMessage("");
+    setAlterarStatusCopiaModalOpen(true);
+  }
+
+  function closeAlterarStatusCopiaModal() {
+    setAlterarStatusCopiaModalOpen(false);
+    setAlterarStatusCopia(null);
+  }
+
+  async function handleAlterarStatusCopiaSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!alterarStatusCopia?.id) return;
+    setMessage("");
+    if (!alterarStatusCopiaForm.ie_status) {
+      setMessage("Selecione um status.");
+      return;
+    }
+    if (!validarCamposModal(MODAL_COPIA_ALTERAR_STATUS, alterarStatusCopiaForm)) return;
+    if (datasInvalidas(alterarStatusCopiaForm, ['dt_status']).length > 0) {
+      setMessage("Data inválida: informe no formato DD/MM/AAAA.");
+      return;
+    }
+    setAlterarStatusCopiaSaving(true);
+    try {
+      // Impresso / Entregue também preenchem a Data da impressão / da entrega com a data do status.
+      const datasDoStatus: Partial<Copia> =
+        alterarStatusCopiaForm.ie_status === 'I' ? { dt_impressao: alterarStatusCopiaForm.dt_status }
+        : alterarStatusCopiaForm.ie_status === 'E' ? { dt_entrega: alterarStatusCopiaForm.dt_status }
+        : {};
+      await atualizarCopia(alterarStatusCopia.id, {
+        ie_status: alterarStatusCopiaForm.ie_status,
+        dt_status: alterarStatusCopiaForm.dt_status,
+        ds_motivo_status: alterarStatusCopiaForm.ds_motivo_status,
+        ...datasDoStatus,
+      }, auditAutor);
+      setMessage("Status alterado com sucesso!");
+      closeAlterarStatusCopiaModal();
+      await loadCopias();
+      // Formulário aberto no mesmo registro: mostra o novo status.
+      if (view === 'form' && copiaEditingId === alterarStatusCopia.id) {
+        setCopiaExtra((c) => ({ ...c, ie_status: alterarStatusCopiaForm.ie_status, dt_status: alterarStatusCopiaForm.dt_status, ds_motivo_status: alterarStatusCopiaForm.ds_motivo_status, ...(datasDoStatus as Partial<CopiaCamposForm>) }));
+      }
+    } catch {
+      setMessage("Erro ao alterar o status.");
+    } finally {
+      setAlterarStatusCopiaSaving(false);
+    }
+  }
+
+  async function handleCopiaDelete(id: string) {
+    setMessage("");
+    try {
+      await excluirCopia(id);
+      setMessage("Excluído com sucesso!");
+      await loadCopias();
+    } catch {
+      setMessage("Erro ao excluir.");
+    }
+    if (view === 'form') goToCopiaList();
   }
 
   function goToPrevPjRecord() {
@@ -7204,6 +7849,7 @@ export default function Home() {
   /* ── Salvar (criar ou atualizar) ── */
   async function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (editingId && bloquearEdicaoSemPermissao(permissoesPessoa.editarPessoaFisica)) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const pfRegras = Object.fromEntries(Object.entries(campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_fisica')).filter(([campo]) => !CAMPOS_PF_MOVIDOS_PARA_ABAS.has(campo)));
@@ -7282,6 +7928,7 @@ export default function Home() {
   /* ── Salvar (criar ou atualizar) Aluno ── */
   async function handleAlunoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (alunoEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarAluno)) return;
     setMessage("");
 
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
@@ -7343,6 +7990,7 @@ export default function Home() {
   /* ── Salvar (criar ou atualizar) Colaborador ── */
   async function handleColaboradorSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (colaboradorEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarColaborador)) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const colaboradorRegras = campoRegrasDaColecao(campoRegrasAtivas, 'colaborador');
@@ -7404,6 +8052,7 @@ export default function Home() {
   /* ── Salvar (criar ou atualizar) Período letivo ── */
   async function handlePeriodoLetivoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (periodoLetivoEditingId && bloquearEdicaoSemPermissao(permissoesEA.editarPeriodoLetivo)) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const periodoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'periodo_letivo');
@@ -7463,6 +8112,7 @@ export default function Home() {
   /* ── Salvar (criar ou atualizar) Ativo ── */
   async function handleAtivoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (ativoEditingId && bloquearEdicaoSemPermissao(permissoesPatrimonio.editarAtivo)) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo');
@@ -7524,6 +8174,7 @@ export default function Home() {
   /* ── Salvar (criar ou atualizar) Pessoa Jurídica ── */
   async function handlePjSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (pjEditingId && bloquearEdicaoSemPermissao(permissoesPessoa.editarPessoaJuridica)) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const pjRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pessoa_juridica');
@@ -7590,6 +8241,7 @@ export default function Home() {
 
   async function handleAdminSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (adminEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarUsuario)) return;
     setMessage("");
     // Defesa em profundidade: o usuário administrador não pode ser alterado.
     if (adminEditingId && isAdministradorUsuario(usuarios.find((a) => a.id === adminEditingId))) {
@@ -7704,6 +8356,7 @@ export default function Home() {
 
   async function handlePerfilSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (perfilEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarPerfil)) return;
     setMessage("");
     // Defesa em profundidade: o perfil Administrador não pode ser alterado.
     if (perfilEditingId && isAdministradorPerfil(perfis.find((a) => a.id === perfilEditingId))) {
@@ -7769,6 +8422,7 @@ export default function Home() {
 
   async function handleCgSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (cgEditingId && bloquearEdicaoSemPermissao((permissoesCg[cgKind]?.editar ?? true))) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
     const cgRegras = campoRegrasDaColecao(campoRegrasAtivas, cgCollection);
@@ -7841,6 +8495,10 @@ export default function Home() {
           await atualizarCombustivel(cgEditingId, payload as any, auditAutor);
         } else if (cgKind === 'modalidadeEnsino') {
           await atualizarModalidadeEnsino(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'formatoPapel') {
+          await atualizarFormatoPapel(cgEditingId, payload as any, auditAutor);
+        } else if (cgKind === 'tipoPapel') {
+          await atualizarTipoPapel(cgEditingId, payload as any, auditAutor);
         } else {
           await atualizarOrgaoEmissor(cgEditingId, payload as any, auditAutor);
         }
@@ -7872,6 +8530,10 @@ export default function Home() {
           await criarCombustivel(payload as any, auditAutor);
         } else if (cgKind === 'modalidadeEnsino') {
           await criarModalidadeEnsino(payload as any, auditAutor);
+        } else if (cgKind === 'formatoPapel') {
+          await criarFormatoPapel(payload as any, auditAutor);
+        } else if (cgKind === 'tipoPapel') {
+          await criarTipoPapel(payload as any, auditAutor);
         } else {
           await criarOrgaoEmissor(payload as any, auditAutor);
         }
@@ -8372,6 +9034,8 @@ export default function Home() {
       } else {
         item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
+    } else if (activeSection === 'controleCopias') {
+      item = (copias.find((c) => c.id === copiaEditingId) ?? null) as unknown as ContextMenuState['item'] | null;
     } else if (activeSection === 'patrimonio') {
       item = ativoManageSelection === 'categoria'
         ? categoriasAtivos.find((c) => c.id === categoriaEditingId) ?? null
@@ -9011,8 +9675,9 @@ export default function Home() {
     try {
       const updates: Record<string, unknown> = { dt_termino: concluirManutForm.dt_termino, ie_status_manutencao: 'CO' };
       // Isento: manutenção sem custos (ex.: o prestador avaliou e não havia solução) — valor total zerado.
+      // Checkbox: marcado = 'S', desmarcado = 'N'.
+      updates.ie_isento = concluirManutForm.ie_isento ? 'S' : 'N';
       if (concluirManutForm.ie_isento) {
-        updates.ie_isento = 'S';
         updates.vl_total = '0,00';
       } else if (concluirManutForm.vl_total) {
         updates.vl_total = concluirManutForm.vl_total;
@@ -9039,10 +9704,10 @@ export default function Home() {
     }
   }
 
-  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' = 'modal') {
+  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' = 'modal') {
     enviarManutPrestadorLookupTargetRef.current = target;
     setLookupColaboradorFornecedor(target === 'ativoFornecedor' || target === 'ativoFilterFornecedor');
-    setLookupColaboradorTodos(target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos');
+    setLookupColaboradorTodos(target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos' || target === 'copiaSolicitante' || target === 'copiaFiltroSolicitante');
     setEnviarManutPrestLookupForm(enviarManutPrestLookupFilter);
     setEnviarManutPrestLookupApplied(false);
     setEnviarManutPrestadorLookupOpen(true);
@@ -9077,6 +9742,10 @@ export default function Home() {
       setAtivoForm((prev) => ({ ...prev, nr_seq_fornecedor: colaborador.nr_sequencia }));
     } else if (target === 'ativoFilterFornecedor') {
       setAtivoFilterForm((prev) => ({ ...prev, nr_seq_fornecedor: String(colaborador.nr_sequencia) }));
+    } else if (target === 'copiaSolicitante') {
+      setCopiaExtra((prev) => ({ ...prev, nr_seq_solicitante: String(colaborador.nr_sequencia) }));
+    } else if (target === 'copiaFiltroSolicitante') {
+      setCopiaFiltroExtra((prev) => ({ ...prev, nr_seq_solicitante: String(colaborador.nr_sequencia) }));
     } else if (target === 'assumirAtivos') {
       setAssumirAtivosOrigem(String(colaborador.nr_sequencia));
       setAssumirAtivosErro(false);
@@ -9320,6 +9989,7 @@ export default function Home() {
 
   async function handleManutencaoSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (manutencaoEditingId && bloquearEdicaoSemPermissao(permissoesPatrimonio.editarManutencao)) return;
     setMessage('');
     setManutencaoCampoErros([]);
     const obrigatorios = camposObrigatoriosVazios(manutencaoForm as unknown as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao'));
@@ -9914,6 +10584,10 @@ export default function Home() {
         await excluirCombustivel(id);
       } else if (cgKind === 'modalidadeEnsino') {
         await excluirModalidadeEnsino(id);
+      } else if (cgKind === 'formatoPapel') {
+        await excluirFormatoPapel(id);
+      } else if (cgKind === 'tipoPapel') {
+        await excluirTipoPapel(id);
       } else {
         await excluirOrgaoEmissor(id);
       }
@@ -9946,6 +10620,16 @@ export default function Home() {
   function mostrarToast(msg: string, status: ToastStatus) {
     setToastForced({ msg, status });
     setMessage(msg);
+  }
+
+  /**
+   * "Permite editar": quem só tem "Permite ver" abre o registro, mas não salva alterações.
+   * Sem a permissão, mostra o aviso e devolve true (o Salvar para).
+   */
+  function bloquearEdicaoSemPermissao(podeEditar: boolean): boolean {
+    if (podeEditar) return false;
+    mostrarToast('Você não tem permissão para editar este registro.', 'warning');
+    return true;
   }
 
   const toastBg = messageStatus === 'success' ? '#2cc958' : messageStatus === 'warning' ? '#f59e0b' : '#ef4444';
@@ -10117,6 +10801,8 @@ export default function Home() {
       setRelatorioManageSelection(''); setRelatorioInteracted(false); setRelatorioView('list'); setRelatorioEditingId(null); setRelatorioForm(null); setRelatorioBandasMode(false);
     } else if (secao === 'logs') {
       setLogsManageSelection(''); setAcessosFiltro(FILTRO_ACESSOS_VAZIO); setExclusaoVer(null);
+    } else if (secao === 'controleCopias') {
+      setCcManageSelection(''); setCopiaEditingId(null); setCopiaArquivoNovo(null); setCopiaFilterModalOpen(false);
     }
     if (secao === activeSection) {
       setActiveSection(null);
@@ -10195,9 +10881,13 @@ export default function Home() {
       nr_seq_modalidade_ensino: Object.fromEntries(modalidadesEnsino.map((m) => [m.nr_sequencia, m.ds_modalidade_ensino ?? ''])),
       nr_seq_turma: Object.fromEntries(turmas.map((t) => [t.nr_sequencia, t.ds_turma ?? ''])),
       nr_seq_disciplina: Object.fromEntries(disciplinas.map((d) => [d.nr_sequencia, d.ds_disciplina ?? ''])),
+      nr_seq_solicitante: nomeColaborador,
+      nr_seq_turma_disciplina: Object.fromEntries(turmasDisciplinas.map((td) => [td.nr_sequencia, descricaoTurmaDisciplinaPorSeq(td.nr_sequencia)])),
+      nr_seq_formato_papel: Object.fromEntries(formatosPapel.map((f) => [f.nr_sequencia, f.ds_formato_papel ?? ''])),
+      nr_seq_tipo_papel: Object.fromEntries(tiposPapel.map((t) => [t.nr_sequencia, t.ds_tipo_papel ?? ''])),
     } as Record<string, Record<number, string>>;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turmas, disciplinas, cursos, periodosLetivos, modalidadesEnsino, pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
+  }, [turmasDisciplinas, formatosPapel, tiposPapel, turmas, disciplinas, cursos, periodosLetivos, modalidadesEnsino, pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
 
   /** Colunas da lista de registros excluídos: uma configuração por função, salvas juntas no usuário. */
   function colunasExclusoesRegistro(colecao: string) {
@@ -10310,6 +11000,26 @@ export default function Home() {
             </>
           )}
         />;
+      case 'copia': {
+        const valores: CopiaCamposForm = {
+          ...COPIA_CAMPOS_VAZIOS,
+          ...Object.fromEntries(Object.keys(COPIA_CAMPOS_VAZIOS).map((k) => [k, dados[k] != null ? String(dados[k]) : ''])),
+        };
+        return <CadastroGeralFormView {...comuns} form={{ descricao: '', ie_status: 'A', nr_cbo: '', sg_sigla: '', ds_observacao: '' }} selectOptions={[]} fieldInfos={COPIA_FIELD_INFOS} descFieldKey="nr_seq_solicitante" collectionName="copia" hideDescricao hideStatus
+          extraFields={(aux) => (
+            <CopiaCamposFormView
+              aux={aux}
+              valores={valores}
+              descricaoSolicitante={descricaoReferenciaCopia('nr_seq_solicitante', dados.nr_seq_solicitante)}
+              descricaoTurmaDisciplina={descricaoReferenciaCopia('nr_seq_turma_disciplina', dados.nr_seq_turma_disciplina)}
+              opcoesFormatoPapel={formatosPapel.map((f) => ({ value: String(f.nr_sequencia), label: f.ds_formato_papel || `#${f.nr_sequencia}` }))}
+              opcoesTipoPapel={tiposPapel.map((t) => ({ value: String(t.nr_sequencia), label: t.ds_tipo_papel || `#${t.nr_sequencia}` }))}
+              extensoesPermitidas={extensoesCopia}
+              somenteLeitura
+            />
+          )}
+        />;
+      }
       case 'curso':
         return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_curso ?? '', ie_status: dados.ie_status ?? 'A', nr_cbo: '', sg_sigla: '', ds_observacao: dados.ds_observacao ?? '' }} selectOptions={[]} fieldInfos={CURSO_FIELD_INFOS} descFieldKey="ds_curso" collectionName="curso" showObservacao />;
       case 'pat_manutencao':
@@ -10787,6 +11497,7 @@ export default function Home() {
                   : { paineis: paineisPorChave('config_paineis_campos'), colunasPerfil: colunasPorChave('config_colunas_campos_perfil'), colunasFuncao: colunasPorChave('config_colunas_campos_funcao'), colunasCampos: colunasPorChave('config_colunas_campos_campo') })}
                   perfis={perfis}
                   onChangeStatus={handleCamposStatusChange}
+                  onOpenAuditCampo={openCampoAuditModal}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   allowedSubmodulos={allowedAdminSubmodulos}
@@ -11254,6 +11965,65 @@ export default function Home() {
                   coresStatus={coresStatusAtivo}
                 />
                 )
+              ) : activeSection === "controleCopias" ? (
+                ccManageSelection === 'parametrosFuncao' ? (
+                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_cc')} paineis={paineisPorChave('config_paineis_parametros_funcao_cc')}
+                    parametros={PARAMETROS_CONTROLE_COPIAS}
+                    manageSelection={ccManageSelection}
+                    onManageSelectionChange={handleCcManageSelectionChange}
+                    selectOptions={CC_SELECT_OPTIONS}
+                    allowedSubmodulos={allowedCcSubmodulos}
+                    onSaveSuccess={(msg) => setMessage(msg)}
+                    onSavingChange={setParametrosSaving}
+                    onOpenAudit={openParametroAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    auditAutor={auditAutor}
+                    onAfterSave={(colecao) => {
+                      if (colecao === COLECAO_PARAM_TIPOS_ARQUIVO_COPIA) loadExtensoesCopia();
+                      if ([COLECAO_PARAM_COR_COPIA_AGUARDANDO, COLECAO_PARAM_COR_COPIA_CANCELADO, COLECAO_PARAM_COR_COPIA_ENTREGUE, COLECAO_PARAM_COR_COPIA_IMPRESSO].includes(colecao)) {
+                        loadCoresStatusCopia();
+                      }
+                      if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
+                    }}
+                  />
+                ) : ccManageSelection === 'copias' ? (
+                  <CopiaListView
+                    key="copias"
+                    message={message}
+                    loading={loading}
+                    copias={filteredSortedCopias}
+                    formatCellValue={formatCopiaListaCellValue}
+                    coresStatus={coresStatusCopia}
+                    handleDelete={handleCopiaDelete}
+                    selectOptions={CC_SELECT_OPTIONS}
+                    manageSelection={ccManageSelection}
+                    onManageSelectionChange={handleCcManageSelectionChange}
+                    allowedSubmodulos={allowedCcSubmodulos}
+                    openNewForm={handleCopiaNewForm}
+                    openEditForm={openCopiaEditForm}
+                    openFilter={openCopiaFilterModal}
+                    setContextMenu={setContextMenu}
+                    sortColumn={copiaSortColumn}
+                    sortAsc={copiaSortAsc}
+                    onSortChange={handleCopiaSortChange}
+                    {...colunasPorIndice('config_colunas_copia')}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col min-h-0 space-y-6">
+                    <div className="flex min-h-[42px] items-center gap-2">
+                      <Select
+                        value={ccManageSelection}
+                        onChange={handleCcManageSelectionChange}
+                        options={CC_SELECT_OPTIONS.filter((o) => allowedCcSubmodulos.includes(o.value))}
+                        showPlaceholder={!ccManageSelection}
+                        className="!w-[180px]"
+                      />
+                    </div>
+                    <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
+                      <EmptySelectionMessage />
+                    </div>
+                  </div>
+                )
               ) : activeSection === "logs" ? (
                 logsManageSelection === 'exclusoes' ? (
                   renderExclusoes()
@@ -11518,6 +12288,7 @@ export default function Home() {
                     : { paineis: paineisPorChave('config_paineis_campos'), colunasPerfil: colunasPorChave('config_colunas_campos_perfil'), colunasFuncao: colunasPorChave('config_colunas_campos_funcao'), colunasCampos: colunasPorChave('config_colunas_campos_campo') })}
                     perfis={perfis}
                     onChangeStatus={handleCamposStatusChange}
+                    onOpenAuditCampo={openCampoAuditModal}
                     manageSelection={adminManageSelection}
                     onManageSelectionChange={handleAdminManageSelectionChange}
                     allowedSubmodulos={allowedAdminSubmodulos}
@@ -11884,6 +12655,91 @@ export default function Home() {
                     campoErros={colaboradorCampoErros}
                   />
                 )
+              ) : activeSection === "controleCopias" ? (
+                ccManageSelection === 'parametrosFuncao' ? (
+                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_cc')} paineis={paineisPorChave('config_paineis_parametros_funcao_cc')}
+                    parametros={PARAMETROS_CONTROLE_COPIAS}
+                    manageSelection={ccManageSelection}
+                    onManageSelectionChange={handleCcManageSelectionChange}
+                    selectOptions={CC_SELECT_OPTIONS}
+                    allowedSubmodulos={allowedCcSubmodulos}
+                    onSaveSuccess={(msg) => setMessage(msg)}
+                    onSavingChange={setParametrosSaving}
+                    onOpenAudit={openParametroAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    auditAutor={auditAutor}
+                    onAfterSave={(colecao) => {
+                      if (colecao === COLECAO_PARAM_TIPOS_ARQUIVO_COPIA) loadExtensoesCopia();
+                      if ([COLECAO_PARAM_COR_COPIA_AGUARDANDO, COLECAO_PARAM_COR_COPIA_CANCELADO, COLECAO_PARAM_COR_COPIA_ENTREGUE, COLECAO_PARAM_COR_COPIA_IMPRESSO].includes(colecao)) {
+                        loadCoresStatusCopia();
+                      }
+                      if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
+                    }}
+                  />
+                ) : ccManageSelection === 'copias' ? (
+                  <CadastroGeralFormView
+                    editingId={copiaEditingId}
+                    sequence={copiaEditingId ? (copias.find((c) => c.id === copiaEditingId)?.nr_sequencia ?? null) : null}
+                    form={copiaForm}
+                    setForm={setCopiaForm}
+                    submitting={copiaSubmitting}
+                    handleSubmit={handleCopiaSubmit}
+                    goToList={goToCopiaList}
+                    createdAt={copiaAuditInfo.createdAt}
+                    updatedAt={copiaAuditInfo.updatedAt}
+                    createdBy={resolverNomeAutorExibicao(copiaAuditInfo.createdBy)}
+                    updatedBy={resolverNomeAutorExibicao(copiaAuditInfo.updatedBy)}
+                    onPrevRecord={goToPrevCopiaRecord}
+                    onNextRecord={goToNextCopiaRecord}
+                    hasPrevRecord={hasPrevCopiaRecord}
+                    hasNextRecord={hasNextCopiaRecord}
+                    onOpenAudit={openCopiaAuditModal}
+                    manageSelection={ccManageSelection}
+                    onManageSelectionChange={handleCcManageSelectionChange}
+                    allowedSubmodulos={allowedCcSubmodulos}
+                    selectOptions={CC_SELECT_OPTIONS}
+                    fieldInfos={COPIA_FIELD_INFOS}
+                    descFieldKey="nr_seq_solicitante"
+                    collectionName="copia"
+                    hideDescricao
+                    hideStatus
+                    extraFields={(aux) => (
+                      <CopiaCamposFormView
+                        aux={aux}
+                        valores={copiaExtra}
+                        onChange={(campo, valor) => setCopiaExtra((c) => ({ ...c, [campo]: valor }))}
+                        descricaoSolicitante={descricaoReferenciaCopia('nr_seq_solicitante', copiaExtra.nr_seq_solicitante)}
+                        descricaoTurmaDisciplina={descricaoReferenciaCopia('nr_seq_turma_disciplina', copiaExtra.nr_seq_turma_disciplina)}
+                        opcoesFormatoPapel={opcoesDeReferencia(formatosPapel, (f) => f.ds_formato_papel, copiaExtra.nr_seq_formato_papel)}
+                        opcoesTipoPapel={opcoesDeReferencia(tiposPapel, (t) => t.ds_tipo_papel, copiaExtra.nr_seq_tipo_papel)}
+                        onLocalizarSolicitante={() => openEnviarManutPrestadorLookup('copiaSolicitante')}
+                        onLocalizarTurmaDisciplina={() => setCopiaTurmaDisciplinaLookup('form')}
+                        arquivoNovo={copiaArquivoNovo}
+                        onArquivoNovoChange={setCopiaArquivoNovo}
+                        extensoesPermitidas={extensoesCopia}
+                        onArquivoInvalido={setMessage}
+                        novo={!copiaEditingId}
+                      />
+                    )}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'copia')}
+                    campoErros={copiaCampoErros}
+                  />
+                ) : (
+                  <div className="flex-1 flex flex-col min-h-0 space-y-6">
+                    <div className="flex min-h-[42px] items-center gap-2">
+                      <Select
+                        value={ccManageSelection}
+                        onChange={handleCcManageSelectionChange}
+                        options={CC_SELECT_OPTIONS.filter((o) => allowedCcSubmodulos.includes(o.value))}
+                        showPlaceholder={!ccManageSelection}
+                        className="!w-[180px]"
+                      />
+                    </div>
+                    <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
+                      <EmptySelectionMessage />
+                    </div>
+                  </div>
+                )
               ) : activeSection === "logs" ? (
                 logsManageSelection === 'exclusoes' ? (
                   renderExclusoes()
@@ -12098,6 +12954,8 @@ export default function Home() {
               } else {
                 openAtivoEditForm(contextMenu.item as Ativo);
               }
+            } else if (contextMenu.section === 'controleCopias') {
+              openCopiaEditForm(contextMenu.item as unknown as Copia);
             } else if (contextMenu.section === 'relatorio') {
               openRelatorioEditForm(contextMenu.item as Relatorio);
             } else {
@@ -12134,6 +12992,14 @@ export default function Home() {
             setContextMenu(null);
           }}
           customItems={(() => {
+            if (contextMenu.section === 'controleCopias' && ccManageSelection === 'copias') {
+              const copiaClicada = contextMenu.item as unknown as Copia;
+              const items: { label: string; onClick?: () => void }[] = [];
+              if (permissoesCC.alterarStatusCopia) {
+                items.push({ label: 'Alterar status', onClick: () => { openAlterarStatusCopiaModal(copiaClicada); setContextMenu(null); } });
+              }
+              return items.length > 0 ? items : undefined;
+            }
             if (contextMenu.section === 'patrimonio' && ativoManageSelection === 'ativos') {
               // Com vários ativos marcados, cada opção só aparece se valer para todos eles.
               const ativoClicado = contextMenu.item as Ativo;
@@ -12447,6 +13313,13 @@ export default function Home() {
               } else if (ativo.id) {
                 setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${ativo.nr_sequencia}?`);
                 setConfirmDeleteAction(() => () => handleAtivoDelete(ativo.id as string));
+                setConfirmDeleteOpen(true);
+              }
+            } else if (contextMenu.section === 'controleCopias') {
+              const copia = contextMenu.item as unknown as Copia;
+              if (copia.id) {
+                setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${copia.nr_sequencia}?`);
+                setConfirmDeleteAction(() => () => handleCopiaDelete(copia.id as string));
                 setConfirmDeleteOpen(true);
               }
             } else if (contextMenu.section === 'relatorio') {
@@ -14219,6 +15092,81 @@ export default function Home() {
         />
       )}
 
+      {copiaFilterModalOpen && view === "list" && activeSection === "controleCopias" && ccManageSelection === 'copias' && (
+        <CadastroGeralFilterModal
+          open={copiaFilterModalOpen}
+          onClose={() => setCopiaFilterModalOpen(false)}
+          filterForm={copiaFilterForm}
+          setFilterForm={setCopiaFilterForm}
+          onSubmit={handleCopiaFilterSubmit}
+          onClear={clearCopiaFilter}
+          colecao="copia"
+          campoDescricao="nr_seq_solicitante"
+          hideDescricao
+          hideStatus
+          extraFields={(
+            <>
+              <div className="sm:col-span-9">
+                <RotuloCampo texto="Status" colecao="copia" campo="ie_status" />
+                <Select
+                  value={copiaFiltroExtra.ie_status}
+                  onChange={(v) => setCopiaFiltroExtra((f) => ({ ...f, ie_status: v }))}
+                  options={STATUS_COPIA_OPTIONS}
+                />
+              </div>
+              <div className="sm:col-span-12">
+                <RotuloCampo texto="Solicitante" colecao="copia" campo="nr_seq_solicitante" />
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={copiaFiltroExtra.nr_seq_solicitante} onChange={(e) => setCopiaFiltroExtra((f) => ({ ...f, nr_seq_solicitante: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <input readOnly tabIndex={-1} className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[34px] py-1.5 text-sm text-slate-700 transition focus:outline-none" value={descricaoReferenciaCopia('nr_seq_solicitante', copiaFiltroExtra.nr_seq_solicitante)} />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      <button type="button" onClick={() => openEnviarManutPrestadorLookup('copiaFiltroSolicitante')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar solicitante">
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="sm:col-span-12">
+                <RotuloCampo texto="Turma x Disciplina" colecao="copia" campo="nr_seq_turma_disciplina" />
+                <div className="flex items-center gap-2 flex-nowrap">
+                  <div style={{ width: 110 }}>
+                    <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={copiaFiltroExtra.nr_seq_turma_disciplina} onChange={(e) => setCopiaFiltroExtra((f) => ({ ...f, nr_seq_turma_disciplina: e.target.value.replace(/\D/g, '').slice(0, 10) }))} />
+                  </div>
+                  <div className="relative flex-1 min-w-0">
+                    <input readOnly tabIndex={-1} className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[34px] py-1.5 text-sm text-slate-700 transition focus:outline-none" value={descricaoReferenciaCopia('nr_seq_turma_disciplina', copiaFiltroExtra.nr_seq_turma_disciplina)} />
+                    <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                      <button type="button" onClick={() => setCopiaTurmaDisciplinaLookup('filtro')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar turma x disciplina">
+                        <SearchIcon size={16} />
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="sm:col-span-6">
+                <RotuloCampo texto="Formato do papel" colecao="copia" campo="nr_seq_formato_papel" />
+                <Select
+                  value={copiaFiltroExtra.nr_seq_formato_papel}
+                  onChange={(v) => setCopiaFiltroExtra((f) => ({ ...f, nr_seq_formato_papel: v }))}
+                  options={opcoesDeReferencia(formatosPapel, (f) => f.ds_formato_papel, copiaFiltroExtra.nr_seq_formato_papel)}
+                />
+              </div>
+              <div className="sm:col-span-6">
+                <RotuloCampo texto="Tipo de papel" colecao="copia" campo="nr_seq_tipo_papel" />
+                <Select
+                  value={copiaFiltroExtra.nr_seq_tipo_papel}
+                  onChange={(v) => setCopiaFiltroExtra((f) => ({ ...f, nr_seq_tipo_papel: v }))}
+                  options={opcoesDeReferencia(tiposPapel, (t) => t.ds_tipo_papel, copiaFiltroExtra.nr_seq_tipo_papel)}
+                />
+              </div>
+            </>
+          )}
+        />
+      )}
+
       {categoriaFilterModalOpen && view === "list" && activeSection === "patrimonio" && ativoManageSelection === 'categoria' && (
         <CadastroGeralFilterModal
           open={categoriaFilterModalOpen}
@@ -14753,7 +15701,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <RotuloCampo texto="Data do status" colecao="aluno" campo="dt_status" prefixo={asteriscoModal(MODAL_ALUNO_ALTERAR_STATUS, 'dt_status')} />
+                <RotuloCampo texto="Data" colecao="aluno" campo="dt_status" prefixo={asteriscoModal(MODAL_ALUNO_ALTERAR_STATUS, 'dt_status')} />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -15069,6 +16017,85 @@ export default function Home() {
         );
       })()}
 
+      {/* ── Controle de Cópias > Cópias: Alterar status (menu de contexto) ── */}
+      {alterarStatusCopiaModalOpen && alterarStatusCopia && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+          <div className="absolute inset-0 bg-black/40" onClick={closeAlterarStatusCopiaModal} />
+          <form
+            onSubmit={handleAlterarStatusCopiaSubmit}
+            className="relative w-full max-w-[420px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
+          >
+            <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
+              <h2 className="text-base font-semibold" style={{ color: '#000' }}>Alterar status</h2>
+              <button
+                type="button"
+                onClick={closeAlterarStatusCopiaModal}
+                className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+                aria-label="Fechar alterar status"
+              >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M18 6 6 18" />
+                  <path d="M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="grid gap-[15px] p-[15px]">
+              <div>
+                <RotuloCampo texto="Status" colecao="copia" campo="ie_status" />
+                <Select
+                  value={alterarStatusCopiaForm.ie_status}
+                  onChange={(v) => setAlterarStatusCopiaForm({ ...alterarStatusCopiaForm, ie_status: v })}
+                  options={STATUS_COPIA_OPTIONS.filter((o) => o.value !== (alterarStatusCopia.ie_status ?? ''))}
+                />
+              </div>
+              <div>
+                <RotuloCampo texto="Data" colecao="copia" campo="dt_status" prefixo={asteriscoModal(MODAL_COPIA_ALTERAR_STATUS, 'dt_status')} />
+                <input
+                  type="text"
+                  inputMode="numeric"
+                  maxLength={10}
+                  placeholder="DD/MM/AAAA"
+                  disabled={regraModal(MODAL_COPIA_ALTERAR_STATUS, 'dt_status') === 'D'}
+                  className={classeCampoModal(MODAL_COPIA_ALTERAR_STATUS, 'dt_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")}
+                  value={alterarStatusCopiaForm.dt_status}
+                  onChange={(e) => setAlterarStatusCopiaForm({ ...alterarStatusCopiaForm, dt_status: applyDateMask(e.target.value) })}
+                />
+              </div>
+              <div>
+                <RotuloCampo texto="Motivo" colecao="copia" campo="ds_motivo_status" prefixo={asteriscoModal(MODAL_COPIA_ALTERAR_STATUS, 'ds_motivo_status')} />
+                <textarea
+                  rows={3}
+                  disabled={regraModal(MODAL_COPIA_ALTERAR_STATUS, 'ds_motivo_status') === 'D'}
+                  className={classeCampoModal(MODAL_COPIA_ALTERAR_STATUS, 'ds_motivo_status', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
+                  value={alterarStatusCopiaForm.ds_motivo_status}
+                  onChange={(e) => setAlterarStatusCopiaForm({ ...alterarStatusCopiaForm, ds_motivo_status: e.target.value })}
+                />
+              </div>
+            </div>
+
+            <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <button
+                type="button"
+                onClick={closeAlterarStatusCopiaModal}
+                className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+                style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Cancelar
+              </button>
+              <button
+                type="submit"
+                disabled={alterarStatusCopiaSaving}
+                className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
+                style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
+              >
+                Salvar
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
+
       {alterarStatusColaboradorModalOpen && alterarStatusColaborador && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAlterarStatusColaboradorModal} />
@@ -15101,7 +16128,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <RotuloCampo texto="Data do status" colecao="colaborador" campo="dt_status" prefixo={asteriscoModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'dt_status')} />
+                <RotuloCampo texto="Data" colecao="colaborador" campo="dt_status" prefixo={asteriscoModal(MODAL_COLABORADOR_ALTERAR_STATUS, 'dt_status')} />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -15440,6 +16467,46 @@ export default function Home() {
           onSelect={(item) => {
             setTurmaDisciplinaExtra((t) => ({ ...t, [turmaDisciplinaLookupCampo]: String(item.nr_sequencia) }));
             setTurmaDisciplinaLookupCampo(null);
+          }}
+        />
+      )}
+
+      {/* ── Lookup: Turma x Disciplina (formulário e filtro de Cópias) ── */}
+      {copiaTurmaDisciplinaLookup && (
+        <ReferenciaLookupModal
+          titulo="Localizar turma x disciplina"
+          colecao="turma_disciplina"
+          campoDescricao="nr_seq_turma"
+          // Mesmas colunas de Estrutura Acadêmica > Turmas x Disciplinas (só as ativas podem ser escolhidas).
+          colunas={TURMA_DISCIPLINA_COLUMNS.map((c) => ({ key: String(c.key), label: c.label, dataClass: c.dataClass }))}
+          filtros={[
+            // Período letivo da turma: ajuda a achar as turmas x disciplinas do período certo.
+            { key: '_nr_seq_periodo_letivo', rotulo: 'Período letivo', campo: 'nr_seq_periodo_letivo', colecao: 'turma', opcoes: opcoesDeReferencia(periodosLetivos, (p) => p.ds_periodo_letivo, '') },
+            { key: 'nr_seq_turma', rotulo: 'Turma', campo: 'nr_seq_turma' },
+            { key: 'nr_seq_disciplina', rotulo: 'Disciplina', campo: 'nr_seq_disciplina' },
+          ]}
+          {...colunasPorIndice('config_colunas_lookup_turma_disciplina')}
+          registros={turmasDisciplinas
+            .filter((td) => (td.ie_status ?? 'A') !== 'I')
+            .map((td) => ({
+              ...Object.fromEntries(TURMA_DISCIPLINA_COLUMNS.map((c) => [
+                c.key,
+                // Datas são formatadas pela própria tabela do lookup.
+                String(c.key).startsWith('dt_') ? td[c.key] : formatTurmaDisciplinaCellValue(String(c.key), td[c.key]),
+              ])),
+              id: td.id,
+              nr_sequencia: td.nr_sequencia,
+              descricao: descricaoTurmaDisciplinaPorSeq(td.nr_sequencia),
+              _nr_seq_periodo_letivo: String(turmas.find((t) => t.nr_sequencia === td.nr_seq_turma)?.nr_seq_periodo_letivo ?? ''),
+            }))}
+          onClose={() => setCopiaTurmaDisciplinaLookup(null)}
+          onSelect={(item) => {
+            if (copiaTurmaDisciplinaLookup === 'filtro') {
+              setCopiaFiltroExtra((f) => ({ ...f, nr_seq_turma_disciplina: String(item.nr_sequencia) }));
+            } else {
+              setCopiaExtra((c) => ({ ...c, nr_seq_turma_disciplina: String(item.nr_sequencia) }));
+            }
+            setCopiaTurmaDisciplinaLookup(null);
           }}
         />
       )}
@@ -16066,6 +17133,7 @@ export default function Home() {
         const isImagem = auditDocumentType === 'imagem';
         const isAviso = auditDocumentType === 'aviso';
         const isRegra = auditDocumentType === 'regra';
+        const isCampo = auditDocumentType === 'campo';
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
         const isAluno = auditDocumentType === 'aluno';
@@ -16123,7 +17191,7 @@ export default function Home() {
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'curso' || auditDocumentType === 'cg_combustivel' || auditDocumentType === 'cg_modalidade_ensino';
+        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'curso' || auditDocumentType === 'cg_combustivel' || auditDocumentType === 'cg_modalidade_ensino' || auditDocumentType === 'cg_formato_papel' || auditDocumentType === 'cg_tipo_papel';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -16162,6 +17230,8 @@ export default function Home() {
           ? [avisoAuditCampo]
           : isRegra
           ? [...CAMPOS_REGRA[regraAuditId]]
+          : isCampo
+          ? ['ds_campo', 'ie_status_campo']
           : isImagem
           ? [
               'nr_sequencia',
@@ -16187,6 +17257,8 @@ export default function Home() {
           ? ['nr_sequencia', 'ds_disciplina', 'ds_observacao', 'dt_criacao', 'dt_alteracao']
           : auditDocumentType === 'turma_disciplina'
           ? ['nr_sequencia', 'nr_seq_turma', 'nr_seq_disciplina', 'ie_status', 'dt_criacao', 'dt_alteracao']
+          : auditDocumentType === 'copia'
+          ? ['nr_sequencia', 'dt_recebimento', 'dt_impressao', 'dt_entrega', 'ie_status', 'dt_status', 'ds_motivo_status', 'nr_seq_solicitante', 'nr_seq_turma_disciplina', 'qt_copias', 'qt_folhas', 'ie_frente_verso', 'ie_grampear', 'ie_guilhotinar', 'nr_seq_formato_papel', 'nr_seq_tipo_papel', 'ie_arquivo', 'dt_criacao', 'dt_alteracao']
           : auditDocumentType === 'turma'
           ? ['nr_sequencia', 'ds_turma', 'nr_seq_curso', 'nr_seq_periodo_letivo', 'qt_max_alunos', 'nr_seq_localizacao', 'nr_seq_modalidade_ensino', 'dt_criacao', 'dt_alteracao']
           : isAtivoResponsavel
@@ -16303,7 +17375,7 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : auditDocumentType === 'cg_modalidade_ensino' ? 'ds_modalidade_ensino' : 'ds_sexo',
+              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : auditDocumentType === 'cg_modalidade_ensino' ? 'ds_modalidade_ensino' : auditDocumentType === 'cg_formato_papel' ? 'ds_formato_papel' : auditDocumentType === 'cg_tipo_papel' ? 'ds_tipo_papel' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
               ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : []),
               'ie_status',
@@ -16465,8 +17537,24 @@ export default function Home() {
                       nr_seq_turma: 'Turma',
                       nr_seq_disciplina: 'Disciplina',
                       qt_max_alunos: 'Máximo de alunos',
+                      ds_formato_papel: 'Descrição',
+                      ds_tipo_papel: 'Descrição',
+                      nr_seq_solicitante: 'Solicitante',
+                      dt_recebimento: 'Data do recebimento',
+                      dt_impressao: 'Data da impressão',
+                      dt_entrega: 'Data da entrega',
+                      nr_seq_turma_disciplina: 'Turma x Disciplina',
+                      qt_copias: 'Cópias',
+                      qt_folhas: 'Folhas',
+                      ie_frente_verso: 'Frente e verso',
+                      ie_grampear: 'Grampear',
+                      ie_guilhotinar: 'Guilhotinar',
+                      nr_seq_formato_papel: 'Formato do papel',
+                      nr_seq_tipo_papel: 'Tipo de papel',
                       ds_regra: 'Regra',
                       ie_regra: 'Regra',
+                      ds_campo: 'Campo',
+                      ie_status_campo: 'Status',
                       ie_logout_dia: 'Dia',
                       hr_logout: 'Horário',
                       ie_badge_teste: 'Badge de teste',
@@ -16623,6 +17711,10 @@ export default function Home() {
                         nr_seq_modalidade_ensino: () => modalidadesEnsino.find((m) => m.nr_sequencia === seq)?.ds_modalidade_ensino,
                         nr_seq_turma: () => turmas.find((t) => t.nr_sequencia === seq)?.ds_turma,
                         nr_seq_disciplina: () => disciplinas.find((d) => d.nr_sequencia === seq)?.ds_disciplina,
+                        nr_seq_solicitante: () => nomeColaboradorPorSeq(seq),
+                        nr_seq_turma_disciplina: () => descricaoTurmaDisciplinaPorSeq(seq),
+                        nr_seq_formato_papel: () => formatosPapel.find((f) => f.nr_sequencia === seq)?.ds_formato_papel,
+                        nr_seq_tipo_papel: () => tiposPapel.find((t) => t.nr_sequencia === seq)?.ds_tipo_papel,
                         nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
                         nr_seq_colaborador: () => nomeColaboradorPorSeq(seq),
                         nr_seq_fornecedor: () => nomeColaboradorPorSeq(seq),
@@ -16646,7 +17738,7 @@ export default function Home() {
                         const descricao = Number.isFinite(seq) ? descricaoPorSeq[field]() : undefined;
                         return descricao ? `${seq} - ${descricao}` : String(normalized);
                       }
-                      if (field === 'ie_coordenador' || field === 'ie_professor' || field === 'ie_fornecedor' || field === 'ie_prestador_servico' || field === 'ie_badge_teste') {
+                      if (field === 'ie_coordenador' || field === 'ie_professor' || field === 'ie_fornecedor' || field === 'ie_prestador_servico' || field === 'ie_badge_teste' || field === 'ie_frente_verso' || field === 'ie_grampear' || field === 'ie_guilhotinar') {
                         return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : String(normalized);
                       }
                       if (field === 'ie_logout_dia') {
@@ -16658,10 +17750,14 @@ export default function Home() {
                       if (field === 'ie_status' && isAtivo) {
                         return ATIVO_STATUS_OPTIONS.find((o) => o.value === String(normalized))?.label ?? String(normalized);
                       }
+                      if (field === 'ie_status' && auditDocumentType === 'copia') return rotuloStatusCopia(normalized) || String(normalized);
                       if (field === 'ie_status') {
                         if (isColaborador) return formatColaboradorCellValue('ie_status', normalized);
                         if (isPeriodoLetivo) return formatPeriodoLetivoCellValue('ie_status', normalized);
                         return isAluno ? formatAlunoCellValue('ie_status', normalized) : formatAdminCellValue('ie_status', normalized);
+                      }
+                      if (field === 'ie_status_campo') {
+                        return CAMPO_STATUS_LABELS[String(normalized) as CampoStatus] ?? String(normalized);
                       }
                       if (field === 'ie_regra') {
                         return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : '---';
@@ -16907,7 +18003,7 @@ export default function Home() {
                     // completa com a data/usuário do próprio log e do log de criação.
                     const logMaisAntigo = auditLogs[auditLogs.length - 1];
                     // Avisos e regras: cada um tem a própria criação (primeiro log dele).
-                    const criacaoPorItem = isAviso || isRegra;
+                    const criacaoPorItem = isAviso || isRegra || isCampo;
                     const logCriacao = criacaoPorItem ? logMaisAntigo : auditLogs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
                     const comControle = (dados: Record<string, unknown> | null | undefined, log: AuditEntry | undefined) => {
                       if (!dados || !log) return dados;
@@ -17210,6 +18306,7 @@ export default function Home() {
                   <input
                     type="checkbox"
                     className="cg-checkbox"
+                    disabled={regraModal(MODAL_CONCLUIR_MANUTENCAO, 'ie_isento') === 'D'}
                     checked={concluirManutForm.ie_isento}
                     onChange={(e) => setConcluirManutForm({ ...concluirManutForm, ie_isento: e.target.checked, vl_total: '' })}
                   />
@@ -17407,7 +18504,7 @@ export default function Home() {
       {(
         gerandoMatricula || parametrosSaving || relatorioGerando ||
         submitting || pjSubmitting || adminSubmitting || cgSubmitting ||
-        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting || disciplinaSubmitting || turmaSubmitting || turmaDisciplinaSubmitting ||
+        perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting || disciplinaSubmitting || turmaSubmitting || turmaDisciplinaSubmitting || copiaSubmitting || alterarStatusCopiaSaving ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
         ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || pfDetalheSaving || ativoTransferirSaving || assumirAtivosSaving ||

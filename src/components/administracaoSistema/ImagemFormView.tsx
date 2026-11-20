@@ -238,8 +238,8 @@ export default function ImagemFormView({
             <input type="file" ref={fileInputRef} accept=".jpeg,.jpg,.png" className="hidden" onChange={handleFileChange} />
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => fileInputRef.current?.click()}
-                disabled={!!editingId}
-                className={editingId
+                disabled={!!editingId || campoRegras.ie_arquivo === 'D'}
+                className={editingId || campoRegras.ie_arquivo === 'D'
                   ? 'inline-flex items-center justify-center rounded-[3px] bg-[#ddd] px-[5px] py-[5px] text-sm text-black opacity-40 cursor-pointer'
                   : 'inline-flex items-center justify-center rounded-[3px] bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer hover:bg-slate-300'}
                 style={{ borderTop: '1px solid transparent', borderLeft: '1px solid transparent', borderRight: '1px solid transparent', borderBottom: '1px solid #000' }}
@@ -250,7 +250,7 @@ export default function ImagemFormView({
                 type="text"
                 value={imagem.ie_arquivo ?? ''}
                 disabled
-                className={`${inputClass} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 flex-1 min-w-0`}
+                className={`${inputClass} ${campoErros.includes('ie_arquivo') ? '!border-red-500' : ''} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 flex-1 min-w-0`}
               />
             </div>
           </div>

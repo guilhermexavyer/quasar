@@ -253,6 +253,34 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   // ════════════════════════════════════════════════════════════
+  //  Controle de Cópias
+  // ════════════════════════════════════════════════════════════
+  {
+    value: 'copia',
+    label: 'Cópias',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'dt_recebimento', label: 'Data do recebimento', tipo: 'date' },
+      { key: 'dt_impressao', label: 'Data da impressão', tipo: 'date' },
+      { key: 'dt_entrega', label: 'Data da entrega', tipo: 'date' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_status', label: 'Data do status', tipo: 'date' },
+      { key: 'ds_motivo_status', label: 'Motivo status', tipo: 'string' },
+      { key: 'nr_seq_solicitante', label: 'Solicitante', tipo: 'number', isFK: true, fkColecao: 'colaborador', fkLabel: 'nr_sequencia' },
+      { key: 'nr_seq_turma_disciplina', label: 'Turma x Disciplina', tipo: 'number', isFK: true, fkColecao: 'turma_disciplina', fkLabel: 'nr_sequencia' },
+      { key: 'qt_copias', label: 'Cópias', tipo: 'number' },
+      { key: 'qt_folhas', label: 'Folhas', tipo: 'number' },
+      { key: 'ie_frente_verso', label: 'Frente e verso', tipo: 'string' },
+      { key: 'ie_grampear', label: 'Grampear', tipo: 'string' },
+      { key: 'ie_guilhotinar', label: 'Guilhotinar', tipo: 'string' },
+      { key: 'nr_seq_formato_papel', label: 'Formato do papel', tipo: 'number', isFK: true, fkColecao: 'cg_formato_papel', fkLabel: 'ds_formato_papel' },
+      { key: 'nr_seq_tipo_papel', label: 'Tipo de papel', tipo: 'number', isFK: true, fkColecao: 'cg_tipo_papel', fkLabel: 'ds_tipo_papel' },
+      { key: 'ie_arquivo', label: 'Arquivo', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  // ════════════════════════════════════════════════════════════
   //  Administração do Sistema
   // ════════════════════════════════════════════════════════════
   {
@@ -456,6 +484,28 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
+    value: 'cg_formato_papel',
+    label: 'Formatos do papel',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_formato_papel', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
+    value: 'cg_tipo_papel',
+    label: 'Tipos de papel',
+    campos: [
+      { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
+      { key: 'ds_tipo_papel', label: 'Descrição', tipo: 'string' },
+      { key: 'ie_status', label: 'Status', tipo: 'string' },
+      { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
+      { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
+    ],
+  },
+  {
     value: 'cg_sistema_operacional',
     label: 'Sistemas Operacionais',
     campos: [
@@ -512,6 +562,9 @@ export const STATUS_LABEL_MAP: Record<string, Record<string, string>> = {
   cg_sistema_operacional: { A: 'Ativo', I: 'Inativo' },
   cg_combustivel: { A: 'Ativo', I: 'Inativo' },
   cg_modalidade_ensino: { A: 'Ativo', I: 'Inativo' },
+  cg_formato_papel: { A: 'Ativo', I: 'Inativo' },
+  copia: { A: 'Aguardando', C: 'Cancelado', E: 'Entregue', I: 'Impresso' },
+  cg_tipo_papel: { A: 'Ativo', I: 'Inativo' },
 };
 
 /**

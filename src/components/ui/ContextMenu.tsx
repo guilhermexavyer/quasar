@@ -7,6 +7,8 @@ interface ContextMenuItem {
   label: string;
   onClick?: () => void;
   children?: ContextMenuItem[];
+  /** Mostra uma linha separando o item dos que vêm antes (ex.: "Auditoria" em Campos x Formulários). */
+  separadorAntes?: boolean;
 }
 
 interface ContextMenuProps {
@@ -174,8 +176,11 @@ export default function ContextMenu({
           Duplicar
         </button>
       )}
-      {customItems?.map((item) => (
-        <MenuButton key={item.label} item={item} onAction={close} />
+      {customItems?.map((item, i) => (
+        <div key={item.label}>
+          {item.separadorAntes && i > 0 && <div aria-hidden="true" className="my-[2px] border-t border-slate-200" />}
+          <MenuButton item={item} onAction={close} />
+        </div>
       ))}
       {showDelete && (
         <button

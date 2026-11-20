@@ -49,7 +49,8 @@ export default function CampoLookupReferencia({
           />
         </div>
         <div className="relative flex-1 min-w-0">
-          <input readOnly tabIndex={-1} className={`${inputClass} pr-[34px] !bg-slate-100 text-slate-700`} value={descricao} />
+          {/* Mesmo fundo cinza dos demais lookups (bg-slate-100 comum, sem "!": as cores do sistema e do modo escuro precisam valer). */}
+          <input readOnly tabIndex={-1} className={`${inputClass.replace(/\bbg-white\b/, 'bg-slate-100')} pr-[34px] text-slate-700`} value={descricao} />
           <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
             <button
               type="button"

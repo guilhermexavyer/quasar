@@ -32,6 +32,7 @@ const FUNCAO_LABELS: Record<string, string> = {
   estruturaAcademica: "Estrutura Acadêmica",
   patrimonio: "Patrimônio",
   relatorio: "Gerenciador de Relatórios",
+  controleCopias: "Controle de Cópias",
 };
 
 const FUNCAO_ORDER_ALPHA = Object.keys(FUNCAO_LABELS).sort((a, b) =>
@@ -81,6 +82,8 @@ interface CamposViewProps {
   modo?: CamposModo;
   perfis: Perfil[];
   onChangeStatus: (perfil: Perfil, chave: string, status: CampoStatus) => void;
+  /** Abre o histórico de auditoria do status do campo no perfil (menu de contexto "Auditoria"). */
+  onOpenAuditCampo?: (perfil: Perfil, chave: string, rotulo: string) => void;
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   /** Submódulos permitidos do dropdown PAI (Campos/Perfis/Usuários) conforme permissões. */
@@ -112,6 +115,7 @@ export default function CamposView({
   onManageSelectionChange,
   allowedSubmodulos = ['camposFormularios', 'camposModais', 'perfis', 'usuarios'],
   podeAlterarStatusCampo = true,
+  onOpenAuditCampo,
   selectedPerfilId: selectedPerfilIdProp,
   onSelectedPerfilIdChange,
   selectedFuncao: selectedFuncaoProp,
@@ -478,8 +482,8 @@ export default function CamposView({
                   onRowContextMenu={(c, e) => {
                     // Clique direito também seleciona o campo.
                     setSelectedCampoKey(c.key);
-                    // Sem a permissão de alterar status, o menu de contexto não abre.
-                    if (podeAlterarStatusCampo) {
+                    // Sem a permissão de alterar status, o menu abre só com "Auditoria".
+                    if (podeAlterarStatusCampo || onOpenAuditCampo) {
                       setCampoMenu({ x: e.clientX, y: e.clientY, chave: c.key });
                     }
                   }}
@@ -492,7 +496,7 @@ export default function CamposView({
       </div>
       </div>
 
-      {campoMenu && menuCampo && selectedPerfil && podeAlterarStatusCampo && (
+      {campoMenu && menuCampo && selectedPerfil && (podeAlterarStatusCampo || onOpenAuditCampo) && (
         <div ref={campoMenuRef}>
           <ContextMenu
             x={campoMenu.x}
@@ -503,16 +507,29 @@ export default function CamposView({
             onView={() => setCampoMenu(null)}
             onChangePassword={() => setCampoMenu(null)}
             onDelete={() => setCampoMenu(null)}
-            customItems={(
+            customItems={[
               // Esconde a opção do status atual: não faz sentido escolher o mesmo status.
-              ["N", "O", "D"] as CampoStatus[]
-            ).filter((s) => s !== getCampoStatusByKey(config, menuCampo.key)).map((s) => ({
-              label: CAMPO_STATUS_LABELS[s],
-              onClick: () => {
-                onChangeStatus(selectedPerfil, menuCampo.key, s);
-                setCampoMenu(null);
-              },
-            }))}
+              ...(podeAlterarStatusCampo ? (["N", "O", "D"] as CampoStatus[]) : [])
+                .filter((s) => s !== getCampoStatusByKey(config, menuCampo.key))
+                .map((s) => ({
+                  label: CAMPO_STATUS_LABELS[s],
+                  onClick: () => {
+                    onChangeStatus(selectedPerfil, menuCampo.key, s);
+                    setCampoMenu(null);
+                  },
+                })),
+              // Histórico do status do campo, separado das demais opções.
+              ...(onOpenAuditCampo
+                ? [{
+                    label: "Auditoria",
+                    separadorAntes: true,
+                    onClick: () => {
+                      onOpenAuditCampo(selectedPerfil, menuCampo.key, menuCampo.modal ? `${menuCampo.modal} > ${menuCampo.campo}` : menuCampo.campo);
+                      setCampoMenu(null);
+                    },
+                  }]
+                : []),
+            ]}
           />
         </div>
       )}

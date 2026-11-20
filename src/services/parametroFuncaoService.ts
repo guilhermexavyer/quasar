@@ -19,6 +19,14 @@ export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "ea_param_cor_periodo_
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "ea_param_cor_periodo_letivo_encerrado";
 export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "ea_param_encerramento_automatico_periodo_letivo";
 export const COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN = "as_param_alterar_senha_proximo_login";
+/** Extensões permitidas no anexo de Controle de Cópias > Cópias (ds_regra: "pdf,docx,..."). */
+export const COLECAO_PARAM_TIPOS_ARQUIVO_COPIA = "cc_param_tipos_arquivo_copia";
+export const COLECAO_PARAM_COR_COPIA_AGUARDANDO = "cc_param_cor_copia_aguardando";
+/** Sim: a Data do recebimento de uma cópia nova já vem com a data atual. */
+export const COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA = "cc_param_data_recebimento_automatica";
+export const COLECAO_PARAM_COR_COPIA_CANCELADO = "cc_param_cor_copia_cancelado";
+export const COLECAO_PARAM_COR_COPIA_ENTREGUE = "cc_param_cor_copia_entregue";
+export const COLECAO_PARAM_COR_COPIA_IMPRESSO = "cc_param_cor_copia_impresso";
 
 /** Campo onde o valor do parâmetro é gravado. */
 export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra";

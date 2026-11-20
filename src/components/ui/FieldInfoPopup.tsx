@@ -2,7 +2,9 @@
 
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { carregarEsquema, tipoDaColuna, tipoDeclarado } from "@/lib/esquemaBanco";
+import { carregarEsquema, carregarReferencias, tabelaReferenciada, tipoDaColuna, tipoDeclarado } from "@/lib/esquemaBanco";
+import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
+import { controleDoCampo, valorDoControle } from "@/lib/valorDoCampo";
 
 interface FieldInfoPopupProps {
   /** Elemento âncora (o botão de informações do campo). */
@@ -45,6 +47,46 @@ export default function FieldInfoPopup({ anchor, meta, onClose }: FieldInfoPopup
     };
   }, [meta.collection, meta.field]);
   const tipo = tipoReal ?? tipoDeclarado(meta.type);
+
+  // Campos que guardam a sequência de um registro de outra tabela (nr_seq_...): de onde ele vem,
+  // como "Função > Opção do dropdown" (ex.: Cadastros Gerais > Sexo).
+  const [dependeDe, setDependeDe] = useState<string | null>(null);
+  useEffect(() => {
+    let ativo = true;
+    carregarReferencias().then((referencias) => {
+      if (!ativo) return;
+      const tabela = tabelaReferenciada(referencias, meta.collection, meta.field);
+      const origem = tabela ? FUNCOES_EXCLUSAO.find((f) => f.colecao === tabela) : undefined;
+      setDependeDe(origem ? `${origem.funcao} > ${origem.dropdown}` : null);
+    });
+    return () => {
+      ativo = false;
+    };
+  }, [meta.collection, meta.field]);
+
+  // Campos que não são de texto/número (dropdown, lookup, checkbox, radio): valor selecionado
+  // no momento (o que será gravado), exibido entre parênteses depois do nome da coluna.
+  // O valor fica junto do infobutton a que pertence: outro campo não mostra o valor anterior.
+  const [lido, setLido] = useState<{ anchor: HTMLElement | null; valor: string | null } | null>(null);
+  const valorAtual = lido && lido.anchor === anchor ? lido.valor : null;
+  useEffect(() => {
+    const controle = controleDoCampo(anchor);
+    if (!controle) return;
+    const atualizar = () => setLido({ anchor, valor: valorDoControle(controle, tipo) });
+    // Primeira leitura fora do corpo do efeito (evita renderização em cascata).
+    const inicial = window.requestAnimationFrame(atualizar);
+    // Acompanha mudanças com o pop-up aberto (teclado, troca do dropdown).
+    const observador = new MutationObserver(atualizar);
+    observador.observe(controle.container, { subtree: true, attributes: true, attributeFilter: ['data-valor', 'value', 'checked'] });
+    controle.container.addEventListener('input', atualizar);
+    controle.container.addEventListener('change', atualizar);
+    return () => {
+      window.cancelAnimationFrame(inicial);
+      observador.disconnect();
+      controle.container.removeEventListener('input', atualizar);
+      controle.container.removeEventListener('change', atualizar);
+    };
+  }, [anchor, tipo]);
 
   // Posiciona ao lado da âncora (à direita do infobutton), centralizado
   // verticalmente com ele. Na primeira passada o pop-up fica invisível para
@@ -141,8 +183,11 @@ export default function FieldInfoPopup({ anchor, meta, onClose }: FieldInfoPopup
       <div className="mb-2 font-semibold">Informações do campo</div>
       <div className="space-y-1">
         <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Tipo:</span> {tipo}</div>
-        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Coluna:</span> {meta.field}</div>
+        <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Coluna:</span> {meta.field}{valorAtual !== null && ` (${valorAtual})`}</div>
         <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Tabela:</span> {meta.collection}</div>
+        {dependeDe && (
+          <div className={dark ? 'text-[#a1a1aa]' : 'text-slate-600'}><span className="font-semibold">Depende de:</span> {dependeDe}</div>
+        )}
       </div>
     </div>,
     document.body

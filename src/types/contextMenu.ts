@@ -22,7 +22,7 @@ import type { Manutencao } from "@/types/manutencao";
 import type { Relatorio } from "@/types/relatorio";
 import type { Imagem } from "@/types/imagem";
 
-export type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio" | "logs";
+export type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio" | "logs" | "controleCopias";
 
 export interface ContextMenuState {
   x: number;

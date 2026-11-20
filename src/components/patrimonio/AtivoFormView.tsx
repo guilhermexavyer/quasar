@@ -477,7 +477,7 @@ export default function AtivoFormView({
                     <input
                       readOnly
                       tabIndex={-1}
-                      className={`${inputClass('nr_seq_fornecedor')} pr-[62px] !bg-slate-100 text-slate-700`}
+                      className={`${inputClass('nr_seq_fornecedor').replace(/\bbg-white\b/, 'bg-slate-100')} pr-[62px] text-slate-700`}
                       value={fornecedorName}
                     />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">

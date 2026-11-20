@@ -311,6 +311,8 @@ export default function Select({
         onKeyDown={handleKeyDown}
         aria-haspopup="listbox"
         aria-expanded={open}
+        // Valor selecionado (o que vai para o banco), lido pelo infobutton do campo.
+        data-valor={value ?? ''}
         className={`cg-select-trigger w-full border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500 ${error ? "cg-select-error" : ""} ${className}`}
         style={{ textAlign: "left", cursor: disabled ? "default" : "pointer" }}
       >

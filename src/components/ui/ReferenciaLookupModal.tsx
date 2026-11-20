@@ -2,10 +2,29 @@
 
 import { useMemo, useState } from "react";
 import RotuloCampo from "@/components/ui/RotuloCampo";
+import Select from "@/components/ui/Select";
+import LookupTabela, { type LookupColumn } from "@/components/ui/LookupTabela";
+import type { ColunasConfig } from "@/lib/colunasUtils";
 
 export interface ReferenciaLookupItem {
   nr_sequencia: number;
   descricao: string;
+  /** Demais colunas do lookup (valores já prontos para exibir). */
+  [chave: string]: unknown;
+}
+
+/**
+ * Filtro do lado esquerdo. Texto: procura o texto digitado na coluna `key`.
+ * Com `opcoes`: dropdown, que compara o valor escolhido com `key` (igualdade).
+ */
+export interface ReferenciaLookupFiltro {
+  key: string;
+  rotulo: string;
+  /** Campo da coleção (informações do rótulo). */
+  campo: string;
+  /** Coleção do campo, quando não é a do lookup (informações do rótulo). */
+  colecao?: string;
+  opcoes?: { value: string; label: string }[];
 }
 
 interface ReferenciaLookupModalProps {
@@ -16,30 +35,60 @@ interface ReferenciaLookupModalProps {
   /** Campo de descrição da coleção (ex.: ds_curso). */
   campoDescricao: string;
   registros: ReferenciaLookupItem[];
+  /** Colunas da tabela (padrão: # e Descrição). */
+  colunas?: LookupColumn[];
+  /** Filtros além da Sequência (padrão: Descrição). */
+  filtros?: ReferenciaLookupFiltro[];
+  /** Ordem e largura das colunas salvas no usuário. */
+  initialColumns?: ColunasConfig | null;
+  onColumnsChange?: (config: ColunasConfig) => void;
   onSelect: (item: ReferenciaLookupItem) => void;
   onClose: () => void;
 }
 
-const FILTRO_VAZIO = { nr_sequencia: '', descricao: '' };
 const CLASSE_INPUT = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
 /**
- * Lookup simples (Sequência + Descrição) para registros de referência, no mesmo visual dos
- * demais lookups: filtros à esquerda (Limpar/Filtrar) e resultados à direita; duplo clique
- * em uma linha seleciona o registro.
+ * Lookup de registros de referência, no mesmo visual dos demais lookups: filtros à
+ * esquerda (Limpar/Filtrar) e resultados à direita, com colunas redimensionáveis,
+ * arrastáveis e ordenáveis; duplo clique em uma linha seleciona o registro.
  */
-export default function ReferenciaLookupModal({ titulo, colecao, campoDescricao, registros, onSelect, onClose }: ReferenciaLookupModalProps) {
-  const [form, setForm] = useState(FILTRO_VAZIO);
-  const [filtro, setFiltro] = useState<typeof FILTRO_VAZIO | null>(null);
+export default function ReferenciaLookupModal({
+  titulo,
+  colecao,
+  campoDescricao,
+  registros,
+  colunas,
+  filtros,
+  initialColumns,
+  onColumnsChange,
+  onSelect,
+  onClose,
+}: ReferenciaLookupModalProps) {
+  const camposFiltro = useMemo<ReferenciaLookupFiltro[]>(
+    () => filtros ?? [{ key: 'descricao', rotulo: 'Descrição', campo: campoDescricao }],
+    [filtros, campoDescricao]
+  );
+  const colunasTabela = useMemo<LookupColumn[]>(
+    () => colunas ?? [{ key: 'nr_sequencia', label: '#', dataClass: 'text-right' }, { key: 'descricao', label: 'Descrição' }],
+    [colunas]
+  );
+  const vazio = useMemo(() => Object.fromEntries([['nr_sequencia', ''], ...camposFiltro.map((f) => [f.key, ''])]) as Record<string, string>, [camposFiltro]);
+  const [form, setForm] = useState<Record<string, string>>(vazio);
+  const [filtro, setFiltro] = useState<Record<string, string> | null>(null);
 
   const resultado = useMemo(() => {
     if (!filtro) return [];
-    const seq = filtro.nr_sequencia.trim();
-    const desc = filtro.descricao.trim().toLowerCase();
-    return registros
-      .filter((r) => (!seq || String(r.nr_sequencia) === seq) && (!desc || r.descricao.toLowerCase().includes(desc)))
-      .sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR'));
-  }, [registros, filtro]);
+    const seq = (filtro.nr_sequencia ?? '').trim();
+    return registros.filter((r) => {
+      if (seq && String(r.nr_sequencia) !== seq) return false;
+      return camposFiltro.every((f) => {
+        if (f.opcoes) return !filtro[f.key] || String(r[f.key] ?? '') === filtro[f.key];
+        const texto = (filtro[f.key] ?? '').trim().toLowerCase();
+        return !texto || String(r[f.key] ?? '').toLowerCase().includes(texto);
+      });
+    });
+  }, [registros, filtro, camposFiltro]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
@@ -60,16 +109,22 @@ export default function ReferenciaLookupModal({ titulo, colecao, campoDescricao,
               <div className="space-y-4">
                 <div>
                   <RotuloCampo texto="Sequência" colecao={colecao} campo="nr_sequencia" />
-                  <input inputMode="numeric" maxLength={10} className={CLASSE_INPUT} value={form.nr_sequencia} onChange={(e) => setForm({ ...form, nr_sequencia: e.target.value.replace(/[^0-9]/g, '') })} />
+                  <input inputMode="numeric" maxLength={10} className={CLASSE_INPUT} value={form.nr_sequencia ?? ''} onChange={(e) => setForm({ ...form, nr_sequencia: e.target.value.replace(/[^0-9]/g, '') })} />
                 </div>
-                <div>
-                  <RotuloCampo texto="Descrição" colecao={colecao} campo={campoDescricao} />
-                  <input className={CLASSE_INPUT} value={form.descricao} onChange={(e) => setForm({ ...form, descricao: e.target.value })} />
-                </div>
+                {camposFiltro.map((f) => (
+                  <div key={f.key}>
+                    <RotuloCampo texto={f.rotulo} colecao={f.colecao ?? colecao} campo={f.campo} />
+                    {f.opcoes ? (
+                      <Select value={form[f.key] ?? ''} onChange={(v) => setForm({ ...form, [f.key]: v })} options={f.opcoes} />
+                    ) : (
+                      <input className={CLASSE_INPUT} value={form[f.key] ?? ''} onChange={(e) => setForm({ ...form, [f.key]: e.target.value })} />
+                    )}
+                  </div>
+                ))}
               </div>
             </div>
             <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-              <button type="button" onClick={() => { setForm(FILTRO_VAZIO); setFiltro(null); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' }}>Limpar</button>
+              <button type="button" onClick={() => { setForm(vazio); setFiltro(null); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' }}>Limpar</button>
               <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
           </form>
@@ -77,32 +132,13 @@ export default function ReferenciaLookupModal({ titulo, colecao, campoDescricao,
             {resultado.length === 0 ? (
               <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
             ) : (
-              <div className="flex-1 p-[15px] min-h-0 overflow-auto">
-                <table className="text-sm w-full" style={{ tableLayout: 'fixed', borderCollapse: 'separate', borderSpacing: 0 }}>
-                  <thead>
-                    <tr className="bg-[#bbb]">
-                      {['#', 'Descrição'].map((rotulo, i) => (
-                        <th
-                          key={rotulo}
-                          scope="col"
-                          className="sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 align-middle border-r border-b last:border-r-0 border-[#666] select-none whitespace-nowrap"
-                          style={{ borderRightColor: '#666', borderBottomColor: '#999', boxShadow: 'inset 0 -1px 0 #999', width: i === 0 ? 80 : undefined }}
-                        >
-                          {rotulo}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-gray-200">
-                    {resultado.map((r) => (
-                      <tr key={r.nr_sequencia} className="cursor-pointer hover:bg-[#eee]" onDoubleClick={() => onSelect(r)}>
-                        <td className="px-[10px] py-[3px] align-middle text-right truncate" style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>{r.nr_sequencia}</td>
-                        <td className="px-[10px] py-[3px] align-middle truncate" style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>{r.descricao}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+              <LookupTabela
+                colunas={colunasTabela}
+                linhas={resultado}
+                onSelect={onSelect}
+                initialColumns={initialColumns}
+                onColumnsChange={onColumnsChange}
+              />
             )}
           </div>
         </div>

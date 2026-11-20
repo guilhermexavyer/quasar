@@ -23,6 +23,12 @@ import {
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
   COLECAO_PARAM_MATRICULA_COLABORADOR,
+  COLECAO_PARAM_TIPOS_ARQUIVO_COPIA,
+  COLECAO_PARAM_COR_COPIA_AGUARDANDO,
+  COLECAO_PARAM_COR_COPIA_CANCELADO,
+  COLECAO_PARAM_COR_COPIA_ENTREGUE,
+  COLECAO_PARAM_COR_COPIA_IMPRESSO,
+  COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
   obterParametro,
   salvarParametro,
 } from "@/services/parametroFuncaoService";
@@ -32,19 +38,22 @@ import { CORES_STATUS_ATIVO_PADRAO } from "@/lib/ativoUtils";
 import { CORES_STATUS_MANUTENCAO_PADRAO } from "@/lib/manutencaoUtils";
 import type { AuditAutor } from "@/services/auditService";
 import { elementoVisivel } from "@/lib/visibilidade";
+import { CORES_STATUS_COPIA_PADRAO } from "@/lib/copiaUtils";
+import { EXTENSOES_ARQUIVO_COPIA, extensoesPermitidasCopia, serializarExtensoesCopia } from "@/lib/copiaArquivoUtils";
 
 /**
  * Parâmetro de uma função: linha da lista + coleção onde o valor é salvo.
  * - "regra": regra de geração de código (ds_regra);
  * - "cor": cor de um status (cd_cor), com a cor padrão usada enquanto não for configurada;
- * - "simNao": dropdown "Regra" com ---/Não/Sim (ie_regra; --- equivale a Não).
+ * - "simNao": dropdown "Regra" com ---/Não/Sim (ie_regra; --- equivale a Não);
+ * - "extensoes": checkboxes com os tipos de arquivo permitidos (ds_regra: extensões separadas por vírgula).
  */
 export interface ParametroDef {
   id: string;
   dropdown: string;
   parametro: string;
   colecao: string;
-  tipo: "regra" | "cor" | "simNao";
+  tipo: "regra" | "cor" | "simNao" | "extensoes";
   corPadrao?: string;
 }
 
@@ -160,6 +169,56 @@ export const PARAMETROS_ADMINISTRACAO_SISTEMA: ParametroDef[] = [
   },
 ];
 
+/** Parâmetros de configuração da função Controle de Cópias. */
+export const PARAMETROS_CONTROLE_COPIAS: ParametroDef[] = [
+  {
+    id: "cor_status_copia_aguardando",
+    dropdown: "Cópias",
+    parametro: "Cor do status 'Aguardando'",
+    colecao: COLECAO_PARAM_COR_COPIA_AGUARDANDO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_COPIA_PADRAO.A,
+  },
+  {
+    id: "cor_status_copia_cancelado",
+    dropdown: "Cópias",
+    parametro: "Cor do status 'Cancelado'",
+    colecao: COLECAO_PARAM_COR_COPIA_CANCELADO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_COPIA_PADRAO.C,
+  },
+  {
+    id: "cor_status_copia_entregue",
+    dropdown: "Cópias",
+    parametro: "Cor do status 'Entregue'",
+    colecao: COLECAO_PARAM_COR_COPIA_ENTREGUE,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_COPIA_PADRAO.E,
+  },
+  {
+    id: "cor_status_copia_impresso",
+    dropdown: "Cópias",
+    parametro: "Cor do status 'Impresso'",
+    colecao: COLECAO_PARAM_COR_COPIA_IMPRESSO,
+    tipo: "cor",
+    corPadrao: CORES_STATUS_COPIA_PADRAO.I,
+  },
+  {
+    id: "data_recebimento_automatica",
+    dropdown: "Cópias",
+    parametro: "'Data de recebimento' é automaticamente preenchido com a data atual",
+    colecao: COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
+    tipo: "simNao",
+  },
+  {
+    id: "tipos_arquivo_copia",
+    dropdown: "Cópias",
+    parametro: "Tipos de arquivo para anexar em 'Cópias'",
+    colecao: COLECAO_PARAM_TIPOS_ARQUIVO_COPIA,
+    tipo: "extensoes",
+  },
+];
+
 /** Opções do parâmetro Sim/Não ("---" vale como Não). */
 const OPCOES_SIM_NAO = [
   { value: "N", label: "Não" },
@@ -223,6 +282,9 @@ export default function ParametrosDaFuncaoView({
   const [corDraft, setCorDraft] = useState<string | null>(null);
   const [simNao, setSimNao] = useState("");
   const [simNaoDraft, setSimNaoDraft] = useState<string | null>(null);
+  // Tipo "extensoes": valor salvo (null = nunca salvo, usa o padrão) e edição.
+  const [extensoesSalvas, setExtensoesSalvas] = useState<string | null>(null);
+  const [extensoesDraft, setExtensoesDraft] = useState<string[] | null>(null);
   // Logs de criação/alteração do parâmetro selecionado.
   const [auditInfo, setAuditInfo] = useState(AUDIT_VAZIO);
   const [saving, setSaving] = useState(false);
@@ -237,6 +299,7 @@ export default function ParametrosDaFuncaoView({
   const corPadrao = selectedParametro?.corPadrao ?? "#000000";
   const corEmEdicao = corDraft ?? (cor || corPadrao);
   const simNaoEmEdicao = simNaoDraft ?? simNao;
+  const extensoesEmEdicao = extensoesDraft ?? extensoesPermitidasCopia(extensoesSalvas);
 
   /** Lê o documento do parâmetro: valor salvo + logs de criação/alteração. */
   const carregarParametro = useCallback(async (colecao: string) => {
@@ -247,6 +310,8 @@ export default function ParametrosDaFuncaoView({
     }
     setCor(doc?.cd_cor ?? "");
     setSimNao(doc?.ie_regra ?? "");
+    // Registro sem valor (salvo sem nenhuma marcada) = nenhuma; sem registro = padrão.
+    setExtensoesSalvas(doc?.id ? (doc.ds_regra ?? "") : null);
     setAuditInfo(doc?.id ? {
       createdAt: doc.dt_criacao ?? "",
       updatedAt: doc.dt_alteracao ?? "",
@@ -327,6 +392,14 @@ export default function ParametrosDaFuncaoView({
     setSegmentosDraft(null);
     setCorDraft(null);
     setSimNaoDraft(null);
+    setExtensoesDraft(null);
+  }
+
+  function alternarExtensao(ext: string) {
+    const atual = new Set(extensoesEmEdicao);
+    if (atual.has(ext)) atual.delete(ext);
+    else atual.add(ext);
+    setExtensoesDraft([...atual]);
   }
 
   const handleSalvar = useCallback(async () => {
@@ -342,6 +415,11 @@ export default function ParametrosDaFuncaoView({
         setSimNao(simNaoEmEdicao);
         setSimNaoDraft(null);
         await salvarParametro(colecaoSelecionada, "ie_regra", simNaoEmEdicao, auditAutor);
+      } else if (selectedParametro.tipo === "extensoes") {
+        const valor = serializarExtensoesCopia(extensoesEmEdicao);
+        setExtensoesSalvas(valor);
+        setExtensoesDraft(null);
+        await salvarParametro(colecaoSelecionada, "ds_regra", valor, auditAutor);
       } else {
         const limpos = segmentosEmEdicao.filter((s) => s.tipo !== "");
         const salvos = limpos.length > 0 ? limpos : [segmentoVazio()];
@@ -359,7 +437,7 @@ export default function ParametrosDaFuncaoView({
       setSaving(false);
       onSavingChange?.(false);
     }
-  }, [selectedParametro, colecaoSelecionada, corEmEdicao, simNaoEmEdicao, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave, carregarParametro]);
+  }, [selectedParametro, colecaoSelecionada, corEmEdicao, simNaoEmEdicao, extensoesEmEdicao, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave, carregarParametro]);
 
   // Manter ref atualizado
   useEffect(() => {
@@ -427,6 +505,8 @@ export default function ParametrosDaFuncaoView({
                   setCorDraft(null);
                   setSimNao("");
                   setSimNaoDraft(null);
+                  setExtensoesSalvas(null);
+                  setExtensoesDraft(null);
                   setAuditInfo(AUDIT_VAZIO);
                   setSelectedParametroId(p.id);
                 }}
@@ -456,7 +536,7 @@ export default function ParametrosDaFuncaoView({
                   {/* Rótulo do campo (com infobutton, como os demais campos do sistema) */}
                   <div className="block text-sm mb-1" style={{ color: "#666" }}>
                     <div className="relative group inline-flex items-center gap-2">
-                      <span>{selectedParametro.tipo === "cor" ? "Cor" : "Regra"}</span>
+                      <span>{selectedParametro.tipo === "cor" ? "Cor" : selectedParametro.tipo === "extensoes" ? "Tipos de arquivo" : "Regra"}</span>
                       <button
                         type="button"
                         onClick={(event) => {
@@ -465,7 +545,7 @@ export default function ParametrosDaFuncaoView({
                           setInfoAberto((v) => !v);
                         }}
                         tabIndex={-1}
-                        aria-label={`Informações do campo ${selectedParametro.tipo === "cor" ? "Cor" : "Regra"}`}
+                        aria-label={`Informações do campo ${selectedParametro.tipo === "cor" ? "Cor" : selectedParametro.tipo === "extensoes" ? "Tipos de arquivo" : "Regra"}`}
                         className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoAberto ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -483,7 +563,21 @@ export default function ParametrosDaFuncaoView({
                       )}
                     </div>
                   </div>
-                  {selectedParametro.tipo === "simNao" ? (
+                  {selectedParametro.tipo === "extensoes" ? (
+                    <div className="grid w-full grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
+                      {EXTENSOES_ARQUIVO_COPIA.map((e) => (
+                        <label key={e.ext} className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                          <input
+                            type="checkbox"
+                            className="cg-checkbox"
+                            checked={extensoesEmEdicao.includes(e.ext)}
+                            onChange={() => alternarExtensao(e.ext)}
+                          />
+                          <span>.{e.ext}</span>
+                        </label>
+                      ))}
+                    </div>
+                  ) : selectedParametro.tipo === "simNao" ? (
                     <div className="w-full">
                       <Select
                         value={simNaoEmEdicao}
