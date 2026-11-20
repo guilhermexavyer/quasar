@@ -29,8 +29,11 @@ import {
   COLECAO_PARAM_COR_COPIA_ENTREGUE,
   COLECAO_PARAM_COR_COPIA_IMPRESSO,
   COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
+  COLECAO_PARAM_FORMATO_PAPEL_PADRAO,
+  COLECAO_PARAM_TIPO_PAPEL_PADRAO,
   obterParametro,
   salvarParametro,
+  type CampoParametro,
 } from "@/services/parametroFuncaoService";
 import { OPCOES_SEGMENTO_REGRA } from "@/lib/regraCodigoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO } from "@/lib/periodoLetivoUtils";
@@ -46,15 +49,19 @@ import { EXTENSOES_ARQUIVO_COPIA, extensoesPermitidasCopia, serializarExtensoesC
  * - "regra": regra de geração de código (ds_regra);
  * - "cor": cor de um status (cd_cor), com a cor padrão usada enquanto não for configurada;
  * - "simNao": dropdown "Regra" com ---/Não/Sim (ie_regra; --- equivale a Não);
- * - "extensoes": checkboxes com os tipos de arquivo permitidos (ds_regra: extensões separadas por vírgula).
+ * - "extensoes": checkboxes com os tipos de arquivo permitidos (ds_regra: extensões separadas por vírgula);
+ * - "valorPadrao": dropdown "Valor padrão" com os registros de um cadastro (campoValor: nr_seq_*;
+ *   --- = sem valor padrão). As opções vêm da tela (prop opcoesValorPadrao, pelo id do parâmetro).
  */
 export interface ParametroDef {
   id: string;
   dropdown: string;
   parametro: string;
   colecao: string;
-  tipo: "regra" | "cor" | "simNao" | "extensoes";
+  tipo: "regra" | "cor" | "simNao" | "extensoes" | "valorPadrao";
   corPadrao?: string;
+  /** Tipo "valorPadrao": coluna onde a sequência escolhida é gravada. */
+  campoValor?: CampoParametro;
 }
 
 /** Parâmetros de configuração da função Patrimônio. */
@@ -163,7 +170,7 @@ export const PARAMETROS_ADMINISTRACAO_SISTEMA: ParametroDef[] = [
   {
     id: "alterar_senha_proximo_login",
     dropdown: "Usuários",
-    parametro: "Alterar senha no próximo login",
+    parametro: "Redefinir senha no primeiro login após alterar senha",
     colecao: COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN,
     tipo: "simNao",
   },
@@ -209,6 +216,22 @@ export const PARAMETROS_CONTROLE_COPIAS: ParametroDef[] = [
     parametro: "'Data de recebimento' é automaticamente preenchido com a data atual",
     colecao: COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
     tipo: "simNao",
+  },
+  {
+    id: "formato_papel_padrao",
+    dropdown: "Cópias",
+    parametro: "'Formato do papel' padrão",
+    colecao: COLECAO_PARAM_FORMATO_PAPEL_PADRAO,
+    tipo: "valorPadrao",
+    campoValor: "nr_seq_formato_papel",
+  },
+  {
+    id: "tipo_papel_padrao",
+    dropdown: "Cópias",
+    parametro: "'Tipo de papel' padrão",
+    colecao: COLECAO_PARAM_TIPO_PAPEL_PADRAO,
+    tipo: "valorPadrao",
+    campoValor: "nr_seq_tipo_papel",
   },
   {
     id: "tipos_arquivo_copia",
@@ -257,6 +280,8 @@ interface ParametrosDaFuncaoViewProps {
   colunas?: ConfigColunasTabela;
   /** Largura dos painéis (redimensionável), salva no usuário. */
   paineis?: ConfigPaineis;
+  /** Opções do dropdown "Valor padrão" de cada parâmetro do tipo "valorPadrao" (pelo id). */
+  opcoesValorPadrao?: Record<string, { value: string; label: string }[]>;
 }
 
 export default function ParametrosDaFuncaoView({
@@ -273,6 +298,7 @@ export default function ParametrosDaFuncaoView({
   resolverNomeAutor = (nome) => nome,
   colunas,
   paineis,
+  opcoesValorPadrao = {},
 }: ParametrosDaFuncaoViewProps) {
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [pesquisa, setPesquisa] = useState("");
@@ -282,6 +308,9 @@ export default function ParametrosDaFuncaoView({
   const [corDraft, setCorDraft] = useState<string | null>(null);
   const [simNao, setSimNao] = useState("");
   const [simNaoDraft, setSimNaoDraft] = useState<string | null>(null);
+  // Tipo "valorPadrao": sequência salva ("" = ---) e edição.
+  const [valorPadrao, setValorPadrao] = useState("");
+  const [valorPadraoDraft, setValorPadraoDraft] = useState<string | null>(null);
   // Tipo "extensoes": valor salvo (null = nunca salvo, usa o padrão) e edição.
   const [extensoesSalvas, setExtensoesSalvas] = useState<string | null>(null);
   const [extensoesDraft, setExtensoesDraft] = useState<string[] | null>(null);
@@ -299,10 +328,17 @@ export default function ParametrosDaFuncaoView({
   const corPadrao = selectedParametro?.corPadrao ?? "#000000";
   const corEmEdicao = corDraft ?? (cor || corPadrao);
   const simNaoEmEdicao = simNaoDraft ?? simNao;
+  const campoValorSelecionado = selectedParametro?.campoValor;
+  const valorPadraoEmEdicao = valorPadraoDraft ?? valorPadrao;
+  /** Nome do campo de valor exibido à direita (rótulo e infobutton). */
+  const rotuloValor = selectedParametro?.tipo === "cor" ? "Cor"
+    : selectedParametro?.tipo === "extensoes" ? "Tipos de arquivo"
+    : selectedParametro?.tipo === "valorPadrao" ? "Valor padrão"
+    : "Regra";
   const extensoesEmEdicao = extensoesDraft ?? extensoesPermitidasCopia(extensoesSalvas);
 
   /** Lê o documento do parâmetro: valor salvo + logs de criação/alteração. */
-  const carregarParametro = useCallback(async (colecao: string) => {
+  const carregarParametro = useCallback(async (colecao: string, campoValor?: CampoParametro) => {
     const doc = await obterParametro(colecao);
     if (doc?.ds_regra) {
       const parsed = parseRegra(doc.ds_regra);
@@ -310,6 +346,7 @@ export default function ParametrosDaFuncaoView({
     }
     setCor(doc?.cd_cor ?? "");
     setSimNao(doc?.ie_regra ?? "");
+    setValorPadrao(campoValor && doc?.[campoValor] != null ? String(doc[campoValor]) : "");
     // Registro sem valor (salvo sem nenhuma marcada) = nenhuma; sem registro = padrão.
     setExtensoesSalvas(doc?.id ? (doc.ds_regra ?? "") : null);
     setAuditInfo(doc?.id ? {
@@ -326,13 +363,13 @@ export default function ParametrosDaFuncaoView({
     let cancelled = false;
     (async () => {
       try {
-        if (!cancelled) await carregarParametro(colecaoSelecionada);
+        if (!cancelled) await carregarParametro(colecaoSelecionada, campoValorSelecionado);
       } catch (e) {
         console.error("Erro ao carregar o parâmetro", e);
       }
     })();
     return () => { cancelled = true; };
-  }, [colecaoSelecionada, carregarParametro]);
+  }, [colecaoSelecionada, campoValorSelecionado, carregarParametro]);
 
   /** Serializa segmentos para string (ex.: "AnoAtual-Hifen-Texto:ESCOLA"). */
   function serializarRegra(segs: Segmento[]): string {
@@ -392,6 +429,7 @@ export default function ParametrosDaFuncaoView({
     setSegmentosDraft(null);
     setCorDraft(null);
     setSimNaoDraft(null);
+    setValorPadraoDraft(null);
     setExtensoesDraft(null);
   }
 
@@ -415,6 +453,10 @@ export default function ParametrosDaFuncaoView({
         setSimNao(simNaoEmEdicao);
         setSimNaoDraft(null);
         await salvarParametro(colecaoSelecionada, "ie_regra", simNaoEmEdicao, auditAutor);
+      } else if (selectedParametro.tipo === "valorPadrao" && selectedParametro.campoValor) {
+        setValorPadrao(valorPadraoEmEdicao);
+        setValorPadraoDraft(null);
+        await salvarParametro(colecaoSelecionada, selectedParametro.campoValor, valorPadraoEmEdicao, auditAutor);
       } else if (selectedParametro.tipo === "extensoes") {
         const valor = serializarExtensoesCopia(extensoesEmEdicao);
         setExtensoesSalvas(valor);
@@ -429,7 +471,7 @@ export default function ParametrosDaFuncaoView({
       }
       onSaveSuccess?.("Parâmetro salvo com sucesso");
       // Atualizar info de auditoria
-      await carregarParametro(colecaoSelecionada);
+      await carregarParametro(colecaoSelecionada, selectedParametro.campoValor);
       onAfterSave?.(colecaoSelecionada);
     } catch (e) {
       console.error("Erro ao salvar o parâmetro", e);
@@ -437,7 +479,7 @@ export default function ParametrosDaFuncaoView({
       setSaving(false);
       onSavingChange?.(false);
     }
-  }, [selectedParametro, colecaoSelecionada, corEmEdicao, simNaoEmEdicao, extensoesEmEdicao, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave, carregarParametro]);
+  }, [selectedParametro, colecaoSelecionada, corEmEdicao, simNaoEmEdicao, valorPadraoEmEdicao, extensoesEmEdicao, segmentosEmEdicao, auditAutor, onSaveSuccess, onSavingChange, onAfterSave, carregarParametro]);
 
   // Manter ref atualizado
   useEffect(() => {
@@ -505,6 +547,8 @@ export default function ParametrosDaFuncaoView({
                   setCorDraft(null);
                   setSimNao("");
                   setSimNaoDraft(null);
+                  setValorPadrao("");
+                  setValorPadraoDraft(null);
                   setExtensoesSalvas(null);
                   setExtensoesDraft(null);
                   setAuditInfo(AUDIT_VAZIO);
@@ -536,7 +580,7 @@ export default function ParametrosDaFuncaoView({
                   {/* Rótulo do campo (com infobutton, como os demais campos do sistema) */}
                   <div className="block text-sm mb-1" style={{ color: "#666" }}>
                     <div className="relative group inline-flex items-center gap-2">
-                      <span>{selectedParametro.tipo === "cor" ? "Cor" : selectedParametro.tipo === "extensoes" ? "Tipos de arquivo" : "Regra"}</span>
+                      <span>{rotuloValor}</span>
                       <button
                         type="button"
                         onClick={(event) => {
@@ -545,7 +589,7 @@ export default function ParametrosDaFuncaoView({
                           setInfoAberto((v) => !v);
                         }}
                         tabIndex={-1}
-                        aria-label={`Informações do campo ${selectedParametro.tipo === "cor" ? "Cor" : selectedParametro.tipo === "extensoes" ? "Tipos de arquivo" : "Regra"}`}
+                        aria-label={`Informações do campo ${rotuloValor}`}
                         className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${infoAberto ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -557,7 +601,9 @@ export default function ParametrosDaFuncaoView({
                       {infoAberto && (
                         <FieldInfoPopup
                           anchor={infoAnchor}
-                          meta={{ type: "string", field: selectedParametro.tipo === "cor" ? "cd_cor" : selectedParametro.tipo === "simNao" ? "ie_regra" : "ds_regra", collection: selectedParametro.colecao }}
+                          meta={selectedParametro.tipo === "valorPadrao" && selectedParametro.campoValor
+                            ? { type: "int64", field: selectedParametro.campoValor, collection: selectedParametro.colecao }
+                            : { type: "string", field: selectedParametro.tipo === "cor" ? "cd_cor" : selectedParametro.tipo === "simNao" ? "ie_regra" : "ds_regra", collection: selectedParametro.colecao }}
                           onClose={() => setInfoAberto(false)}
                         />
                       )}
@@ -565,7 +611,7 @@ export default function ParametrosDaFuncaoView({
                   </div>
                   {selectedParametro.tipo === "extensoes" ? (
                     <div className="grid w-full grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
-                      {EXTENSOES_ARQUIVO_COPIA.map((e) => (
+                      {[...EXTENSOES_ARQUIVO_COPIA].sort((a, b) => a.ext.localeCompare(b.ext, "pt-BR")).map((e) => (
                         <label key={e.ext} className="inline-flex items-center gap-2 text-sm cursor-pointer">
                           <input
                             type="checkbox"
@@ -576,6 +622,15 @@ export default function ParametrosDaFuncaoView({
                           <span>.{e.ext}</span>
                         </label>
                       ))}
+                    </div>
+                  ) : selectedParametro.tipo === "valorPadrao" ? (
+                    <div className="w-full">
+                      <Select
+                        value={valorPadraoEmEdicao}
+                        onChange={(v) => setValorPadraoDraft(v)}
+                        options={opcoesValorPadrao[selectedParametro.id] ?? []}
+                        showPlaceholder
+                      />
                     </div>
                   ) : selectedParametro.tipo === "simNao" ? (
                     <div className="w-full">
@@ -673,7 +728,7 @@ export default function ParametrosDaFuncaoView({
                         type="button"
                         aria-hidden="true"
                         onClick={() => onOpenAudit?.(selectedParametro.colecao)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                        className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10" />
@@ -688,7 +743,7 @@ export default function ParametrosDaFuncaoView({
                         type="button"
                         aria-hidden="true"
                         onClick={() => onOpenAudit?.(selectedParametro.colecao)}
-                        className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                        className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                       >
                         <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
                           <circle cx="12" cy="12" r="10" />

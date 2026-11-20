@@ -28,8 +28,12 @@ export const COLECAO_PARAM_COR_COPIA_CANCELADO = "cc_param_cor_copia_cancelado";
 export const COLECAO_PARAM_COR_COPIA_ENTREGUE = "cc_param_cor_copia_entregue";
 export const COLECAO_PARAM_COR_COPIA_IMPRESSO = "cc_param_cor_copia_impresso";
 
+/** Valor padrão do Formato do papel / Tipo de papel de uma cópia nova (vazio = sem padrão). */
+export const COLECAO_PARAM_FORMATO_PAPEL_PADRAO = "cc_param_formato_papel_padrao";
+export const COLECAO_PARAM_TIPO_PAPEL_PADRAO = "cc_param_tipo_papel_padrao";
+
 /** Campo onde o valor do parâmetro é gravado. */
-export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra";
+export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra" | "nr_seq_formato_papel" | "nr_seq_tipo_papel";
 
 export interface ParametroFuncao {
   id?: string;
@@ -37,6 +41,9 @@ export interface ParametroFuncao {
   cd_cor?: string;
   /** Opção Sim ('S') / Não ('N' ou vazio). */
   ie_regra?: string;
+  /** Valor padrão (parâmetros "Valor padrão"): sequência do cadastro escolhido. */
+  nr_seq_formato_papel?: number;
+  nr_seq_tipo_papel?: number;
   dt_criacao?: string;
   dt_alteracao?: string;
   ds_usuario_criacao?: string;
@@ -79,6 +86,6 @@ export async function salvarParametro(colecao: string, campo: CampoParametro, va
     await criarDado(colecao, { [campo]: valor }, auditoria);
     return;
   }
-  if ((atual[campo] ?? "") === valor) return;
+  if (String(atual[campo] ?? "") === valor) return;
   await atualizarDado(colecao, atual.id, { [campo]: valor }, auditoria);
 }

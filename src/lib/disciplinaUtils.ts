@@ -10,7 +10,6 @@ export interface ColDef {
 export const DISCIPLINA_COLUMNS: ColDef[] = [
   { key: "nr_sequencia", label: "#", dataClass: "text-right" },
   { key: "ds_disciplina", label: "Descrição" },
-  { key: "ds_observacao", label: "Observação" },
   { key: "dt_criacao", label: "Criação" },
   { key: "dt_alteracao", label: "Alteração" },
   { key: "ds_usuario_criacao", label: "Usuário criação" },

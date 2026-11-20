@@ -15,6 +15,7 @@ export const ADMIN_COLUMNS: ColDef[] = [
   { key: 'ds_email', label: 'E-mail' },
   { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', dataClass: '' },
   { key: 'ie_status', label: 'Status' },
+  { key: 'dt_ultimo_login', label: 'Último login' },
   { key: 'dt_criacao', label: 'Criação' },
   { key: 'dt_alteracao', label: 'Alteração' },
   { key: 'ds_usuario_criacao', label: 'Usuário criação' },
@@ -32,6 +33,8 @@ export const ADMIN_FIELD_INFOS = {
   ds_observacao: { type: 'string', field: 'ds_observacao', collection: 'usuario' },
   ie_base_conhecimento: { type: 'string', field: 'ie_base_conhecimento', collection: 'usuario' },
   ie_central_suporte: { type: 'string', field: 'ie_central_suporte', collection: 'usuario' },
+  ie_ver_auditoria: { type: 'string', field: 'ie_ver_auditoria', collection: 'usuario' },
+  dt_ultimo_login: { type: 'timestamp', field: 'dt_ultimo_login', collection: 'usuario' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'usuario' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'usuario' },
 } as const;
@@ -44,6 +47,7 @@ export function formatAdminCellValue(key: keyof Usuario, value: unknown): string
   switch (key) {
     case 'dt_criacao':
     case 'dt_alteracao':
+    case 'dt_ultimo_login':
       return formatDate(stringValue);
     case 'ie_status':
       switch (stringValue) {

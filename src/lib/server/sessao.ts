@@ -47,6 +47,12 @@ async function registrarLogin(usuario: Registro, nrSessao: number): Promise<void
   } catch (e) {
     console.error("[log_acesso] não foi possível registrar o login:", e);
   }
+  // Data e horário do último login (coluna Último login de Administração do Sistema > Usuários).
+  try {
+    await query("update usuario set dt_ultimo_login = now() where nr_sequencia = $1", [Number(usuario.nr_sequencia)]);
+  } catch (e) {
+    console.error("[usuario] não foi possível registrar o último login:", e);
+  }
 }
 
 export async function criarSessao(usuario: Registro): Promise<void> {

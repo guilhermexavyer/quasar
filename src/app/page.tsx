@@ -151,6 +151,8 @@ import {
   COLECAO_PARAM_COR_COPIA_ENTREGUE,
   COLECAO_PARAM_COR_COPIA_IMPRESSO,
   COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
+  COLECAO_PARAM_FORMATO_PAPEL_PADRAO,
+  COLECAO_PARAM_TIPO_PAPEL_PADRAO,
   obterParametro,
 } from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
@@ -345,7 +347,7 @@ import type { Disciplina } from "@/types/disciplina";
 import { TURMA_COLUMNS, TURMA_COLUNAS_REFERENCIA, TURMA_FIELD_INFOS } from "@/lib/turmaUtils";
 import { atualizarTurma, criarTurma, excluirTurma, obterTurmas } from "@/services/turmaService";
 import type { Turma } from "@/types/turma";
-import { TURMA_DISCIPLINA_COLUMNS, TURMA_DISCIPLINA_COLUNAS_REFERENCIA, TURMA_DISCIPLINA_FIELD_INFOS } from "@/lib/turmaDisciplinaUtils";
+import { TURMA_DISCIPLINA_CAMPOS_DA_TURMA, TURMA_DISCIPLINA_COLUMNS, TURMA_DISCIPLINA_COLUNAS_REFERENCIA, TURMA_DISCIPLINA_FIELD_INFOS } from "@/lib/turmaDisciplinaUtils";
 import { atualizarTurmaDisciplina, criarTurmaDisciplina, excluirTurmaDisciplina, obterTurmasDisciplinas } from "@/services/turmaDisciplinaService";
 import type { TurmaDisciplina } from "@/types/turmaDisciplina";
 import { MODALIDADE_ENSINO_COLUMNS, MODALIDADE_ENSINO_FIELD_INFOS } from "@/lib/modalidadeEnsinoUtils";
@@ -481,6 +483,7 @@ const emptyAdminForm: AdminFormData = {
   ie_status: 'A',
   ie_base_conhecimento: 'N',
   ie_central_suporte: 'N',
+  ie_ver_auditoria: 'N',
 };
 
 const emptyCgForm: CadastroGeralFormData = {
@@ -536,6 +539,9 @@ interface TurmaDisciplinaCamposForm {
 }
 
 const TURMA_DISCIPLINA_CAMPOS_VAZIOS: TurmaDisciplinaCamposForm = { nr_seq_turma: '', nr_seq_disciplina: '' };
+
+/** Filtro de Turmas x Disciplinas (Período letivo vem da turma). */
+const TURMA_DISCIPLINA_FILTRO_VAZIO = { nr_seq_turma: '', nr_seq_disciplina: '', nr_seq_periodo_letivo: '' };
 
 const TURMA_CAMPOS_VAZIOS: TurmaCamposForm = {
   nr_seq_curso: '',
@@ -1263,8 +1269,8 @@ export default function Home() {
   const [turmaDisciplinaFilterForm, setTurmaDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedTurmaDisciplinaFilterForm, setAppliedTurmaDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   /** Filtro extra: Turma e Disciplina (rascunho e aplicado). */
-  const [turmaDisciplinaFiltroExtra, setTurmaDisciplinaFiltroExtra] = useState({ nr_seq_turma: '', nr_seq_disciplina: '' });
-  const [turmaDisciplinaFiltroExtraAplicado, setTurmaDisciplinaFiltroExtraAplicado] = useState({ nr_seq_turma: '', nr_seq_disciplina: '' });
+  const [turmaDisciplinaFiltroExtra, setTurmaDisciplinaFiltroExtra] = useState(TURMA_DISCIPLINA_FILTRO_VAZIO);
+  const [turmaDisciplinaFiltroExtraAplicado, setTurmaDisciplinaFiltroExtraAplicado] = useState(TURMA_DISCIPLINA_FILTRO_VAZIO);
   /** Lookup aberto no formulário de Turmas x Disciplinas. */
   const [turmaDisciplinaLookupCampo, setTurmaDisciplinaLookupCampo] = useState<'nr_seq_turma' | 'nr_seq_disciplina' | null>(null);
   /* Controle de Cópias > Cópias (coleção copia). */
@@ -1291,6 +1297,8 @@ export default function Home() {
   const [extensoesCopia, setExtensoesCopia] = useState<string[]>(EXTENSOES_COPIA_PADRAO);
   /** Parâmetro: a Data do recebimento de uma cópia nova já vem com a data atual. */
   const [recebimentoAutomaticoCopia, setRecebimentoAutomaticoCopia] = useState(false);
+  /** Parâmetros: Formato do papel / Tipo de papel já preenchidos numa cópia nova ("" = sem padrão). */
+  const [papelPadraoCopia, setPapelPadraoCopia] = useState({ nr_seq_formato_papel: '', nr_seq_tipo_papel: '' });
   const [categoriaEditingId, setCategoriaEditingId] = useState<string | null>(null);
   const [categoriaSubmitting, setCategoriaSubmitting] = useState(false);
   const [categoriaAuditInfo, setCategoriaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1914,6 +1922,18 @@ export default function Home() {
     () => (currentUser?.ds_usuario ?? '').trim().toLowerCase() === 'administrador',
     [currentUser]
   );
+
+  /*
+   * "Ver auditoria" (Administração do Sistema > Usuários): sem ela, os infobuttons dos logs
+   * de criação/alteração do rodapé (classe botao-auditoria, em todas as telas) somem pelo
+   * CSS (html[data-sem-auditoria]) e o histórico de auditoria não abre. O Administrador sempre vê.
+   */
+  const podeVerAuditoria = isAdministrador || currentUser?.ie_ver_auditoria === 'S';
+  useEffect(() => {
+    const raiz = document.documentElement;
+    if (podeVerAuditoria) raiz.removeAttribute('data-sem-auditoria');
+    else raiz.setAttribute('data-sem-auditoria', '');
+  }, [podeVerAuditoria]);
 
   // Administrador sem perfis configurados: tem acesso total a tudo.
   // Se o admin configurar perfis para si mesmo, esses perfis são respeitados
@@ -2785,6 +2805,27 @@ export default function Home() {
     }
   }, []);
 
+  const loadPapelPadraoCopia = useCallback(async () => {
+    try {
+      const [formato, tipo] = await Promise.all([
+        obterParametro(COLECAO_PARAM_FORMATO_PAPEL_PADRAO),
+        obterParametro(COLECAO_PARAM_TIPO_PAPEL_PADRAO),
+      ]);
+      setPapelPadraoCopia({
+        nr_seq_formato_papel: formato?.nr_seq_formato_papel != null ? String(formato.nr_seq_formato_papel) : '',
+        nr_seq_tipo_papel: tipo?.nr_seq_tipo_papel != null ? String(tipo.nr_seq_tipo_papel) : '',
+      });
+    } catch {
+      // mantém o valor atual em caso de falha
+    }
+  }, []);
+
+  /** Opções do dropdown "Valor padrão" dos parâmetros de Formato do papel e Tipo de papel. */
+  const opcoesValorPadraoCopia = useMemo(() => ({
+    formato_papel_padrao: opcoesDeReferencia(formatosPapel, (f) => f.ds_formato_papel, papelPadraoCopia.nr_seq_formato_papel),
+    tipo_papel_padrao: opcoesDeReferencia(tiposPapel, (t) => t.ds_tipo_papel, papelPadraoCopia.nr_seq_tipo_papel),
+  }), [formatosPapel, tiposPapel, papelPadraoCopia]);
+
   const loadCoresStatusCopia = useCallback(async () => {
     try {
       const [aguardando, cancelado, entregue, impresso] = await Promise.all([
@@ -3269,6 +3310,7 @@ export default function Home() {
     loadExtensoesCopia();
     loadCoresStatusCopia();
     loadRecebimentoAutomaticoCopia();
+    loadPapelPadraoCopia();
     loadAtivos();
     loadManutencoes();
     loadRelatorios();
@@ -3280,7 +3322,7 @@ export default function Home() {
     loadEncerramentoAutomaticoPeriodoLetivo();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel, loadCopias, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel, loadCopias, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadPapelPadraoCopia, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -5569,6 +5611,7 @@ export default function Home() {
       ie_status: usuario.ie_status ?? 'A',
       ie_base_conhecimento: usuario.ie_base_conhecimento ?? 'N',
       ie_central_suporte: usuario.ie_central_suporte ?? 'N',
+      ie_ver_auditoria: usuario.ie_ver_auditoria ?? 'N',
     });
     setAdminEditingId(usuario.id ?? null);
     setAdminAuditInfo({
@@ -7193,7 +7236,19 @@ export default function Home() {
     const seq = Number(valor);
     if (key === 'nr_seq_turma') return turmas.find((t) => t.nr_sequencia === seq)?.ds_turma ?? '';
     if (key === 'nr_seq_disciplina') return disciplinas.find((d) => d.nr_sequencia === seq)?.ds_disciplina ?? '';
+    if (key === 'nr_seq_periodo_letivo' || key === 'nr_seq_curso' || key === 'nr_seq_modalidade_ensino') return descricaoReferenciaTurma(key, seq);
     return String(valor);
+  }
+
+  /** Período letivo, Curso e Modalidade de ensino da turma informada (só exibição; não são de turma_disciplina). */
+  function camposDaTurmaDisciplina(nrSeqTurma: unknown): Pick<TurmaDisciplina, 'nr_seq_periodo_letivo' | 'nr_seq_curso' | 'nr_seq_modalidade_ensino'> {
+    const seq = nrSeqTurma === null || nrSeqTurma === undefined || nrSeqTurma === '' ? NaN : Number(nrSeqTurma);
+    const turma = Number.isNaN(seq) ? undefined : turmas.find((t) => t.nr_sequencia === seq);
+    return {
+      nr_seq_periodo_letivo: turma?.nr_seq_periodo_letivo ?? undefined,
+      nr_seq_curso: turma?.nr_seq_curso ?? undefined,
+      nr_seq_modalidade_ensino: turma?.nr_seq_modalidade_ensino ?? undefined,
+    };
   }
 
   /** Célula da lista: Turma e Disciplina pela descrição; o resto como nos Cadastros Gerais. */
@@ -7205,11 +7260,13 @@ export default function Home() {
   const filteredSortedTurmasDisciplinas = useMemo(() => {
     const filtro = appliedTurmaDisciplinaFilterForm;
     const extra = turmaDisciplinaFiltroExtraAplicado;
-    const lista = turmasDisciplinas.filter((td) => {
+    // Período letivo, Curso e Modalidade de ensino vêm da turma de cada registro.
+    const lista = turmasDisciplinas.map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) })).filter((td) => {
       if (filtro.nr_sequencia && String(td.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
       if (filtro.ie_status && filtro.ie_status !== 'T' && (td.ie_status ?? 'A') !== filtro.ie_status) return false;
       if (extra.nr_seq_turma && String(td.nr_seq_turma ?? '') !== extra.nr_seq_turma) return false;
       if (extra.nr_seq_disciplina && String(td.nr_seq_disciplina ?? '') !== extra.nr_seq_disciplina) return false;
+      if (extra.nr_seq_periodo_letivo && String(td.nr_seq_periodo_letivo ?? '') !== extra.nr_seq_periodo_letivo) return false;
       return true;
     });
     if (turmaDisciplinaSortColumn === null || turmaDisciplinaSortAsc === null) {
@@ -7230,7 +7287,7 @@ export default function Home() {
       return 0;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turmasDisciplinas, appliedTurmaDisciplinaFilterForm, turmaDisciplinaFiltroExtraAplicado, turmaDisciplinaSortColumn, turmaDisciplinaSortAsc, turmas, disciplinas]);
+  }, [turmasDisciplinas, appliedTurmaDisciplinaFilterForm, turmaDisciplinaFiltroExtraAplicado, turmaDisciplinaSortColumn, turmaDisciplinaSortAsc, turmas, disciplinas, cursos, periodosLetivos, modalidadesEnsino]);
 
   const currentTurmaDisciplinaEditIndex = turmaDisciplinaEditingId ? filteredSortedTurmasDisciplinas.findIndex((td) => td.id === turmaDisciplinaEditingId) : -1;
   const hasPrevTurmaDisciplinaRecord = currentTurmaDisciplinaEditIndex > 0;
@@ -7345,8 +7402,8 @@ export default function Home() {
   function clearTurmaDisciplinaFilter() {
     setTurmaDisciplinaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
     setAppliedTurmaDisciplinaFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
-    setTurmaDisciplinaFiltroExtra({ nr_seq_turma: '', nr_seq_disciplina: '' });
-    setTurmaDisciplinaFiltroExtraAplicado({ nr_seq_turma: '', nr_seq_disciplina: '' });
+    setTurmaDisciplinaFiltroExtra(TURMA_DISCIPLINA_FILTRO_VAZIO);
+    setTurmaDisciplinaFiltroExtraAplicado(TURMA_DISCIPLINA_FILTRO_VAZIO);
   }
 
   function handleTurmaDisciplinaFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
@@ -7510,9 +7567,15 @@ export default function Home() {
     // Parâmetro "'Data de recebimento' é automaticamente preenchido com a data atual".
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
-    setCopiaExtra(recebimentoAutomaticoCopia
-      ? { ...COPIA_CAMPOS_VAZIOS, dt_recebimento: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}` }
-      : COPIA_CAMPOS_VAZIOS);
+    // Parâmetros "'Formato do papel' padrão" e "'Tipo de papel' padrão": só se o cadastro ainda existe e está ativo.
+    const ativoNaLista = (lista: { nr_sequencia: number; ie_status?: string }[], valor: string) =>
+      valor !== '' && lista.some((item) => String(item.nr_sequencia) === valor && String(item.ie_status ?? 'A').toUpperCase() !== 'I') ? valor : '';
+    setCopiaExtra({
+      ...COPIA_CAMPOS_VAZIOS,
+      ...(recebimentoAutomaticoCopia ? { dt_recebimento: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}` } : {}),
+      nr_seq_formato_papel: ativoNaLista(formatosPapel, papelPadraoCopia.nr_seq_formato_papel),
+      nr_seq_tipo_papel: ativoNaLista(tiposPapel, papelPadraoCopia.nr_seq_tipo_papel),
+    });
     setCopiaArquivoNovo(null);
     setCopiaEditingId(null);
     setCopiaAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -8272,6 +8335,7 @@ export default function Home() {
         ie_status: adminForm.ie_status,
         ie_base_conhecimento: adminForm.ie_base_conhecimento ?? 'N',
         ie_central_suporte: adminForm.ie_central_suporte ?? 'N',
+        ie_ver_auditoria: adminForm.ie_ver_auditoria ?? 'N',
       };
       if (adminForm.nr_seq_pessoa_fisica !== undefined && adminForm.nr_seq_pessoa_fisica !== null) {
         usuarioPayload.nr_seq_pessoa_fisica = adminForm.nr_seq_pessoa_fisica;
@@ -8289,6 +8353,7 @@ export default function Home() {
               'ie_status',
               'ie_base_conhecimento',
               'ie_central_suporte',
+              'ie_ver_auditoria',
             ].some((field) => String((currentUsuario as any)[field] ?? '') !== String((adminForm as any)[field] ?? ''))
             || Boolean(adminForm.ds_senha)
           : true;
@@ -8320,6 +8385,7 @@ export default function Home() {
             ie_status: adminForm.ie_status,
             ie_base_conhecimento: adminForm.ie_base_conhecimento,
             ie_central_suporte: adminForm.ie_central_suporte,
+            ie_ver_auditoria: adminForm.ie_ver_auditoria,
             nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica,
           } : u);
         }
@@ -10997,6 +11063,12 @@ export default function Home() {
                   <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm" value={descricaoReferenciaTurmaDisciplina(campo, dados[campo])} />
                 </div>
               ))}
+              {TURMA_DISCIPLINA_CAMPOS_DA_TURMA.map(([campo, rotulo], i) => (
+                <div key={campo} className={`sm:col-span-4 ${i === 0 ? 'sm:col-start-1' : ''} group`}>
+                  {renderFieldLabel(campo, rotulo)}
+                  <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm" value={descricaoReferenciaTurmaDisciplina(campo, camposDaTurmaDisciplina(dados.nr_seq_turma)[campo])} />
+                </div>
+              ))}
             </>
           )}
         />;
@@ -11969,6 +12041,7 @@ export default function Home() {
                 ccManageSelection === 'parametrosFuncao' ? (
                   <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_cc')} paineis={paineisPorChave('config_paineis_parametros_funcao_cc')}
                     parametros={PARAMETROS_CONTROLE_COPIAS}
+                    opcoesValorPadrao={opcoesValorPadraoCopia}
                     manageSelection={ccManageSelection}
                     onManageSelectionChange={handleCcManageSelectionChange}
                     selectOptions={CC_SELECT_OPTIONS}
@@ -11984,6 +12057,7 @@ export default function Home() {
                         loadCoresStatusCopia();
                       }
                       if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
+                      if (colecao === COLECAO_PARAM_FORMATO_PAPEL_PADRAO || colecao === COLECAO_PARAM_TIPO_PAPEL_PADRAO) loadPapelPadraoCopia();
                     }}
                   />
                 ) : ccManageSelection === 'copias' ? (
@@ -12555,10 +12629,24 @@ export default function Home() {
                           onLocalizar={() => setTurmaDisciplinaLookupCampo(campo)}
                         />
                       );
+                      // Período letivo, Curso e Modalidade de ensino: da turma informada, só para exibição.
+                      const daTurma = camposDaTurmaDisciplina(turmaDisciplinaExtra.nr_seq_turma);
                       return (
                         <>
                           {lookup('nr_seq_turma', 'Turma', 'sm:col-span-6')}
                           {lookup('nr_seq_disciplina', 'Disciplina', 'sm:col-span-5')}
+                          {TURMA_DISCIPLINA_CAMPOS_DA_TURMA.map(([campo, rotulo], i) => (
+                            <div key={campo} className={`sm:col-span-4 ${i === 0 ? 'sm:col-start-1' : ''}`}>
+                              {renderFieldLabel(campo, rotulo)}
+                              <input
+                                disabled
+                                readOnly
+                                tabIndex={-1}
+                                className={`${inputClass(campo)} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                                value={descricaoReferenciaTurmaDisciplina(campo, daTurma[campo])}
+                              />
+                            </div>
+                          ))}
                         </>
                       );
                     }}
@@ -12659,6 +12747,7 @@ export default function Home() {
                 ccManageSelection === 'parametrosFuncao' ? (
                   <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_cc')} paineis={paineisPorChave('config_paineis_parametros_funcao_cc')}
                     parametros={PARAMETROS_CONTROLE_COPIAS}
+                    opcoesValorPadrao={opcoesValorPadraoCopia}
                     manageSelection={ccManageSelection}
                     onManageSelectionChange={handleCcManageSelectionChange}
                     selectOptions={CC_SELECT_OPTIONS}
@@ -12674,6 +12763,7 @@ export default function Home() {
                         loadCoresStatusCopia();
                       }
                       if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
+                      if (colecao === COLECAO_PARAM_FORMATO_PAPEL_PADRAO || colecao === COLECAO_PARAM_TIPO_PAPEL_PADRAO) loadPapelPadraoCopia();
                     }}
                   />
                 ) : ccManageSelection === 'copias' ? (
@@ -15087,6 +15177,14 @@ export default function Home() {
                   options={opcoesDeReferencia(disciplinas, (d) => d.ds_disciplina, turmaDisciplinaFiltroExtra.nr_seq_disciplina)}
                 />
               </div>
+              <div className="sm:col-span-12">
+                <RotuloCampo texto="Período letivo" colecao="turma" campo="nr_seq_periodo_letivo" />
+                <Select
+                  value={turmaDisciplinaFiltroExtra.nr_seq_periodo_letivo}
+                  onChange={(v) => setTurmaDisciplinaFiltroExtra((f) => ({ ...f, nr_seq_periodo_letivo: v }))}
+                  options={opcoesDeReferencia(periodosLetivos, (p) => p.ds_periodo_letivo, turmaDisciplinaFiltroExtra.nr_seq_periodo_letivo)}
+                />
+              </div>
             </>
           )}
         />
@@ -15526,7 +15624,7 @@ export default function Home() {
         </div>
       )}
 
-      {auditModalOpen && (
+      {auditModalOpen && podeVerAuditoria && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAuditModal} />
           <div className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">

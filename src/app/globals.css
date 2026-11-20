@@ -619,3 +619,8 @@ button[aria-label^="Informações do campo"]:focus-visible {
   background-color: #ef4444;
   color: #ffffff;
 }
+
+/* Sem "Ver auditoria" (Usuários): esconde os infobuttons dos logs do rodapé (histórico de auditoria). */
+html[data-sem-auditoria] .botao-auditoria {
+  display: none !important;
+}

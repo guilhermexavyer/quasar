@@ -8,6 +8,8 @@ export interface Usuario {
   ds_email?: string;
   ds_senha: string;
   ds_observacao: string;
+  /** Data e horário do último login (gravada só pelo servidor, no login). */
+  dt_ultimo_login?: string;
   /*
    * Preferências personalizadas do usuário (nomes padronizados).
    * config_colunas_* (largura e ordem das colunas de cada lista) ficam na tabela
@@ -103,6 +105,8 @@ export interface Usuario {
   config_ordem_menu_lateral?: string;
   ie_base_conhecimento?: string;
   ie_central_suporte?: string;
+  /** Ver auditoria: S mostra os infobuttons dos logs do rodapé (histórico de auditoria). */
+  ie_ver_auditoria?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;
   dt_criacao: string;

@@ -175,7 +175,10 @@ export async function criar(tabela: string, dados: Registro, sessao: Sessao, opc
   // antes da migração): a senha é definida depois em "Alterar senha". Senha vazia
   // nunca confere no login (senhaConfere), então ninguém entra até ela ser definida.
   if (tabela === "usuario" && !valores.get("ds_senha")) valores.set("ds_senha", "");
-  if (tabela === "usuario") valores.delete("ie_alterar_senha"); // gravada só pelo servidor
+  if (tabela === "usuario") {
+    valores.delete("ie_alterar_senha"); // gravada só pelo servidor
+    valores.delete("dt_ultimo_login"); // gravada só no login
+  }
 
   const agora = new Date().toISOString();
   const autor = opcoes?.sistema ? "Sistema" : sessao.nomeUsuario;
@@ -220,6 +223,7 @@ export async function atualizar(
   avisarDesconhecidas(tabela, desconhecidas);
   tratarSenha(tabela, valores);
   await completarImagem(tabela, valores);
+  if (tabela === "usuario") valores.delete("dt_ultimo_login"); // gravada só no login
 
   return transacao(async (db) => {
     const { rows } = await db.query<Registro>(`select * from ${ident(tabela)} where nr_sequencia = $1 for update`, [nr]);

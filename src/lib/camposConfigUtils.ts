@@ -212,6 +212,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "usuario.ie_status", label: "Status", tipo: "Usuários", colecao: "usuario" },
     { key: "usuario.ie_base_conhecimento", label: "Base de Conhecimento", tipo: "Usuários", colecao: "usuario" },
     { key: "usuario.ie_central_suporte", label: "Central de Suporte", tipo: "Usuários", colecao: "usuario" },
+    { key: "usuario.ie_ver_auditoria", label: "Ver auditoria", tipo: "Usuários", colecao: "usuario" },
 
     { key: "perfil.ds_perfil", label: "Perfil", tipo: "Perfis", colecao: "perfil" },
     { key: "perfil.ds_observacao", label: "Observação", tipo: "Perfis", colecao: "perfil" },

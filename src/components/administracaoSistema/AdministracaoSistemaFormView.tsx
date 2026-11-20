@@ -367,6 +367,19 @@ export default function AdministracaoSistemaFormView({
                   <span>Sim</span>
                 </label>
               </div>
+              <div className="group flex flex-col">
+                {renderFieldLabel('ie_ver_auditoria', 'Ver auditoria')}
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="cg-checkbox"
+                    disabled={readOnly || statusDe('ie_ver_auditoria') === 'D'}
+                    checked={form.ie_ver_auditoria === 'S'}
+                    onChange={() => setForm({ ...form, ie_ver_auditoria: form.ie_ver_auditoria === 'S' ? 'N' : 'S' })}
+                  />
+                  <span>Sim</span>
+                </label>
+              </div>
             </div>
           </div>
 
@@ -391,7 +404,7 @@ export default function AdministracaoSistemaFormView({
                 <button
                   type="button"
                   onClick={() => onOpenAudit?.(editingId)}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                  className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                   aria-label="Abrir histórico de auditoria"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -406,7 +419,7 @@ export default function AdministracaoSistemaFormView({
                 <button
                   type="button"
                   onClick={() => onOpenAudit?.(editingId)}
-                  className="inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
+                  className="botao-auditoria inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer opacity-0 group-hover:opacity-100 transition-none"
                   aria-label="Abrir histórico de auditoria"
                 >
                   <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

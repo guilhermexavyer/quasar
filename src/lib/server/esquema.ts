@@ -25,6 +25,7 @@ export const TABELAS_REGISTRO_UNICO = new Set([
   "ea_param_encerramento_automatico_periodo_letivo", "as_param_alterar_senha_proximo_login",
   "cc_param_tipos_arquivo_copia", "cc_param_cor_copia_aguardando", "cc_param_cor_copia_cancelado",
   "cc_param_cor_copia_entregue", "cc_param_cor_copia_impresso", "cc_param_data_recebimento_automatica",
+  "cc_param_formato_papel_padrao", "cc_param_tipo_papel_padrao",
 ]);
 
 /** Tabelas acessíveis pelas rotas genéricas /api/dados/<colecao>. */
@@ -247,6 +248,7 @@ export function paraHistorico(tabela: string, colunas: Colunas, linha: Registro)
   const { id: _id, ...resto } = paraTela(tabela, colunas, linha);
   void _id;
   if (tabela === "relatorio") delete resto.bandas; // bandas têm auditoria própria
+  if (tabela === "usuario") delete resto.dt_ultimo_login; // muda a cada login, não é alteração do cadastro
   return resto;
 }
 
