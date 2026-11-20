@@ -282,7 +282,7 @@ export default function AcessosView({
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Mesma altura do header das listagens (dropdown PAI na mesma posição das demais funções). */}
       <div className="relative flex min-h-[42px] items-center gap-2">
-        <FiltrosAplicados filtros={filtrosAplicados} />
+        {manageSelection && <FiltrosAplicados filtros={filtrosAplicados} />}
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}

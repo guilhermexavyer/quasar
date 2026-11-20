@@ -465,7 +465,7 @@ export default function PessoaJuridicaListView({
       `}</style>
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
         <div className="relative flex min-h-[42px] items-center justify-between gap-3">
-          <FiltrosAplicados filtros={filtrosAplicados} />
+          {manageSelection && <FiltrosAplicados filtros={filtrosAplicados} />}
           <div className="flex items-center gap-2">
             <Select
               value={manageSelection}
