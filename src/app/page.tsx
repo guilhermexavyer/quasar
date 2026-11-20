@@ -204,7 +204,8 @@ import PeriodoLetivoListView from "@/components/estruturaAcademica/PeriodoLetivo
 import PeriodoLetivoFormView, { type PeriodoLetivoFormData } from "@/components/estruturaAcademica/PeriodoLetivoFormView";
 import PeriodoLetivoFeriadosView from "@/components/estruturaAcademica/PeriodoLetivoFeriadosView";
 import ExclusoesView, { type NavegacaoExclusoes } from "@/components/administracaoSistema/ExclusoesView";
-import AcessosView, { FILTRO_ACESSOS_VAZIO, LogsSemSelecaoView, type FiltroAcessos } from "@/components/logs/AcessosView";
+import AcessosView, { FILTRO_ACESSOS_VAZIO, LogsSemSelecaoView, normalizarFiltroAcessos, type FiltroAcessos } from "@/components/logs/AcessosView";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 import ExclusaoFormularioView from "@/components/administracaoSistema/ExclusaoFormularioView";
 import FormularioExcluidoGenerico, { FORMULARIOS_GENERICOS } from "@/components/administracaoSistema/FormularioExcluidoGenerico";
 import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
@@ -596,6 +597,9 @@ const CC_SELECT_OPTIONS = [
 
 /** Filtro extra de Cópias (rascunho e aplicado). */
 const COPIA_FILTRO_VAZIO = { ie_status: '', nr_seq_solicitante: '', nr_seq_turma_disciplina: '', nr_seq_formato_papel: '', nr_seq_tipo_papel: '' };
+
+/** Evento usado pelo "Salvar filtro" para reaproveitar o handler do "Filtrar" (submit do modal). */
+const EVENTO_FILTRO = { preventDefault() {} } as React.FormEvent<HTMLFormElement>;
 
 /** Datas digitadas (DD/MM/AAAA) que não formam uma data válida. */
 function datasInvalidas<T extends Record<string, unknown>>(dados: T, campos: (keyof T)[]): (keyof T)[] {
@@ -1685,6 +1689,8 @@ export default function Home() {
   // ── Controle de Cópias (Cópias e Parâmetros) ──
   const [ccManageSelection, setCcManageSelection] = useState('');
   const [acessosFiltro, setAcessosFiltro] = useState<FiltroAcessos>(FILTRO_ACESSOS_VAZIO);
+  /** "Salvar filtro": gravando o filtro do usuário (modal "Carregando..."). */
+  const [salvandoFiltro, setSalvandoFiltro] = useState(false);
   const [relatorioAuditInfo, setRelatorioAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const [bandaAuditInfo, setBandaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const relatorioAuditIdRef = useRef<string | null>(null);
@@ -3574,6 +3580,7 @@ export default function Home() {
         }
 
         setCurrentUser(usuarioSalvo);
+        restaurarFiltrosSalvos(usuarioSalvo);
         // Funções abertas sobrevivem à recarga: só fecham pelo X ou no Sair.
         if (Array.isArray(session.secoesAbertas)) {
           setSecoesAbertas(session.secoesAbertas.filter(ehSecao).filter((s, i, lista) => lista.indexOf(s) === i));
@@ -5078,6 +5085,84 @@ export default function Home() {
   function handleAdminFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
     applyAdminFilter();
+  }
+
+  /* ── "Salvar filtro" (rodapé dos modais de filtro) ── */
+  /**
+   * Grava, para o usuário logado, os campos do filtro da tela (tabela usuario_filtro, via
+   * preferências: config_filtro_<tela>) e aplica o filtro como o botão "Filtrar".
+   * Enquanto grava, mostra o modal "Carregando...". Devolve true se gravou.
+   */
+  async function salvarFiltroDaTela(tela: string, dados: Record<string, unknown>, aplicar: () => void): Promise<boolean> {
+    if (!currentUser?.id) return false;
+    const chave = `config_filtro_${tela}` as const;
+    const json = JSON.stringify(dados);
+    setSalvandoFiltro(true);
+    try {
+      await atualizarPreferenciasUsuario(currentUser.id, { [chave]: json });
+      setCurrentUser((u) => (u ? { ...u, [chave]: json } : u));
+      aplicar();
+      setMessage("Filtro salvo com sucesso!");
+      return true;
+    } catch {
+      setMessage("Erro ao salvar o filtro.");
+      return false;
+    } finally {
+      setSalvandoFiltro(false);
+    }
+  }
+
+  /**
+   * Ao entrar (login ou sessão restaurada), aplica os filtros salvos de cada tela. Só os
+   * campos que o filtro da tela conhece entram (filtros salvos antes de uma mudança na
+   * tela não quebram nada); o restante fica como está.
+   */
+  function restaurarFiltrosSalvos(usuario: Usuario) {
+    const salvo = (tela: string): { form?: Record<string, unknown>; extra?: Record<string, unknown> } | null => {
+      const texto = usuario[`config_filtro_${tela}`];
+      if (!texto) return null;
+      try {
+        const obj = JSON.parse(texto);
+        return obj && typeof obj === 'object' ? obj : null;
+      } catch {
+        return null;
+      }
+    };
+    /** Aplica os campos salvos (texto) que existem no filtro, no aplicado e no formulário do filtro. */
+    function restaurar<T extends object>(
+      campos: Record<string, unknown> | undefined,
+      setAplicado: React.Dispatch<React.SetStateAction<T>>,
+      setRascunho: React.Dispatch<React.SetStateAction<T>>,
+    ) {
+      if (!campos) return;
+      const mesclar = (f: T): T => ({
+        ...f,
+        ...Object.fromEntries(Object.entries(campos).filter(([k, v]) => k in f && typeof v === 'string')),
+      });
+      setAplicado(mesclar);
+      setRascunho(mesclar);
+    }
+    restaurar(salvo('pessoa_fisica')?.form, setAppliedFilterForm, setFilterForm);
+    restaurar(salvo('pessoa_juridica')?.form, setAppliedPjFilterForm, setPjFilterForm);
+    restaurar(salvo('as_usuario')?.form, setAppliedAdminFilterForm, setAdminFilterForm);
+    restaurar(salvo('as_perfil')?.form, setAppliedPerfilFilterForm, setPerfilFilterForm);
+    restaurar(salvo('cadastros_gerais')?.form, setAppliedCgFilterForm, setCgFilterForm);
+    restaurar(salvo('pat_categoria')?.form, setAppliedCategoriaFilterForm, setCategoriaFilterForm);
+    restaurar(salvo('pat_ativo')?.form, setAppliedAtivoFilterForm, setAtivoFilterForm);
+    restaurar(salvo('pat_manutencao')?.form, setAppliedManutencaoFilterForm, setManutencaoFilterForm);
+    restaurar(salvo('curso')?.form, setAppliedCursoFilterForm, setCursoFilterForm);
+    restaurar(salvo('disciplina')?.form, setAppliedDisciplinaFilterForm, setDisciplinaFilterForm);
+    restaurar(salvo('turma')?.form, setAppliedTurmaFilterForm, setTurmaFilterForm);
+    restaurar(salvo('turma')?.extra, setTurmaFiltroExtraAplicado, setTurmaFiltroExtra);
+    restaurar(salvo('turma_disciplina')?.form, setAppliedTurmaDisciplinaFilterForm, setTurmaDisciplinaFilterForm);
+    restaurar(salvo('turma_disciplina')?.extra, setTurmaDisciplinaFiltroExtraAplicado, setTurmaDisciplinaFiltroExtra);
+    restaurar(salvo('periodo_letivo')?.form, setAppliedPeriodoLetivoFilterForm, setPeriodoLetivoFilterForm);
+    restaurar(salvo('aluno')?.form, setAppliedAlunoFilterForm, setAlunoFilterForm);
+    restaurar(salvo('colaborador')?.form, setAppliedColaboradorFilterForm, setColaboradorFilterForm);
+    restaurar(salvo('copia')?.form, setAppliedCopiaFilterForm, setCopiaFilterForm);
+    restaurar(salvo('copia')?.extra, setCopiaFiltroExtraAplicado, setCopiaFiltroExtra);
+    const acessos = salvo('logs_acessos')?.form;
+    if (acessos) setAcessosFiltro(normalizarFiltroAcessos(acessos as Partial<FiltroAcessos>));
   }
 
   function applyFilter() {
@@ -10759,6 +10844,7 @@ export default function Home() {
           setSectionViews({});
           setView('list');
           setCurrentUser(usuarioValido);
+          restaurarFiltrosSalvos(usuarioValido);
           setSessaoInicio(Date.now());
           setIsAuthenticated(true);
           setIsLoginLoading(false);
@@ -12296,6 +12382,7 @@ export default function Home() {
                     allowedSubmodulos={allowedLogsSubmodulos}
                     filtro={acessosFiltro}
                     onFiltroChange={setAcessosFiltro}
+                    onSalvarFiltro={(filtro) => salvarFiltroDaTela('logs_acessos', { form: filtro }, () => setAcessosFiltro(filtro))}
                     onMessage={setMessage}
                     colunas={colunasPorChave('config_colunas_logs_acessos')}
                     nomePessoaFisica={(nr) => pessoasFisicas.find((p) => p.nr_sequencia === nr)?.ds_nome ?? ''}
@@ -13029,6 +13116,7 @@ export default function Home() {
                     allowedSubmodulos={allowedLogsSubmodulos}
                     filtro={acessosFiltro}
                     onFiltroChange={setAcessosFiltro}
+                    onSalvarFiltro={(filtro) => salvarFiltroDaTela('logs_acessos', { form: filtro }, () => setAcessosFiltro(filtro))}
                     onMessage={setMessage}
                     colunas={colunasPorChave('config_colunas_logs_acessos')}
                     nomePessoaFisica={(nr) => pessoasFisicas.find((p) => p.nr_sequencia === nr)?.ds_nome ?? ''}
@@ -14154,6 +14242,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pessoa_fisica', { form: filterForm }, () => handleFilterSubmit(EVENTO_FILTRO)); }} />
               <button
                 type="button"
                 onClick={clearFilter}
@@ -14285,6 +14374,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('aluno', { form: alunoFilterForm }, () => handleAlunoFilterSubmit(EVENTO_FILTRO)); }} />
               <button
                 type="button"
                 onClick={clearAlunoFilter}
@@ -14460,6 +14550,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('colaborador', { form: colaboradorFilterForm }, () => handleColaboradorFilterSubmit(EVENTO_FILTRO)); }} />
               <button
                 type="button"
                 onClick={clearColaboradorFilter}
@@ -14540,6 +14631,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('periodo_letivo', { form: periodoLetivoFilterForm }, () => handlePeriodoLetivoFilterSubmit(EVENTO_FILTRO)); }} />
               <button
                 type="button"
                 onClick={clearPeriodoLetivoFilter}
@@ -14567,6 +14659,7 @@ export default function Home() {
           filterForm={pjFilterForm}
           setFilterForm={setPjFilterForm}
           onSubmit={handlePjFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('pessoa_juridica', { form: pjFilterForm }, () => handlePjFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearPjFilter}
           onOpenCidadeLookup={openPjFilterCidadeLookup}
           estados={estados}
@@ -14707,6 +14800,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('as_usuario', { form: adminFilterForm }, () => handleAdminFilterSubmit(EVENTO_FILTRO)); }} />
               <button
                 type="button"
                 onClick={clearAdminFilter}
@@ -14804,6 +14898,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('as_perfil', { form: perfilFilterForm }, () => handlePerfilFilterSubmit(EVENTO_FILTRO)); }} />
               <button
                 type="button"
                 onClick={clearPerfilFilter}
@@ -14953,6 +15048,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pat_ativo', { form: ativoFilterForm }, applyAtivoFilter); }} />
               <button type="button" onClick={clearAtivoFilter} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Limpar</button>
               <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
@@ -15047,6 +15143,7 @@ export default function Home() {
               </div>
             </div>
             <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pat_manutencao', { form: manutencaoFilterForm }, applyManutencaoFilter); }} />
               <button type="button" onClick={clearManutencaoFilter} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Limpar</button>
               <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
@@ -15270,6 +15367,7 @@ export default function Home() {
           filterForm={cgFilterForm}
           setFilterForm={setCgFilterForm}
           onSubmit={handleCgFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('cadastros_gerais', { form: cgFilterForm }, () => handleCgFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearCgFilter}
           colecao={cgCollection}
           campoDescricao={cgDescKey}
@@ -15283,6 +15381,7 @@ export default function Home() {
           filterForm={cursoFilterForm}
           setFilterForm={setCursoFilterForm}
           onSubmit={handleCursoFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('curso', { form: cursoFilterForm }, () => handleCursoFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearCursoFilter}
           colecao="curso"
           campoDescricao="ds_curso"
@@ -15296,6 +15395,7 @@ export default function Home() {
           filterForm={disciplinaFilterForm}
           setFilterForm={setDisciplinaFilterForm}
           onSubmit={handleDisciplinaFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('disciplina', { form: disciplinaFilterForm }, () => handleDisciplinaFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearDisciplinaFilter}
           colecao="disciplina"
           campoDescricao="ds_disciplina"
@@ -15310,6 +15410,7 @@ export default function Home() {
           filterForm={turmaFilterForm}
           setFilterForm={setTurmaFilterForm}
           onSubmit={handleTurmaFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('turma', { form: turmaFilterForm, extra: turmaFiltroExtra }, () => handleTurmaFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearTurmaFilter}
           colecao="turma"
           campoDescricao="ds_turma"
@@ -15344,6 +15445,7 @@ export default function Home() {
           filterForm={turmaDisciplinaFilterForm}
           setFilterForm={setTurmaDisciplinaFilterForm}
           onSubmit={handleTurmaDisciplinaFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('turma_disciplina', { form: turmaDisciplinaFilterForm, extra: turmaDisciplinaFiltroExtra }, () => handleTurmaDisciplinaFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearTurmaDisciplinaFilter}
           colecao="turma_disciplina"
           campoDescricao="nr_seq_turma"
@@ -15386,6 +15488,7 @@ export default function Home() {
           filterForm={copiaFilterForm}
           setFilterForm={setCopiaFilterForm}
           onSubmit={handleCopiaFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('copia', { form: copiaFilterForm, extra: copiaFiltroExtra }, () => handleCopiaFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearCopiaFilter}
           colecao="copia"
           campoDescricao="nr_seq_solicitante"
@@ -15461,6 +15564,7 @@ export default function Home() {
           filterForm={categoriaFilterForm}
           setFilterForm={setCategoriaFilterForm}
           onSubmit={handleCategoriaFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('pat_categoria', { form: categoriaFilterForm }, () => handleCategoriaFilterSubmit(EVENTO_FILTRO)); }}
           onClear={clearCategoriaFilter}
           colecao="pat_categoria"
           campoDescricao="ds_categoria"
@@ -18797,7 +18901,7 @@ export default function Home() {
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
         ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || pfDetalheSaving || ativoTransferirSaving || assumirAtivosSaving ||
-        delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving
+        delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving || salvandoFiltro
       ) && <LoadingModal open message="Carregando..." />}
 
       <AvisoModal campo={avisoModalCampo} onClose={() => setAvisoModalCampo(null)} />

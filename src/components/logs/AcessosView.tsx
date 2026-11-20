@@ -11,6 +11,7 @@ import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import { applyDateMask, formatDate } from "@/lib/pessoaFisicaUtils";
 import { obterAcessos, rotuloTipoLogout, type LogAcesso } from "@/services/logAcessoService";
 import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 
 /**
  * Filtro de Logs > Acessos. Pessoa física pela sequência (lookup); datas em
@@ -143,6 +144,8 @@ interface AcessosViewProps {
   nomePessoaFisica: (nr: number) => string;
   /** Abre o lookup "Localizar pessoa física"; devolve a sequência escolhida. */
   onOpenPessoaFisicaLookup: (aoSelecionar: (nrSequencia: number) => void) => void;
+  /** "Salvar filtro": grava o filtro para o usuário e o aplica; true se gravou. */
+  onSalvarFiltro?: (filtro: FiltroAcessos) => Promise<boolean>;
 }
 
 /**
@@ -159,6 +162,7 @@ export default function AcessosView({
   colunas,
   nomePessoaFisica,
   onOpenPessoaFisicaLookup,
+  onSalvarFiltro,
 }: AcessosViewProps) {
   const [acessos, setAcessos] = useState<LogAcesso[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -218,6 +222,15 @@ export default function AcessosView({
     onFiltroChange(rascunho);
     paginacao.setCurrentPage(1);
     setFiltroAberto(false);
+  }
+
+  async function salvarFiltro() {
+    if (!onSalvarFiltro) return;
+    // Grava e aplica (a página atualiza o filtro); fecha só se gravou.
+    if (await onSalvarFiltro(normalizarFiltroAcessos(rascunho))) {
+      paginacao.setCurrentPage(1);
+      setFiltroAberto(false);
+    }
   }
 
   function limparFiltro() {
@@ -416,6 +429,7 @@ export default function AcessosView({
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              {onSalvarFiltro && <BotaoSalvarFiltro onClick={salvarFiltro} />}
               <button
                 type="button"
                 onClick={limparFiltro}

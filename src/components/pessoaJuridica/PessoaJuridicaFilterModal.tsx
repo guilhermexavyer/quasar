@@ -8,6 +8,7 @@ import { applyDateMask, applyPhoneMask } from "@/lib/pessoaFisicaUtils";
 import { cidadePorCodigo } from "@/services/cidadeService";
 import Select from "@/components/ui/Select";
 import SearchIcon from "@/components/ui/SearchIcon";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 
 export interface PessoaJuridicaFilterForm {
   nr_sequencia: string;
@@ -31,6 +32,8 @@ interface FilterModalProps {
   setFilterForm: Dispatch<SetStateAction<PessoaJuridicaFilterForm>>;
   onSubmit: (event: React.FormEvent<HTMLFormElement>) => void;
   onClear: () => void;
+  /** "Salvar filtro": grava os campos do filtro para o usuário (já aplicado ao abrir a tela) e aplica. */
+  onSalvarFiltro?: () => void;
   onOpenCidadeLookup: () => void;
   estados?: { value: string; label: string }[];
 }
@@ -42,6 +45,7 @@ export default function PessoaJuridicaFilterModal({
   setFilterForm,
   onSubmit,
   onClear,
+  onSalvarFiltro,
   onOpenCidadeLookup,
   estados = [],
 }: FilterModalProps) {
@@ -234,6 +238,7 @@ export default function PessoaJuridicaFilterModal({
         </div>
 
         <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+          {onSalvarFiltro && <BotaoSalvarFiltro onClick={onSalvarFiltro} />}
           <button
             type="button"
             onClick={onClear}

@@ -5,20 +5,22 @@ import { ErroValidacao } from "@/lib/server/esquema";
 /**
  * Layout das telas, por usuário, em tabelas próprias:
  *   - config_colunas_<lista> (ordem e largura das colunas) → usuario_coluna (ie_tabela, config_colunas);
- *   - config_paineis_<tela>  (largura dos painéis lado a lado) → usuario_painel (ie_tela, config_paineis).
+ *   - config_paineis_<tela>  (largura dos painéis lado a lado) → usuario_painel (ie_tela, config_paineis);
+ *   - config_filtro_<tela>   (filtro salvo da tela de registros) → usuario_filtro (ie_tela, config_filtro).
  * Para a tela, cada item continua sendo o campo config_colunas_* / config_paineis_*
  * do usuário (texto JSON), como quando ficava na tabela usuario.
  */
 interface TipoLayout {
   prefixo: string;
-  tabela: "usuario_coluna" | "usuario_painel";
+  tabela: "usuario_coluna" | "usuario_painel" | "usuario_filtro";
   chave: "ie_tabela" | "ie_tela";
-  valor: "config_colunas" | "config_paineis";
+  valor: "config_colunas" | "config_paineis" | "config_filtro";
 }
 
 const TIPOS: TipoLayout[] = [
   { prefixo: "config_colunas_", tabela: "usuario_coluna", chave: "ie_tabela", valor: "config_colunas" },
   { prefixo: "config_paineis_", tabela: "usuario_painel", chave: "ie_tela", valor: "config_paineis" },
+  { prefixo: "config_filtro_", tabela: "usuario_filtro", chave: "ie_tela", valor: "config_filtro" },
 ];
 const SUFIXO = /^[a-z0-9_]+$/;
 

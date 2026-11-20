@@ -103,6 +103,8 @@ export interface Usuario {
   config_colunas_relatorio_filtros?: string;
   config_colunas_relatorio_ordenacao?: string;
   config_ordem_menu_lateral?: string;
+  /** Filtro salvo de cada tela de registros ("Salvar filtro"), em JSON: tabela usuario_filtro. */
+  [filtroSalvo: `config_filtro_${string}`]: string | undefined;
   ie_base_conhecimento?: string;
   ie_central_suporte?: string;
   /** Ver auditoria: S mostra os infobuttons dos logs do rodapé (histórico de auditoria). */

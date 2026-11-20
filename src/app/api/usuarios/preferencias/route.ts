@@ -9,6 +9,7 @@ import { atualizar } from "@/lib/server/repositorio";
  * não gera auditoria nem muda dt_alteracao do usuário.
  *   - config_colunas_* (largura e ordem das colunas) → tabela usuario_coluna;
  *   - config_paineis_* (largura dos painéis lado a lado) → tabela usuario_painel;
+ *   - config_filtro_* (filtro salvo de cada tela de registros) → tabela usuario_filtro;
  *   - demais config_* (tema, ordem do menu, perfil ativo) → tabela usuario.
  */
 export async function PATCH(request: NextRequest) {

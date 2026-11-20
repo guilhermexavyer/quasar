@@ -2,6 +2,7 @@
 
 import type { Dispatch, SetStateAction } from "react";
 import RotuloCampo from "@/components/ui/RotuloCampo";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 
 export interface CadastroGeralFilterForm {
   nr_sequencia: string;
@@ -25,6 +26,8 @@ interface FilterModalProps {
   hideDescricao?: boolean;
   /** Campos extras do filtro, depois da descrição (ex.: Curso e Período letivo em Turmas). */
   extraFields?: React.ReactNode;
+  /** "Salvar filtro": grava os campos do filtro para o usuário (já aplicado ao abrir a tela) e aplica. */
+  onSalvarFiltro?: () => void;
 }
 
 export default function CadastroGeralFilterModal({
@@ -39,6 +42,7 @@ export default function CadastroGeralFilterModal({
   hideStatus = false,
   hideDescricao = false,
   extraFields,
+  onSalvarFiltro,
 }: FilterModalProps) {
   if (!open) return null;
 
@@ -123,6 +127,7 @@ export default function CadastroGeralFilterModal({
         </div>
 
         <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+          {onSalvarFiltro && <BotaoSalvarFiltro onClick={onSalvarFiltro} />}
           <button
             type="button"
             onClick={onClear}
