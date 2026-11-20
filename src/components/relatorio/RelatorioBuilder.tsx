@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import LoadingModal from "@/components/ui/LoadingModal";
 import RotuloCampo from "@/components/ui/RotuloCampo";
@@ -9,7 +9,7 @@ import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } f
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import { elementoVisivel } from "@/lib/visibilidade";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
-import { nomeDoParametro, parametrosDoSql } from "@/lib/relatorioSql";
+import { nomeDoParametro } from "@/lib/relatorioSql";
 import { TAMANHOS_PAGINA } from "@/lib/relatorioUtils";
 import {
   excluirBandaSql,
@@ -201,9 +201,9 @@ export default function RelatorioBuilder({
   const comErro = (lista: string[], campo: string) => (lista.includes(campo) ? `${INPUT} !border-red-500` : INPUT);
 
   /* ── Salvar ── */
+  // Obrigatoriedade só pelas regras de Campos x Formulários (nenhum campo é obrigatório por padrão).
   function salvarRelatorio() {
     const faltantes = ["ds_relatorio", "ds_nome_arquivo"].filter((c) => statusDe(campoRegras, c) === "O" && !(c === "ds_relatorio" ? dsRelatorio : nomeArquivo).trim());
-    if (!dsRelatorio.trim() && !faltantes.includes("ds_relatorio")) faltantes.push("ds_relatorio");
     if (faltantes.length > 0) {
       setErrosDetalhe(faltantes);
       onToast?.("Preencha os campos obrigatórios.", "error");
@@ -217,30 +217,31 @@ export default function RelatorioBuilder({
     if (!detalhe || nrRelatorio == null) return;
     if (detalhe.tipo === "banda") {
       const b = detalhe.banda;
-      const faltantes = ["ds_banda", "ds_sql"].filter((c) => (c === "ds_sql" || statusDe(bandaCampoRegras, c) === "O") && !String(b[c as keyof BandaSql] ?? "").trim());
+      const faltantes = ["ds_banda", "ds_sql"].filter((c) => statusDe(bandaCampoRegras, c) === "O" && !String(b[c as keyof BandaSql] ?? "").trim());
       if (faltantes.length > 0) {
         setErrosDetalhe(faltantes);
-        onToast?.(faltantes.includes("ds_sql") ? "Informe o SQL da banda." : "Preencha os campos obrigatórios.", "error");
+        onToast?.("Preencha os campos obrigatórios.", "error");
         return;
       }
     } else {
       const p = detalhe.parametro;
       const faltantes = ["ds_parametro", "ds_label", "nr_ordem", "vl_padrao"].filter((c) => {
         const vazio = String(p[c as keyof ParametroSql] ?? "").trim() === "";
-        return vazio && (c === "ds_parametro" || statusDe(parametroCampoRegras, c) === "O");
+        return vazio && statusDe(parametroCampoRegras, c) === "O";
       });
       if (faltantes.length > 0) {
         setErrosDetalhe(faltantes);
         onToast?.("Preencha os campos obrigatórios.", "error");
         return;
       }
+      // Preenchida, a descrição precisa ser um nome válido de parâmetro (o :nome do SQL).
       const nome = nomeDoParametro(p.ds_parametro);
-      if (!/^[A-Za-z_][A-Za-z0-9_]*$/.test(nome)) {
+      if (nome && !/^[A-Za-z_][A-Za-z0-9_]*$/.test(nome)) {
         setErrosDetalhe(["ds_parametro"]);
         onToast?.("A descrição do parâmetro deve ser o nome usado no SQL (letras, números e _, sem espaços).", "error");
         return;
       }
-      if (parametros.some((x) => x.id !== p.id && nomeDoParametro(x.ds_parametro).toLowerCase() === nome.toLowerCase())) {
+      if (nome && parametros.some((x) => x.id !== p.id && nomeDoParametro(x.ds_parametro).toLowerCase() === nome.toLowerCase())) {
         setErrosDetalhe(["ds_parametro"]);
         onToast?.(`Já existe o parâmetro :${nome} neste relatório.`, "error");
         return;
@@ -319,8 +320,9 @@ export default function RelatorioBuilder({
   const colunasAuditoria = <T extends { dt_criacao?: string; dt_alteracao?: string; ds_usuario_criacao?: string; ds_usuario_alteracao?: string }>(): ResizableTableColumn<T>[] => [
     { key: "dt_criacao", label: "Criação", render: (r) => (r.dt_criacao ? formatDate(r.dt_criacao) : "") },
     { key: "dt_alteracao", label: "Alteração", render: (r) => (r.dt_alteracao ? formatDate(r.dt_alteracao) : "") },
-    { key: "ds_usuario_criacao", label: "Usuário criação", render: (r) => autor(r.ds_usuario_criacao) },
-    { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (r) => autor(r.ds_usuario_alteracao) },
+    // Colunas de usuário mostram o ds_usuario (o nome da pessoa física só nos logs do rodapé).
+    { key: "ds_usuario_criacao", label: "Usuário criação", render: (r) => r.ds_usuario_criacao ?? "" },
+    { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (r) => r.ds_usuario_alteracao ?? "" },
   ];
   const colunasDeBanda: ResizableTableColumn<BandaSql>[] = [
     { key: "nr_sequencia", label: "#", render: (b) => String(b.nr_sequencia ?? "") },
@@ -353,11 +355,6 @@ export default function RelatorioBuilder({
     setSelecionadoId(item.id ?? null);
     setDetalhe(aba === "bandas" ? { tipo: "banda", banda: { ...(item as BandaSql) } } : { tipo: "parametro", parametro: { ...(item as ParametroSql) } });
   }
-
-  /* ── Parâmetros do SQL (ajuda ao editar a banda) ── */
-  const sqlEmEdicao = detalhe?.tipo === "banda" ? detalhe.banda.ds_sql ?? "" : "";
-  const nomesNoSql = useMemo(() => (sqlEmEdicao ? parametrosDoSql(sqlEmEdicao) : []), [sqlEmEdicao]);
-  const naoCadastrados = nomesNoSql.filter((n) => !parametros.some((p) => nomeDoParametro(p.ds_parametro).toLowerCase() === n.toLowerCase()));
 
   /* ── Rodapé (auditoria do que está aberto) ── */
   const auditoria = ehBandas
@@ -498,7 +495,7 @@ export default function RelatorioBuilder({
                     <input disabled value={String(relatorio?.nr_sequencia ?? "")} className={INPUT} />
                   </div>
                   <div className="sm:col-span-7">
-                    {rotulo("Descrição", "relatorio", "ds_relatorio", { ...campoRegras, ds_relatorio: campoRegras.ds_relatorio === "D" ? "D" : "O" })}
+                    {rotulo("Descrição", "relatorio", "ds_relatorio", campoRegras)}
                     <input
                       value={dsRelatorio}
                       onChange={(e) => setDsRelatorio(e.target.value)}
@@ -580,7 +577,7 @@ export default function RelatorioBuilder({
                   rows={bandas}
                   rowKey={(b) => String(b.id ?? b.nr_sequencia)}
                   onRowClick={(b) => setSelecionadoId(b.id ?? null)}
-                  onRowDoubleClick={abrir}
+                  // XLS: a banda não tem conteúdo próprio para abrir no duplo clique (só "Ver" no menu).
                   rowClassName={(b) => (b.id === selecionadoId ? "row-selected" : "")}
                   onRowContextMenu={(b, e) => {
                     e.preventDefault();
@@ -627,7 +624,7 @@ export default function RelatorioBuilder({
                   />
                 </div>
                 <div className="sm:col-span-12">
-                  {rotulo("SQL", "relatorio_banda", "ds_sql", { ...bandaCampoRegras, ds_sql: "O" })}
+                  {rotulo("SQL", "relatorio_banda", "ds_sql", bandaCampoRegras)}
                   <textarea
                     value={detalhe.banda.ds_sql ?? ""}
                     onChange={(e) => setDetalhe({ tipo: "banda", banda: { ...detalhe.banda, ds_sql: e.target.value } })}
@@ -637,13 +634,6 @@ export default function RelatorioBuilder({
                     placeholder="select * from pat_ativo where nr_sequencia = :teste"
                     className={`${comErro(errosDetalhe, "ds_sql")} font-mono text-[13px] leading-5 resize-y placeholder:text-[#aaa]`}
                   />
-                  <p className="mt-1 text-xs text-slate-500">
-                    Uma consulta (SELECT ou WITH). Parâmetros como <code>:nome</code>, cadastrados na aba Parâmetros.
-                    {nomesNoSql.length > 0 && <> Parâmetros neste SQL: {nomesNoSql.map((n) => `:${n}`).join(", ")}.</>}
-                    {naoCadastrados.length > 0 && (
-                      <span className="text-[#b46a00]"> Ainda não cadastrados: {naoCadastrados.map((n) => `:${n}`).join(", ")}.</span>
-                    )}
-                  </p>
                 </div>
               </div>
             </section>
@@ -658,7 +648,7 @@ export default function RelatorioBuilder({
                   <input disabled value={String(detalhe.parametro.nr_sequencia ?? "")} className={INPUT} />
                 </div>
                 <div className="sm:col-span-5">
-                  {rotulo("Descrição do parâmetro", "relatorio_parametro", "ds_parametro", { ...parametroCampoRegras, ds_parametro: "O" })}
+                  {rotulo("Descrição do parâmetro", "relatorio_parametro", "ds_parametro", parametroCampoRegras)}
                   <input
                     value={detalhe.parametro.ds_parametro ?? ""}
                     onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, ds_parametro: e.target.value.replace(/\s/g, "") } })}
@@ -689,7 +679,7 @@ export default function RelatorioBuilder({
                     className={comErro(errosDetalhe, "nr_ordem")}
                   />
                 </div>
-                <div className="sm:col-span-6">
+                <div className="sm:col-span-2">
                   {rotulo("Valor padrão", "relatorio_parametro", "vl_padrao", parametroCampoRegras)}
                   <input
                     value={detalhe.parametro.vl_padrao ?? ""}
@@ -698,24 +688,27 @@ export default function RelatorioBuilder({
                     className={comErro(errosDetalhe, "vl_padrao")}
                   />
                 </div>
-                {([
-                  ["ie_perguntar", "Perguntar"],
-                  ["ie_obrigatorio", "Obrigatório"],
-                ] as const).map(([campo, texto]) => (
-                  <div key={campo} className="sm:col-span-2">
-                    {rotulo(texto, "relatorio_parametro", campo, parametroCampoRegras)}
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="cg-checkbox"
-                        checked={detalhe.parametro[campo] === "S"}
-                        disabled={statusDe(parametroCampoRegras, campo) === "D"}
-                        onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, [campo]: e.target.checked ? "S" : "N" } })}
-                      />
-                      <span>Sim</span>
-                    </label>
-                  </div>
-                ))}
+                {/* Perguntar e Obrigatório lado a lado (como os checkboxes do formulário de Usuários). */}
+                <div className="sm:col-span-8 flex gap-8">
+                  {([
+                    ["ie_perguntar", "Perguntar"],
+                    ["ie_obrigatorio", "Obrigatório"],
+                  ] as const).map(([campo, texto]) => (
+                    <div key={campo} className="flex flex-col">
+                      {rotulo(texto, "relatorio_parametro", campo, parametroCampoRegras)}
+                      <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                        <input
+                          type="checkbox"
+                          className="cg-checkbox"
+                          checked={detalhe.parametro[campo] === "S"}
+                          disabled={statusDe(parametroCampoRegras, campo) === "D"}
+                          onChange={(e) => setDetalhe({ tipo: "parametro", parametro: { ...detalhe.parametro, [campo]: e.target.checked ? "S" : "N" } })}
+                        />
+                        <span>Sim</span>
+                      </label>
+                    </div>
+                  ))}
+                </div>
               </div>
             </section>
           )}
