@@ -11,6 +11,7 @@ import Select from "@/components/ui/Select";
 import { usePaginacaoPersistida } from "@/lib/paginacaoPersistida";
 import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
+import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 
 /**
  * Coluna Status (bolinha): fixa como a primeira da tabela, com largura fixa
@@ -25,6 +26,8 @@ function comStatusPrimeiro(order: number[]): number[] {
 }
 
 interface ListViewProps {
+  /** Cards dos filtros aplicados (entre o dropdown e a tabela), cada um com o "x" para tirá-lo. */
+  filtrosAplicados?: FiltroAplicado[];
   message: string;
   loading: boolean;
   periodosLetivos: PeriodoLetivo[];
@@ -52,6 +55,7 @@ interface ListViewProps {
 }
 
 export default function PeriodoLetivoListView({
+  filtrosAplicados,
   message,
   loading,
   periodosLetivos,
@@ -490,7 +494,8 @@ export default function PeriodoLetivoListView({
         ${CSS_CABECALHO_SEQUENCIA}
       `}</style>
       <div className="flex-1 flex flex-col min-h-0 space-y-6">
-        <div className="flex min-h-[42px] items-center justify-between gap-3">
+        <div className="relative flex min-h-[42px] items-center justify-between gap-3">
+          <FiltrosAplicados filtros={filtrosAplicados} />
           <div className="flex items-center gap-2">
             <Select
               value={manageSelection}

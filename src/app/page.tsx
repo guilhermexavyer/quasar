@@ -308,6 +308,7 @@ import CadastroGeralFormView, { type CadastroGeralFormData } from "@/components/
 import CadastroGeralFilterModal, { type CadastroGeralFilterForm } from "@/components/cadastrosGerais/CadastroGeralFilterModal";
 import PessoaJuridicaFilterModal, { type PessoaJuridicaFilterForm } from "@/components/pessoaJuridica/PessoaJuridicaFilterModal";
 import Select from "@/components/ui/Select";
+import { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import ReferenciaLookupModal from "@/components/ui/ReferenciaLookupModal";
@@ -11447,6 +11448,178 @@ export default function Home() {
     );
   }
 
+  /* ── Cards dos filtros aplicados (entre o dropdown e a tabela de cada tela de registros) ── */
+  /** Tira um filtro: volta o campo ao valor padrão no filtro aplicado e no formulário do filtro. */
+  function removedorDeFiltro<T extends object>(
+    setAplicado: React.Dispatch<React.SetStateAction<T>>,
+    setRascunho: React.Dispatch<React.SetStateAction<T>>,
+  ) {
+    return (campo: string, padrao: string) => {
+      setAplicado((f) => ({ ...f, [campo]: padrao }) as T);
+      setRascunho((f) => ({ ...f, [campo]: padrao }) as T);
+    };
+  }
+  /** Um card por campo preenchido (diferente do padrão), na ordem informada. */
+  function cardsDeFiltro<T extends object>(
+    prefixo: string,
+    aplicado: T,
+    campos: { campo: keyof T & string; rotulo: string; exibir?: (v: string) => string; padrao?: string }[],
+    remover: (campo: string, padrao: string) => void,
+  ): FiltroAplicado[] {
+    return campos.flatMap(({ campo, rotulo, exibir, padrao = '' }) => {
+      const valor = String((aplicado as Record<string, unknown>)[campo] ?? '').trim();
+      if (valor === '' || valor === padrao) return [];
+      return [{ chave: `${prefixo}.${campo}`, rotulo, valor: (exibir ? exibir(valor) : valor) || valor, onRemover: () => remover(campo, padrao) }];
+    });
+  }
+  const rotuloDeOpcao = (opcoes: { value: string; label: string }[]) => (v: string) => opcoes.find((o) => o.value === v)?.label ?? v;
+  const statusAtivoInativo = rotuloDeOpcao([{ value: 'A', label: 'Ativo' }, { value: 'I', label: 'Inativo' }]);
+  const nomePessoaFisicaFiltro = (v: string) => pessoasFisicas.find((p) => String(p.nr_sequencia) === v)?.ds_nome ?? v;
+  const nomePessoaJuridicaFiltro = (v: string) => pessoasJuridicas.find((p) => String(p.nr_sequencia) === v)?.ds_razao_social ?? v;
+  const nomeColaboradorFiltro = (v: string) => nomeColaboradorPorSeq(Number(v)) || v;
+  const descricaoDeLista = <I extends { nr_sequencia: number },>(lista: I[], descricao: (item: I) => string | undefined) =>
+    (v: string) => descricao(lista.find((item) => String(item.nr_sequencia) === v) ?? ({} as I)) ?? v;
+  /** Sequência + Descrição + Status dos filtros no padrão dos Cadastros Gerais. */
+  const camposCg = (comDescricao: boolean, comStatus: boolean) => [
+    { campo: 'nr_sequencia' as const, rotulo: 'Sequência' },
+    ...(comDescricao ? [{ campo: 'descricao' as const, rotulo: 'Descrição' }] : []),
+    ...(comStatus ? [{ campo: 'ie_status' as const, rotulo: 'Status', exibir: statusAtivoInativo, padrao: 'T' }] : []),
+  ];
+
+  const cardsPf = cardsDeFiltro('pf', appliedFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'ds_nome', rotulo: 'Nome completo' },
+    { campo: 'nr_cpf', rotulo: 'CPF' },
+    { campo: 'dt_nascimento_inicio', rotulo: 'Nascimento (início)' },
+    { campo: 'dt_nascimento_fim', rotulo: 'Nascimento (fim)' },
+    { campo: 'ds_email', rotulo: 'E-mail' },
+    { campo: 'nr_telefone', rotulo: 'Telefone' },
+    { campo: 'nr_seq_sexo', rotulo: 'Sexo', exibir: (v) => pfCgLookups.nr_seq_sexo[Number(v)] ?? v },
+    { campo: 'nr_seq_estado_civil', rotulo: 'Estado civil', exibir: (v) => pfCgLookups.nr_seq_estado_civil[Number(v)] ?? v },
+    { campo: 'nr_seq_cor_raca', rotulo: 'Cor/Raça', exibir: (v) => pfCgLookups.nr_seq_cor_raca[Number(v)] ?? v },
+    { campo: 'nr_seq_profissao', rotulo: 'Profissão', exibir: (v) => pfCgLookups.nr_seq_profissao[Number(v)] ?? v },
+  ], removedorDeFiltro(setAppliedFilterForm, setFilterForm));
+
+  const cardsPj = cardsDeFiltro('pj', appliedPjFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'nr_cnpj', rotulo: 'CNPJ' },
+    { campo: 'dt_abertura_inicio', rotulo: 'Data de abertura (início)' },
+    { campo: 'dt_abertura_fim', rotulo: 'Data de abertura (fim)' },
+    { campo: 'ds_razao_social', rotulo: 'Razão social' },
+    { campo: 'ds_nome_fantasia', rotulo: 'Nome fantasia' },
+    { campo: 'nr_inscricao_estadual', rotulo: 'Inscrição estadual' },
+    { campo: 'nr_inscricao_municipal', rotulo: 'Inscrição municipal' },
+    { campo: 'nr_telefone', rotulo: 'Telefone' },
+    { campo: 'ds_email', rotulo: 'E-mail' },
+    { campo: 'sg_estado', rotulo: 'UF' },
+    { campo: 'cd_ibge_cidade', rotulo: 'Cidade (código IBGE)' },
+  ], removedorDeFiltro(setAppliedPjFilterForm, setPjFilterForm));
+
+  const cardsAdmin = cardsDeFiltro('as_usuario', appliedAdminFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'ds_usuario', rotulo: 'Usuário' },
+    { campo: 'ds_usuario_alternativo', rotulo: 'Usuário alternativo' },
+    { campo: 'nr_seq_pessoa_fisica', rotulo: 'Pessoa física', exibir: nomePessoaFisicaFiltro },
+    { campo: 'ie_status', rotulo: 'Status', padrao: 'T', exibir: rotuloDeOpcao([{ value: 'A', label: 'Ativo' }, { value: 'B', label: 'Bloqueado' }, { value: 'I', label: 'Inativo' }]) },
+  ], removedorDeFiltro(setAppliedAdminFilterForm, setAdminFilterForm));
+
+  const cardsPerfil = cardsDeFiltro('as_perfil', appliedPerfilFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'ds_perfil', rotulo: 'Perfil' },
+    { campo: 'ie_status', rotulo: 'Status', padrao: 'T', exibir: statusAtivoInativo },
+  ], removedorDeFiltro(setAppliedPerfilFilterForm, setPerfilFilterForm));
+
+  const cardsCg = cardsDeFiltro('cg', appliedCgFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCgFilterForm, setCgFilterForm));
+  const cardsCategoria = cardsDeFiltro('pat_categoria', appliedCategoriaFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCategoriaFilterForm, setCategoriaFilterForm));
+  const cardsCurso = cardsDeFiltro('curso', appliedCursoFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCursoFilterForm, setCursoFilterForm));
+  const cardsDisciplina = cardsDeFiltro('disciplina', appliedDisciplinaFilterForm, camposCg(true, false), removedorDeFiltro(setAppliedDisciplinaFilterForm, setDisciplinaFilterForm));
+  const cardsTurma = [
+    ...cardsDeFiltro('turma', appliedTurmaFilterForm, camposCg(true, false), removedorDeFiltro(setAppliedTurmaFilterForm, setTurmaFilterForm)),
+    ...cardsDeFiltro('turma_extra', turmaFiltroExtraAplicado, [
+      { campo: 'nr_seq_curso', rotulo: 'Curso', exibir: (v) => descricaoReferenciaTurma('nr_seq_curso', v) || v },
+      { campo: 'nr_seq_periodo_letivo', rotulo: 'Período letivo', exibir: (v) => descricaoReferenciaTurma('nr_seq_periodo_letivo', v) || v },
+    ], removedorDeFiltro(setTurmaFiltroExtraAplicado, setTurmaFiltroExtra)),
+  ];
+  const cardsTurmaDisciplina = [
+    ...cardsDeFiltro('turma_disciplina', appliedTurmaDisciplinaFilterForm, camposCg(false, true), removedorDeFiltro(setAppliedTurmaDisciplinaFilterForm, setTurmaDisciplinaFilterForm)),
+    ...cardsDeFiltro('turma_disciplina_extra', turmaDisciplinaFiltroExtraAplicado, [
+      { campo: 'nr_seq_turma', rotulo: 'Turma', exibir: (v) => descricaoReferenciaTurmaDisciplina('nr_seq_turma', v) || v },
+      { campo: 'nr_seq_disciplina', rotulo: 'Disciplina', exibir: (v) => descricaoReferenciaTurmaDisciplina('nr_seq_disciplina', v) || v },
+      { campo: 'nr_seq_periodo_letivo', rotulo: 'Período letivo', exibir: (v) => descricaoReferenciaTurmaDisciplina('nr_seq_periodo_letivo', v) || v },
+    ], removedorDeFiltro(setTurmaDisciplinaFiltroExtraAplicado, setTurmaDisciplinaFiltroExtra)),
+  ];
+
+  const cardsPeriodoLetivo = cardsDeFiltro('periodo_letivo', appliedPeriodoLetivoFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'nr_ano', rotulo: 'Ano' },
+    { campo: 'ds_periodo_letivo', rotulo: 'Descrição' },
+    { campo: 'ie_status', rotulo: 'Status', exibir: rotuloDeOpcao(STATUS_PERIODO_LETIVO_OPTIONS) },
+  ], removedorDeFiltro(setAppliedPeriodoLetivoFilterForm, setPeriodoLetivoFilterForm));
+
+  const cardsAluno = cardsDeFiltro('aluno', appliedAlunoFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'nr_matricula', rotulo: 'Matrícula' },
+    { campo: 'nr_seq_pessoa_fisica', rotulo: 'Pessoa física', exibir: nomePessoaFisicaFiltro },
+    { campo: 'dt_ingresso_inicio', rotulo: 'Data de ingresso (início)' },
+    { campo: 'dt_ingresso_fim', rotulo: 'Data de ingresso (fim)' },
+  ], removedorDeFiltro(setAppliedAlunoFilterForm, setAlunoFilterForm));
+
+  const cardsColaborador = cardsDeFiltro('colaborador', appliedColaboradorFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'nr_matricula', rotulo: 'Matrícula' },
+    { campo: 'nr_seq_pessoa_fisica', rotulo: 'Pessoa física', exibir: nomePessoaFisicaFiltro },
+    { campo: 'nr_seq_pessoa_juridica', rotulo: 'Pessoa jurídica', exibir: nomePessoaJuridicaFiltro },
+    { campo: 'dt_admissao_inicio', rotulo: 'Data de admissão (início)' },
+    { campo: 'dt_admissao_fim', rotulo: 'Data de admissão (fim)' },
+  ], removedorDeFiltro(setAppliedColaboradorFilterForm, setColaboradorFilterForm));
+
+  const cardsAtivo = cardsDeFiltro('pat_ativo', appliedAtivoFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'cd_externo', rotulo: 'Código externo' },
+    { campo: 'ds_ativo', rotulo: 'Descrição' },
+    { campo: 'ds_modelo', rotulo: 'Modelo' },
+    { campo: 'nr_serie', rotulo: 'Nº de série' },
+    { campo: 'ds_qr_code', rotulo: 'QR Code' },
+    { campo: 'ds_codigo_barras', rotulo: 'Código de barras' },
+    { campo: 'dt_aquisicao_inicio', rotulo: 'Data aquisição (início)' },
+    { campo: 'dt_aquisicao_fim', rotulo: 'Data aquisição (fim)' },
+    { campo: 'dt_garantia_inicio', rotulo: 'Data garantia (início)' },
+    { campo: 'dt_garantia_fim', rotulo: 'Data garantia (fim)' },
+    { campo: 'ie_status', rotulo: 'Status', padrao: 'T', exibir: rotuloDeOpcao(ATIVO_STATUS_OPTIONS) },
+    { campo: 'nr_seq_categoria', rotulo: 'Categoria', exibir: descricaoDeLista(categoriasAtivos, (c) => c.ds_categoria) },
+    { campo: 'nr_seq_localizacao', rotulo: 'Localização', exibir: descricaoDeLista(localizacoes, (l) => l.ds_localizacao) },
+    { campo: 'nr_seq_marca', rotulo: 'Marca', exibir: descricaoDeLista(marcas, (m) => m.ds_marca) },
+    { campo: 'nr_seq_responsavel', rotulo: 'Responsável', exibir: nomeColaboradorFiltro },
+    { campo: 'nr_seq_fornecedor', rotulo: 'Fornecedor', exibir: nomeColaboradorFiltro },
+    { campo: 'ds_endereco_mac', rotulo: 'Endereço MAC' },
+    { campo: 'ds_ip', rotulo: 'IPv4' },
+    { campo: 'nr_seq_sistema_operacional', rotulo: 'Sistema operacional', exibir: descricaoDeLista(sistemasOperacionais, (s) => s.ds_sistema_operacional) },
+  ], removedorDeFiltro(setAppliedAtivoFilterForm, setAtivoFilterForm));
+
+  const cardsManutencao = cardsDeFiltro('pat_manutencao', appliedManutencaoFilterForm, [
+    { campo: 'nr_sequencia', rotulo: 'Sequência' },
+    { campo: 'nr_seq_ativo', rotulo: 'Ativo', exibir: descricaoDeLista(ativos, (a) => a.ds_ativo) },
+    { campo: 'nr_seq_prestador_servico', rotulo: 'Prestador de serviço', exibir: nomeColaboradorFiltro },
+    { campo: 'dt_envio_inicio', rotulo: 'Data envio (início)' },
+    { campo: 'dt_envio_fim', rotulo: 'Data envio (fim)' },
+    { campo: 'dt_termino_inicio', rotulo: 'Data término (início)' },
+    { campo: 'dt_termino_fim', rotulo: 'Data término (fim)' },
+    { campo: 'vl_total_menor', rotulo: 'Valor total (menor)' },
+    { campo: 'vl_total_maior', rotulo: 'Valor total (maior)' },
+    { campo: 'ie_status_manutencao', rotulo: 'Status', padrao: 'T', exibir: rotuloDeOpcao(MANUTENCAO_STATUS_OPTIONS) },
+  ], removedorDeFiltro(setAppliedManutencaoFilterForm, setManutencaoFilterForm));
+
+  const cardsCopia = [
+    ...cardsDeFiltro('copia', appliedCopiaFilterForm, camposCg(false, false), removedorDeFiltro(setAppliedCopiaFilterForm, setCopiaFilterForm)),
+    ...cardsDeFiltro('copia_extra', copiaFiltroExtraAplicado, [
+      { campo: 'ie_status', rotulo: 'Status', exibir: rotuloDeOpcao(STATUS_COPIA_OPTIONS) },
+      { campo: 'nr_seq_solicitante', rotulo: 'Solicitante', exibir: (v) => descricaoReferenciaCopia('nr_seq_solicitante', v) || v },
+      { campo: 'nr_seq_turma_disciplina', rotulo: 'Turma x Disciplina', exibir: (v) => descricaoReferenciaCopia('nr_seq_turma_disciplina', v) || v },
+      { campo: 'nr_seq_formato_papel', rotulo: 'Formato do papel', exibir: (v) => descricaoReferenciaCopia('nr_seq_formato_papel', v) || v },
+      { campo: 'nr_seq_tipo_papel', rotulo: 'Tipo de papel', exibir: (v) => descricaoReferenciaCopia('nr_seq_tipo_papel', v) || v },
+    ], removedorDeFiltro(setCopiaFiltroExtraAplicado, setCopiaFiltroExtra)),
+  ];
+
   /**
    * Conteúdo (lista ou formulário) de uma função do menu. Recebe a seção e a tela
    * como parâmetros para que cada função aberta mantenha a sua própria tela.
@@ -11457,6 +11630,7 @@ export default function Home() {
               activeSection === "pessoaFisica" ? (
                 pjManageSelection === 'pessoasJuridicas' ? (
                   <PessoaJuridicaListView
+                    filtrosAplicados={cardsPj}
                     message={message}
                     loading={loading}
                     pessoasJuridicas={filteredSortedPessoasJuridicas}
@@ -11501,6 +11675,7 @@ export default function Home() {
                   />
                 ) : (
                   <PessoaFisicaListView
+                    filtrosAplicados={cardsPf}
                     message={message}
                     loading={loading}
                     pessoasFisicas={filteredSortedPessoasFisicas}
@@ -11583,6 +11758,7 @@ export default function Home() {
                 />
               ) : adminManageSelection === 'usuarios' ? (
                   <AdministracaoSistemaListView
+                    filtrosAplicados={cardsAdmin}
                     message={message}
                     loading={loading}
                     usuarios={filteredSortedUsuarios}
@@ -11619,6 +11795,7 @@ export default function Home() {
                   />
                 ) : (
                   <PerfilListView
+                    filtrosAplicados={cardsPerfil}
                     message={message}
                     loading={loading}
                     perfis={filteredSortedPerfis}
@@ -11660,6 +11837,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'cursos' ? (
                   <CadastroGeralListView
+                    filtrosAplicados={cardsCurso}
                     key="cursos"
                     loading={loading}
                     items={filteredSortedCursos}
@@ -11682,6 +11860,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'disciplinas' ? (
                   <CadastroGeralListView
+                    filtrosAplicados={cardsDisciplina}
                     key="disciplinas"
                     loading={loading}
                     items={filteredSortedDisciplinas}
@@ -11704,6 +11883,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'turmas' ? (
                   <CadastroGeralListView
+                    filtrosAplicados={cardsTurma}
                     key="turmas"
                     loading={loading}
                     items={filteredSortedTurmas}
@@ -11726,6 +11906,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'turmasDisciplinas' ? (
                   <CadastroGeralListView
+                    filtrosAplicados={cardsTurmaDisciplina}
                     key="turmasDisciplinas"
                     loading={loading}
                     items={filteredSortedTurmasDisciplinas}
@@ -11771,6 +11952,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'periodoLetivo' ? (
                   <PeriodoLetivoListView
+                    filtrosAplicados={cardsPeriodoLetivo}
                     onOpenFeriados={abrirFeriadosDoPeriodo}
                     message={message}
                     loading={loading}
@@ -11825,6 +12007,7 @@ export default function Home() {
                   />
                 ) : alunoManageSelection === 'alunos' ? (
                   <AlunoListView
+                    filtrosAplicados={cardsAluno}
                     onOpenDetalhe={abrirDetalheDoAluno}
                     message={message}
                     loading={loading}
@@ -11849,6 +12032,7 @@ export default function Home() {
                   />
                 ) : (
                   <ColaboradorListView
+                    filtrosAplicados={cardsColaborador}
                     message={message}
                     loading={loading}
                     colaboradores={filteredSortedColaboradores}
@@ -11897,6 +12081,7 @@ export default function Home() {
                   />
                 ) : ativoManageSelection === 'categoria' ? (
                   <CadastroGeralListView
+                    filtrosAplicados={cardsCategoria}
                     loading={loading}
                     items={filteredSortedCategorias}
                     columns={CATEGORIA_ATIVO_COLUMNS}
@@ -11918,6 +12103,7 @@ export default function Home() {
                   />
                 ) : ativoManageSelection === 'manutencoes' ? (
                   <ManutencaoListView
+                    filtrosAplicados={cardsManutencao}
                     message={message}
                     loading={loading}
                     manutencoes={filteredSortedManutencoes}
@@ -12008,6 +12194,7 @@ export default function Home() {
                   />
                 ) : (
                 <AtivoListView
+                  filtrosAplicados={cardsAtivo}
                   onOpenDetalhe={abrirDetalheDoAtivo}
                   message={message}
                   loading={loading}
@@ -12062,6 +12249,7 @@ export default function Home() {
                   />
                 ) : ccManageSelection === 'copias' ? (
                   <CopiaListView
+                    filtrosAplicados={cardsCopia}
                     key="copias"
                     message={message}
                     loading={loading}
@@ -12225,6 +12413,7 @@ export default function Home() {
                 )
               ) : (
                 <CadastroGeralListView
+                  filtrosAplicados={cardsCg}
                   key={cgManageSelection}
                   loading={loading}
                   items={filteredSortedCgItems}
@@ -13834,7 +14023,7 @@ export default function Home() {
       {filterModalOpen && view === "list" && activeSection === "pessoaFisica" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeFilterModal} />
-          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleFilterSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -13988,7 +14177,7 @@ export default function Home() {
       {alunoFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAlunoFilterModal} />
-          <form onSubmit={handleAlunoFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleAlunoFilterSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -14119,7 +14308,7 @@ export default function Home() {
       {colaboradorFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'colaboradores' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorFilterModal} />
-          <form onSubmit={handleColaboradorFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleColaboradorFilterSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -14294,7 +14483,7 @@ export default function Home() {
       {periodoLetivoFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'periodoLetivo' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePeriodoLetivoFilterModal} />
-          <form onSubmit={handlePeriodoLetivoFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handlePeriodoLetivoFilterSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -14387,7 +14576,7 @@ export default function Home() {
       {adminFilterModalOpen && view === "list" && activeSection === "administracaoSistema" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminFilterModal} />
-          <form onSubmit={handleAdminFilterSubmit} className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handleAdminFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -14541,7 +14730,7 @@ export default function Home() {
       {perfilFilterModalOpen && view === "list" && activeSection === "administracaoSistema" && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePerfilFilterModal} />
-          <form onSubmit={handlePerfilFilterSubmit} className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={handlePerfilFilterSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button
@@ -14639,7 +14828,7 @@ export default function Home() {
       {ativoFilterModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAtivoFilterModal} />
-          <form onSubmit={(e) => { e.preventDefault(); applyAtivoFilter(); }} className="relative w-full max-w-[900px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+          <form onSubmit={(e) => { e.preventDefault(); applyAtivoFilter(); }} className="relative w-full max-w-[1100px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
             <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button type="button" onClick={closeAtivoFilterModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar filtro">
@@ -14775,7 +14964,7 @@ export default function Home() {
       {manutencaoFilterModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeManutencaoFilterModal} />
-          <form onSubmit={(e) => { e.preventDefault(); applyManutencaoFilter(); }} className="relative w-full max-w-[700px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
+          <form onSubmit={(e) => { e.preventDefault(); applyManutencaoFilter(); }} className="relative w-full max-w-[920px] bg-white modal-dark p-0 shadow-xl shadow-black/20 max-h-[90vh] flex flex-col">
             <div className="flex-shrink-0 flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
               <button type="button" onClick={closeManutencaoFilterModal} className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2" aria-label="Fechar filtro">
@@ -16474,7 +16663,7 @@ export default function Home() {
       {enviarManutPrestadorLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeEnviarManutPrestadorLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -16586,6 +16775,8 @@ export default function Home() {
           {...colunasPorIndice('config_colunas_lookup_turma_disciplina')}
           registros={turmasDisciplinas
             .filter((td) => (td.ie_status ?? 'A') !== 'I')
+            // Período letivo, Curso e Modalidade de ensino vêm da turma.
+            .map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) }))
             .map((td) => ({
               ...Object.fromEntries(TURMA_DISCIPLINA_COLUMNS.map((c) => [
                 c.key,
@@ -16613,7 +16804,7 @@ export default function Home() {
       {manutencaoAtivoLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeManutencaoAtivoLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -16675,7 +16866,7 @@ export default function Home() {
       {pessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -16749,7 +16940,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')}
+                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')} columnLookups={pfCgLookups}
                     pessoasFisicas={filteredLookupPessoasFisicas}
                     onSelect={handlePessoaFisicaSelect}
                   />
@@ -16763,7 +16954,7 @@ export default function Home() {
       {alunoPessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAlunoPessoaFisicaLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -16837,7 +17028,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')}
+                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')} columnLookups={pfCgLookups}
                     pessoasFisicas={filteredAlunoLookupPessoasFisicas}
                     onSelect={handleAlunoPessoaFisicaSelect}
                   />
@@ -16851,7 +17042,7 @@ export default function Home() {
       {colaboradorPessoaJuridicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorPessoaJuridicaLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -16939,7 +17130,7 @@ export default function Home() {
       {adminPessoaFisicaLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -17024,7 +17215,7 @@ export default function Home() {
                     Nenhum registro encontrado.
                   </div>
                 ) : (
-                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')}
+                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')} columnLookups={pfCgLookups}
                     pessoasFisicas={pessoasFisicas.filter((pessoa) => {
                       if (adminPessoaFisicaLookupFilter.nr_sequencia) {
                         if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
@@ -17049,7 +17240,7 @@ export default function Home() {
       {naturalidadeLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeNaturalidadeLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -17137,7 +17328,7 @@ export default function Home() {
       {pjCidadeLookupOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closePjCidadeLookup} />
-          <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
               <div className="w-[320px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">

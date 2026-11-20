@@ -12,9 +12,11 @@ interface PessoaFisicaLookupTableProps {
   /** Ordem e largura das colunas salvas no usuário (0 = largura automática). */
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
+  /** Descrição das colunas de referência (nr_sequencia → descrição), como na lista. */
+  columnLookups?: Partial<Record<keyof PessoaFisica, Record<number, string>>>;
 }
 
-export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect, initialColumns, onColumnsChange }: PessoaFisicaLookupTableProps) {
+export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect, initialColumns, onColumnsChange, columnLookups }: PessoaFisicaLookupTableProps) {
   const tableRef = useRef<HTMLTableElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [frozenWidth, setFrozenWidth] = useState<string | null>(null);
@@ -317,9 +319,12 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect, init
     // Ordem padrão: coluna # (nr_sequencia).
     if (sortColumn === null || sortAsc === null) return [...pessoasFisicas].sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     const key = lookupColumns[sortColumn].key;
+    const mapa = columnLookups?.[key];
+    // Colunas de referência (Sexo, Estado civil...) ordenam pela descrição exibida.
+    const valorDe = (p: PessoaFisica) => (mapa ? (p[key] != null && p[key] !== '' ? mapa[Number(p[key])] : undefined) : p[key]);
     return [...pessoasFisicas].sort((a, b) => {
-      const valA = a[key];
-      const valB = b[key];
+      const valA = valorDe(a);
+      const valB = valorDe(b);
       if (valA === undefined || valA === null) return 1;
       if (valB === undefined || valB === null) return -1;
       if (typeof valA === "number" && typeof valB === "number") {
@@ -331,7 +336,7 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect, init
       if (strA > strB) return sortAsc ? 1 : -1;
       return 0;
     });
-  }, [pessoasFisicas, sortColumn, sortAsc]);
+  }, [pessoasFisicas, sortColumn, sortAsc, columnLookups, lookupColumns]);
 
   const paginatedPessoasFisicas = sortedPessoasFisicas;
 
@@ -477,7 +482,11 @@ export default function PessoaFisicaLookupTable({ pessoasFisicas, onSelect, init
                     {columnOrder.map((logicalIdx) => {
                       const col = lookupColumns[logicalIdx];
                       const value = pessoa[col.key];
-                      const displayValue = formatCellValue(col.key, value);
+                      const mapa = columnLookups?.[col.key];
+                      // Colunas de referência mostram a descrição (como na lista de Pessoas Físicas).
+                      const displayValue = mapa
+                        ? (value !== null && value !== undefined && value !== '' ? (mapa[Number(value)] ?? '') : '')
+                        : formatCellValue(col.key, value);
                       return (
                         <td key={logicalIdx} className={`px-[10px] py-[3px] min-w-0 align-middle font-normal ${col.dataClass || ''}`} style={{ color: '#333', borderBottom: '0.5px solid rgba(0,0,0,0.06)' }}>
                           <span className="cell-content">{displayValue}</span>

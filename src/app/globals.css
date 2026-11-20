@@ -624,3 +624,8 @@ button[aria-label^="Informações do campo"]:focus-visible {
 html[data-sem-auditoria] .botao-auditoria {
   display: none !important;
 }
+
+/* Faixa dos cards de filtros aplicados: rola na horizontal sem barra visível. */
+.filtros-aplicados::-webkit-scrollbar {
+  display: none;
+}

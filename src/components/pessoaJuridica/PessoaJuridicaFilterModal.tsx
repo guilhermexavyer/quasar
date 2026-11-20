@@ -71,7 +71,7 @@ export default function PessoaJuridicaFilterModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <form onSubmit={onSubmit} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+      <form onSubmit={onSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
         <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
           <h2 className="text-base font-semibold" style={{ color: '#000' }}>Filtro</h2>
           <button

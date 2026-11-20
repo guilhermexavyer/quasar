@@ -1,5 +1,5 @@
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
-import { formatDate } from "@/lib/pessoaFisicaUtils";
+import { formatDate, formatPhone } from "@/lib/pessoaFisicaUtils";
 
 export interface PjColDef {
   key: keyof PessoaJuridica;
@@ -88,6 +88,8 @@ export function formatCellValuePj(key: keyof PessoaJuridica, value: unknown): st
   switch (key) {
     case 'nr_cnpj':
       return formatCnpj(stringValue);
+    case 'nr_telefone':
+      return formatPhone(stringValue);
     case 'dt_abertura':
     case 'dt_criacao':
     case 'dt_alteracao':

@@ -93,7 +93,7 @@ export default function ReferenciaLookupModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} />
-      <div className="relative w-full max-w-[960px] bg-white p-0 shadow-xl shadow-black/20 h-[600px] max-h-[90vh] overflow-hidden">
+      <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
         <div className="flex h-full">
           <form
             className="w-[320px] lookup-left flex flex-col min-h-0"

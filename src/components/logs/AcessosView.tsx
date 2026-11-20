@@ -10,6 +10,7 @@ import PaginationFooter, { usePagination } from "@/components/ui/PaginationFoote
 import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import { applyDateMask, formatDate } from "@/lib/pessoaFisicaUtils";
 import { obterAcessos, rotuloTipoLogout, type LogAcesso } from "@/services/logAcessoService";
+import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 
 /**
  * Filtro de Logs > Acessos. Pessoa física pela sequência (lookup); datas em
@@ -243,10 +244,32 @@ export default function AcessosView({
     </div>
   );
 
+  // Cards dos filtros aplicados (entre o dropdown e a tabela), cada um com o "x" para tirá-lo.
+  const rotulosFiltro: [keyof FiltroAcessos, string, ((v: string) => string)?][] = [
+    ["nr_sequencia", "Sequência"],
+    ["ds_usuario", "Usuário"],
+    ["nr_seq_pessoa_fisica", "Pessoa física", (v) => nomePessoaFisica(Number(v)) || v],
+    ["dt_login_inicio", "Login (início)"],
+    ["dt_login_fim", "Login (fim)"],
+    ["dt_logout_inicio", "Logout (início)"],
+    ["dt_logout_fim", "Logout (fim)"],
+    ["ie_tipo_logout", "Tipo de logout", (v) => OPCOES_TIPO_LOGOUT.find((o) => o.value === v)?.label ?? v],
+  ];
+  const filtroAtual = normalizarFiltroAcessos(filtro);
+  const filtrosAplicados: FiltroAplicado[] = rotulosFiltro
+    .filter(([chave]) => filtroAtual[chave].trim() !== "")
+    .map(([chave, rotulo, exibir]) => ({
+      chave,
+      rotulo,
+      valor: exibir ? exibir(filtroAtual[chave].trim()) : filtroAtual[chave].trim(),
+      onRemover: () => onFiltroChange({ ...filtroAtual, [chave]: "" }),
+    }));
+
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* Mesma altura do header das listagens (dropdown PAI na mesma posição das demais funções). */}
-      <div className="flex min-h-[42px] items-center gap-2">
+      <div className="relative flex min-h-[42px] items-center gap-2">
+        <FiltrosAplicados filtros={filtrosAplicados} />
         <Select
           value={manageSelection}
           onChange={onManageSelectionChange}
@@ -309,7 +332,7 @@ export default function AcessosView({
       {filtroAberto && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={() => setFiltroAberto(false)} />
-          <form onSubmit={aplicarFiltro} className="relative w-full max-w-[760px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
+          <form onSubmit={aplicarFiltro} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
               <h2 className="text-base font-semibold" style={{ color: "#000" }}>Filtro</h2>
               <button
