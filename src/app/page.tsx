@@ -598,8 +598,8 @@ const CC_SELECT_OPTIONS = [
 /** Filtro extra de Cópias (rascunho e aplicado). */
 const COPIA_FILTRO_VAZIO = { ie_status: '', nr_seq_solicitante: '', nr_seq_turma_disciplina: '', nr_seq_formato_papel: '', nr_seq_tipo_papel: '' };
 
-/** Evento usado pelo "Salvar filtro" para reaproveitar o handler do "Filtrar" (submit do modal). */
-const EVENTO_FILTRO = { preventDefault() {} } as React.FormEvent<HTMLFormElement>;
+/** Evento para chamar um handler de submit fora do formulário ("Salvar filtro", "Salvar e adicionar"). */
+const EVENTO_SUBMIT = { preventDefault() {} } as React.FormEvent<HTMLFormElement>;
 
 /** Datas digitadas (DD/MM/AAAA) que não formam uma data válida. */
 function datasInvalidas<T extends Record<string, unknown>>(dados: T, campos: (keyof T)[]): (keyof T)[] {
@@ -1088,7 +1088,13 @@ export default function Home() {
   const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
-  const [message, setMessage] = useState("");
+  const [message, setMessageEstado] = useState("");
+  /** Última mensagem enviada ao toast (lida pelo "Salvar e adicionar"). */
+  const ultimaMensagemRef = useRef("");
+  const setMessage = useCallback((mensagem: string) => {
+    ultimaMensagemRef.current = mensagem;
+    setMessageEstado(mensagem);
+  }, []);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   /** Aviso aberto em modal (ex.: Política de Privacidade no menu do usuário). */
   const [avisoModalCampo, setAvisoModalCampo] = useState<CampoAviso | null>(null);
@@ -1718,7 +1724,7 @@ export default function Home() {
   const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => b.nr_sequencia - a.nr_sequencia); /* Ordem padrão: coluna # decrescente */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
-  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); if (imagemEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarImagem)) return; const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
+  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); if (imagemEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarImagem)) return; const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); abrirNovoAposSalvar(); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
   async function handleImagemDelete(id: string) { setMessage(''); try { const img = imagens.find((i) => i.id === id); if (img?.ie_arquivo) { await excluirArquivoImagem(img.ie_arquivo); } await excluirImagem(id); setMessage('Excluído com sucesso!'); await loadImagens(); } catch { setMessage('Erro ao excluir.'); } if (view === 'form') setView('list'); }
   const imagemAuditInfo = useMemo(() => { const img = imagens.find((i) => i.id === imagemEditingId); return { createdAt: img?.dt_criacao || '', updatedAt: img?.dt_alteracao || '', createdBy: img?.ds_usuario_criacao || '', updatedBy: img?.ds_usuario_alteracao || '' }; }, [imagens, imagemEditingId]);
   const imagemIndex = useMemo(() => { if (!imagemEditingId) return -1; return filteredSortedImagens.findIndex((i) => i.id === imagemEditingId); }, [filteredSortedImagens, imagemEditingId]);
@@ -5087,6 +5093,34 @@ export default function Home() {
     applyAdminFilter();
   }
 
+  /* ── "Salvar e adicionar" (rodapé dos formulários) ── */
+  /** Formulário novo a abrir quando o salvamento em andamento terminar com sucesso. */
+  const salvarEAdicionarRef = useRef<(() => void) | null>(null);
+  /**
+   * Chamado no caminho de sucesso dos handlers de salvar (depois de voltar para a lista):
+   * se o salvamento veio do "Salvar e adicionar", abre o formulário de um registro novo.
+   * O formulário novo limpa a mensagem; a de sucesso ("Cadastrado com sucesso!"...) é
+   * mantida, a menos que ele mostre outra (ex.: sem permissão para adicionar).
+   */
+  function abrirNovoAposSalvar() {
+    const novo = salvarEAdicionarRef.current;
+    if (!novo) return;
+    salvarEAdicionarRef.current = null;
+    const mensagem = ultimaMensagemRef.current;
+    novo();
+    if (mensagem && ultimaMensagemRef.current === "") setMessage(mensagem);
+  }
+  /** Salva pelo mesmo handler do "Salvar" e, se der certo, abre o formulário novo. */
+  async function salvarEAdicionar(salvar: (event: React.FormEvent<HTMLFormElement>) => unknown, novo: () => void) {
+    salvarEAdicionarRef.current = novo;
+    try {
+      await salvar(EVENTO_SUBMIT);
+    } finally {
+      salvarEAdicionarRef.current = null;
+    }
+  }
+
+
   /* ── "Salvar filtro" (rodapé dos modais de filtro) ── */
   /**
    * Grava, para o usuário logado, os campos do filtro da tela (tabela usuario_filtro, via
@@ -6657,6 +6691,7 @@ export default function Home() {
       setCategoriaEditingId(null);
       await loadCategoriasAtivos();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -6858,6 +6893,7 @@ export default function Home() {
       setCursoEditingId(null);
       await loadCursos();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -7057,6 +7093,7 @@ export default function Home() {
       setDisciplinaEditingId(null);
       await loadDisciplinas();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -7296,6 +7333,7 @@ export default function Home() {
       setTurmaEditingId(null);
       await loadTurmas();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -7547,6 +7585,7 @@ export default function Home() {
       setTurmaDisciplinaEditingId(null);
       await loadTurmasDisciplinas();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -7859,6 +7898,7 @@ export default function Home() {
       setCopiaEditingId(null);
       await loadCopias();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8053,6 +8093,7 @@ export default function Home() {
           setEditingId(null);
           await loadPessoasFisicas();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8067,6 +8108,7 @@ export default function Home() {
       setEditingId(null);
       await loadPessoasFisicas();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8115,6 +8157,7 @@ export default function Home() {
           setAlunoEditingId(null);
           await loadAlunos();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8129,6 +8172,7 @@ export default function Home() {
       setAlunoEditingId(null);
       await loadAlunos();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8177,6 +8221,7 @@ export default function Home() {
           setColaboradorEditingId(null);
           await loadColaboradores();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8191,6 +8236,7 @@ export default function Home() {
       setColaboradorEditingId(null);
       await loadColaboradores();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8237,6 +8283,7 @@ export default function Home() {
           setPeriodoLetivoEditingId(null);
           await loadPeriodosLetivos();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8251,6 +8298,7 @@ export default function Home() {
       setPeriodoLetivoEditingId(null);
       await loadPeriodosLetivos();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8298,6 +8346,7 @@ export default function Home() {
           setAtivoEditingId(null);
           await loadAtivos();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8312,6 +8361,7 @@ export default function Home() {
       setAtivoEditingId(null);
       await loadAtivos();
       setView("list");
+      abrirNovoAposSalvar();
     } catch (e) {
       console.error('Erro ao salvar ativo:', e);
       setMessage("Erro ao salvar.");
@@ -8367,6 +8417,7 @@ export default function Home() {
           setPjEditingId(null);
           await loadPessoasJuridicas();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8381,6 +8432,7 @@ export default function Home() {
       setPjEditingId(null);
       await loadPessoasJuridicas();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8450,6 +8502,7 @@ export default function Home() {
           setAdminEditingId(null);
           await loadUsuarios();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8499,6 +8552,7 @@ export default function Home() {
       setAdminForm(emptyAdminForm);
       setAdminEditingId(null);
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8545,6 +8599,7 @@ export default function Home() {
           setPerfilEditingId(null);
           await loadPerfis();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8565,6 +8620,7 @@ export default function Home() {
       setPerfilForm({ ds_perfil: '', ds_observacao: '', ie_status: 'A' });
       setPerfilEditingId(null);
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -8618,6 +8674,7 @@ export default function Home() {
           setCgEditingId(null);
           await loadCgItems();
           setView("list");
+          abrirNovoAposSalvar();
           return;
         }
 
@@ -8696,6 +8753,7 @@ export default function Home() {
       setCgEditingId(null);
       await loadCgItems();
       setView("list");
+      abrirNovoAposSalvar();
     } catch {
       setMessage("Erro ao salvar.");
     } finally {
@@ -10162,6 +10220,7 @@ export default function Home() {
           setManutencaoEditingId(null);
           await loadManutencoes();
           setView('list');
+          abrirNovoAposSalvar();
           return;
         }
         await atualizarManutencao(manutencaoEditingId, manutencaoForm, auditAutor);
@@ -10170,6 +10229,7 @@ export default function Home() {
       }
       await loadManutencoes();
       setView('list');
+      abrirNovoAposSalvar();
     } catch {
       setMessage('Erro ao salvar.');
     } finally {
@@ -12532,6 +12592,7 @@ export default function Home() {
                   setForm={setPjForm}
                   submitting={pjSubmitting}
                   handleSubmit={handlePjSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handlePjSubmit, handlePjNewForm); }}
                   goToList={goToPjList}
                   createdAt={pjAuditInfo.createdAt}
                   updatedAt={pjAuditInfo.updatedAt}
@@ -12563,6 +12624,7 @@ export default function Home() {
                   setForm={setForm}
                   submitting={submitting}
                   handleSubmit={handleSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleSubmit, handlePessoaNewForm); }}
                   goToList={goToList}
                   createdAt={auditInfo.createdAt}
                   updatedAt={auditInfo.updatedAt}
@@ -12659,6 +12721,7 @@ export default function Home() {
                   setForm={setAdminForm}
                   submitting={adminSubmitting}
                   handleSubmit={handleAdminSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleAdminSubmit, handleAdminNewForm); }}
                   goToList={goToAdminList}
                   createdAt={adminAuditInfo.createdAt}
                   updatedAt={adminAuditInfo.updatedAt}
@@ -12689,6 +12752,7 @@ export default function Home() {
                   setImagem={setImagemForm as any}
                   submitting={imagemSubmitting}
                   handleSubmit={handleImagemSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleImagemSubmit, handleImagemNewForm); }}
                   goToList={() => { setView('list'); }}
                   createdAt={imagemAuditInfo.createdAt}
                   updatedAt={imagemAuditInfo.updatedAt}
@@ -12712,6 +12776,7 @@ export default function Home() {
                   setForm={setPerfilForm}
                   submitting={perfilSubmitting}
                   handleSubmit={handlePerfilSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handlePerfilSubmit, handlePerfilNewForm); }}
                   goToList={goToPerfilList}
                   createdAt={perfilAuditInfo.createdAt}
                   updatedAt={perfilAuditInfo.updatedAt}
@@ -12738,6 +12803,7 @@ export default function Home() {
                     setForm={setCursoForm}
                     submitting={cursoSubmitting}
                     handleSubmit={handleCursoSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleCursoSubmit, handleCursoNewForm); }}
                     goToList={goToCursoList}
                     createdAt={cursoAuditInfo.createdAt}
                     updatedAt={cursoAuditInfo.updatedAt}
@@ -12767,6 +12833,7 @@ export default function Home() {
                     setForm={setDisciplinaForm}
                     submitting={disciplinaSubmitting}
                     handleSubmit={handleDisciplinaSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleDisciplinaSubmit, handleDisciplinaNewForm); }}
                     goToList={goToDisciplinaList}
                     createdAt={disciplinaAuditInfo.createdAt}
                     updatedAt={disciplinaAuditInfo.updatedAt}
@@ -12797,6 +12864,7 @@ export default function Home() {
                     setForm={setTurmaForm}
                     submitting={turmaSubmitting}
                     handleSubmit={handleTurmaSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleTurmaSubmit, handleTurmaNewForm); }}
                     goToList={goToTurmaList}
                     createdAt={turmaAuditInfo.createdAt}
                     updatedAt={turmaAuditInfo.updatedAt}
@@ -12873,6 +12941,7 @@ export default function Home() {
                     setForm={setTurmaDisciplinaForm}
                     submitting={turmaDisciplinaSubmitting}
                     handleSubmit={handleTurmaDisciplinaSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleTurmaDisciplinaSubmit, handleTurmaDisciplinaNewForm); }}
                     goToList={goToTurmaDisciplinaList}
                     createdAt={turmaDisciplinaAuditInfo.createdAt}
                     updatedAt={turmaDisciplinaAuditInfo.updatedAt}
@@ -12938,6 +13007,7 @@ export default function Home() {
                     setForm={setPeriodoLetivoForm}
                     submitting={periodoLetivoSubmitting}
                     handleSubmit={handlePeriodoLetivoSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handlePeriodoLetivoSubmit, handlePeriodoLetivoNewForm); }}
                     goToList={goToPeriodoLetivoList}
                     createdAt={periodoLetivoAuditInfo.createdAt}
                     updatedAt={periodoLetivoAuditInfo.updatedAt}
@@ -12964,6 +13034,7 @@ export default function Home() {
                     setForm={setAlunoForm}
                     submitting={alunoSubmitting}
                     handleSubmit={handleAlunoSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleAlunoSubmit, handleAlunoNewForm); }}
                     goToList={goToAlunoList}
                     createdAt={alunoAuditInfo.createdAt}
                     updatedAt={alunoAuditInfo.updatedAt}
@@ -12993,6 +13064,7 @@ export default function Home() {
                     setForm={setColaboradorForm}
                     submitting={colaboradorSubmitting}
                     handleSubmit={handleColaboradorSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleColaboradorSubmit, handleColaboradorNewForm); }}
                     goToList={goToColaboradorList}
                     createdAt={colaboradorAuditInfo.createdAt}
                     updatedAt={colaboradorAuditInfo.updatedAt}
@@ -13050,6 +13122,7 @@ export default function Home() {
                     setForm={setCopiaForm}
                     submitting={copiaSubmitting}
                     handleSubmit={handleCopiaSubmit}
+                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleCopiaSubmit, handleCopiaNewForm); }}
                     goToList={goToCopiaList}
                     createdAt={copiaAuditInfo.createdAt}
                     updatedAt={copiaAuditInfo.updatedAt}
@@ -13141,6 +13214,7 @@ export default function Home() {
                   setForm={setCategoriaForm}
                   submitting={categoriaSubmitting}
                   handleSubmit={handleCategoriaSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleCategoriaSubmit, handleCategoriaNewForm); }}
                   goToList={goToCategoriaList}
                   createdAt={categoriaAuditInfo.createdAt}
                   updatedAt={categoriaAuditInfo.updatedAt}
@@ -13171,6 +13245,7 @@ export default function Home() {
                   setForm={setManutencaoForm}
                   submitting={manutencaoSubmitting}
                   handleSubmit={handleManutencaoSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleManutencaoSubmit, handleManutencaoNewForm); }}
                   goToList={goToManutencaoList}
                   createdAt={manutencaoAuditInfo.createdAt}
                   updatedAt={manutencaoAuditInfo.updatedAt}
@@ -13204,6 +13279,7 @@ export default function Home() {
                   setForm={setAtivoForm}
                   submitting={ativoSubmitting}
                   handleSubmit={handleAtivoSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleAtivoSubmit, handleAtivoNewForm); }}
                   goToList={goToAtivoList}
                   createdAt={ativoAuditInfo.createdAt}
                   updatedAt={ativoAuditInfo.updatedAt}
@@ -13240,6 +13316,7 @@ export default function Home() {
                 setForm={setCgForm}
                 submitting={cgSubmitting}
                 handleSubmit={handleCgSubmit}
+                onSalvarEAdicionar={() => { void salvarEAdicionar(handleCgSubmit, handleCgNewForm); }}
                 goToList={goToCgList}
                 createdAt={cgAuditInfo.createdAt}
                 updatedAt={cgAuditInfo.updatedAt}
@@ -14242,7 +14319,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pessoa_fisica', { form: filterForm }, () => handleFilterSubmit(EVENTO_FILTRO)); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pessoa_fisica', { form: filterForm }, () => handleFilterSubmit(EVENTO_SUBMIT)); }} />
               <button
                 type="button"
                 onClick={clearFilter}
@@ -14374,7 +14451,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('aluno', { form: alunoFilterForm }, () => handleAlunoFilterSubmit(EVENTO_FILTRO)); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('aluno', { form: alunoFilterForm }, () => handleAlunoFilterSubmit(EVENTO_SUBMIT)); }} />
               <button
                 type="button"
                 onClick={clearAlunoFilter}
@@ -14550,7 +14627,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('colaborador', { form: colaboradorFilterForm }, () => handleColaboradorFilterSubmit(EVENTO_FILTRO)); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('colaborador', { form: colaboradorFilterForm }, () => handleColaboradorFilterSubmit(EVENTO_SUBMIT)); }} />
               <button
                 type="button"
                 onClick={clearColaboradorFilter}
@@ -14631,7 +14708,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('periodo_letivo', { form: periodoLetivoFilterForm }, () => handlePeriodoLetivoFilterSubmit(EVENTO_FILTRO)); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('periodo_letivo', { form: periodoLetivoFilterForm }, () => handlePeriodoLetivoFilterSubmit(EVENTO_SUBMIT)); }} />
               <button
                 type="button"
                 onClick={clearPeriodoLetivoFilter}
@@ -14659,7 +14736,7 @@ export default function Home() {
           filterForm={pjFilterForm}
           setFilterForm={setPjFilterForm}
           onSubmit={handlePjFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('pessoa_juridica', { form: pjFilterForm }, () => handlePjFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('pessoa_juridica', { form: pjFilterForm }, () => handlePjFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearPjFilter}
           onOpenCidadeLookup={openPjFilterCidadeLookup}
           estados={estados}
@@ -14800,7 +14877,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('as_usuario', { form: adminFilterForm }, () => handleAdminFilterSubmit(EVENTO_FILTRO)); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('as_usuario', { form: adminFilterForm }, () => handleAdminFilterSubmit(EVENTO_SUBMIT)); }} />
               <button
                 type="button"
                 onClick={clearAdminFilter}
@@ -14898,7 +14975,7 @@ export default function Home() {
             </div>
 
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('as_perfil', { form: perfilFilterForm }, () => handlePerfilFilterSubmit(EVENTO_FILTRO)); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('as_perfil', { form: perfilFilterForm }, () => handlePerfilFilterSubmit(EVENTO_SUBMIT)); }} />
               <button
                 type="button"
                 onClick={clearPerfilFilter}
@@ -15367,7 +15444,7 @@ export default function Home() {
           filterForm={cgFilterForm}
           setFilterForm={setCgFilterForm}
           onSubmit={handleCgFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('cadastros_gerais', { form: cgFilterForm }, () => handleCgFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('cadastros_gerais', { form: cgFilterForm }, () => handleCgFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearCgFilter}
           colecao={cgCollection}
           campoDescricao={cgDescKey}
@@ -15381,7 +15458,7 @@ export default function Home() {
           filterForm={cursoFilterForm}
           setFilterForm={setCursoFilterForm}
           onSubmit={handleCursoFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('curso', { form: cursoFilterForm }, () => handleCursoFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('curso', { form: cursoFilterForm }, () => handleCursoFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearCursoFilter}
           colecao="curso"
           campoDescricao="ds_curso"
@@ -15395,7 +15472,7 @@ export default function Home() {
           filterForm={disciplinaFilterForm}
           setFilterForm={setDisciplinaFilterForm}
           onSubmit={handleDisciplinaFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('disciplina', { form: disciplinaFilterForm }, () => handleDisciplinaFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('disciplina', { form: disciplinaFilterForm }, () => handleDisciplinaFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearDisciplinaFilter}
           colecao="disciplina"
           campoDescricao="ds_disciplina"
@@ -15410,7 +15487,7 @@ export default function Home() {
           filterForm={turmaFilterForm}
           setFilterForm={setTurmaFilterForm}
           onSubmit={handleTurmaFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('turma', { form: turmaFilterForm, extra: turmaFiltroExtra }, () => handleTurmaFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('turma', { form: turmaFilterForm, extra: turmaFiltroExtra }, () => handleTurmaFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearTurmaFilter}
           colecao="turma"
           campoDescricao="ds_turma"
@@ -15445,7 +15522,7 @@ export default function Home() {
           filterForm={turmaDisciplinaFilterForm}
           setFilterForm={setTurmaDisciplinaFilterForm}
           onSubmit={handleTurmaDisciplinaFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('turma_disciplina', { form: turmaDisciplinaFilterForm, extra: turmaDisciplinaFiltroExtra }, () => handleTurmaDisciplinaFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('turma_disciplina', { form: turmaDisciplinaFilterForm, extra: turmaDisciplinaFiltroExtra }, () => handleTurmaDisciplinaFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearTurmaDisciplinaFilter}
           colecao="turma_disciplina"
           campoDescricao="nr_seq_turma"
@@ -15488,7 +15565,7 @@ export default function Home() {
           filterForm={copiaFilterForm}
           setFilterForm={setCopiaFilterForm}
           onSubmit={handleCopiaFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('copia', { form: copiaFilterForm, extra: copiaFiltroExtra }, () => handleCopiaFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('copia', { form: copiaFilterForm, extra: copiaFiltroExtra }, () => handleCopiaFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearCopiaFilter}
           colecao="copia"
           campoDescricao="nr_seq_solicitante"
@@ -15564,7 +15641,7 @@ export default function Home() {
           filterForm={categoriaFilterForm}
           setFilterForm={setCategoriaFilterForm}
           onSubmit={handleCategoriaFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('pat_categoria', { form: categoriaFilterForm }, () => handleCategoriaFilterSubmit(EVENTO_FILTRO)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('pat_categoria', { form: categoriaFilterForm }, () => handleCategoriaFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearCategoriaFilter}
           colecao="pat_categoria"
           campoDescricao="ds_categoria"

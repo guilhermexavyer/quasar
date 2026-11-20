@@ -12,10 +12,13 @@ import LoadingModal from "@/components/ui/LoadingModal";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 
 export type ManutencaoFormData = Omit<Manutencao, "id" | "nr_sequencia" | "dt_criacao" | "dt_alteracao" | "ds_usuario_criacao" | "ds_usuario_alteracao">;
 
 interface FormViewProps {
+  /** "Salvar e adicionar": salva o registro e abre o formulário de um novo. */
+  onSalvarEAdicionar?: () => void;
   message: string;
   editingId: string | null;
   sequence?: number | null;
@@ -61,6 +64,7 @@ function formatCurrencyValue(value: number): string {
 }
 
 export default function ManutencaoFormView({
+  onSalvarEAdicionar,
   message,
   editingId,
   sequence,
@@ -452,6 +456,16 @@ export default function ManutencaoFormView({
               </div>
             )}
             <div className="flex items-center justify-end gap-3 ml-auto">
+              {onSalvarEAdicionar && (
+                <BotaoSalvarEAdicionar
+                  disabled={submitting}
+                  onClick={() => {
+                    // Mesma validação do "Salvar" (campos obrigatórios do navegador) antes de salvar.
+                    if (formRef.current && !formRef.current.reportValidity()) return;
+                    onSalvarEAdicionar();
+                  }}
+                />
+              )}
               <button type="button" onClick={goToList} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: "#bdbdbd", borderBottomColor: "#000" } as React.CSSProperties}>
                 Cancelar
               </button>

@@ -10,6 +10,7 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { elementoVisivel } from "@/lib/visibilidade";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 
 const IMAGEM_FIELD_INFOS: Record<string, { type: string; field: string; collection: string }> = {
   nr_sequencia: { type: 'number', field: 'nr_sequencia', collection: 'imagem' },
@@ -18,6 +19,8 @@ const IMAGEM_FIELD_INFOS: Record<string, { type: string; field: string; collecti
 };
 
 interface ImagemFormViewProps {
+  /** "Salvar e adicionar": salva o registro e abre o formulário de um novo. */
+  onSalvarEAdicionar?: () => void;
   message: string;
   editingId: string | null;
   imagem: Partial<Imagem>;
@@ -44,6 +47,7 @@ interface ImagemFormViewProps {
 }
 
 export default function ImagemFormView({
+  onSalvarEAdicionar,
   message,
   editingId,
   imagem,
@@ -294,6 +298,16 @@ export default function ImagemFormView({
               </div>
             )}
             <div className="flex items-center gap-3 ml-auto">
+              {onSalvarEAdicionar && (
+                <BotaoSalvarEAdicionar
+                  disabled={submitting}
+                  onClick={() => {
+                    // Mesma validação do "Salvar" (campos obrigatórios do navegador) antes de salvar.
+                    if (formRef.current && !formRef.current.reportValidity()) return;
+                    onSalvarEAdicionar();
+                  }}
+                />
+              )}
               <button
                 type="button"
                 onClick={goToList}

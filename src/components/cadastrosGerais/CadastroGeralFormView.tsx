@@ -7,6 +7,7 @@ import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import { elementoVisivel } from "@/lib/visibilidade";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 
 export interface CadastroGeralFormData {
   descricao: string;
@@ -20,6 +21,8 @@ export interface CadastroGeralFormData {
 }
 
 interface FormViewProps {
+  /** "Salvar e adicionar": salva o registro e abre o formulário de um novo. */
+  onSalvarEAdicionar?: () => void;
   editingId: string | null;
   sequence?: number | null;
   form: CadastroGeralFormData;
@@ -75,6 +78,7 @@ export interface CadastroGeralCamposAux {
 }
 
 export default function CadastroGeralFormView({
+  onSalvarEAdicionar,
   editingId,
   sequence,
   form,
@@ -375,6 +379,16 @@ export default function CadastroGeralFormView({
             </div>
             )}
             <div className="flex items-center gap-3 ml-auto">
+              {onSalvarEAdicionar && (
+                <BotaoSalvarEAdicionar
+                  disabled={submitting}
+                  onClick={() => {
+                    // Mesma validação do "Salvar" (campos obrigatórios do navegador) antes de salvar.
+                    if (formRef.current && !formRef.current.reportValidity()) return;
+                    onSalvarEAdicionar();
+                  }}
+                />
+              )}
               <button
                 type="button"
                 onClick={goToList}
