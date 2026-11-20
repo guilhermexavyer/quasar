@@ -122,7 +122,6 @@ export default function PaineisRedimensionaveis({ proporcoesPadrao, config, onCh
               role="separator"
               aria-orientation="vertical"
               aria-label="Redimensionar painéis"
-              title="Arraste para redimensionar (duplo clique restaura o padrão)"
               className={`group flex shrink-0 cursor-col-resize items-center justify-center select-none ${arrastando === i ? "text-slate-600" : "text-slate-400 hover:text-slate-600"}`}
               style={{ width: LARGURA_DIVISOR }}
               onMouseDown={(e) => iniciarArraste(i, e)}

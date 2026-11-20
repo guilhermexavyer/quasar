@@ -17,22 +17,22 @@ export default function FiltrosAplicados({ filtros }: { filtros?: FiltroAplicado
   if (!filtros || filtros.length === 0) return null;
   return (
     <div
-      className="filtros-aplicados absolute left-0 right-0 top-full mt-[3px] flex items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap"
-      style={{ height: 19, scrollbarWidth: "none" }}
+      // Ocupa exatamente o espaço até a tabela (space-y-6 = 24px) e centraliza os cards nele.
+      className="filtros-aplicados absolute left-0 right-0 top-full flex items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap"
+      style={{ height: 24, scrollbarWidth: "none" }}
       aria-label="Filtros aplicados"
     >
       {filtros.map((f) => (
         <span
           key={f.chave}
-          className="filtro-card inline-flex flex-shrink-0 items-center gap-1 rounded-[3px] border border-slate-300 bg-slate-100 pl-2 pr-0.5 text-[11px] leading-[17px] text-slate-700"
-          title={`${f.rotulo}: ${f.valor}`}
+          className="filtro-card inline-flex flex-shrink-0 items-center gap-1 rounded-[3px] border pl-2 pr-0.5 text-[11px] leading-[17px] text-slate-700"
         >
           <span className="text-slate-500">{f.rotulo}:</span>
           <span className="max-w-[220px] truncate font-medium">{f.valor}</span>
           <button
             type="button"
             onClick={f.onRemover}
-            className="inline-flex h-[15px] w-[15px] items-center justify-center rounded-[2px] text-slate-500 hover:bg-slate-300 hover:text-slate-800 cursor-pointer"
+            className="inline-flex h-[15px] w-[15px] items-center justify-center text-slate-500 hover:text-slate-800 cursor-pointer"
             aria-label={`Remover filtro ${f.rotulo}`}
           >
             <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">

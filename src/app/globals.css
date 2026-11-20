@@ -629,3 +629,13 @@ html[data-sem-auditoria] .botao-auditoria {
 .filtros-aplicados::-webkit-scrollbar {
   display: none;
 }
+
+/* Cards dos filtros aplicados: cinza bem claro (neutro). */
+.filtro-card {
+  background-color: #f2f2f2;
+  border-color: #d9d9d9;
+}
+.dark .filtro-card {
+  background-color: #2e2e33;
+  border-color: #3f3f46;
+}
