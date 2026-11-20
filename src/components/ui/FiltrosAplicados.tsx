@@ -1,5 +1,7 @@
 "use client";
 
+import { useLayoutEffect, useRef, useState } from "react";
+
 /** Um filtro em uso na tela de registros (card com o "x" para tirá-lo). */
 export interface FiltroAplicado {
   chave: string;
@@ -12,14 +14,45 @@ export interface FiltroAplicado {
  * Cards dos filtros aplicados, no espaço entre o dropdown da função e a tabela de
  * registros. Ficam posicionados sobre esse espaço (o pai do cabeçalho é `relative`),
  * então não empurram a tabela; com muitos filtros, a faixa rola na horizontal.
+ *
+ * O dropdown é mais baixo que o cabeçalho (fica centralizado nele), então o espaço
+ * visível vai da borda de baixo do dropdown até o topo da tabela: a faixa é medida
+ * na tela para ocupar exatamente esse espaço, com os cards centralizados no meio.
  */
 export default function FiltrosAplicados({ filtros }: { filtros?: FiltroAplicado[] }) {
-  if (!filtros || filtros.length === 0) return null;
+  const faixaRef = useRef<HTMLDivElement>(null);
+  const [posicao, setPosicao] = useState<{ top: number; height: number } | null>(null);
+  const temFiltros = !!filtros && filtros.length > 0;
+
+  useLayoutEffect(() => {
+    if (!temFiltros) return;
+    const cabecalho = faixaRef.current?.parentElement;
+    if (!cabecalho) return;
+    const medir = () => {
+      const caixa = cabecalho.getBoundingClientRect();
+      const dropdown = cabecalho.querySelector(".cg-select-trigger");
+      const inicio = dropdown ? dropdown.getBoundingClientRect().bottom : caixa.bottom;
+      const tabela = cabecalho.nextElementSibling;
+      const fim = tabela ? tabela.getBoundingClientRect().top : caixa.bottom + 24;
+      // Tela escondida (função aberta em segundo plano): mede quando ela aparecer.
+      if (fim <= inicio) return;
+      const nova = { top: inicio - caixa.top, height: fim - inicio };
+      setPosicao((atual) => (atual && atual.top === nova.top && atual.height === nova.height ? atual : nova));
+    };
+    medir();
+    const observador = new ResizeObserver(medir);
+    observador.observe(cabecalho);
+    if (cabecalho.nextElementSibling) observador.observe(cabecalho.nextElementSibling);
+    return () => observador.disconnect();
+  }, [temFiltros]);
+
+  if (!temFiltros) return null;
   return (
     <div
-      // Ocupa exatamente o espaço até a tabela (space-y-6 = 24px) e centraliza os cards nele.
-      className="filtros-aplicados absolute left-0 right-0 top-full flex items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap"
-      style={{ height: 24, scrollbarWidth: "none" }}
+      ref={faixaRef}
+      className="filtros-aplicados absolute left-0 right-0 flex items-center gap-1.5 overflow-x-auto overflow-y-hidden whitespace-nowrap"
+      // Até medir: logo abaixo do cabeçalho, nos 24px do space-y-6.
+      style={{ top: posicao?.top ?? "100%", height: posicao?.height ?? 24, scrollbarWidth: "none" }}
       aria-label="Filtros aplicados"
     >
       {filtros.map((f) => (
