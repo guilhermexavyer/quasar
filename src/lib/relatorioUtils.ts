@@ -8,7 +8,7 @@ export function formatRelatorioCellValue(key: keyof Relatorio, value: unknown): 
 
   switch (key) {
     case "ie_formato":
-      return str === "pdf" ? "PDF" : str;
+      return str === "pdf" ? "PDF" : "XLS";
     case "dt_criacao":
     case "dt_alteracao":
       try {

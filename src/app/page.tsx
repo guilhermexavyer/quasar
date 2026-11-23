@@ -206,6 +206,7 @@ import PeriodoLetivoFeriadosView from "@/components/estruturaAcademica/PeriodoLe
 import ExclusoesView, { type NavegacaoExclusoes } from "@/components/administracaoSistema/ExclusoesView";
 import AcessosView, { FILTRO_ACESSOS_VAZIO, LogsSemSelecaoView, normalizarFiltroAcessos, type FiltroAcessos } from "@/components/logs/AcessosView";
 import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
+import { useDescricaoLookupSemFoco } from "@/lib/useDescricaoLookupSemFoco";
 import ExclusaoFormularioView from "@/components/administracaoSistema/ExclusaoFormularioView";
 import FormularioExcluidoGenerico, { FORMULARIOS_GENERICOS } from "@/components/administracaoSistema/FormularioExcluidoGenerico";
 import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
@@ -244,6 +245,7 @@ import type { Relatorio } from "@/types/relatorio";
 import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio } from "@/services/relatorioService";
 
 import { baixarPlanilha, obterDadosRelatorio, obterParametrosSql, type ParametroSql } from "@/services/relatorioSqlService";
+import { gerarPdfRelatorio } from "@/lib/relatorioPdfFolha";
 import { nomeDoParametro } from "@/lib/relatorioSql";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
 import AvisoModal from "@/components/ui/AvisoModal";
@@ -369,12 +371,13 @@ import type { Curso } from "@/types/curso";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { COMBUSTIVEL_COLUMNS, COMBUSTIVEL_FIELD_INFOS } from "@/lib/combustivelUtils";
 import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, lerColunasAtivo, serializarColunasAtivo, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
-import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
+import { formatCadastroGeralCellValue, formatarMedida, medidaParaBanco } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
 import type { ContextMenuState } from "@/types/contextMenu";
 import { SecaoPaginacaoContext, limparPaginacaoDaSecao } from "@/lib/paginacaoPersistida";
 import { useAtalhoSalvarModal } from "@/lib/atalhoSalvarModal";
+import { useAtalhoFiltrarModal } from "@/lib/atalhoFiltrarModal";
 import { PERFIL_COLUMNS, parseFuncoesConfig } from "@/lib/perfilUtils";
 import { obterPerfis, criarPerfil, atualizarPerfil, excluirPerfil } from "@/services/perfilService";
 
@@ -421,7 +424,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.87.0";
+const SYSTEM_VERSION = "0.88.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -491,6 +494,8 @@ const emptyCgForm: CadastroGeralFormData = {
   nr_cbo: '',
   sg_sigla: '',
   ds_observacao: '',
+  qt_largura: '',
+  qt_altura: '',
 };
 
 const CG_SELECT_OPTIONS = [
@@ -1042,6 +1047,8 @@ interface FormViewProps {
 /* ------------------------------------------------------------------ */
 
 export default function Home() {
+  // Nos campos de lookup, só a sequência recebe foco (a descrição não fica selecionada).
+  useDescricaoLookupSemFoco();
   const [form, setForm] = useState<FormData>(emptyForm);
   const [filterForm, setFilterForm] = useState<FilterFormData>(emptyFilterForm);
   const [appliedFilterForm, setAppliedFilterForm] = useState<FilterFormData>(emptyFilterForm);
@@ -1720,7 +1727,7 @@ export default function Home() {
   const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => b.nr_sequencia - a.nr_sequencia); /* Ordem padrão: coluna # decrescente */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
   function openImagemNewForm() { setImagemEditingId(null); setImagemForm({ ds_imagem: '', ie_arquivo: '' }); setView('form'); }
   function openImagemEditForm(imagem: Imagem) { setImagemEditingId(imagem.id); setImagemForm({ ...imagem }); setView('form'); }
-  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); if (imagemEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarImagem)) return; const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } throw uploadErr; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); abrirNovoAposSalvar(); } catch { setMessage('Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
+  async function handleImagemSubmit(e: React.FormEvent) { e.preventDefault(); if (imagemEditingId && bloquearEdicaoSemPermissao(permissoesAdmin.editarImagem)) return; const imagemFaltantes = camposObrigatoriosVazios(imagemForm as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'imagem')); setImagemCampoErros(imagemFaltantes); if (imagemFaltantes.length > 0) { setMessage('Preencha os campos obrigatórios.'); return; } setImagemSubmitting(true); try { const file = (imagemForm as any)._file as File | undefined; let ieArquivo = imagemForm.ie_arquivo || ''; if (file) { try { ieArquivo = await uploadImagem(file); } catch (uploadErr: any) { const msg = uploadErr?.message || ''; if (msg.includes('já existe')) { setMessage('A imagem já existe.'); setImagemSubmitting(false); return; } setMessage(msg ? `Erro ao salvar imagem: ${msg}` : 'Erro ao salvar imagem.'); setImagemSubmitting(false); return; } } const data = { ds_imagem: imagemForm.ds_imagem || '', ie_arquivo: ieArquivo }; if (imagemEditingId) { await atualizarImagem(imagemEditingId, data, currentUser?.ds_usuario); } else { await criarImagem(data as any, currentUser?.ds_usuario); } await loadImagens(); setView('list'); setMessage(imagemEditingId ? 'Imagem alterada!' : 'Imagem criada!'); abrirNovoAposSalvar(); } catch (err: any) { setMessage(err?.message ? `Erro ao salvar imagem: ${err.message}` : 'Erro ao salvar imagem.'); } finally { setImagemSubmitting(false); } }
   async function handleImagemDelete(id: string) { setMessage(''); try { const img = imagens.find((i) => i.id === id); if (img?.ie_arquivo) { await excluirArquivoImagem(img.ie_arquivo); } await excluirImagem(id); setMessage('Excluído com sucesso!'); await loadImagens(); } catch { setMessage('Erro ao excluir.'); } if (view === 'form') setView('list'); }
   const imagemAuditInfo = useMemo(() => { const img = imagens.find((i) => i.id === imagemEditingId); return { createdAt: img?.dt_criacao || '', updatedAt: img?.dt_alteracao || '', createdBy: img?.ds_usuario_criacao || '', updatedBy: img?.ds_usuario_alteracao || '' }; }, [imagens, imagemEditingId]);
   const imagemIndex = useMemo(() => { if (!imagemEditingId) return -1; return filteredSortedImagens.findIndex((i) => i.id === imagemEditingId); }, [filteredSortedImagens, imagemEditingId]);
@@ -3261,31 +3268,7 @@ export default function Home() {
     }
   }, [cgKind, loadSexos, loadEstadoCivis, loadCoresRacas, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadProfissoes, loadLogradouros, loadOrgaosEmissores, loadSistemasOperacionais, loadCombustiveis, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel]);
 
-  /* Enter em qualquer modal de filtro aciona o botão "Filtrar". Os filtros
-   * dentro de <form> já disparam o submit nativamente; aqui cobrimos os
-   * modais de busca (lookup) cujo botão Filtrar é type="button". */
-  useEffect(() => {
-    function onEnterFiltrar(e: KeyboardEvent) {
-      if (e.key !== 'Enter' || e.isComposing || e.defaultPrevented) return;
-      const alvo = e.target;
-      if (!(alvo instanceof HTMLInputElement)) return;
-      if (['button', 'checkbox', 'radio', 'submit', 'file'].includes(alvo.type)) return;
-      if (alvo.closest('form')) return;
-      let el: HTMLElement | null = alvo.parentElement;
-      while (el && el !== document.body) {
-        const botao = Array.from(el.querySelectorAll<HTMLButtonElement>('button[type="button"]'))
-          .find((b) => b.textContent?.trim() === 'Filtrar');
-        if (botao) {
-          e.preventDefault();
-          if (!botao.disabled) botao.click();
-          return;
-        }
-        el = el.parentElement;
-      }
-    }
-    document.addEventListener('keydown', onEnterFiltrar);
-    return () => document.removeEventListener('keydown', onEnterFiltrar);
-  }, []);
+  /* Enter nos modais de filtro e lookups aciona o "Filtrar": useAtalhoFiltrarModal. */
 
   useEffect(() => {
     // As rotas de dados exigem sessão: carrega ao entrar (ou ao restaurar a sessão).
@@ -3384,6 +3367,7 @@ export default function Home() {
 
   /* ── Ctrl+S nos modais com campos (aciona o botão principal do modal do topo) ── */
   useAtalhoSalvarModal(isAuthenticated);
+  useAtalhoFiltrarModal(isAuthenticated);
 
   /* ── Persistir sessão: sobrevive à recarga; só quebra no Sair ──
      O login fica no localStorage (compartilhado entre as abas do navegador).
@@ -4008,8 +3992,16 @@ export default function Home() {
     setRelatorioGerando(true);
     setMessage('');
     try {
+      const nomeArquivo = (relatorio.ds_nome_arquivo ?? '').trim() || relatorio.ds_relatorio || 'relatorio';
+      // PDF: folha (formato do papel, orientação, margens, borda) com as bandas e os elementos.
+      if (relatorio.ie_formato === 'pdf') {
+        const formato = formatosPapel.find((f) => String(f.nr_sequencia) === String(relatorio.nr_seq_formato_papel ?? ''));
+        await gerarPdfRelatorio(relatorio, formato, valores, nomeArquivo, imagens);
+        setMessage('Relatório gerado com sucesso!');
+        return;
+      }
       const dados = await obterDadosRelatorio(relatorio.nr_sequencia, valores);
-      baixarPlanilha(dados, (relatorio.ds_nome_arquivo ?? '').trim() || relatorio.ds_relatorio || 'relatorio');
+      baixarPlanilha(dados, nomeArquivo);
       setMessage(`Relatório gerado com sucesso! ${dados.linhas.length} registro(s).`);
     } catch (err) {
       setMessage(err instanceof Error && err.message ? err.message : 'Erro ao gerar relatório.');
@@ -4749,9 +4741,10 @@ export default function Home() {
   }
 
   function openAdminPessoaFisicaLookup() {
-    setAdminPessoaFisicaLookupForm({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupFilter({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupApplied(false);
+    const salvo = filtroSalvoDoLookup('pessoa_fisica', { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupForm(salvo ?? { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupFilter(salvo ?? { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAdminPessoaFisicaLookupApplied(!!salvo);
     setAdminPessoaFisicaLookupOpen(true);
   }
 
@@ -4841,6 +4834,40 @@ export default function Home() {
     } finally {
       setSalvandoFiltro(false);
     }
+  }
+
+  /* ── "Salvar filtro" dos lookups (janelas de localizar) ── */
+  /**
+   * Filtro salvo do lookup (usuario_filtro, ie_tela lookup_<id>): os campos salvos que o
+   * filtro do lookup conhece, sobre o filtro vazio. null se não houver filtro salvo.
+   * Ao abrir o lookup, o filtro salvo já vem preenchido e aplicado.
+   */
+  function filtroSalvoDoLookup<T extends Record<string, string>>(lookup: string, vazio: T): T | null {
+    const campos = camposDoFiltroSalvoDoLookup(lookup);
+    return campos ? { ...vazio, ...Object.fromEntries(Object.entries(campos).filter(([k]) => k in vazio)) } : null;
+  }
+  /** Todos os campos (texto) do filtro salvo do lookup; null se não houver. */
+  function camposDoFiltroSalvoDoLookup(lookup: string): Record<string, string> | null {
+    const texto = currentUser?.[`config_filtro_lookup_${lookup}` as const];
+    if (!texto) return null;
+    try {
+      const form = (JSON.parse(texto) as { form?: unknown } | null)?.form;
+      if (!form || typeof form !== 'object') return null;
+      return Object.fromEntries(Object.entries(form).filter(([, v]) => typeof v === 'string')) as Record<string, string>;
+    } catch {
+      return null;
+    }
+  }
+  /** Grava o filtro do lookup para o usuário e o aplica (como o "Filtrar"). */
+  function salvarFiltroDoLookup(lookup: string, form: Record<string, string>, aplicar: () => void) {
+    void salvarFiltroDaTela(`lookup_${lookup}`, { form }, aplicar);
+  }
+  /** Props de "Salvar filtro" do ReferenciaLookupModal (lookup_<colecao>). */
+  function filtroDoReferenciaLookup(lookup: string) {
+    return {
+      filtroSalvo: camposDoFiltroSalvoDoLookup(lookup),
+      onSalvarFiltro: (form: Record<string, string>, aplicar: () => void) => salvarFiltroDoLookup(lookup, form, aplicar),
+    };
   }
 
   /**
@@ -5454,6 +5481,8 @@ export default function Home() {
       nr_cbo: String((item as unknown as Record<string, unknown>).nr_cbo ?? ''),
       sg_sigla: String((item as unknown as Record<string, unknown>).sg_orgao_emissor ?? (item as unknown as Record<string, unknown>).sg_logradouro ?? ''),
       ds_observacao: String((item as unknown as Record<string, unknown>).ds_observacao ?? ''),
+      qt_largura: formatarMedida((item as unknown as Record<string, unknown>).qt_largura),
+      qt_altura: formatarMedida((item as unknown as Record<string, unknown>).qt_altura),
     });
     setCgEditingId(item.id ?? null);
     setCgAuditInfo({
@@ -7536,9 +7565,19 @@ export default function Home() {
       ie_arquivo: copiaExtra.ie_arquivo.trim() === '' ? null : copiaExtra.ie_arquivo,
     };
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos (o arquivo novo conta como preenchido).
+    // Só valem os campos que o usuário consegue preencher no formulário: Data do status e
+    // Motivo status vêm do "Alterar status" (sempre bloqueados aqui), e as datas de impressão
+    // e de entrega só se abrem no cadastro com o status delas (Impresso / Entregue).
+    const statusCopia = copiaEditingId ? (copias.find((c) => c.id === copiaEditingId)?.ie_status ?? copiaExtra.ie_status) : copiaExtra.ie_status;
+    const naoEditaveis = new Set<string>(['dt_status', 'ds_motivo_status']);
+    if (copiaEditingId || statusCopia !== 'I') naoEditaveis.add('dt_impressao');
+    if (copiaEditingId || statusCopia !== 'E') naoEditaveis.add('dt_entrega');
+    const regrasCopia = Object.fromEntries(
+      Object.entries(campoRegrasDaColecao(campoRegrasAtivas, 'copia')).filter(([campo]) => !naoEditaveis.has(campo))
+    );
     const faltantes = camposObrigatoriosVazios(
-      { ...payload, ie_arquivo: copiaArquivoNovo ? copiaArquivoNovo.name : payload.ie_arquivo },
-      campoRegrasDaColecao(campoRegrasAtivas, 'copia')
+      { ...payload, ie_status: statusCopia, ie_arquivo: copiaArquivoNovo ? copiaArquivoNovo.name : payload.ie_arquivo },
+      regrasCopia
     );
     if (faltantes.length > 0) {
       setCopiaCampoErros(faltantes);
@@ -8338,6 +8377,7 @@ export default function Home() {
         ie_status: cgForm.ie_status,
         nr_cbo: cgForm.nr_cbo ?? '',
         ...(cgSiglaChave ? { [cgSiglaChave]: cgForm.sg_sigla ?? '' } : {}),
+        ...(cgKind === 'formatoPapel' ? { qt_largura: cgForm.qt_largura ?? '', qt_altura: cgForm.qt_altura ?? '' } : {}),
       },
       cgRegras
     );
@@ -8345,6 +8385,20 @@ export default function Home() {
       setCgCampoErros(cgFaltantes);
       setMessage("Preencha os campos obrigatórios.");
       return;
+    }
+    // Formato do papel: Largura e Altura, quando informadas, precisam ser maiores que zero.
+    if (cgKind === 'formatoPapel') {
+      const medidasInvalidas = (['qt_largura', 'qt_altura'] as const).filter((campo) => {
+        const texto = (cgForm[campo] ?? '').trim();
+        if (texto === '') return false;
+        const n = medidaParaBanco(texto);
+        return n === null || n <= 0;
+      });
+      if (medidasInvalidas.length > 0) {
+        setCgCampoErros([...medidasInvalidas]);
+        setMessage("Informe uma medida maior que zero.");
+        return;
+      }
     }
     setCgCampoErros([]);
     setCgSubmitting(true);
@@ -8356,13 +8410,17 @@ export default function Home() {
         ...(cgKind === 'profissao' ? { nr_cbo: cgForm.nr_cbo ?? '' } : {}),
         ...(cgKind === 'orgaoEmissor' ? { sg_orgao_emissor: cgForm.sg_sigla ?? '' } : {}),
         ...(cgKind === 'logradouro' ? { sg_logradouro: cgForm.sg_sigla ?? '' } : {}),
+        ...(cgKind === 'formatoPapel' ? { qt_largura: medidaParaBanco(cgForm.qt_largura), qt_altura: medidaParaBanco(cgForm.qt_altura) } : {}),
       } as Record<string, unknown>;
 
       if (cgEditingId) {
         const currentItem = cgItems.find((s) => s.id === cgEditingId);
-        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : cgKind === 'logradouro' ? [cgDescKey, 'ie_status', 'sg_logradouro'] : [cgDescKey, 'ie_status'];
+        const changeKeys = cgKind === 'profissao' ? [cgDescKey, 'ie_status', 'nr_cbo'] : cgKind === 'orgaoEmissor' ? [cgDescKey, 'ie_status', 'sg_orgao_emissor'] : cgKind === 'logradouro' ? [cgDescKey, 'ie_status', 'sg_logradouro'] : cgKind === 'formatoPapel' ? [cgDescKey, 'ie_status', 'qt_largura', 'qt_altura'] : [cgDescKey, 'ie_status'];
+        // Medidas: compara o número ("210.00" do banco = 210 digitado).
+        const valorComparavel = (key: string, v: unknown) =>
+          (key === 'qt_largura' || key === 'qt_altura') ? String(medidaParaBanco(v == null ? '' : String(v)) ?? '') : String(v ?? '');
         const hasChanges = currentItem
-          ? changeKeys.some((key) => String((currentItem as any)[key] ?? '') !== String(payload[key] ?? ''))
+          ? changeKeys.some((key) => valorComparavel(key, (currentItem as any)[key]) !== valorComparavel(key, payload[key]))
           : true;
 
         if (!hasChanges) {
@@ -8475,8 +8533,10 @@ export default function Home() {
   }
 
   function openPessoaFisicaLookup() {
-    setLookupForm(lookupFilter);
-    setLookupApplied(false);
+    const salvo = filtroSalvoDoLookup('pessoa_fisica', { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setLookupForm(salvo ?? lookupFilter);
+    if (salvo) setLookupFilter(salvo);
+    setLookupApplied(!!salvo);
     setPessoaFisicaLookupOpen(true);
   }
 
@@ -8526,8 +8586,10 @@ export default function Home() {
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
   function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter') {
     alunoPessoaFisicaLookupTargetRef.current = target;
-    setAlunoLookupForm(alunoLookupFilter);
-    setAlunoLookupApplied(false);
+    const salvo = filtroSalvoDoLookup('pessoa_fisica', { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
+    setAlunoLookupForm(salvo ?? alunoLookupFilter);
+    if (salvo) setAlunoLookupFilter(salvo);
+    setAlunoLookupApplied(!!salvo);
     setAlunoPessoaFisicaLookupOpen(true);
   }
 
@@ -8665,16 +8727,20 @@ export default function Home() {
   /* ── Lookup de Pessoa Jurídica para Colaboradores ── */
   function openColaboradorPessoaJuridicaLookup() {
     colaboradorPjLookupTargetRef.current = 'form';
-    setColaboradorPjLookupForm(colaboradorPjLookupFilter);
-    setColaboradorPjLookupApplied(false);
-    setColaboradorPessoaJuridicaLookupOpen(true);
+    abrirColaboradorPjLookup();
   }
 
   // Abre o lookup de Pessoa Jurídica a partir do filtro de Colaboradores.
   function openColaboradorFilterPessoaJuridicaLookup() {
     colaboradorPjLookupTargetRef.current = 'filter';
-    setColaboradorPjLookupForm(colaboradorPjLookupFilter);
-    setColaboradorPjLookupApplied(false);
+    abrirColaboradorPjLookup();
+  }
+
+  function abrirColaboradorPjLookup() {
+    const salvo = filtroSalvoDoLookup('pessoa_juridica', { nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
+    setColaboradorPjLookupForm(salvo ?? colaboradorPjLookupFilter);
+    if (salvo) setColaboradorPjLookupFilter(salvo);
+    setColaboradorPjLookupApplied(!!salvo);
     setColaboradorPessoaJuridicaLookupOpen(true);
   }
 
@@ -8750,20 +8816,22 @@ export default function Home() {
 
   /* ── Lookup de cidades (Naturalidade — API IBGE) ── */
   async function openNaturalidadeLookup() {
-    setCidadeLookupForm({ codigo: '', nome: '', uf: '' });
+    const salvo = filtroSalvoDoLookup('cidade', { codigo: '', nome: '', uf: '' });
+    setCidadeLookupForm(salvo ?? { codigo: '', nome: '', uf: '' });
     setCidadeLookupApplied(false);
     setCidadeResults([]);
     setNaturalidadeLookupOpen(true);
+    if (salvo) await handleCidadeSearch(salvo);
   }
 
   function closeNaturalidadeLookup() {
     setNaturalidadeLookupOpen(false);
   }
 
-  async function handleCidadeSearch() {
+  async function handleCidadeSearch(filtro: typeof cidadeLookupForm = cidadeLookupForm) {
     setCidadeLoading(true);
     try {
-      const results = await buscarCidades(cidadeLookupForm);
+      const results = await buscarCidades(filtro);
       setCidadeResults(results);
       setCidadeLookupApplied(true);
     } catch {
@@ -8807,28 +8875,31 @@ export default function Home() {
   /* ── Lookup de cidades da Pessoa Jurídica (Endereço/Filtro — API IBGE) ── */
   async function openPjCidadeLookup() {
     pjCidadeLookupTargetRef.current = 'form';
-    setPjCidadeLookupForm({ codigo: '', nome: '', uf: '' });
-    setPjCidadeLookupApplied(false);
-    setPjCidadeResults([]);
-    setPjCidadeLookupOpen(true);
+    await abrirPjCidadeLookup();
   }
 
   async function openPjFilterCidadeLookup() {
     pjCidadeLookupTargetRef.current = 'filter';
-    setPjCidadeLookupForm({ codigo: '', nome: '', uf: '' });
+    await abrirPjCidadeLookup();
+  }
+
+  async function abrirPjCidadeLookup() {
+    const salvo = filtroSalvoDoLookup('cidade', { codigo: '', nome: '', uf: '' });
+    setPjCidadeLookupForm(salvo ?? { codigo: '', nome: '', uf: '' });
     setPjCidadeLookupApplied(false);
     setPjCidadeResults([]);
     setPjCidadeLookupOpen(true);
+    if (salvo) await handlePjCidadeSearch(salvo);
   }
 
   function closePjCidadeLookup() {
     setPjCidadeLookupOpen(false);
   }
 
-  async function handlePjCidadeSearch() {
+  async function handlePjCidadeSearch(filtro: typeof pjCidadeLookupForm = pjCidadeLookupForm) {
     setPjCidadeLoading(true);
     try {
-      const results = await buscarCidades(pjCidadeLookupForm);
+      const results = await buscarCidades(filtro);
       setPjCidadeResults(results);
       setPjCidadeLookupApplied(true);
     } catch {
@@ -9613,11 +9684,20 @@ export default function Home() {
 
   function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' = 'modal') {
     enviarManutPrestadorLookupTargetRef.current = target;
-    setLookupColaboradorFornecedor(target === 'ativoFornecedor' || target === 'ativoFilterFornecedor');
-    setLookupColaboradorTodos(target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos' || target === 'copiaSolicitante' || target === 'copiaFiltroSolicitante');
-    setEnviarManutPrestLookupForm(enviarManutPrestLookupFilter);
-    setEnviarManutPrestLookupApplied(false);
+    const fornecedor = target === 'ativoFornecedor' || target === 'ativoFilterFornecedor';
+    const todos = target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos' || target === 'copiaSolicitante' || target === 'copiaFiltroSolicitante';
+    setLookupColaboradorFornecedor(fornecedor);
+    setLookupColaboradorTodos(todos);
+    const salvo = filtroSalvoDoLookup(idLookupColaborador(fornecedor, todos), { nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
+    setEnviarManutPrestLookupForm(salvo ?? enviarManutPrestLookupFilter);
+    if (salvo) setEnviarManutPrestLookupFilter(salvo);
+    setEnviarManutPrestLookupApplied(!!salvo);
     setEnviarManutPrestadorLookupOpen(true);
+  }
+
+  /** Filtro salvo do lookup de colaboradores: um por janela (fornecedor, colaborador, prestador de serviço). */
+  function idLookupColaborador(fornecedor: boolean, todos: boolean) {
+    return fornecedor ? 'fornecedor' : todos ? 'colaborador' : 'prestador_servico';
   }
 
   function closeEnviarManutPrestadorLookup() {
@@ -9746,14 +9826,17 @@ export default function Home() {
   /* ── Lookup de ativo no formulário de manutenção ── */
   function openManutencaoAtivoLookup() {
     manutencaoAtivoLookupTargetRef.current = 'manutencao';
-    setManutencaoAtivoLookupForm(manutencaoAtivoLookupFilter);
-    setManutencaoAtivoLookupApplied(false);
-    setManutencaoAtivoLookupOpen(true);
+    abrirManutencaoAtivoLookup();
   }
   function openManutencaoFilterAtivoLookup() {
     manutencaoAtivoLookupTargetRef.current = 'manutencaoFilter';
-    setManutencaoAtivoLookupForm(manutencaoAtivoLookupFilter);
-    setManutencaoAtivoLookupApplied(false);
+    abrirManutencaoAtivoLookup();
+  }
+  function abrirManutencaoAtivoLookup() {
+    const salvo = filtroSalvoDoLookup('ativo', { nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' });
+    setManutencaoAtivoLookupForm(salvo ?? manutencaoAtivoLookupFilter);
+    if (salvo) setManutencaoAtivoLookupFilter(salvo);
+    setManutencaoAtivoLookupApplied(!!salvo);
     setManutencaoAtivoLookupOpen(true);
   }
   function closeManutencaoAtivoLookup() {
@@ -10944,7 +11027,7 @@ export default function Home() {
         return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} fornecedorName={exclusoesLookups.nr_seq_fornecedor[dados.nr_seq_fornecedor] ?? ''} onOpenFornecedorLookup={nada} onViewFornecedor={nada} />;
       default:
         if (cg) {
-          return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
+          return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showDimensoes={cg.collection === 'cg_formato_papel'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
         }
         return <FormularioExcluidoGenerico colecao={ex.ds_colecao} dados={ex.dados} resolverNomeAutor={resolverNomeAutorExibicao} />;
     }
@@ -12187,9 +12270,11 @@ export default function Home() {
                       onOpenAudit={(rid) => openRelatorioAuditModal(rid, null, 'relatorio')}
                       onOpenBandaAudit={(rid, bid) => openRelatorioAuditModal(rid, bid, 'relatorio_banda')}
                       onOpenFiltroAudit={(rid, fid) => openRelatorioAuditModal(rid, fid, 'relatorio_parametro')}
+                      onOpenElementoAudit={(rid, eid) => openRelatorioAuditModal(rid, eid, 'relatorio_banda_elemento')}
                       darkMode={darkMode}
                       campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio')}
                       bandaCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda')}
+                      elementoCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_banda_elemento')}
                       parametroCampoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'relatorio_parametro')}
                       onNavigateToList={closeRelatorioBuilder}
                       onConfirmarExclusao={(mensagem, acao) => {
@@ -12200,6 +12285,8 @@ export default function Home() {
                       }}
                       colunasBandas={{ initialColumns: relatorioBandasColunasConfig, onColumnsChange: handleRelatorioBandasColumnsChange }}
                       colunasParametros={{ initialColumns: relatorioFiltrosColunasConfig, onColumnsChange: handleRelatorioFiltrosColumnsChange }}
+                      opcoesFormatoPapel={opcoesDeReferencia(formatosPapel, (f) => f.ds_formato_papel, relatorioForm?.nr_seq_formato_papel != null ? String(relatorioForm.nr_seq_formato_papel) : '')}
+                      opcoesImagem={opcoesDeReferencia(imagens, (i) => i.ds_imagem, '')}
                     />
                   </div>
                 ) : (
@@ -13000,6 +13087,7 @@ export default function Home() {
                 descFieldKey={cgDescKey}
                 collectionName={cgCollection}
                 showCbo={cgKind === 'profissao'}
+                showDimensoes={cgKind === 'formatoPapel'}
                 showSigla={cgKind === 'orgaoEmissor' || cgKind === 'logradouro'}
                 siglaFieldKey={cgKind === 'orgaoEmissor' ? 'sg_orgao_emissor' : cgKind === 'logradouro' ? 'sg_logradouro' : undefined}
                 campoRegras={campoRegrasDaColecao(campoRegrasAtivas, cgCollection)}
@@ -16511,10 +16599,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeEnviarManutPrestadorLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                   <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>{lookupColaboradorFornecedor ? 'Localizar fornecedor' : lookupColaboradorTodos ? 'Localizar colaborador' : 'Localizar prestador de serviço'}</h2>
+                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>{lookupColaboradorFornecedor ? 'Fornecedor' : lookupColaboradorTodos ? 'Colaborador' : 'Prestador de Serviço'}</h2>
                     <button type="button" onClick={closeEnviarManutPrestadorLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar prestador">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
                     </button>
@@ -16547,6 +16635,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup(idLookupColaborador(lookupColaboradorFornecedor, lookupColaboradorTodos), enviarManutPrestLookupForm, applyEnviarManutPrestadorLookup)} />
                   <button type="button" onClick={clearEnviarManutPrestadorLookup} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}>Limpar</button>
                   <button type="button" onClick={applyEnviarManutPrestadorLookup} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Filtrar</button>
                 </div>
@@ -16574,13 +16663,14 @@ export default function Home() {
             .filter((item) => String(item.ie_status ?? 'A').toUpperCase() !== 'I')
             .map((item) => ({ nr_sequencia: item.nr_sequencia, descricao: descricao(item) || `#${item.nr_sequencia}` }));
         const config = {
-          nr_seq_curso: { titulo: 'Localizar curso', colecao: 'curso', campoDescricao: 'ds_curso', registros: ativos(cursos, (c) => c.ds_curso) },
-          nr_seq_periodo_letivo: { titulo: 'Localizar período letivo', colecao: 'periodo_letivo', campoDescricao: 'ds_periodo_letivo', registros: ativos(periodosLetivos, (p) => p.ds_periodo_letivo) },
-          nr_seq_localizacao: { titulo: 'Localizar localização', colecao: 'cg_localizacao', campoDescricao: 'ds_localizacao', registros: ativos(localizacoes, (l) => l.ds_localizacao) },
+          nr_seq_curso: { titulo: 'Curso', colecao: 'curso', campoDescricao: 'ds_curso', registros: ativos(cursos, (c) => c.ds_curso) },
+          nr_seq_periodo_letivo: { titulo: 'Período Letivo', colecao: 'periodo_letivo', campoDescricao: 'ds_periodo_letivo', registros: ativos(periodosLetivos, (p) => p.ds_periodo_letivo) },
+          nr_seq_localizacao: { titulo: 'Localização', colecao: 'cg_localizacao', campoDescricao: 'ds_localizacao', registros: ativos(localizacoes, (l) => l.ds_localizacao) },
         }[turmaLookupCampo];
         return (
           <ReferenciaLookupModal
             {...config}
+            {...filtroDoReferenciaLookup(config.colecao)}
             onClose={() => setTurmaLookupCampo(null)}
             onSelect={(item) => {
               setTurmaExtra((t) => ({ ...t, [turmaLookupCampo]: String(item.nr_sequencia) }));
@@ -16594,8 +16684,9 @@ export default function Home() {
       {turmaDisciplinaLookupCampo && (
         <ReferenciaLookupModal
           {...(turmaDisciplinaLookupCampo === 'nr_seq_turma'
-            ? { titulo: 'Localizar turma', colecao: 'turma', campoDescricao: 'ds_turma', registros: turmas.map((t) => ({ nr_sequencia: t.nr_sequencia, descricao: t.ds_turma || `#${t.nr_sequencia}` })) }
-            : { titulo: 'Localizar disciplina', colecao: 'disciplina', campoDescricao: 'ds_disciplina', registros: disciplinas.map((d) => ({ nr_sequencia: d.nr_sequencia, descricao: d.ds_disciplina || `#${d.nr_sequencia}` })) })}
+            ? { titulo: 'Turma', colecao: 'turma', campoDescricao: 'ds_turma', registros: turmas.map((t) => ({ nr_sequencia: t.nr_sequencia, descricao: t.ds_turma || `#${t.nr_sequencia}` })) }
+            : { titulo: 'Disciplina', colecao: 'disciplina', campoDescricao: 'ds_disciplina', registros: disciplinas.map((d) => ({ nr_sequencia: d.nr_sequencia, descricao: d.ds_disciplina || `#${d.nr_sequencia}` })) })}
+          {...filtroDoReferenciaLookup(turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina')}
           onClose={() => setTurmaDisciplinaLookupCampo(null)}
           onSelect={(item) => {
             setTurmaDisciplinaExtra((t) => ({ ...t, [turmaDisciplinaLookupCampo]: String(item.nr_sequencia) }));
@@ -16607,7 +16698,7 @@ export default function Home() {
       {/* ── Lookup: Turma x Disciplina (formulário e filtro de Cópias) ── */}
       {copiaTurmaDisciplinaLookup && (
         <ReferenciaLookupModal
-          titulo="Localizar turma x disciplina"
+          titulo="Turma x Disciplina"
           colecao="turma_disciplina"
           campoDescricao="nr_seq_turma"
           // Mesmas colunas de Estrutura Acadêmica > Turmas x Disciplinas (só as ativas podem ser escolhidas).
@@ -16619,6 +16710,7 @@ export default function Home() {
             { key: 'nr_seq_disciplina', rotulo: 'Disciplina', campo: 'nr_seq_disciplina' },
           ]}
           {...colunasPorIndice('config_colunas_lookup_turma_disciplina')}
+          {...filtroDoReferenciaLookup('turma_disciplina')}
           registros={turmasDisciplinas
             .filter((td) => (td.ie_status ?? 'A') !== 'I')
             // Período letivo, Curso e Modalidade de ensino vêm da turma.
@@ -16652,10 +16744,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeManutencaoAtivoLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                   <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar ativo</h2>
+                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>Ativo</h2>
                     <button type="button" onClick={closeManutencaoAtivoLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar ativo">
                       <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
                     </button>
@@ -16689,6 +16781,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('ativo', manutencaoAtivoLookupForm, applyManutencaoAtivoLookup)} />
                   <button type="button" onClick={clearManutencaoAtivoLookup} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}>Limpar</button>
                   <button type="button" onClick={applyManutencaoAtivoLookup} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Filtrar</button>
                 </div>
@@ -16714,10 +16807,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Física</h2>
                   <button
                     type="button"
                     onClick={closePessoaFisicaLookup}
@@ -16762,6 +16855,7 @@ export default function Home() {
                 </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_fisica', lookupForm, applyLookupFilter)} />
                   <button
                     type="button"
                     onClick={clearLookupFilter}
@@ -16802,10 +16896,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeAlunoPessoaFisicaLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Física</h2>
                   <button
                     type="button"
                     onClick={closeAlunoPessoaFisicaLookup}
@@ -16850,6 +16944,7 @@ export default function Home() {
                 </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_fisica', alunoLookupForm, applyAlunoLookupFilter)} />
                   <button
                     type="button"
                     onClick={clearAlunoLookupFilter}
@@ -16890,10 +16985,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorPessoaJuridicaLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa jurídica</h2>
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Jurídica</h2>
                   <button
                     type="button"
                     onClick={closeColaboradorPessoaJuridicaLookup}
@@ -16938,6 +17033,7 @@ export default function Home() {
                 </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_juridica', colaboradorPjLookupForm, applyColaboradorPjLookupFilter)} />
                   <button
                     type="button"
                     onClick={clearColaboradorPjLookupFilter}
@@ -16978,10 +17074,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar pessoa física</h2>
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Física</h2>
                   <button
                     type="button"
                     onClick={closeAdminPessoaFisicaLookup}
@@ -17026,6 +17122,7 @@ export default function Home() {
                 </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_fisica', adminPessoaFisicaLookupForm, applyAdminPessoaFisicaLookupFilter)} />
                   <button
                     type="button"
                     onClick={clearAdminPessoaFisicaLookupFilter}
@@ -17088,10 +17185,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeNaturalidadeLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar cidade</h2>
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cidade</h2>
                   <button
                     type="button"
                     onClick={closeNaturalidadeLookup}
@@ -17134,6 +17231,7 @@ export default function Home() {
                 </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('cidade', cidadeLookupForm, () => { void handleCidadeSearch(cidadeLookupForm); })} />
                   <button
                     type="button"
                     onClick={clearCidadeLookup}
@@ -17144,7 +17242,7 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
-                    onClick={handleCidadeSearch}
+                    onClick={() => { void handleCidadeSearch(); }}
                     className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
                     style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
                   >
@@ -17176,10 +17274,10 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closePjCidadeLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[320px] lookup-left flex flex-col min-h-0">
+              <div className="w-[360px] lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Localizar cidade</h2>
+                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cidade</h2>
                   <button
                     type="button"
                     onClick={closePjCidadeLookup}
@@ -17222,6 +17320,7 @@ export default function Home() {
                 </div>
                 </div>
                 <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('cidade', pjCidadeLookupForm, () => { void handlePjCidadeSearch(pjCidadeLookupForm); })} />
                   <button
                     type="button"
                     onClick={clearPjCidadeLookup}
@@ -17232,7 +17331,7 @@ export default function Home() {
                   </button>
                   <button
                     type="button"
-                    onClick={handlePjCidadeSearch}
+                    onClick={() => { void handlePjCidadeSearch(); }}
                     className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
                     style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
                   >
@@ -17296,19 +17395,16 @@ export default function Home() {
           flat.nr_sequencia = detalhes.nr_sequencia;
           flat.ds_relatorio = detalhes.ds_relatorio;
           flat.formato = detalhes.ie_formato;
-          // Nome do arquivo: depende do formato
           const cfg = detalhes.configPdf || {};
-          flat.titulo_arquivo = cfg.titulo || '';
-          // Config PDF
-          const pdf = detalhes.configPdf || {};
-          flat.pdf_pagina = pdf.tamanhoPagina || '';
-          flat.pdf_orientacao = pdf.orientacao || '';
-          flat.pdf_borda = pdf.estiloBorda || '';
-          const margens = pdf.margens || {};
-          flat.pdf_margem_superior = margens.superior ?? '';
-          flat.pdf_margem_inferior = margens.inferior ?? '';
-          flat.pdf_margem_esquerda = margens.esquerda ?? '';
-          flat.pdf_margem_direita = margens.direita ?? '';
+          flat.titulo_arquivo = detalhes.ds_nome_arquivo ?? cfg.titulo ?? '';
+          // Campos do PDF (margens em cm).
+          flat.pdf_formato_papel = detalhes.nr_seq_formato_papel ?? '';
+          flat.pdf_orientacao = detalhes.ie_orientacao ?? '';
+          flat.pdf_borda = detalhes.ie_borda ?? '';
+          flat.pdf_margem_superior = formatarMedida(detalhes.nr_margem_superior);
+          flat.pdf_margem_inferior = formatarMedida(detalhes.nr_margem_inferior);
+          flat.pdf_margem_esquerda = formatarMedida(detalhes.nr_margem_esquerda);
+          flat.pdf_margem_direita = formatarMedida(detalhes.nr_margem_direita);
           // Bandas (resumo)
           const bandas = detalhes.bandas;
           if (Array.isArray(bandas)) {
@@ -17475,7 +17571,7 @@ export default function Home() {
               'dt_criacao', 'dt_alteracao',
             ]                      : isRelatorio && isBanda
           ? [
-              'nr_sequencia', 'ds_banda', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
+              'nr_sequencia', 'ds_banda', 'ie_tipo', 'qt_altura', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
               'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
               'espessuraLabel', 'topoLabel', 'espessuraCampo', 'topoRegistro', 'bgLabel', 'bgCampo',
               'corLabelGlobal', 'corCampoGlobal', 'fonteLabel', 'tamanhoFonteLabel', 'fonteCampo', 'tamanhoFonteCampo',
@@ -17483,13 +17579,9 @@ export default function Home() {
             ]
           : isRelatorio && isElemento
           ? [
-              'nr_sequencia', 'ds_elemento', 'ie_tipo_elemento', 'ie_primeira_pagina', 'conteudo', 'ie_colecao', 'ie_campo', 'label',
-              'backgroundLabel', 'corLabel', 'qt_largura', 'qt_esquerda', 'topoLabel', 'qt_topo',
-              'ie_alinhamento', 'ie_estilo_label', 'ie_estilo', 'ie_estilo_soma', 'formatacao',
-              'cd_cor', 'cd_background', 'transparentCampo', 'soma', 'statusSistema',
-              'qt_padding_superior', 'qt_padding_direita', 'qt_padding_inferior', 'qt_padding_esquerda',
-              'ie_borda_superior', 'ie_borda_direita', 'ie_borda_inferior', 'ie_borda_esquerda',
-              'ie_fonte', 'qt_fonte', 'nr_seq_imagem', 'qt_tamanho_imagem',
+              'nr_sequencia', 'ds_elemento', 'ie_tipo', 'nr_seq_imagem', 'qt_esquerda', 'qt_topo', 'ie_estilo', 'qt_largura', 'qt_altura',
+              'ie_alinhamento', 'cd_background', 'cd_cor', 'ie_fonte', 'qt_fonte', 'ds_label', 'cd_alias', 'ds_conteudo',
+              'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
               'nr_seq_banda', 'nr_seq_relatorio',
               'dt_criacao', 'dt_alteracao',
             ]
@@ -17502,7 +17594,7 @@ export default function Home() {
           : isRelatorio
           ? [
               'nr_sequencia', 'ds_relatorio', 'formato', 'titulo_arquivo',
-              'pdf_pagina', 'pdf_orientacao', 'pdf_borda',
+              'pdf_formato_papel', 'pdf_orientacao', 'pdf_borda',
               'pdf_margem_superior', 'pdf_margem_inferior', 'pdf_margem_esquerda', 'pdf_margem_direita',
               'bandas_sequencia',
               'dt_criacao', 'dt_alteracao',
@@ -17512,7 +17604,7 @@ export default function Home() {
               'nr_sequencia',
               auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : auditDocumentType === 'cg_modalidade_ensino' ? 'ds_modalidade_ensino' : auditDocumentType === 'cg_formato_papel' ? 'ds_formato_papel' : auditDocumentType === 'cg_tipo_papel' ? 'ds_tipo_papel' : 'ds_sexo',
               ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
-              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : []),
+              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : auditDocumentType === 'cg_formato_papel' ? ['qt_largura', 'qt_altura'] : []),
               'ie_status',
               'dt_criacao',
               'dt_alteracao',
@@ -17615,6 +17707,7 @@ export default function Home() {
                       ds_bairro: 'Bairro',
                       ds_complemento: 'Complemento',
                       nr_cbo: 'CBO',
+                      qt_altura: 'Altura',
                       ds_imagem: 'Descrição',
                       ds_esqueceu_senha: 'Conteúdo',
                       ds_politica_privacidade: 'Conteúdo',
@@ -17704,7 +17797,7 @@ export default function Home() {
                       ds_relatorio: 'Descrição',
                       formato: 'Formato',
                       titulo_arquivo: 'Nome do arquivo',
-                      pdf_pagina: 'Página',
+                      pdf_formato_papel: 'Formato do papel',
                       pdf_orientacao: 'Orientação',
                       pdf_borda: 'Borda',
                       pdf_margem_superior: 'Margem superior',
@@ -17714,6 +17807,7 @@ export default function Home() {
                       bandas_sequencia: 'Bandas',
                       ds_banda: 'Descrição',
                       ie_tipo_banda: 'Tipo',
+                      ie_tipo: 'Tipo',
                       ie_colecao_principal: 'Coleção principal',
                       nr_posicao: 'Posição',
                       nr_altura: 'Altura',
@@ -17771,6 +17865,8 @@ export default function Home() {
                       ie_conector: 'Conector',
                       ie_parametro: 'Parâmetro',
                       ds_label: 'Label',
+                      cd_alias: 'Alias',
+                      ds_conteudo: 'Conteúdo',
                       ie_obrigatorio: 'Obrigatório',
                       ds_usuario_criacao: 'Usuário criação',
                       ds_usuario_alteracao: 'Usuário alteração',
@@ -17823,6 +17919,8 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
+                      // Formato do papel: medidas como no formulário ("210", "215,9").
+                      if (auditDocumentType === 'cg_formato_papel' && (field === 'qt_largura' || field === 'qt_altura')) return formatarMedida(normalized);
                       // Referências (nr_seq_*) exibidas pela descrição do registro vinculado.
                       const seq = Number(normalized);
                       const descricaoPorSeq: Record<string, () => string | undefined> = {
@@ -17898,20 +17996,23 @@ export default function Home() {
                         return String(normalized) === 'S' ? 'Sim' : String(normalized) === 'N' ? 'Não' : '---';
                       }
                       if (field === 'formato') {
-                        return String(normalized) === 'pdf' ? 'PDF' : String(normalized);
+                        return String(normalized) === 'pdf' ? 'PDF' : 'XLS';
+                      }
+                      if (field === 'pdf_formato_papel') {
+                        return formatosPapel.find((f) => String(f.nr_sequencia) === String(normalized))?.ds_formato_papel ?? String(normalized);
                       }
                       if (field === 'pdf_borda') {
                         const map: Record<string, string> = { 'solid_fina': 'Sólida fina', 'solid_grossa': 'Sólida grossa', 'dupla': 'Dupla', 'tracejada': 'Tracejada', 'pontilhada': 'Pontilhada' };
                         return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
                       }
                       if (field === 'pdf_orientacao') {
-                        return String(normalized) === 'retrato' ? 'Retrato' : String(normalized) === 'paisagem' ? 'Paisagem' : String(normalized);
+                        return String(normalized) === 'P' ? 'Padrão' : String(normalized) === 'I' ? 'Invertido' : String(normalized);
                       }
                       if (field === 'ie_tipo_feriado') {
                         return rotuloTipoFeriado(String(normalized)) || String(normalized);
                       }
-                      if (field === 'ie_tipo_banda') {
-                        const map: Record<string, string> = { 'lista': 'Lista', 'texto_valor': 'Texto/Valor', 'cabecalho': 'Cabeçalho', 'rodape': 'Rodapé' };
+                      if (field === 'ie_tipo_banda' || (field === 'ie_tipo' && isBanda)) {
+                        const map: Record<string, string> = { 'lista': 'Lista', 'texto_valor': 'Texto/Valor', 'cabecalho': 'Cabeçalho', 'conteudo': 'Conteúdo', 'rodape': 'Rodapé' };
                         return map[String(normalized)] ?? String(normalized);
                       }
                       if (field === 'ie_borda_superior' || field === 'ie_borda_inferior' || field === 'ie_borda_esquerda' || field === 'ie_borda_direita') {
@@ -17931,6 +18032,16 @@ export default function Home() {
                         if (s === 'false') return 'Não';
                         return s === 'S' ? 'Sim' : s === 'N' ? 'Não' : '---';
                       }
+                      if (field === 'ie_tipo' && isElemento) {
+                        return String(normalized) === 'sql' ? 'SQL' : String(normalized) === 'conteudo' ? 'Conteúdo' : String(normalized) === 'imagem' ? 'Imagem' : (String(normalized) === '' ? '---' : String(normalized));
+                      }
+                      if (field === 'nr_seq_imagem' && isElemento) {
+                        return imagens.find((i) => String(i.nr_sequencia) === String(normalized))?.ds_imagem ?? String(normalized);
+                      }
+                      if (field === 'ie_fonte' && isElemento) {
+                        const map: Record<string, string> = { 'arial': 'Arial', 'calibri': 'Calibri', 'courier_new': 'Courier New', 'times_new_roman': 'Times New Roman', 'verdana': 'Verdana' };
+                        return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
+                      }
                       if (field === 'ie_tipo_elemento') {
                         const map: Record<string, string> = { 'valor': 'Valor', 'conteudo': 'Conteúdo', 'data_geracao': 'Data de geração', 'horario_geracao': 'Horário de geração', 'data_horario_geracao': 'Data e horário de geração', 'usuario_geracao': 'Usuário da geração', 'imagem': 'Imagem', 'numero_pagina': 'Número da página' };
                         return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
@@ -17940,7 +18051,7 @@ export default function Home() {
                         return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
                       }
                       if (field === 'ie_estilo_label' || field === 'ie_estilo' || field === 'ie_estilo_soma') {
-                        const map: Record<string, string> = { 'normal': 'Normal', 'negrito': 'Negrito', 'italico': 'Itálico', 'sublinhado': 'Sublinhado', 'negrito_italico': 'Negrito e itálico', 'negrito_sublinhado': 'Negrito e sublinhado', 'italico_sublinhado': 'Itálico e sublinhado', 'negrito_italico_sublinhado': 'Negrito, itálico e sublinhado' };
+                        const map: Record<string, string> = { 'normal': 'Normal', 'negrito': 'Negrito', 'italico': 'Itálico', 'sublinhado': 'Sublinhado', 'negrito_italico': 'Negrito e itálico', 'negrito_sublinhado': 'Negrito e sublinhado', 'italico_sublinhado': 'Itálico e sublinhado', 'negrito_italico_sublinhado': isElemento ? 'Todos' : 'Negrito, itálico e sublinhado' };
                         return map[String(normalized)] ?? (String(normalized) === '' ? '---' : String(normalized));
                       }
                       if (field === 'formatacao') {

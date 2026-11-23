@@ -465,6 +465,35 @@ tr.registro-desligado > td:not(.col-selecao) * {
 }
 
 /* ============================================================
+   CAMPO DE COR (.cg-cor) — a caixa que mostra a cor escolhida.
+   Mesmas bordas dos campos do sistema (1px; superior/esquerda #999,
+   inferior/direita #ccc; no escuro #2c2c31/#38383e), sem arredondamento.
+   Desabilitado: o mesmo fundo dos campos desabilitados.
+   ============================================================ */
+.cg-cor {
+  border-top: 1px solid #999;
+  border-left: 1px solid #999;
+  border-right: 1px solid #ccc;
+  border-bottom: 1px solid #ccc;
+  border-radius: 0;
+}
+.cg-cor.cg-cor-desabilitado {
+  background-color: #ededed;
+}
+.dark .cg-cor {
+  border-top-color: #2c2c31 !important;
+  border-left-color: #2c2c31 !important;
+  border-right-color: #38383e !important;
+  border-bottom-color: #38383e !important;
+}
+.dark .cg-cor.cg-cor-desabilitado {
+  background-color: #27272a !important;
+}
+.dark .cg-cor.border-red-500 {
+  border-color: #ef4444 !important;
+}
+
+/* ============================================================
    CHECKBOX DO SISTEMA (.cg-checkbox)
    Caixinha com bordas curvas, sem aparência nativa. O preenchimento
    usa o azul do sistema (#066fc5) quando marcado.
@@ -562,13 +591,15 @@ button[aria-label^="Informações do campo"]:focus-visible {
    MODAIS DE LOCALIZAR (LOOKUP) — PAINEL ESQUERDO/DIREITO
    Esquerdo: #f4f4f4 no claro / #18181b no escuro. Direito: branco no
    claro / #1f1f24 no escuro. Sem borda divisória entre os painéis.
+   Campos do filtro (esquerdo): brancos no claro, destacados do fundo
+   cinza; no escuro, mesma cor do painel.
    ============================================================ */
 .lookup-left {
   background-color: #f4f4f4;
 }
 .lookup-left input,
 .lookup-left .cg-select-trigger {
-  background-color: #f4f4f4;
+  background-color: #fff;
 }
 .lookup-right {
   background-color: #fff;

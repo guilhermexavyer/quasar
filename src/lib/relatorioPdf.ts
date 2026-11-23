@@ -108,7 +108,7 @@ function pxToMm(px: number): number {
  * Desenha uma borda ao redor da área de conteúdo (margens da página)
  * conforme o estilo selecionado.
  */
-function desenharBordaPagina(
+export function desenharBordaPagina(
   doc: jsPDF,
   estiloBorda: RelatorioConfigPdf['estiloBorda'],
   marginTop: number,

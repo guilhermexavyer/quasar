@@ -1,0 +1,381 @@
+/**
+ * "Ajuda" dos infobuttons: breve descrição do que é o campo e de como preenchê-lo.
+ *
+ * Procura primeiro o texto da tabela (tabela.coluna), depois o das tabelas de parâmetros
+ * (pelo tipo do parâmetro) e, por fim, o texto comum da coluna (ex.: nr_sequencia,
+ * ie_status, dt_criacao), que vale para qualquer tabela. Sem texto, a seção não aparece.
+ */
+
+/** Textos comuns: colunas que significam o mesmo em qualquer tabela. */
+const POR_COLUNA: Record<string, string> = {
+  nr_sequencia: "Número que identifica o registro, gerado automaticamente pelo sistema.",
+  ie_status: "Situação do registro. Registros inativos não aparecem como opção nos demais cadastros.",
+  dt_criacao: "Data e hora em que o registro foi cadastrado. Preenchido automaticamente.",
+  dt_alteracao: "Data e hora da última alteração do registro. Preenchido automaticamente.",
+  ds_usuario_criacao: "Usuário que cadastrou o registro. Preenchido automaticamente.",
+  ds_usuario_alteracao: "Usuário que fez a última alteração do registro. Preenchido automaticamente.",
+  ds_observacao: "Informações complementares sobre o registro.",
+  ds_email: "Informe o endereço de e-mail (ex.: nome@dominio.com).",
+  nr_telefone: "Informe o telefone com DDD.",
+  nr_cep: "Informe o CEP do endereço (8 dígitos).",
+  ds_endereco: "Informe o nome da rua do endereço.",
+  nr_seq_logradouro: "Selecione o tipo de logradouro (ex.: Rua, Avenida, Travessa).",
+  nr_endereco: "Informe o número do endereço.",
+  ds_bairro: "Informe o bairro do endereço.",
+  ds_complemento: "Informe o complemento do endereço (ex.: apartamento, bloco, sala).",
+  sg_estado: "Selecione a unidade federativa (estado).",
+  nr_cpf: "Informe o CPF da pessoa (11 dígitos).",
+  nr_cnpj: "Informe o CNPJ da empresa (14 dígitos).",
+  ds_nome: "Informe o nome completo da pessoa física.",
+  ds_razao_social: "Informe a razão social da empresa, como consta no CNPJ.",
+  nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física vinculada a este registro.",
+  nr_seq_pessoa_juridica: "Informe a sequência ou localize a pessoa jurídica (empresa) vinculada a este registro.",
+  dt_status: "Data em que o status atual foi definido. Preenchido pelo \"Alterar status\".",
+  ds_motivo_status: "Motivo informado na última alteração de status. Preenchido pelo \"Alterar status\".",
+  nr_matricula: "Matrícula gerada automaticamente pela regra configurada nos parâmetros da função.",
+  ie_arquivo: "Selecione o arquivo a ser anexado ao registro.",
+};
+
+/** Textos por tabela (tabela → coluna → texto). */
+const POR_TABELA: Record<string, Record<string, string>> = {
+  /* ── Pessoa Física ── */
+  pessoa_fisica: {
+    ds_nome: "Informe o nome completo da pessoa física, sem abreviações.",
+    dt_nascimento: "Informe a data de nascimento (DD/MM/AAAA).",
+    qt_idade: "Idade da pessoa, calculada a partir da data de nascimento.",
+    nr_seq_sexo: "Selecione o sexo da pessoa física.",
+    nr_seq_estado_civil: "Selecione o estado civil da pessoa física.",
+    nr_seq_cor_raca: "Selecione a cor/raça autodeclarada da pessoa física.",
+    nr_seq_profissao: "Selecione a profissão da pessoa física.",
+    cd_ibge_naturalidade: "Informe o código IBGE ou localize a cidade onde a pessoa nasceu.",
+    nr_cpf: "Informe o CPF da pessoa física (11 dígitos). Não pode se repetir entre cadastros.",
+    nr_rg: "Informe o número do RG (carteira de identidade).",
+    dt_emissao: "Informe a data de emissão do RG (DD/MM/AAAA).",
+    nr_seq_orgao_emissor: "Selecione o órgão que emitiu o RG (ex.: SSP).",
+    sg_estado: "Selecione a UF do órgão emissor do RG.",
+    nr_telefone: "Informe o telefone de contato com DDD.",
+    ds_email: "Informe o e-mail de contato da pessoa física.",
+    ds_tipo_sanguineo: "Selecione o tipo sanguíneo (ex.: A+, O-).",
+    ds_alergia: "Descreva as alergias conhecidas (medicamentos, alimentos etc.).",
+    ds_medicamento_continuo: "Informe os medicamentos de uso contínuo, com dosagem se possível.",
+    ds_restricao_alimentar: "Descreva as restrições alimentares (ex.: intolerância à lactose).",
+    ds_necessidade_especial: "Descreva necessidades especiais que exijam atenção ou adaptação.",
+    ds_observacao_medica: "Outras informações médicas relevantes.",
+  },
+  pessoa_fisica_residencial: {
+    nr_cep: "Informe o CEP do endereço residencial; o endereço é preenchido automaticamente.",
+    ds_endereco: "Informe a rua do endereço residencial.",
+    nr_endereco: "Informe o número do endereço residencial.",
+    ds_bairro: "Informe o bairro do endereço residencial.",
+    ds_complemento: "Informe o complemento do endereço residencial (ex.: apto 101, bloco B).",
+  },
+  pessoa_fisica_comercial: {
+    nr_cep: "Informe o CEP do endereço comercial; o endereço é preenchido automaticamente.",
+    ds_endereco: "Informe a rua do endereço comercial.",
+    nr_endereco: "Informe o número do endereço comercial.",
+    ds_bairro: "Informe o bairro do endereço comercial.",
+    ds_complemento: "Informe o complemento do endereço comercial (ex.: sala 12, andar 3).",
+  },
+
+  /* ── Pessoa Jurídica ── */
+  pessoa_juridica: {
+    ds_razao_social: "Informe a razão social da empresa, como consta no cartão CNPJ.",
+    ds_nome_fantasia: "Informe o nome fantasia (nome comercial) da empresa.",
+    nr_cnpj: "Informe o CNPJ da empresa (14 dígitos). Não pode se repetir entre cadastros.",
+    nr_inscricao_estadual: "Informe a inscrição estadual da empresa, se houver.",
+    nr_inscricao_municipal: "Informe a inscrição municipal da empresa, se houver.",
+    dt_abertura: "Informe a data de abertura da empresa (DD/MM/AAAA).",
+    nr_telefone: "Informe o telefone de contato da empresa com DDD.",
+    ds_email: "Informe o e-mail de contato da empresa.",
+    nr_cep: "Informe o CEP do endereço da empresa; o endereço é preenchido automaticamente.",
+    cd_ibge_cidade: "Informe o código IBGE ou localize a cidade da empresa.",
+  },
+
+  /* ── Lookup de cidades (API do IBGE) ── */
+  "API do IBGE (municípios)": {
+    id: "Informe o código IBGE do município (7 dígitos).",
+    nome: "Informe o nome, ou parte do nome, da cidade.",
+    "microrregiao.mesorregiao.UF.sigla": "Selecione o estado da cidade.",
+  },
+
+  /* ── Administração do Sistema ── */
+  usuario: {
+    ds_usuario: "Informe o nome de usuário usado para entrar no sistema.",
+    ds_usuario_alternativo: "Outro nome de usuário que também pode ser usado para entrar no sistema (ex.: e-mail ou matrícula).",
+    nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física dona deste usuário.",
+    ds_email: "Informe o e-mail do usuário, usado para comunicações e recuperação de senha.",
+    ds_senha: "Informe a senha de acesso do usuário.",
+    ds_observacao: "Informações complementares sobre o usuário.",
+    ie_status: "Usuários inativos não conseguem entrar no sistema.",
+    ie_base_conhecimento: "Marque para liberar ao usuário o acesso à Base de Conhecimento.",
+    ie_central_suporte: "Marque para liberar ao usuário o acesso à Central de Suporte.",
+    ie_ver_auditoria: "Marque para o usuário ver os infobuttons de auditoria (histórico de criação/alteração) nos formulários.",
+    dt_ultimo_login: "Data e hora do último acesso do usuário. Preenchido automaticamente.",
+  },
+  perfil: {
+    ds_perfil: "Informe o nome do perfil de acesso (ex.: Secretaria, Coordenação).",
+    ds_observacao: "Descreva para quem é o perfil e o que ele permite.",
+    ie_status: "Perfis inativos não podem ser atribuídos aos usuários.",
+  },
+  imagem: {
+    ds_imagem: "Informe uma descrição que identifique a imagem.",
+    ie_arquivo: "Selecione o arquivo de imagem a ser enviado.",
+  },
+  aviso: {
+    ds_esqueceu_senha: "Conteúdo exibido ao usuário na tela \"Esqueceu a senha?\" do login.",
+    ds_politica_privacidade: "Conteúdo exibido como Política de Privacidade do sistema.",
+  },
+  regra: {
+    ie_logout_dia: "Selecione o dia da semana em que todos os usuários são desconectados automaticamente.",
+    hr_logout: "Informe o horário (HH:MM) do logout automático dos usuários.",
+    ie_badge_teste: "Marque para exibir a identificação de ambiente de teste no sistema.",
+  },
+
+  /* ── Cadastros Gerais ── */
+  cg_sexo: { ds_sexo: "Informe a descrição do sexo (ex.: Feminino, Masculino)." },
+  cg_estado_civil: { ds_estado_civil: "Informe a descrição do estado civil (ex.: Solteiro(a), Casado(a))." },
+  cg_cor_raca: { ds_cor_raca: "Informe a descrição da cor/raça (ex.: Branca, Parda, Preta)." },
+  cg_profissao: {
+    ds_profissao: "Informe o nome da profissão.",
+    nr_cbo: "Informe o código da profissão na Classificação Brasileira de Ocupações (CBO), com até 7 dígitos.",
+  },
+  cg_orgao_emissor: {
+    ds_orgao_emissor: "Informe o nome do órgão emissor de documentos (ex.: Secretaria de Segurança Pública).",
+    sg_orgao_emissor: "Informe a sigla do órgão emissor (ex.: SSP).",
+  },
+  cg_logradouro: {
+    ds_logradouro: "Informe o tipo de logradouro (ex.: Rua, Avenida).",
+    sg_logradouro: "Informe a abreviação do logradouro (ex.: R., Av.).",
+  },
+  cg_grau_parentesco: { ds_grau_parentesco: "Informe o grau de parentesco (ex.: Pai, Mãe, Avó)." },
+  cg_cargo: { ds_cargo: "Informe o nome do cargo (ex.: Professor, Secretário)." },
+  cg_vinculo_contratual: { ds_vinculo_contratual: "Informe o tipo de vínculo contratual (ex.: CLT, Estágio, Prestador)." },
+  cg_localizacao: { ds_localizacao: "Informe o nome do local (ex.: Sala 101, Laboratório de Informática)." },
+  cg_marca: { ds_marca: "Informe o nome da marca/fabricante." },
+  cg_sistema_operacional: { ds_sistema_operacional: "Informe o nome e a versão do sistema operacional (ex.: Windows 11)." },
+  cg_combustivel: { ds_combustivel: "Informe o tipo de combustível (ex.: Gasolina, Etanol, Diesel)." },
+  cg_modalidade_ensino: { ds_modalidade_ensino: "Informe a modalidade de ensino (ex.: Presencial, EAD)." },
+  cg_formato_papel: {
+    ds_formato_papel: "Informe o nome do formato do papel (ex.: A4, Carta, Ofício).",
+    qt_largura: "Preencha a largura do formato de papel em milímetros (mm). Ex.: A4 = 210.",
+    qt_altura: "Preencha a altura do formato de papel em milímetros (mm). Ex.: A4 = 297.",
+  },
+  cg_tipo_papel: { ds_tipo_papel: "Informe o tipo de papel (ex.: Sulfite 75g, Couché)." },
+
+  /* ── Estrutura Acadêmica ── */
+  aluno: {
+    nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do aluno.",
+    dt_ingresso: "Informe a data de ingresso do aluno na instituição (DD/MM/AAAA).",
+    nr_matricula: "Matrícula do aluno, gerada automaticamente pela regra dos parâmetros de Estrutura Acadêmica.",
+    ie_status: "Situação do aluno. Alterada pelo \"Alterar status\".",
+    ds_status: "Motivo informado na última alteração de status do aluno.",
+  },
+  aluno_responsavel: {
+    nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do responsável pelo aluno.",
+    nr_seq_grau_parentesco: "Selecione o grau de parentesco do responsável com o aluno.",
+  },
+  colaborador: {
+    nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do colaborador.",
+    nr_seq_pessoa_juridica: "Informe a sequência ou localize a empresa do colaborador, quando ele for contratado por meio de uma pessoa jurídica.",
+    nr_seq_vinculo_contratual: "Selecione o tipo de vínculo do colaborador com a instituição.",
+    nr_seq_cargo: "Selecione o cargo do colaborador.",
+    dt_admissao: "Informe a data de admissão do colaborador (DD/MM/AAAA).",
+    nr_matricula: "Matrícula do colaborador, gerada automaticamente pela regra dos parâmetros de Estrutura Acadêmica.",
+    ie_coordenador: "Marque se o colaborador atua como coordenador.",
+    ie_professor: "Marque se o colaborador atua como professor.",
+    ie_fornecedor: "Marque se o colaborador é fornecedor (aparece no campo Fornecedor dos ativos).",
+    ie_prestador_servico: "Marque se o colaborador é prestador de serviço (aparece nas manutenções de ativos).",
+    ie_status: "Situação do colaborador. Alterada pelo \"Alterar status\".",
+  },
+  curso: {
+    ds_curso: "Informe o nome do curso.",
+    ds_observacao: "Informações complementares sobre o curso.",
+  },
+  disciplina: {
+    ds_disciplina: "Informe o nome da disciplina.",
+    ds_observacao: "Informações complementares sobre a disciplina (ex.: ementa, carga horária).",
+  },
+  turma: {
+    ds_turma: "Informe o nome da turma (ex.: 1º Ano A).",
+    nr_seq_curso: "Informe a sequência ou localize o curso da turma.",
+    nr_seq_periodo_letivo: "Informe a sequência ou localize o período letivo da turma.",
+    qt_max_alunos: "Informe a quantidade máxima de alunos da turma.",
+    nr_seq_localizacao: "Informe a sequência ou localize a sala/local onde a turma tem aula.",
+    nr_seq_modalidade_ensino: "Selecione a modalidade de ensino da turma (ex.: Presencial, EAD).",
+  },
+  turma_disciplina: {
+    nr_seq_turma: "Informe a sequência ou localize a turma.",
+    nr_seq_disciplina: "Informe a sequência ou localize a disciplina ministrada na turma.",
+    ie_status: "Turmas x Disciplinas inativas não podem ser escolhidas nas cópias.",
+  },
+  periodo_letivo: {
+    nr_ano: "Informe o ano do período letivo (ex.: 2026).",
+    ds_periodo_letivo: "Informe a descrição do período letivo (ex.: 1º Semestre).",
+    qt_dias_letivos: "Informe a quantidade de dias letivos (dias com aula) do período.",
+    dt_inicio: "Informe a data de início do período letivo (DD/MM/AAAA).",
+    dt_previsao_termino: "Informe a data prevista para o término do período letivo (DD/MM/AAAA).",
+    dt_termino: "Informe a data em que o período letivo foi encerrado (DD/MM/AAAA).",
+    dt_reativacao: "Informe a data em que o período letivo foi reativado (DD/MM/AAAA).",
+    ie_status: "Situação do período letivo (Em andamento ou Encerrado).",
+  },
+  periodo_letivo_feriado: {
+    dt_feriado: "Informe a data do feriado (DD/MM/AAAA).",
+    ds_feriado: "Informe o nome do feriado (ex.: Tiradentes).",
+    ie_tipo_feriado: "Selecione a abrangência do feriado: Federal, Estadual ou Municipal.",
+  },
+
+  /* ── Patrimônio ── */
+  pat_categoria: {
+    ds_categoria: "Informe o nome da categoria de ativos (ex.: Computador, Veículo, Mobiliário).",
+    ds_observacao: "Informações complementares sobre a categoria.",
+  },
+  pat_ativo: {
+    cd_externo: "Informe o código do ativo em outro sistema ou a plaqueta de patrimônio, se houver.",
+    ds_ativo: "Informe a descrição do ativo (ex.: Notebook Dell Latitude).",
+    nr_seq_categoria: "Selecione a categoria do ativo.",
+    nr_seq_localizacao: "Selecione o local onde o ativo está.",
+    nr_seq_marca: "Selecione a marca/fabricante do ativo.",
+    nr_seq_fornecedor: "Informe a sequência ou localize o colaborador fornecedor do ativo.",
+    ds_modelo: "Informe o modelo do ativo.",
+    nr_serie: "Informe o número de série do fabricante.",
+    ds_qr_code: "Conteúdo do QR Code de identificação do ativo.",
+    ds_codigo_barras: "Conteúdo do código de barras de identificação do ativo.",
+    vl_aquisicao: "Informe o valor pago na aquisição do ativo (R$).",
+    dt_aquisicao: "Informe a data de aquisição do ativo (DD/MM/AAAA).",
+    dt_garantia: "Informe a data em que a garantia do ativo termina (DD/MM/AAAA).",
+    ie_status: "Situação do ativo (Operacional, Estoque, Manutenção ou Descartado), alterada pelas ações da lista.",
+    dt_status: "Data em que o status atual do ativo foi definido.",
+    ds_motivo_status: "Motivo informado na última alteração de status do ativo.",
+    ds_motivo_transferencia: "Motivo da transferência do ativo para outro responsável.",
+    ds_processador: "Informe o modelo do processador (ex.: Intel Core i5-1135G7).",
+    qt_ram: "Informe a quantidade de memória RAM.",
+    ie_ram: "Selecione a unidade da memória RAM (ex.: GB).",
+    qt_armazenamento: "Informe a capacidade de armazenamento (disco/SSD).",
+    ie_armazenamento: "Selecione a unidade do armazenamento (ex.: GB, TB).",
+    ds_endereco_mac: "Informe o endereço MAC da placa de rede (ex.: 00:1A:2B:3C:4D:5E).",
+    ds_ip: "Informe o endereço IPv4 do equipamento (ex.: 192.168.0.10).",
+    nr_seq_sistema_operacional: "Selecione o sistema operacional instalado.",
+    cd_placa: "Informe a placa do veículo.",
+    cd_renavam: "Informe o número do Renavam do veículo (11 dígitos).",
+    nr_ano: "Informe o ano de fabricação/modelo do veículo.",
+    ds_cor: "Informe a cor do veículo.",
+    nr_seq_combustivel: "Selecione o combustível do veículo.",
+    ds_observacao: "Informações complementares sobre o ativo.",
+    nr_seq_ultima_manutencao: "Última manutenção registrada para o ativo.",
+    dt_ultima_manutencao: "Data da última manutenção registrada para o ativo.",
+    responsaveis: "Colaboradores responsáveis pelo ativo.",
+  },
+  pat_ativo_responsavel: {
+    nr_seq_colaborador: "Informe a sequência ou localize o colaborador responsável pelo ativo.",
+    ie_modo: "Adicionar inclui o colaborador entre os responsáveis; Substituir troca os responsáveis atuais por ele.",
+  },
+  pat_manutencao: {
+    nr_seq_ativo: "Informe a sequência ou localize o ativo enviado para manutenção.",
+    nr_seq_prestador_servico: "Informe a sequência ou localize o prestador de serviço responsável pela manutenção.",
+    dt_envio: "Informe a data em que o ativo foi enviado para manutenção (DD/MM/AAAA).",
+    ds_motivo_manutencao: "Descreva o problema ou o motivo do envio para manutenção.",
+    dt_termino: "Informe a data em que a manutenção foi concluída (DD/MM/AAAA).",
+    ie_isento: "Marque se a manutenção não teve custo (ex.: coberta pela garantia).",
+    vl_total: "Informe o valor total cobrado pela manutenção (R$).",
+    ds_correcoes: "Descreva o que foi feito/corrigido na manutenção.",
+    ie_status_manutencao: "Situação da manutenção (Em andamento, Concluída ou Cancelada).",
+    ds_observacao: "Informações complementares sobre a manutenção.",
+  },
+
+  /* ── Controle de Cópias ── */
+  copia: {
+    ie_status: "Situação da cópia (Aguardando, Impresso, Entregue ou Cancelado). Depois do cadastro, muda pelo \"Alterar status\".",
+    dt_recebimento: "Informe a data em que o pedido de cópia foi recebido (DD/MM/AAAA).",
+    dt_impressao: "Data em que as cópias foram impressas. Preenchida ao mudar o status para Impresso.",
+    dt_entrega: "Data em que as cópias foram entregues. Preenchida ao mudar o status para Entregue.",
+    dt_status: "Data em que o status atual da cópia foi definido. Preenchido pelo \"Alterar status\".",
+    ds_motivo_status: "Motivo informado na última alteração de status da cópia.",
+    nr_seq_solicitante: "Informe a sequência ou localize o colaborador que pediu as cópias.",
+    nr_seq_turma_disciplina: "Informe a sequência ou localize a turma x disciplina a que as cópias se destinam.",
+    qt_copias: "Informe quantas cópias devem ser feitas de cada folha.",
+    qt_folhas: "Informe a quantidade de folhas do original.",
+    ie_frente_verso: "Marque para imprimir frente e verso.",
+    ie_grampear: "Marque para grampear as cópias.",
+    ie_guilhotinar: "Marque para cortar (guilhotinar) as cópias.",
+    nr_seq_formato_papel: "Selecione o formato do papel (ex.: A4).",
+    nr_seq_tipo_papel: "Selecione o tipo de papel.",
+    ie_arquivo: "Selecione o arquivo a ser copiado. Os tipos aceitos são definidos nos parâmetros de Controle de Cópias.",
+  },
+
+  /* ── Relatórios ── */
+  relatorio: {
+    ds_relatorio: "Informe o nome do relatório.",
+    ie_formato: "Selecione o formato do arquivo gerado pelo relatório: XLS (planilha) ou PDF. Os campos de formato do papel, orientação, borda e margens só valem para o PDF.",
+    ds_nome_arquivo: "Informe o nome do arquivo baixado ao gerar o relatório.",
+    nr_seq_formato_papel: "Selecione o formato do papel do PDF (Cadastros Gerais > Formato do papel). A largura e a altura da folha vêm dele.",
+    ie_orientacao: "Padrão usa a largura e a altura do formato do papel como estão. Invertido troca as duas medidas (ex.: o A4 retrato vira paisagem).",
+    ie_borda: "Selecione o estilo da borda das páginas do PDF.",
+    nr_margem_superior: "Informe a margem superior do PDF em centímetros (cm), a distância entre a borda de cima da folha e o conteúdo do relatório. Ex.: 2,5 = dois centímetros e meio.",
+    nr_margem_inferior: "Informe a margem inferior do PDF em centímetros (cm), a distância entre a borda de baixo da folha e o conteúdo do relatório. Ex.: 2,5 = dois centímetros e meio.",
+    nr_margem_esquerda: "Informe a margem esquerda do PDF em centímetros (cm), a distância entre a borda esquerda da folha e o conteúdo do relatório. Ex.: 2,5 = dois centímetros e meio.",
+    nr_margem_direita: "Informe a margem direita do PDF em centímetros (cm), a distância entre a borda direita da folha e o conteúdo do relatório. Ex.: 2,5 = dois centímetros e meio.",
+  },
+  relatorio_banda: {
+    ds_banda: "Informe a descrição da banda.",
+    ie_tipo: "Selecione o tipo da banda no PDF. Cabeçalho fica no topo da folha (logo abaixo da margem superior) e Rodapé no pé (logo acima da margem inferior).",
+    qt_altura: "Informe a altura da banda em pixels (px).",
+    ds_sql: "Informe a consulta SQL que gera as informações da banda (no XLS, as colunas e linhas da planilha). Use :nome para parâmetros.",
+    ie_borda_superior: "Marque para desenhar uma borda sólida fina no lado superior da banda.",
+    ie_borda_inferior: "Marque para desenhar uma borda sólida fina no lado inferior da banda.",
+    ie_borda_esquerda: "Marque para desenhar uma borda sólida fina no lado esquerdo da banda.",
+    ie_borda_direita: "Marque para desenhar uma borda sólida fina no lado direito da banda.",
+  },
+  relatorio_banda_elemento: {
+    ds_elemento: "Informe a descrição do elemento.",
+    ie_tipo: "SQL exibe o valor da coluna do SQL da banda informada no Alias; Conteúdo exibe o texto do campo Conteúdo; Imagem exibe a imagem selecionada. Na banda Lista, só SQL.",
+    nr_seq_imagem: "Selecione a imagem exibida pelo elemento (Administração do Sistema > Imagens). O tamanho é o da Largura e da Altura.",
+    qt_esquerda: "Informe a distância, em pixels (px), entre a margem esquerda da folha e o elemento.",
+    qt_topo: "Informe a distância, em pixels (px), entre o topo da banda e o elemento.",
+    qt_largura: "Informe a largura do elemento em pixels (px).",
+    qt_altura: "Informe a altura do elemento em pixels (px).",
+    ie_estilo: "Selecione o estilo do texto do elemento (negrito, itálico, sublinhado ou combinações).",
+    ie_alinhamento: "Selecione o alinhamento do texto dentro da largura do elemento.",
+    cd_background: "Selecione a cor de fundo do elemento (preenche a largura e a altura dele).",
+    cd_cor: "Selecione a cor do texto do elemento.",
+    ie_fonte: "Selecione a fonte do texto do elemento.",
+    qt_fonte: "Informe o tamanho da fonte do texto do elemento em pontos (pt). Vazio, o tamanho é 10.",
+    ds_label: "Na banda Lista, informe o nome da coluna (o texto do cabeçalho da lista).",
+    cd_alias: "Informe o nome (alias) da coluna do SQL da banda cujo valor o elemento exibe.",
+    ds_conteudo: "Informe o texto fixo exibido pelo elemento.",
+    ie_borda_superior: "Marque para desenhar uma borda sólida fina no lado superior do elemento (na caixa de Largura x Altura).",
+    ie_borda_inferior: "Marque para desenhar uma borda sólida fina no lado inferior do elemento (na caixa de Largura x Altura).",
+    ie_borda_esquerda: "Marque para desenhar uma borda sólida fina no lado esquerdo do elemento (na caixa de Largura x Altura).",
+    ie_borda_direita: "Marque para desenhar uma borda sólida fina no lado direito do elemento (na caixa de Largura x Altura).",
+  },
+  relatorio_parametro: {
+    ds_parametro: "Nome do parâmetro na consulta SQL (o :nome).",
+    ds_label: "Texto exibido ao usuário quando o parâmetro for perguntado.",
+    nr_ordem: "Ordem em que o parâmetro é perguntado ao gerar o relatório.",
+    vl_padrao: "Valor usado quando o usuário não informar outro.",
+    ie_perguntar: "Marque para perguntar o valor do parâmetro ao gerar o relatório.",
+    ie_obrigatorio: "Marque para exigir o preenchimento do parâmetro ao gerar o relatório.",
+  },
+};
+
+/** Parâmetros das funções (tabelas *_param_*): texto pela coluna do valor. */
+const PARAMETROS: Record<string, Record<string, string>> = {
+  ea_param_matricula_aluno: { ds_regra: "Monte a regra de geração da matrícula dos alunos, segmento a segmento (ex.: ano + sequencial)." },
+  ea_param_matricula_colaborador: { ds_regra: "Monte a regra de geração da matrícula dos colaboradores, segmento a segmento (ex.: ano + sequencial)." },
+  ea_param_encerramento_automatico_periodo_letivo: { ie_regra: "Sim: o período letivo é encerrado automaticamente na data da previsão de término." },
+  as_param_alterar_senha_proximo_login: { ie_regra: "Sim: o usuário precisa criar uma nova senha no primeiro login após ter a senha alterada." },
+  cc_param_tipos_arquivo_copia: { ds_regra: "Marque os tipos de arquivo que podem ser anexados em Cópias." },
+  cc_param_data_recebimento_automatica: { ie_regra: "Sim: a Data do recebimento de uma cópia nova já vem com a data atual." },
+  cc_param_formato_papel_padrao: { nr_seq_formato_papel: "Formato do papel que já vem selecionado em uma cópia nova." },
+  cc_param_tipo_papel_padrao: { nr_seq_tipo_papel: "Tipo de papel que já vem selecionado em uma cópia nova." },
+};
+
+/** Texto de ajuda do campo, ou null quando não há. */
+export function ajudaDoCampo(colecao: string, campo: string): string | null {
+  const daTabela = POR_TABELA[colecao]?.[campo] ?? PARAMETROS[colecao]?.[campo];
+  if (daTabela) return daTabela;
+  // Parâmetros de cor (ex.: pat_param_cor_ativo_estoque): a cor do status nas listas.
+  if (/_param_cor_/.test(colecao) && campo === "cd_cor") {
+    return "Escolha a cor usada para destacar este status nas listas.";
+  }
+  return POR_COLUNA[campo] ?? null;
+}

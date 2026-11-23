@@ -489,6 +489,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'ds_formato_papel', label: 'Descrição', tipo: 'string' },
+      { key: 'qt_largura', label: 'Largura', tipo: 'number' },
+      { key: 'qt_altura', label: 'Altura', tipo: 'number' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },

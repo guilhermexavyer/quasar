@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { formatCadastroGeralCellValue } from "@/lib/cadastroGeralUtils";
+import { formatCadastroGeralCellValue, mascararMedida } from "@/lib/cadastroGeralUtils";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import Select from "@/components/ui/Select";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
@@ -18,6 +18,9 @@ export interface CadastroGeralFormData {
   sg_sigla?: string;
   /** Observação (ex.: Categoria ativo). */
   ds_observacao?: string;
+  /** Largura e Altura em milímetros, como digitadas (ex.: "215,9") — função Formato do papel. */
+  qt_largura?: string;
+  qt_altura?: string;
 }
 
 interface FormViewProps {
@@ -53,6 +56,8 @@ interface FormViewProps {
   showSigla?: boolean;
   /** Exibe o campo extra Observação (ex.: Categoria ativo). */
   showObservacao?: boolean;
+  /** Exibe Largura e Altura (função Formato do papel). */
+  showDimensoes?: boolean;
   /** Chave do campo de sigla na coleção atual (ex.: sg_orgao_emissor, sg_logradouro). */
   siglaFieldKey?: string;
   /** Regras de campos por perfil (colecao = collectionName): campo → status. */
@@ -105,6 +110,7 @@ export default function CadastroGeralFormView({
   showCbo = false,
   showSigla = false,
   showObservacao = false,
+  showDimensoes = false,
   siglaFieldKey = 'sg_sigla',
   campoRegras = {},
   campoErros = [],
@@ -245,6 +251,8 @@ export default function CadastroGeralFormView({
         onSubmit={handleSubmit}
         className="mt-4 flex-1 flex flex-col min-h-0"
       >
+        {/* Campos roláveis; o rodapé (botões e logs) fica fixo embaixo, como nas demais telas. */}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-1">
         <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
           <div className="sm:col-span-1 group">
             {renderFieldLabel('nr_sequencia', 'Sequência')}
@@ -256,7 +264,7 @@ export default function CadastroGeralFormView({
           </div>
 
           {!hideDescricao && (
-          <div className={`${(showCbo || showSigla) ? 'sm:col-span-8' : 'sm:col-span-11'} group`}>
+          <div className={`${(showCbo || showSigla) ? 'sm:col-span-8' : showDimensoes ? 'sm:col-span-7' : 'sm:col-span-11'} group`}>
             {renderFieldLabel(descFieldKey, 'Descrição')}
             <input
               disabled={statusDe(descFieldKey) === 'D'}
@@ -282,6 +290,20 @@ export default function CadastroGeralFormView({
               />
             </div>
           )}
+
+          {showDimensoes && (['qt_largura', 'qt_altura'] as const).map((campo) => (
+            <div key={campo} className="sm:col-span-2 group">
+              {renderFieldLabel(campo, campo === 'qt_largura' ? 'Largura' : 'Altura')}
+              <input
+                inputMode="decimal"
+                maxLength={11}
+                disabled={statusDe(campo) === 'D'}
+                className={`${inputClass(campo)} disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                value={form[campo] ?? ''}
+                onChange={(e) => setForm({ ...form, [campo]: mascararMedida(e.target.value) })}
+              />
+            </div>
+          ))}
 
           {showSigla && (
             <div className="sm:col-span-3 group">
@@ -341,6 +363,7 @@ export default function CadastroGeralFormView({
           </div>
           )}
         </div>
+        </div>
 
         <div className="mt-auto pt-4">
           <div className="flex items-center justify-between gap-3">
@@ -378,7 +401,7 @@ export default function CadastroGeralFormView({
               </div>
             </div>
             )}
-            <div className="flex items-center gap-3 ml-auto">
+            <div className="flex items-center justify-end gap-3 ml-auto">
               {onSalvarEAdicionar && (
                 <BotaoSalvarEAdicionar
                   disabled={submitting}

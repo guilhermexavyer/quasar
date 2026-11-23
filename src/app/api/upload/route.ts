@@ -1,6 +1,6 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { erro, rota } from "@/lib/server/http";
-import { enviarArquivo, ErroStorage, mimeDoArquivo, nomeArquivoValido, PASTA, urlDaRota } from "@/lib/server/storage";
+import { enviarArquivo, ErroStorage, mimeDoArquivo, nomeArquivoValido, nomeParaStorage, PASTA, urlDaRota } from "@/lib/server/storage";
 
 const TAMANHO_MAXIMO = 5 * 1024 * 1024; // mesmo limite do bucket
 
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
     if (file.size > TAMANHO_MAXIMO) return erro("A imagem deve ter no máximo 5 MB.", 400);
 
-    const caminho = PASTA + file.name.trim();
+    const caminho = PASTA + nomeParaStorage(file.name);
     try {
       await enviarArquivo(caminho, Buffer.from(await file.arrayBuffer()), mimeDoArquivo(file.name));
     } catch (e) {

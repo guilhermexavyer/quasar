@@ -9,13 +9,31 @@ import { api, atualizarDado, criarDado, excluirDado, listarDados } from "@/lib/a
  *     monta a planilha com as colunas e linhas, como o SGBD mostraria.
  */
 
-/** Banda do relatório XLS. */
+/** Tipo da banda do PDF. */
+export type TipoBanda = "cabecalho" | "conteudo" | "lista" | "rodape";
+export const TIPOS_BANDA: { value: TipoBanda; label: string }[] = [
+  { value: "cabecalho", label: "Cabeçalho" },
+  { value: "conteudo", label: "Conteúdo" },
+  { value: "lista", label: "Lista" },
+  { value: "rodape", label: "Rodapé" },
+];
+
+/** Banda do relatório (XLS: uma, só com o SQL; PDF: várias, com Tipo e Altura). */
 export interface BandaSql {
   id?: string;
   nr_sequencia?: number;
   nr_seq_relatorio?: number;
   ds_banda?: string;
   ds_sql?: string;
+  /** Tipo da banda (PDF). */
+  ie_tipo?: TipoBanda | null;
+  /** Altura da banda em pixels (PDF). */
+  qt_altura?: number | null;
+  /** Bordas da banda (PDF): 'S' desenha a borda daquele lado. */
+  ie_borda_superior?: "S" | "N" | null;
+  ie_borda_inferior?: "S" | "N" | null;
+  ie_borda_esquerda?: "S" | "N" | null;
+  ie_borda_direita?: "S" | "N" | null;
   dt_criacao?: string;
   dt_alteracao?: string;
   ds_usuario_criacao?: string;
@@ -47,8 +65,28 @@ export async function obterBandasSql(nrRelatorio: number): Promise<BandaSql[]> {
   return lista.sort((a, b) => Number(a.nr_sequencia ?? 0) - Number(b.nr_sequencia ?? 0));
 }
 
+/** Bordas da banda e do elemento (checkboxes), na ordem do formulário. */
+export const CAMPOS_BORDA = [
+  { campo: "ie_borda_superior", label: "Borda superior" },
+  { campo: "ie_borda_inferior", label: "Borda inferior" },
+  { campo: "ie_borda_esquerda", label: "Borda esquerda" },
+  { campo: "ie_borda_direita", label: "Borda direita" },
+] as const;
+export type CampoBorda = (typeof CAMPOS_BORDA)[number]["campo"];
+
+function bordasParaBanco(registro: Partial<Record<CampoBorda, "S" | "N" | null>>): Record<CampoBorda, "S" | "N"> {
+  return Object.fromEntries(CAMPOS_BORDA.map(({ campo }) => [campo, registro[campo] === "S" ? "S" : "N"])) as Record<CampoBorda, "S" | "N">;
+}
+
 export async function salvarBandaSql(banda: BandaSql): Promise<BandaSql> {
-  const dados = { nr_seq_relatorio: banda.nr_seq_relatorio, ds_banda: banda.ds_banda ?? "", ds_sql: banda.ds_sql ?? "" };
+  const dados = {
+    nr_seq_relatorio: banda.nr_seq_relatorio,
+    ds_banda: banda.ds_banda ?? "",
+    ds_sql: banda.ds_sql ?? "",
+    ie_tipo: banda.ie_tipo || null,
+    qt_altura: banda.qt_altura ?? null,
+    ...bordasParaBanco(banda),
+  };
   if (banda.id) {
     const { registro } = await atualizarDado<BandaSql>("relatorio_banda", banda.id, dados);
     return registro ?? banda;
@@ -56,8 +94,122 @@ export async function salvarBandaSql(banda: BandaSql): Promise<BandaSql> {
   return criarDado<BandaSql>("relatorio_banda", dados);
 }
 
-export async function excluirBandaSql(id: string): Promise<void> {
+/** Exclui a banda e os elementos dela. */
+export async function excluirBandaSql(id: string, nrBanda?: number | null): Promise<void> {
+  if (nrBanda != null) {
+    for (const elemento of await obterElementosDaBanda(Number(nrBanda))) {
+      if (elemento.id) await excluirDado("relatorio_banda_elemento", elemento.id);
+    }
+  }
   await excluirDado("relatorio_banda", id);
+}
+
+/* ── Elementos da banda (PDF) ── */
+
+/** Tipo do elemento: valor de uma coluna do SQL da banda, um texto fixo ou uma imagem. */
+export type TipoElemento = "sql" | "conteudo" | "imagem";
+export const TIPOS_ELEMENTO: { value: TipoElemento; label: string }[] = [
+  { value: "sql", label: "SQL" },
+  { value: "conteudo", label: "Conteúdo" },
+  { value: "imagem", label: "Imagem" },
+];
+export const ESTILOS_ELEMENTO = [
+  { value: "negrito", label: "Negrito" },
+  { value: "italico", label: "Itálico" },
+  { value: "sublinhado", label: "Sublinhado" },
+  { value: "negrito_italico", label: "Negrito + Itálico" },
+  { value: "negrito_sublinhado", label: "Negrito + Sublinhado" },
+  { value: "italico_sublinhado", label: "Itálico + Sublinhado" },
+  { value: "negrito_italico_sublinhado", label: "Todos" },
+];
+export const ALINHAMENTOS_ELEMENTO = [
+  { value: "esquerda", label: "Esquerda" },
+  { value: "direita", label: "Direita" },
+  { value: "centro", label: "Centro" },
+];
+/** Fontes do elemento (no PDF, cada uma usa a fonte padrão do PDF mais parecida). */
+export const FONTES_ELEMENTO = [
+  { value: "arial", label: "Arial" },
+  { value: "calibri", label: "Calibri" },
+  { value: "courier_new", label: "Courier New" },
+  { value: "times_new_roman", label: "Times New Roman" },
+  { value: "verdana", label: "Verdana" },
+];
+
+/** Elemento de uma banda do PDF (relatorio_banda_elemento). Medidas em pixels (px). */
+export interface ElementoBanda {
+  id?: string;
+  nr_sequencia?: number;
+  nr_seq_banda?: number;
+  nr_seq_relatorio?: number;
+  ds_elemento?: string | null;
+  ie_tipo?: TipoElemento | null;
+  /** Imagem (Administração do Sistema > Imagens) do elemento do tipo Imagem. */
+  nr_seq_imagem?: number | string | null;
+  qt_esquerda?: number | string | null;
+  qt_topo?: number | string | null;
+  qt_largura?: number | string | null;
+  qt_altura?: number | string | null;
+  ie_estilo?: string | null;
+  ie_alinhamento?: string | null;
+  cd_background?: string | null;
+  cd_cor?: string | null;
+  ie_fonte?: string | null;
+  /** Tamanho da fonte em pt (vazio = 10). */
+  qt_fonte?: number | string | null;
+  ds_label?: string | null;
+  cd_alias?: string | null;
+  ds_conteudo?: string | null;
+  /** Bordas do elemento: 'S' desenha a borda daquele lado. */
+  ie_borda_superior?: "S" | "N" | null;
+  ie_borda_inferior?: "S" | "N" | null;
+  ie_borda_esquerda?: "S" | "N" | null;
+  ie_borda_direita?: "S" | "N" | null;
+  dt_criacao?: string;
+  dt_alteracao?: string;
+  ds_usuario_criacao?: string;
+  ds_usuario_alteracao?: string;
+}
+
+export async function obterElementosDaBanda(nrBanda: number): Promise<ElementoBanda[]> {
+  const lista = await listarDados<ElementoBanda>("relatorio_banda_elemento", { nr_seq_banda: nrBanda });
+  return lista.sort((a, b) => Number(a.nr_sequencia ?? 0) - Number(b.nr_sequencia ?? 0));
+}
+
+const inteiroOuNulo = (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : Math.round(Number(v)));
+const textoOuNulo = (v: unknown) => (v === null || v === undefined || String(v).trim() === "" ? null : String(v));
+
+export async function salvarElementoBanda(elemento: ElementoBanda): Promise<ElementoBanda> {
+  const dados = {
+    nr_seq_banda: elemento.nr_seq_banda,
+    nr_seq_relatorio: elemento.nr_seq_relatorio,
+    ds_elemento: textoOuNulo(elemento.ds_elemento),
+    ie_tipo: elemento.ie_tipo || null,
+    nr_seq_imagem: inteiroOuNulo(elemento.nr_seq_imagem),
+    qt_esquerda: inteiroOuNulo(elemento.qt_esquerda),
+    qt_topo: inteiroOuNulo(elemento.qt_topo),
+    qt_largura: inteiroOuNulo(elemento.qt_largura),
+    qt_altura: inteiroOuNulo(elemento.qt_altura),
+    ie_estilo: textoOuNulo(elemento.ie_estilo),
+    ie_alinhamento: textoOuNulo(elemento.ie_alinhamento),
+    cd_background: textoOuNulo(elemento.cd_background),
+    cd_cor: textoOuNulo(elemento.cd_cor),
+    ie_fonte: textoOuNulo(elemento.ie_fonte),
+    qt_fonte: inteiroOuNulo(elemento.qt_fonte),
+    ds_label: textoOuNulo(elemento.ds_label),
+    cd_alias: textoOuNulo(elemento.cd_alias?.trim()),
+    ds_conteudo: textoOuNulo(elemento.ds_conteudo),
+    ...bordasParaBanco(elemento),
+  };
+  if (elemento.id) {
+    const { registro } = await atualizarDado<ElementoBanda>("relatorio_banda_elemento", elemento.id, dados);
+    return registro ?? elemento;
+  }
+  return criarDado<ElementoBanda>("relatorio_banda_elemento", dados);
+}
+
+export async function excluirElementoBanda(id: string): Promise<void> {
+  await excluirDado("relatorio_banda_elemento", id);
 }
 
 /* ── Parâmetros ── */
@@ -101,8 +253,9 @@ export interface DadosRelatorio {
 }
 
 /** Executa o SQL do relatório no servidor (valores dos parâmetros perguntados). */
-export async function obterDadosRelatorio(nrRelatorio: number, valores: Record<string, string>): Promise<DadosRelatorio> {
-  return api.post<DadosRelatorio>(`/api/relatorios/${nrRelatorio}/gerar`, { valores });
+/** Executa o SQL do relatório no servidor (valores dos parâmetros perguntados). Com `nrBanda`, o SQL daquela banda (PDF). */
+export async function obterDadosRelatorio(nrRelatorio: number, valores: Record<string, string>, nrBanda?: number): Promise<DadosRelatorio> {
+  return api.post<DadosRelatorio>(`/api/relatorios/${nrRelatorio}/gerar`, nrBanda == null ? { valores } : { valores, nr_banda: nrBanda });
 }
 
 /** 'AAAA-MM-DD' → Date (meia-noite local); ISO com hora → Date. */

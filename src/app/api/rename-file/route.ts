@@ -3,7 +3,7 @@ import path from "node:path";
 import { NextResponse, type NextRequest } from "next/server";
 import { corpo, erro, rota } from "@/lib/server/http";
 import {
-  caminhoDoStorage, enviarArquivo, ErroStorage, mimeDoArquivo, moverArquivo, nomeArquivoValido, PASTA, urlDaRota,
+  caminhoDoStorage, enviarArquivo, ErroStorage, mimeDoArquivo, moverArquivo, nomeArquivoValido, nomeParaStorage, PASTA, urlDaRota,
 } from "@/lib/server/storage";
 
 /**
@@ -19,7 +19,7 @@ export async function POST(request: NextRequest) {
     if (!nomeArquivoValido(newFileName)) {
       return erro("Tipo de arquivo não permitido. Aceitos: .jpeg, .jpg, .png", 400);
     }
-    const destino = PASTA + newFileName.trim();
+    const destino = PASTA + nomeParaStorage(newFileName);
 
     try {
       // Imagem antiga do repositório (public/images): copia para o Storage com o novo nome.

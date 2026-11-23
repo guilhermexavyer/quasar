@@ -3,7 +3,7 @@
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
-import { TAMANHOS_PAGINA } from "@/lib/relatorioUtils";
+import { formatarMedida } from "@/lib/cadastroGeralUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 
 type Dados = Record<string, unknown>;
@@ -39,12 +39,6 @@ const ESTILOS = [
   { value: "negrito_sublinhado", label: "Negrito + Sublinhado" }, { value: "italico_sublinhado", label: "Itálico + Sublinhado" },
   { value: "negrito_italico_sublinhado", label: "Negrito + Itálico + Sublinhado" },
 ];
-const TIPOS_ELEMENTO = [
-  { value: "conteudo", label: "Conteúdo" }, { value: "data_horario_geracao", label: "Data + horário da geração" },
-  { value: "data_geracao", label: "Data da geração" }, { value: "horario_geracao", label: "Horário da geração" },
-  { value: "imagem", label: "Imagem" }, { value: "numero_pagina", label: "Número da página" },
-  { value: "usuario_geracao", label: "Usuário da geração" }, { value: "valor", label: "Valor" },
-];
 const TIPOS_BANDA = [
   { value: "lista", label: "Lista" }, { value: "texto_valor", label: "Dados" },
   { value: "cabecalho", label: "Cabeçalho" }, { value: "rodape", label: "Rodapé" },
@@ -54,13 +48,13 @@ const BORDAS_PDF = [
   { value: "dupla", label: "Dupla" }, { value: "tracejada", label: "Tracejada" }, { value: "pontilhada", label: "Pontilhada" },
 ];
 const ALINHAMENTOS = [{ value: "esquerda", label: "Esquerda" }, { value: "centro", label: "Centro" }, { value: "direita", label: "Direita" }];
+const FONTES = [
+  { value: "arial", label: "Arial" }, { value: "calibri", label: "Calibri" }, { value: "courier_new", label: "Courier New" },
+  { value: "times_new_roman", label: "Times New Roman" }, { value: "verdana", label: "Verdana" },
+];
 
 const nomeColecao = (v: unknown) => getDataSource(texto(v))?.label ?? texto(v);
-/** Rótulo do campo da fonte de dados (coleção informada no próprio registro). */
-const nomeCampo = (chaveColecao: string) => (v: unknown, d: Dados) =>
-  getDataSource(texto(d[chaveColecao]))?.campos.find((c) => c.key === texto(v))?.label ?? texto(v);
 const pdf = (d: Dados) => obj(d.configPdf);
-const margem = (lado: string) => (d: Dados) => obj(pdf(d).margens)[lado];
 
 /**
  * Formulários (somente leitura) das funções cujo formulário não pode ser
@@ -94,20 +88,20 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       campos: [
         { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
         { campo: "ds_relatorio", rotulo: "Descrição", span: 7 },
-        { campo: "ie_formato", rotulo: "Formato", span: 3, formatar: (v) => (v === "pdf" ? "PDF" : "XLS") },
+        { campo: "ie_formato", rotulo: "Formato", span: 3, formatar: (v) => (v === "pdf" ? "PDF" : v ? "XLS" : "") },
       ],
     },
     {
       titulo: "Saída",
       campos: [
         { campo: "ds_nome_arquivo", rotulo: "Nome do arquivo", span: 3, valor: (d) => d.ds_nome_arquivo ?? pdf(d).titulo },
-        { campo: "ie_pagina", rotulo: "Página", span: 3, valor: (d) => pdf(d).tamanhoPagina, formatar: rotuloDe(TAMANHOS_PAGINA) },
-        { campo: "ie_orientacao", rotulo: "Orientação", span: 3, valor: (d) => pdf(d).orientacao, formatar: rotuloDe([{ value: "retrato", label: "Retrato" }, { value: "paisagem", label: "Paisagem" }]) },
-        { campo: "ie_borda", rotulo: "Borda", span: 3, valor: (d) => pdf(d).estiloBorda, formatar: rotuloDe(BORDAS_PDF) },
-        { campo: "nr_margem_superior", rotulo: "Margem superior", span: 3, valor: margem("superior") },
-        { campo: "nr_margem_inferior", rotulo: "Margem inferior", span: 3, valor: margem("inferior") },
-        { campo: "nr_margem_esquerda", rotulo: "Margem esquerda", span: 3, valor: margem("esquerda") },
-        { campo: "nr_margem_direita", rotulo: "Margem direita", span: 3, valor: margem("direita") },
+        { campo: "nr_seq_formato_papel", rotulo: "Formato do papel", span: 3 },
+        { campo: "ie_orientacao", rotulo: "Orientação", span: 3, formatar: rotuloDe([{ value: "P", label: "Padrão" }, { value: "I", label: "Invertido" }]) },
+        { campo: "ie_borda", rotulo: "Borda", span: 3, formatar: rotuloDe(BORDAS_PDF) },
+        { campo: "nr_margem_superior", rotulo: "Margem superior", span: 3, formatar: formatarMedida },
+        { campo: "nr_margem_inferior", rotulo: "Margem inferior", span: 3, formatar: formatarMedida },
+        { campo: "nr_margem_esquerda", rotulo: "Margem esquerda", span: 3, formatar: formatarMedida },
+        { campo: "nr_margem_direita", rotulo: "Margem direita", span: 3, formatar: formatarMedida },
       ],
     },
   ],
@@ -128,7 +122,13 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       titulo: "Banda",
       campos: [
         { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
-        { campo: "ds_banda", rotulo: "Descrição", span: 10 },
+        { campo: "ds_banda", rotulo: "Descrição", span: 6 },
+        { campo: "ie_tipo", rotulo: "Tipo", span: 2, formatar: rotuloDe([{ value: "cabecalho", label: "Cabeçalho" }, { value: "conteudo", label: "Conteúdo" }, { value: "lista", label: "Lista" }, { value: "rodape", label: "Rodapé" }]) },
+        { campo: "qt_altura", rotulo: "Altura", span: 2, formatar: (v) => (v === null || v === undefined || v === "" ? "" : `${v} px`) },
+        { campo: "ie_borda_superior", rotulo: "Borda superior", span: 2, tipo: "check" },
+        { campo: "ie_borda_inferior", rotulo: "Borda inferior", span: 2, tipo: "check" },
+        { campo: "ie_borda_esquerda", rotulo: "Borda esquerda", span: 2, tipo: "check" },
+        { campo: "ie_borda_direita", rotulo: "Borda direita", span: 2, tipo: "check" },
         { campo: "ds_sql", rotulo: "SQL", span: 12, tipo: "textoLongo" },
       ],
     },
@@ -166,53 +166,32 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       ],
     },
   ],
-  relatorio_banda_elemento: [
-    {
-      titulo: "Identificação",
-      campos: [
-        { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
-        { campo: "ds_elemento", rotulo: "Descrição", span: 3 },
-        { campo: "ie_tipo_elemento", rotulo: "Tipo", span: 2, formatar: rotuloDe(TIPOS_ELEMENTO) },
-        { campo: "ie_primeira_pagina", rotulo: "Primeira página", span: 2, tipo: "check" },
-        { campo: "ie_colecao", rotulo: "Coleção", span: 2, formatar: nomeColecao },
-        { campo: "ie_campo", rotulo: "Campo", span: 2, formatar: nomeCampo("ie_colecao") },
-        { campo: "label", rotulo: "Label", span: 4 },
-      ],
-    },
-    {
-      titulo: "Aparência",
-      campos: [
-        { campo: "ie_fonte", rotulo: "Fonte", span: 2 },
-        { campo: "qt_fonte", rotulo: "Tamanho fonte", span: 2 },
-        { campo: "ie_estilo", rotulo: "Estilo", span: 2, formatar: rotuloDe(ESTILOS) },
-        { campo: "ie_estilo_label", rotulo: "Estilo label", span: 2, formatar: rotuloDe(ESTILOS) },
-        { campo: "ie_estilo_soma", rotulo: "Estilo soma", span: 2, formatar: rotuloDe(ESTILOS) },
-        { campo: "cd_cor", rotulo: "Cor", span: 1, tipo: "cor" },
-        { campo: "cd_background", rotulo: "Background", span: 1, tipo: "cor" },
-        { campo: "qt_padding_superior", rotulo: "Padding superior", span: 3 },
-        { campo: "qt_padding_direita", rotulo: "Padding direita", span: 3 },
-        { campo: "qt_padding_inferior", rotulo: "Padding inferior", span: 3 },
-        { campo: "qt_padding_esquerda", rotulo: "Padding esquerda", span: 3 },
-        { campo: "ie_borda_superior", rotulo: "Borda superior", span: 3, tipo: "check" },
-        { campo: "ie_borda_direita", rotulo: "Borda direita", span: 3, tipo: "check" },
-        { campo: "ie_borda_inferior", rotulo: "Borda inferior", span: 3, tipo: "check" },
-        { campo: "ie_borda_esquerda", rotulo: "Borda esquerda", span: 3, tipo: "check" },
-        { campo: "nr_seq_imagem", rotulo: "Imagem", span: 3 },
-        { campo: "qt_tamanho_imagem", rotulo: "Tamanho imagem", span: 3 },
-        { campo: "conteudo", rotulo: "Conteúdo", span: 6 },
-      ],
-    },
-    {
-      titulo: "Posicionamento",
-      campos: [
-        { campo: "qt_esquerda", rotulo: "Esquerda", span: 2 },
-        { campo: "qt_topo", rotulo: "Topo", span: 2 },
-        { campo: "qt_largura", rotulo: "Largura", span: 2 },
-        { campo: "ie_alinhamento", rotulo: "Alinhamento", span: 3, formatar: rotuloDe(ALINHAMENTOS) },
-        { campo: "soma", rotulo: "Soma", span: 3, tipo: "check" },
-      ],
-    },
-  ],
+  relatorio_banda_elemento: [{
+    titulo: "Elemento",
+    campos: [
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
+      { campo: "ds_elemento", rotulo: "Descrição", span: 4 },
+      { campo: "ie_tipo", rotulo: "Tipo", span: 2, formatar: rotuloDe([{ value: "sql", label: "SQL" }, { value: "conteudo", label: "Conteúdo" }, { value: "imagem", label: "Imagem" }]) },
+      { campo: "nr_seq_imagem", rotulo: "Imagem", span: 4 },
+      { campo: "qt_esquerda", rotulo: "Esquerda", span: 2 },
+      { campo: "qt_topo", rotulo: "Topo", span: 2 },
+      { campo: "qt_largura", rotulo: "Largura", span: 2 },
+      { campo: "qt_altura", rotulo: "Altura", span: 2 },
+      { campo: "ie_estilo", rotulo: "Estilo", span: 2, formatar: rotuloDe(ESTILOS.map((e) => (e.value === "negrito_italico_sublinhado" ? { ...e, label: "Todos" } : e))) },
+      { campo: "ie_alinhamento", rotulo: "Alinhamento", span: 2, formatar: rotuloDe(ALINHAMENTOS) },
+      { campo: "ie_fonte", rotulo: "Fonte", span: 2, formatar: rotuloDe(FONTES) },
+      { campo: "qt_fonte", rotulo: "Tamanho da fonte", span: 2 },
+      { campo: "cd_cor", rotulo: "Cor", span: 3, tipo: "cor" },
+      { campo: "cd_background", rotulo: "Background", span: 3, tipo: "cor" },
+      { campo: "ie_borda_superior", rotulo: "Borda superior", span: 2, tipo: "check" },
+      { campo: "ie_borda_inferior", rotulo: "Borda inferior", span: 2, tipo: "check" },
+      { campo: "ie_borda_esquerda", rotulo: "Borda esquerda", span: 2, tipo: "check" },
+      { campo: "ie_borda_direita", rotulo: "Borda direita", span: 2, tipo: "check" },
+      { campo: "ds_label", rotulo: "Label", span: 6 },
+      { campo: "cd_alias", rotulo: "Alias", span: 6 },
+      { campo: "ds_conteudo", rotulo: "Conteúdo", span: 12, tipo: "textoLongo" },
+    ],
+  }],
 };
 
 const SPAN: Record<number, string> = {
@@ -253,7 +232,7 @@ export default function FormularioExcluidoGenerico({
                       <textarea disabled rows={10} value={texto(bruto)} className={`${classeInput} font-mono text-[13px] leading-5 resize-y`} />
                     ) : c.tipo === "cor" ? (
                       <div className="flex items-center gap-2">
-                        <span className="h-[34px] w-[34px] shrink-0 border border-slate-300" style={{ backgroundColor: texto(bruto) || "transparent" }} />
+                        <span className="cg-cor h-[34px] w-[34px] shrink-0" style={{ backgroundColor: texto(bruto) || "transparent" }} />
                         <input disabled value={texto(bruto)} className={classeInput} />
                       </div>
                     ) : (

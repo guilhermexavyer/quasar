@@ -651,7 +651,7 @@ export default function ParametrosDaFuncaoView({
                         className="absolute opacity-0 w-0 h-0 pointer-events-none"
                       />
                       <div
-                        className="w-full h-full cursor-pointer border border-slate-300"
+                        className="cg-cor w-full h-full cursor-pointer"
                         style={{ backgroundColor: corEmEdicao }}
                         onClick={() => document.getElementById(`cor-parametro-${selectedParametro.id}`)?.click()}
                       />

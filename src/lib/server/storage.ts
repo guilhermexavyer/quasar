@@ -53,6 +53,18 @@ export function nomeArquivoValido(nome: string): boolean {
   return EXTENSOES_IMAGEM.some((ext) => n.toLowerCase().endsWith(ext));
 }
 
+/**
+ * Nome aceito pelo Supabase Storage, que recusa chaves com acentos e outros
+ * caracteres fora do ASCII: "Açaí 1º.png" vira "Acai 1_.png".
+ */
+export function nomeParaStorage(nome: string): string {
+  return nome
+    .trim()
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .replace(/[^A-Za-z0-9 ._()\-]/g, "_");
+}
+
 export function mimeDoArquivo(nome: string): string {
   return nome.toLowerCase().endsWith(".png") ? "image/png" : "image/jpeg";
 }

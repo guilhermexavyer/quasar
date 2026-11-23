@@ -19,6 +19,12 @@ import { corpo, numeroDaUrl, rota } from "@/lib/server/http";
  *   - papel quasar_relatorio (só SELECT; sem sessao nem usuario.ds_senha);
  *   - tempo máximo de execução e limite de linhas.
  * Parâmetros (:nome) viram $1, $2... com os valores separados do SQL.
+ *
+ * Relatório gerado mesmo sem SQL ou com SQL inválido (para testes): sem banda/SQL, SQL
+ * barrado pelas travas (que então nem é executado), erro de sintaxe, tabela ou coluna
+ * desconhecida etc. devolvem um resultado vazio, sem aviso. Parâmetro do SQL que não
+ * está cadastrado vai como nulo. Só o tempo máximo, o limite de linhas e os parâmetros
+ * obrigatórios sem valor continuam dando erro.
  */
 
 const TEMPO_MAXIMO = "60s";
@@ -51,16 +57,13 @@ function valorDaCelula(valor: unknown): unknown {
   return valor;
 }
 
-/** Mensagem do erro do PostgreSQL para o usuário corrigir o SQL (null = erro interno). */
-function mensagemDoBanco(e: unknown): string | null {
-  const erro = e as { code?: string; message?: string } | null;
-  if (!erro?.code || !erro.message) return null;
-  if (erro.code === "57014") return "A consulta demorou demais e foi cancelada.";
-  if (erro.code === "42501") {
-    return `Sem permissão no banco para esta consulta (${erro.message}). Sessões e senhas não podem ser lidas; em "usuario", liste as colunas em vez de usar *.`;
-  }
-  if (erro.code === "25006") return "O relatório só pode consultar dados (não pode alterar o banco).";
-  return `Erro no SQL do relatório: ${erro.message}`;
+/** Relatório sem colunas nem linhas (SQL ausente ou inválido). */
+const resultadoVazio = () => NextResponse.json({ colunas: [], linhas: [] });
+
+/** Erro do PostgreSQL causado pelo SQL do relatório (tem código SQLSTATE); sem código = erro interno. */
+function erroDoSql(e: unknown): string | null {
+  const codigo = (e as { code?: unknown } | null)?.code;
+  return typeof codigo === "string" ? codigo : null;
 }
 
 export async function POST(request: NextRequest, { params }: { params: Promise<{ nr: string }> }) {
@@ -74,16 +77,18 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     // ── Configuração do relatório (banda e parâmetros) ──
     const { rows: relatorios } = await query<Registro>("select nr_sequencia from relatorio where nr_sequencia = $1", [nrRelatorio]);
     if (relatorios.length === 0) throw new ErroValidacao("Relatório não encontrado.");
-    const { rows: bandas } = await query<Registro>(
-      "select ds_sql from relatorio_banda where nr_seq_relatorio = $1 order by nr_sequencia limit 1",
-      [nrRelatorio]
-    );
+    // PDF: o SQL da banda pedida (de relatório). XLS: o da (única) banda.
+    const nrBanda = dados.nr_banda === undefined || dados.nr_banda === null ? null : Number(dados.nr_banda);
+    if (nrBanda !== null && !Number.isSafeInteger(nrBanda)) throw new ErroValidacao("Banda inválida.");
+    const { rows: bandas } = nrBanda === null
+      ? await query<Registro>("select ds_sql from relatorio_banda where nr_seq_relatorio = $1 order by nr_sequencia limit 1", [nrRelatorio])
+      : await query<Registro>("select ds_sql from relatorio_banda where nr_seq_relatorio = $1 and nr_sequencia = $2", [nrRelatorio, nrBanda]);
     const sql = String(bandas[0]?.ds_sql ?? "");
-    if (!sql.trim()) throw new ErroValidacao("O relatório não tem banda com SQL. Configure a banda (duplo clique no relatório).");
+    if (!sql.trim()) return resultadoVazio();
 
+    // SQL barrado pelas travas: não é executado (relatório vazio).
     const preparado = prepararSql(sql);
-    const problema = problemaDoSql(preparado);
-    if (problema) throw new ErroValidacao(problema);
+    if (problemaDoSql(preparado)) return resultadoVazio();
 
     // Valor de cada parâmetro: o informado no modal (Perguntar) ou o valor padrão.
     const { rows: parametros } = await query<Registro>(
@@ -93,7 +98,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     const porNome = new Map(parametros.map((p) => [nomeDoParametro(p.ds_parametro as string), p]));
     const valores = preparado.nomes.map((nome) => {
       const parametro = porNome.get(nome);
-      if (!parametro) throw new ErroValidacao(`O parâmetro :${nome} do SQL não está cadastrado na aba Parâmetros.`);
+      if (!parametro) return null;
       const perguntado = parametro.ie_perguntar === "S" && Object.prototype.hasOwnProperty.call(valoresTela, nome);
       const bruto = perguntado ? valoresTela[nome] : parametro.vl_padrao;
       const valor = bruto === null || bruto === undefined ? "" : String(bruto).trim();
@@ -113,9 +118,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       try {
         resultado = await db.query({ text: preparado.texto, values: valores, rowMode: "array" });
       } catch (e) {
-        const mensagem = mensagemDoBanco(e);
-        if (mensagem) throw new ErroValidacao(mensagem);
-        throw e;
+        const codigo = erroDoSql(e);
+        if (!codigo) throw e;
+        if (codigo === "57014") throw new ErroValidacao("A consulta demorou demais e foi cancelada.");
+        // Sintaxe, tabela/coluna desconhecida, permissão, tipo de dado...: relatório vazio.
+        return resultadoVazio();
       }
       if (resultado.rows.length > MAXIMO_LINHAS) {
         throw new ErroValidacao(`O relatório passou de ${MAXIMO_LINHAS.toLocaleString("pt-BR")} linhas. Use parâmetros para filtrar.`);

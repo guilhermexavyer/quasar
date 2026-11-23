@@ -37,24 +37,21 @@ export interface Relatorio {
   agrupamento?: RelatorioAgrupamento;
 
   /* ── Configuração de saída ── */
-  /** Formato de saída: 'excel' ou 'pdf'. */
-  ie_formato: 'excel' | 'pdf';
+  /** Formato de saída: 'xls' ou 'pdf'. */
+  ie_formato: 'xls' | 'pdf';
   /** Nome do arquivo de saída. */
   ds_nome_arquivo?: string;
-  /** Tamanho da página (PDF). */
-  ie_pagina?: 'A4' | 'A3' | 'A5' | 'letter' | 'legal';
-  /** Orientação (PDF). */
-  ie_orientacao?: 'retrato' | 'paisagem';
+  /** Formato do papel do PDF (Cadastros Gerais > Formato do papel). */
+  nr_seq_formato_papel?: number | string | null;
+  /** Orientação (PDF): 'P' = Padrão (medidas do formato do papel); 'I' = Invertido (largura e altura trocadas). */
+  ie_orientacao?: 'P' | 'I' | null;
   /** Estilo da borda da página. */
   ie_borda?: 'solid_fina' | 'solid_grossa' | 'dupla' | 'tracejada' | 'pontilhada' | null;
-  /** Margem superior (mm). */
-  nr_margem_superior?: number;
-  /** Margem inferior (mm). */
-  nr_margem_inferior?: number;
-  /** Margem esquerda (mm). */
-  nr_margem_esquerda?: number;
-  /** Margem direita (mm). */
-  nr_margem_direita?: number;
+  /** Margens do PDF em centímetros (distância da borda da folha ao conteúdo). O banco devolve numeric como texto. */
+  nr_margem_superior?: number | string | null;
+  nr_margem_inferior?: number | string | null;
+  nr_margem_esquerda?: number | string | null;
+  nr_margem_direita?: number | string | null;
   /** Configurações específicas para Excel. */
   configExcel?: RelatorioConfigExcel;
   /** Configurações específicas para PDF. */

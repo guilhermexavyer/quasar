@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import Select from "@/components/ui/Select";
 import LookupTabela, { type LookupColumn } from "@/components/ui/LookupTabela";
@@ -28,7 +29,7 @@ export interface ReferenciaLookupFiltro {
 }
 
 interface ReferenciaLookupModalProps {
-  /** Título do modal (ex.: "Localizar curso"). */
+  /** Título do modal: o nome do item (ex.: "Curso", "Turma x Disciplina"). */
   titulo: string;
   /** Coleção dos registros (usada nas informações dos rótulos). */
   colecao: string;
@@ -42,6 +43,10 @@ interface ReferenciaLookupModalProps {
   /** Ordem e largura das colunas salvas no usuário. */
   initialColumns?: ColunasConfig | null;
   onColumnsChange?: (config: ColunasConfig) => void;
+  /** Filtro salvo do usuário: ao abrir, vem preenchido e aplicado. */
+  filtroSalvo?: Record<string, string> | null;
+  /** "Salvar filtro": grava os campos do filtro e chama `aplicar` (como o "Filtrar"). */
+  onSalvarFiltro?: (form: Record<string, string>, aplicar: () => void) => void;
   onSelect: (item: ReferenciaLookupItem) => void;
   onClose: () => void;
 }
@@ -62,6 +67,8 @@ export default function ReferenciaLookupModal({
   filtros,
   initialColumns,
   onColumnsChange,
+  filtroSalvo,
+  onSalvarFiltro,
   onSelect,
   onClose,
 }: ReferenciaLookupModalProps) {
@@ -74,8 +81,11 @@ export default function ReferenciaLookupModal({
     [colunas]
   );
   const vazio = useMemo(() => Object.fromEntries([['nr_sequencia', ''], ...camposFiltro.map((f) => [f.key, ''])]) as Record<string, string>, [camposFiltro]);
-  const [form, setForm] = useState<Record<string, string>>(vazio);
-  const [filtro, setFiltro] = useState<Record<string, string> | null>(null);
+  // Filtro salvo: só os campos que este lookup conhece, sobre o filtro vazio.
+  const [form, setForm] = useState<Record<string, string>>(() =>
+    filtroSalvo ? { ...vazio, ...Object.fromEntries(Object.entries(filtroSalvo).filter(([k]) => k in vazio)) } : vazio
+  );
+  const [filtro, setFiltro] = useState<Record<string, string> | null>(() => (filtroSalvo ? form : null));
 
   const resultado = useMemo(() => {
     if (!filtro) return [];
@@ -96,7 +106,7 @@ export default function ReferenciaLookupModal({
       <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
         <div className="flex h-full">
           <form
-            className="w-[320px] lookup-left flex flex-col min-h-0"
+            className="w-[360px] lookup-left flex flex-col min-h-0"
             onSubmit={(e) => { e.preventDefault(); setFiltro(form); }}
           >
             <div className="p-[15px] overflow-auto flex-1 min-h-0">
@@ -124,6 +134,7 @@ export default function ReferenciaLookupModal({
               </div>
             </div>
             <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
+              {onSalvarFiltro && <BotaoSalvarFiltro onClick={() => onSalvarFiltro(form, () => setFiltro(form))} />}
               <button type="button" onClick={() => { setForm(vazio); setFiltro(null); }} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' }}>Limpar</button>
               <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
