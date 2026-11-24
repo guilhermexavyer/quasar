@@ -32,6 +32,7 @@ export const OPCOES_DETALHE = [
   { campo: "ie_nova_pagina", label: "Nova página a cada registro" },
   { campo: "ie_exibir_label", label: "Exibir labels" },
   { campo: "ie_imprimir_vazio", label: "Imprimir sem registros" },
+  { campo: "ie_alternar_background", label: "Alternar background" },
 ] as const;
 export type CampoOpcaoDetalhe = (typeof OPCOES_DETALHE)[number]["campo"];
 
@@ -55,6 +56,8 @@ export interface BandaSql {
   ie_exibir_label?: "S" | "N" | null;
   /** 'S' = sem registros, a banda aparece uma vez (campos do SQL vazios). */
   ie_imprimir_vazio?: "S" | "N" | null;
+  /** 'S' = registros com fundo alternado (transparente e #cccccc). */
+  ie_alternar_background?: "S" | "N" | null;
   /** Bordas da banda (PDF): 'S' desenha a borda daquele lado. */
   ie_borda_superior?: "S" | "N" | null;
   ie_borda_inferior?: "S" | "N" | null;
@@ -219,6 +222,11 @@ export interface ElementoBanda {
   qt_casas_decimais?: number | string | null;
   /** 'S' = o texto quebra em linhas dentro do Tamanho (largura). */
   ie_quebrar_linha?: "S" | "N" | null;
+  /** Padding (px): distância entre a borda da caixa e o texto, em cada direção. */
+  qt_padding_superior?: number | string | null;
+  qt_padding_inferior?: number | string | null;
+  qt_padding_esquerda?: number | string | null;
+  qt_padding_direita?: number | string | null;
   /** Bordas do elemento: 'S' desenha a borda daquele lado. */
   ie_borda_superior?: "S" | "N" | null;
   ie_borda_inferior?: "S" | "N" | null;
@@ -261,6 +269,10 @@ export async function salvarElementoBanda(elemento: ElementoBanda): Promise<Elem
     ie_mascara: textoOuNulo(elemento.ie_mascara),
     qt_casas_decimais: inteiroOuNulo(elemento.qt_casas_decimais),
     ie_quebrar_linha: elemento.ie_quebrar_linha === "S" ? "S" : "N",
+    qt_padding_superior: inteiroOuNulo(elemento.qt_padding_superior),
+    qt_padding_inferior: inteiroOuNulo(elemento.qt_padding_inferior),
+    qt_padding_esquerda: inteiroOuNulo(elemento.qt_padding_esquerda),
+    qt_padding_direita: inteiroOuNulo(elemento.qt_padding_direita),
     ...bordasParaBanco(elemento),
   };
   if (elemento.id) {

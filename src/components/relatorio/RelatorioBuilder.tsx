@@ -381,7 +381,7 @@ export default function RelatorioBuilder({
   const pdfDesabilitado = (campo: string) => !ehPdf || statusDe(campoRegras, campo) === "D";
 
   /* ── Elemento: campos habilitados pelo tipo da banda e do elemento ── */
-  const CAMPOS_ELEMENTO = ["ds_elemento", "ie_tipo", "nr_seq_imagem", "qt_esquerda", "qt_topo", "ie_estilo", "qt_largura", "qt_altura", "ie_alinhamento", "cd_background", "cd_cor", "ie_fonte", "qt_fonte", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais"] as const;
+  const CAMPOS_ELEMENTO = ["ds_elemento", "ie_tipo", "nr_seq_imagem", "qt_esquerda", "qt_topo", "ie_estilo", "qt_largura", "qt_altura", "ie_alinhamento", "cd_background", "cd_cor", "ie_fonte", "qt_fonte", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais", "qt_padding_superior", "qt_padding_inferior", "qt_padding_esquerda", "qt_padding_direita"] as const;
   type CampoElemento = (typeof CAMPOS_ELEMENTO)[number];
   function tipoDoElemento(el: ElementoBanda): TipoElemento {
     return TIPOS_ELEMENTO.some((t) => t.value === el.ie_tipo) ? (el.ie_tipo as TipoElemento) : "sql";
@@ -389,7 +389,7 @@ export default function RelatorioBuilder({
   function elementoNormalizado(el: ElementoBanda): ElementoBanda {
     const normalizado: ElementoBanda = { ...el, ie_tipo: tipoDoElemento(el) };
     // Campos desabilitados pelo tipo não são gravados.
-    (["nr_seq_imagem", "ie_estilo", "ie_alinhamento", "ie_fonte", "qt_fonte", "cd_cor", "cd_background", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais"] as const)
+    (["nr_seq_imagem", "ie_estilo", "ie_alinhamento", "ie_fonte", "qt_fonte", "cd_cor", "cd_background", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais", "qt_padding_superior", "qt_padding_inferior", "qt_padding_esquerda", "qt_padding_direita"] as const)
       .forEach((c) => { if (elementoDesabilitadoPeloTipo(normalizado, c)) normalizado[c] = null; });
     if (!quebraHabilitada(normalizado)) normalizado.ie_quebrar_linha = "N";
     return normalizado;
@@ -413,6 +413,7 @@ export default function RelatorioBuilder({
     if (campo === "qt_casas_decimais") return (tipo !== "sql" && tipo !== "parametro") || !["numero", "moeda", "porcentagem"].includes(el.ie_mascara ?? "");
     if (campo === "cd_cor") return tipo === "imagem";
     if (campo === "ie_estilo" || campo === "ie_alinhamento" || campo === "ie_fonte" || campo === "qt_fonte" || campo === "cd_background") return semTexto;
+    if (campo === "qt_padding_superior" || campo === "qt_padding_inferior" || campo === "qt_padding_esquerda" || campo === "qt_padding_direita") return semTexto;
     return false;
   }
   /** Quebrar linha: só nos textos que podem ser longos (SQL, Conteúdo e Parâmetro). */
@@ -1148,12 +1149,12 @@ export default function RelatorioBuilder({
             const des = (campo: CampoElemento) => elementoDesabilitado(el, campo);
             const tipoAtual = tipoDoElemento(el);
             const valorDesabilitado = (campo: CampoElemento, valor: unknown) => (elementoDesabilitadoPeloTipo(el, campo) ? "" : String(valor ?? ""));
-            const inputPx = (campo: "qt_esquerda" | "qt_topo" | "qt_largura" | "qt_altura", texto: string, minimo1: boolean) => (
+            const inputPx = (campo: "qt_esquerda" | "qt_topo" | "qt_largura" | "qt_altura" | "qt_padding_superior" | "qt_padding_inferior" | "qt_padding_esquerda" | "qt_padding_direita", texto: string, minimo1: boolean) => (
               <div className="sm:col-span-2">
                 {r(texto, campo)}
                 <input
                   inputMode="numeric"
-                  value={String(el[campo] ?? "")}
+                  value={valorDesabilitado(campo, el[campo])}
                   onChange={(e) => setEl({ [campo]: mascararPx(e.target.value, minimo1) })}
                   disabled={des(campo)}
                   className={comErro(errosDetalhe, campo)}
@@ -1197,6 +1198,10 @@ export default function RelatorioBuilder({
                   {inputPx("qt_topo", "Topo", false)}
                   {inputPx("qt_largura", "Tamanho", true)}
                   {inputPx("qt_altura", "Altura", true)}
+                  {inputPx("qt_padding_superior", "Padding superior", false)}
+                  {inputPx("qt_padding_inferior", "Padding inferior", false)}
+                  {inputPx("qt_padding_esquerda", "Padding esquerda", false)}
+                  {inputPx("qt_padding_direita", "Padding direita", false)}
                   <div className="sm:col-span-2">
                     {r("Estilo", "ie_estilo")}
                     <Select value={valorDesabilitado("ie_estilo", el.ie_estilo)} onChange={(v) => setEl({ ie_estilo: v || null })} options={ESTILOS_ELEMENTO} disabled={des("ie_estilo")} error={errosDetalhe.includes("ie_estilo")} />

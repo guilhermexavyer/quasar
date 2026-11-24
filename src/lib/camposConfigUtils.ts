@@ -360,6 +360,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda.ie_nova_pagina", label: "Nova página a cada registro", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_exibir_label", label: "Exibir labels", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_imprimir_vazio", label: "Imprimir sem registros", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
+    { key: "relatorio_banda.ie_alternar_background", label: "Alternar background", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
 
     // ── Formulário de Elementos (bandas do PDF) ──
     { key: "relatorio_banda_elemento.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
@@ -382,6 +383,10 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda_elemento.ie_mascara", label: "Máscara", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.qt_casas_decimais", label: "Casas decimais", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_quebrar_linha", label: "Quebrar linha", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.qt_padding_superior", label: "Padding superior", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.qt_padding_inferior", label: "Padding inferior", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.qt_padding_esquerda", label: "Padding esquerda", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.qt_padding_direita", label: "Padding direita", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_borda_superior", label: "Borda superior", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_borda_inferior", label: "Borda inferior", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_borda_esquerda", label: "Borda esquerda", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },

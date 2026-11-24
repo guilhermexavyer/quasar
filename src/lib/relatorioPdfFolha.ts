@@ -33,7 +33,8 @@ import {
  *   - SQL vazio na banda: vale o SQL do relatório (capa).
  * Elementos (medidas em px; 96 px = 1 polegada):
  *   - Esquerda: distância da margem esquerda; Topo: distância do topo da banda (no Detalhe,
- *     do topo de cada registro); Tamanho (largura) e Altura: a caixa do elemento (Background a preenche);
+ *     o menor Topo é o espaço antes da 1ª linha da banda em cada página, e os registros
+ *     ficam colados — ver desenharDetalhe); Tamanho (largura) e Altura: a caixa do elemento (Background a preenche);
  *   - SQL: valor da coluna do Alias (Cabeçalho e Rodapé: a 1ª linha do SQL da banda;
  *     Detalhe: a linha do registro; com Exibir labels, o Label é o cabeçalho da coluna);
  *   - Conteúdo: o texto do campo Conteúdo;
@@ -43,6 +44,12 @@ import {
  *   - Linha: linha reta no meio da caixa (horizontal se Tamanho >= Altura; senão vertical);
  *   - Máscara (SQL e Parâmetro): Data, Data e hora, Hora, Número, Moeda, Porcentagem;
  *   - Quebrar linha: o texto quebra em linhas no Tamanho (largura), a partir do topo da caixa;
+ *   - Padding (superior, inferior, esquerda, direita, em px): distância entre a borda da caixa
+ *     e o texto (o Background e as bordas continuam na caixa inteira);
+ *   - Detalhe com Exibir labels: Estilo, Cor e Background valem só para o label; os registros
+ *     saem no estilo padrão. Alternar background: registros pares com fundo #cccccc na
+ *     largura da banda; na linha dos labels, o Background do elemento de menor Sequência
+ *     preenche a linha toda. Os dois fundos ficam do lado de dentro da Borda da página;
  *   - Imagem: a imagem de Administração do Sistema > Imagens, no tamanho Largura x Altura
  *     (sem um deles, mantém a proporção; sem os dois, o tamanho original em px).
  * Bordas (Borda superior, inferior, esquerda e direita da banda e do elemento): linha
@@ -58,6 +65,8 @@ const A4 = { largura: 210, altura: 297 };
 /** Tamanho da fonte (pt) do elemento sem Tamanho da fonte. */
 const TAMANHO_FONTE = 10;
 const PT_PARA_MM = 25.4 / 72;
+/** Fundo dos registros pares da banda Detalhe com Alternar background. */
+const COR_LINHA_ALTERNADA = "#cccccc";
 
 function numero(valor: unknown): number | null {
   if (valor === null || valor === undefined || String(valor).trim() === "") return null;
@@ -214,7 +223,8 @@ function tamanhoDaFonte(elemento: ElementoBanda): number {
 
 /** Altura (px) que os elementos ocupam: o maior Topo + Altura (sem altura, uma linha de texto). */
 function alturaDosElementosPx(elementos: ElementoBanda[]): number {
-  const linhaPx = (e: ElementoBanda) => (tamanhoDaFonte(e) * PT_PARA_MM * 1.4 * 96) / 25.4;
+  // Sem Altura: uma linha de texto mais o padding de cima e de baixo.
+  const linhaPx = (e: ElementoBanda) => (tamanhoDaFonte(e) * PT_PARA_MM * 1.4 * 96) / 25.4 + (numero(e.qt_padding_superior) ?? 0) + (numero(e.qt_padding_inferior) ?? 0);
   return elementos.reduce((max, e) => Math.max(max, (numero(e.qt_topo) ?? 0) + (numero(e.qt_altura) ?? linhaPx(e))), 0);
 }
 
@@ -241,23 +251,61 @@ function desenharBordas(doc: jsPDF, lados: ComBordas, x: number, y: number, larg
   if (direita) doc.line(x + largura, y, x + largura, y + altura);
 }
 
-/** Desenha um elemento: caixa em (margem esquerda + Esquerda, topo + Topo), Background, texto com fonte, estilo, cor e alinhamento. */
+/**
+ * Quanto a Borda da página ocupa para dentro da área entre as margens (mm): metade da
+ * espessura da linha; na Dupla, até a linha de dentro (relatorioPdf.desenharBordaPagina).
+ */
+function recuoDaBordaPagina(estilo: string | null): number {
+  switch (estilo) {
+    case "solid_grossa": return 0.4;
+    case "dupla": return 1.2 + 0.15;
+    case "solid_fina": case "tracejada": case "pontilhada": return 0.15;
+    default: return 0;
+  }
+}
+
+/** Padding do elemento em mm (vazio = 0): distância entre a borda da caixa e o texto. */
+function paddingDe(elemento: ElementoBanda): { superior: number; inferior: number; esquerda: number; direita: number } {
+  const px = (v: unknown) => pxParaMm(Math.max(0, numero(v) ?? 0));
+  return {
+    superior: px(elemento.qt_padding_superior), inferior: px(elemento.qt_padding_inferior),
+    esquerda: px(elemento.qt_padding_esquerda), direita: px(elemento.qt_padding_direita),
+  };
+}
+
+/**
+ * Elemento no estilo padrão (registros da banda Detalhe com Exibir labels): Estilo, Cor e
+ * Background valem só para o label (o nome da coluna).
+ */
+const semEstilo = (elemento: ElementoBanda): ElementoBanda => ({ ...elemento, ie_estilo: null, cd_cor: null, cd_background: null });
+
+/**
+ * Desenha um elemento: caixa em (margem esquerda + Esquerda, topo + Topo), Background, texto
+ * com fonte, estilo, cor e alinhamento dentro da caixa menos o padding de cada lado.
+ */
 function desenharElemento(doc: jsPDF, elemento: ElementoBanda, xBase: number, yBase: number, texto: string): void {
   doc.setFont(FONTES_PDF[elemento.ie_fonte ?? ""] ?? "helvetica", estiloDaFonte(elemento.ie_estilo).fontStyle);
   doc.setFontSize(tamanhoDaFonte(elemento));
   const linhaMm = tamanhoDaFonte(elemento) * PT_PARA_MM * 1.4;
+  const padding = paddingDe(elemento);
   const x = xBase + pxParaMm(numero(elemento.qt_esquerda) ?? 0);
   const y = yBase + pxParaMm(numero(elemento.qt_topo) ?? 0);
   const larguraPx = numero(elemento.qt_largura);
-  const largura = larguraPx ? pxParaMm(larguraPx) : doc.getTextWidth(texto);
+  const largura = larguraPx ? pxParaMm(larguraPx) : doc.getTextWidth(texto) + padding.esquerda + padding.direita;
   const alturaPx = numero(elemento.qt_altura);
-  const altura = alturaPx ? pxParaMm(alturaPx) : linhaMm;
+  const altura = alturaPx ? pxParaMm(alturaPx) : linhaMm + padding.superior + padding.inferior;
 
   if (elemento.cd_background) {
     doc.setFillColor(elemento.cd_background);
     doc.rect(x, y, largura, altura, "F");
   }
-  if (texto) desenharTexto(doc, elemento, texto, x, largura, y, altura);
+  if (texto) {
+    desenharTexto(
+      doc, elemento, texto,
+      x + padding.esquerda, Math.max(0, largura - padding.esquerda - padding.direita),
+      y + padding.superior, Math.max(0, altura - padding.superior - padding.inferior),
+    );
+  }
   desenharBordas(doc, elemento, x, y, largura, altura);
 }
 
@@ -422,6 +470,15 @@ export function montarPdf(
   /** Bordas da banda: a faixa entre as margens esquerda e direita, com a altura dada. */
   const bordasDaBanda = (b: BandaCompleta, y: number, altura: number) =>
     desenharBordas(doc, b.banda, layout.conteudo.x, y, layout.conteudo.largura, altura);
+  /**
+   * Fundo de uma linha na largura da banda (Alternar background e linha dos labels), sem
+   * cobrir a Borda da página: fica do lado de dentro da linha da borda.
+   */
+  const recuo = recuoDaBordaPagina(relatorio.ie_borda ?? null);
+  const preencherLinha = (y: number, altura: number, cor: string) => {
+    doc.setFillColor(cor);
+    doc.rect(layout.conteudo.x + recuo, y, Math.max(0, layout.conteudo.largura - recuo * 2), altura, "F");
+  };
   /** Desenha só dentro da banda (entre as margens, com a altura dada): o que passar é cortado. */
   const dentroDaBanda = (y: number, altura: number, desenhar: () => void) => {
     if (altura <= 0) { desenhar(); return; }
@@ -446,28 +503,36 @@ export function montarPdf(
     }
   };
   /** Elementos Página: "Página X de Y", desenhados no fim (quando o total é conhecido). */
-  const paginasPendentes: { pagina: number; elemento: ElementoBanda; y: number; altura: number }[] = [];
+  const paginasPendentes: { pagina: number; elemento: ElementoBanda; y: number; altura: number; yElementos: number }[] = [];
   /**
    * Uma ocorrência da banda (Cabeçalho e Rodapé: a 1ª linha do SQL; Detalhe: a linha do
-   * registro; sem linha, os elementos SQL ficam vazios).
+   * registro; sem linha, os elementos SQL ficam vazios). `deslocamento` (mm): quanto os
+   * elementos sobem em relação ao Topo deles (no Detalhe, o menor Topo da banda).
    */
-  const desenharBandaFixa = (b: BandaCompleta, y: number, altura: number, dadosBanda: DadosRelatorio | undefined, linha: unknown[] | undefined) => {
+  const desenharBandaFixa = (
+    b: BandaCompleta, y: number, altura: number, dadosBanda: DadosRelatorio | undefined, linha: unknown[] | undefined,
+    deslocamento = 0, opcoes: { estiloPadrao?: boolean; fundo?: string } = {},
+  ) => {
+    const yElementos = y - deslocamento;
     dentroDaBanda(y, altura, () => {
-      for (const el of b.elementos) {
+      // Alternar background: o fundo do registro, na largura da banda, antes dos elementos.
+      if (opcoes.fundo) preencherLinha(y, altura, opcoes.fundo);
+      for (const original of b.elementos) {
+        const el = opcoes.estiloPadrao ? semEstilo(original) : original;
         if (el.ie_tipo === "imagem") {
-          desenharImagem(doc, el, margens.esquerda, y, imagens.get(String(el.nr_seq_imagem ?? "")));
+          desenharImagem(doc, el, margens.esquerda, yElementos, imagens.get(String(el.nr_seq_imagem ?? "")));
           continue;
         }
         if (el.ie_tipo === "linha") {
-          desenharLinha(doc, el, margens.esquerda, y);
+          desenharLinha(doc, el, margens.esquerda, yElementos);
           continue;
         }
         if (el.ie_tipo === "pagina") {
           // O total de páginas só é conhecido no fim: desenhado depois (paginasPendentes).
-          paginasPendentes.push({ pagina: doc.getCurrentPageInfo().pageNumber, elemento: el, y, altura });
+          paginasPendentes.push({ pagina: doc.getCurrentPageInfo().pageNumber, elemento: el, y, altura, yElementos });
           continue;
         }
-        desenharElemento(doc, el, margens.esquerda, y, textoDoElemento(el, dadosBanda, linha));
+        desenharElemento(doc, el, margens.esquerda, yElementos, textoDoElemento(el, dadosBanda, linha));
       }
     });
     // Por último, para o Background dos elementos não cobrir a borda.
@@ -507,31 +572,57 @@ export function montarPdf(
   const dependentesDe = (b: BandaCompleta) => detalhes.filter((d) => superiorDe(d) === String(b.banda.nr_sequencia));
 
   /**
-   * Banda Detalhe: uma ocorrência (com a Altura da banda; sem ela, o espaço que os
-   * elementos ocupam) para cada linha do SQL, seguida das bandas dependentes daquela linha.
+   * Banda Detalhe: uma ocorrência para cada linha do SQL, seguida das bandas dependentes
+   * daquela linha.
+   *   - Topo: posiciona a banda uma vez por página. O menor Topo dos elementos é o espaço
+   *     antes da 1ª linha da banda na página (a dos labels ou o 1º registro); as linhas
+   *     seguintes ficam coladas. Dentro do registro vale a diferença entre os Topos (ex.:
+   *     nome no Topo 0 e CPF no Topo 20 = CPF 20 px abaixo do nome);
+   *   - altura de cada linha: a Altura da banda; sem ela, o espaço que os elementos ocupam
+   *     (do menor Topo até o maior Topo + Altura);
    *   - Exibir labels: antes dos registros (e no topo de cada página nova da banda), uma
    *     linha com o Label de cada elemento;
    *   - Nova página a cada registro: cada registro começa numa página nova;
    *   - Imprimir sem registros: sem linhas, a banda sai uma vez (elementos SQL vazios).
    */
   const desenharDetalhe = (b: BandaCompleta, dadosBanda: DadosRelatorio | undefined, nivel: number) => {
-    const altura = pxParaMm(numero(b.banda.qt_altura) ?? alturaDosElementosPx(b.elementos));
+    const menorTopoPx = b.elementos.length === 0 ? 0 : Math.max(0, Math.min(...b.elementos.map((e) => numero(e.qt_topo) ?? 0)));
+    const deslocamento = pxParaMm(menorTopoPx);
+    const altura = pxParaMm(numero(b.banda.qt_altura) ?? alturaDosElementosPx(b.elementos) - menorTopoPx);
     if (altura <= 0) return;
+    /** Página em que a banda já recebeu o espaço do Topo. */
+    let paginaComTopo = -1;
+    const precisaTopo = () => doc.getCurrentPageInfo().pageNumber !== paginaComTopo;
+    /** Antes da 1ª linha da banda na página: o espaço do menor Topo. */
+    const aplicarTopo = () => {
+      if (!precisaTopo()) return;
+      y += deslocamento;
+      paginaComTopo = doc.getCurrentPageInfo().pageNumber;
+    };
     const linhas = dadosBanda?.linhas ?? [];
     const semRegistros = linhas.length === 0;
     if (semRegistros && b.banda.ie_imprimir_vazio !== "S") return;
     const comLabels = b.banda.ie_exibir_label === "S";
     const novaPaginaPorRegistro = b.banda.ie_nova_pagina === "S";
+    // Linha dos labels: o Background do elemento de menor Sequência preenche a linha toda
+    // (como o Alternar background); os labels saem sem o Background próprio.
+    const primeiro = [...b.elementos].sort((a, c) => Number(a.nr_sequencia ?? 0) - Number(c.nr_sequencia ?? 0))[0];
+    const fundoDosLabels = primeiro?.cd_background || undefined;
     const desenharLabels = () => {
+      aplicarTopo();
       dentroDaBanda(y, altura, () => {
-        for (const el of b.elementos) if (el.ie_tipo !== "imagem" && el.ie_tipo !== "linha") desenharElemento(doc, el, margens.esquerda, y, el.ds_label ?? "");
+        if (fundoDosLabels) preencherLinha(y, altura, fundoDosLabels);
+        for (const el of b.elementos) {
+          if (el.ie_tipo === "imagem" || el.ie_tipo === "linha") continue;
+          desenharElemento(doc, { ...el, cd_background: null }, margens.esquerda, y - deslocamento, el.ds_label ?? "");
+        }
       });
       bordasDaBanda(b, y, altura);
       y += altura;
     };
     /** Quebra a página (se preciso) antes de um registro; na página nova, repete os labels. */
     const quebrar = (forcar: boolean) => {
-      const naoCabe = y + altura > fimDoConteudo + 0.01 && y > layout.conteudo.y + 0.01;
+      const naoCabe = y + altura + (precisaTopo() ? deslocamento : 0) > fimDoConteudo + 0.01 && y > layout.conteudo.y + 0.01;
       if (!forcar && !naoCabe) return;
       if (y > layout.conteudo.y + 0.01) novaPagina();
       if (comLabels) desenharLabels();
@@ -539,12 +630,18 @@ export function montarPdf(
 
     // A banda começa numa página nova quando cada registro tem a sua.
     if (novaPaginaPorRegistro && y > layout.conteudo.y + 0.01) novaPagina();
-    if (comLabels) { garantirEspaco(altura * 2); desenharLabels(); }
+    if (comLabels) { garantirEspaco(deslocamento + altura * 2); desenharLabels(); }
     const dependentes = nivel < 10 ? dependentesDe(b) : [];
     const total = semRegistros ? 1 : linhas.length;
     for (let i = 0; i < total; i++) {
       quebrar(novaPaginaPorRegistro && i > 0);
-      desenharBandaFixa(b, y, altura, dadosBanda, linhas[i]);
+      aplicarTopo();
+      desenharBandaFixa(b, y, altura, dadosBanda, linhas[i], deslocamento, {
+        // Com labels, Estilo, Cor e Background são só do label; os registros ficam no padrão.
+        estiloPadrao: comLabels,
+        // Alternar background: 1º registro transparente, 2º cinza, 3º transparente...
+        fundo: b.banda.ie_alternar_background === "S" && i % 2 === 1 ? COR_LINHA_ALTERNADA : undefined,
+      });
       y += altura;
       for (const dependente of dependentes) {
         desenharDetalhe(dependente, dadosBanda?.filhas?.[i]?.[String(dependente.banda.nr_sequencia)], nivel + 1);
@@ -558,9 +655,9 @@ export function montarPdf(
     desenharDetalhe(b, dados[String(b.banda.nr_sequencia)], 0);
   }
   const total = doc.getNumberOfPages();
-  for (const { pagina, elemento, y: yBanda, altura } of paginasPendentes) {
+  for (const { pagina, elemento, y: yBanda, altura, yElementos } of paginasPendentes) {
     doc.setPage(pagina);
-    dentroDaBanda(yBanda, altura, () => desenharElemento(doc, elemento, margens.esquerda, yBanda, `Página ${pagina} de ${total}`));
+    dentroDaBanda(yBanda, altura, () => desenharElemento(doc, elemento, margens.esquerda, yElementos, `Página ${pagina} de ${total}`));
   }
   return doc;
 }
