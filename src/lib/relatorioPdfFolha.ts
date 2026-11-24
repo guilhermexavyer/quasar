@@ -3,9 +3,12 @@ import { desenharBordaPagina } from "@/lib/relatorioPdf";
 import type { Relatorio } from "@/types/relatorio";
 import type { FormatoPapel } from "@/types/formatoPapel";
 import type { Imagem } from "@/types/imagem";
+import { nomeDoParametro } from "@/lib/relatorioSql";
 import {
+  bandaEhDetalhe,
+  obterParametrosSql,
   obterBandasSql,
-  obterDadosRelatorio,
+  obterDadosPdf,
   obterElementosDaBanda,
   type BandaSql,
   type DadosRelatorio,
@@ -22,20 +25,30 @@ import {
  * Bandas (layoutDaFolha):
  *   - Cabeçalho: no topo (abaixo da margem superior); Rodapé: no pé (acima da margem
  *     inferior), crescendo para cima. Os dois se repetem em todas as páginas;
- *   - Conteúdo e Lista: um abaixo do outro, na ordem da Sequência, no espaço entre o
- *     Cabeçalho e o Rodapé, com quebra de página quando não cabem.
+ *   - Detalhe: no espaço entre o Cabeçalho e o Rodapé, na ordem da Sequência, uma vez
+ *     para cada linha do SQL (com quebra de página quando não cabe). A banda dependente
+ *     (Banda superior) sai logo depois de cada registro da superior, com o SQL rodado
+ *     para aquele registro. Opções: Exibir labels, Nova página a cada registro e
+ *     Imprimir sem registros (ver desenharDetalhe).
+ *   - SQL vazio na banda: vale o SQL do relatório (capa).
  * Elementos (medidas em px; 96 px = 1 polegada):
- *   - Esquerda: distância da margem esquerda; Topo: distância do topo da banda (na Lista,
- *     do topo da linha); Largura e Altura: a caixa do elemento (Background a preenche);
- *   - SQL: valor da coluna do Alias (Cabeçalho, Rodapé e Conteúdo: a 1ª linha do SQL da
- *     banda; Lista: uma linha por registro, com o Label como cabeçalho da coluna);
+ *   - Esquerda: distância da margem esquerda; Topo: distância do topo da banda (no Detalhe,
+ *     do topo de cada registro); Tamanho (largura) e Altura: a caixa do elemento (Background a preenche);
+ *   - SQL: valor da coluna do Alias (Cabeçalho e Rodapé: a 1ª linha do SQL da banda;
+ *     Detalhe: a linha do registro; com Exibir labels, o Label é o cabeçalho da coluna);
  *   - Conteúdo: o texto do campo Conteúdo;
+ *   - Parâmetro: o valor do parâmetro (Atributo = nome) informado ao gerar (ou o Valor padrão);
+ *   - Página: "Página X de Y" (desenhado no fim, quando o total de páginas é conhecido);
+ *   - Data/hora: data e hora da geração; Usuário: quem gerou;
+ *   - Linha: linha reta no meio da caixa (horizontal se Tamanho >= Altura; senão vertical);
+ *   - Máscara (SQL e Parâmetro): Data, Data e hora, Hora, Número, Moeda, Porcentagem;
+ *   - Quebrar linha: o texto quebra em linhas no Tamanho (largura), a partir do topo da caixa;
  *   - Imagem: a imagem de Administração do Sistema > Imagens, no tamanho Largura x Altura
  *     (sem um deles, mantém a proporção; sem os dois, o tamanho original em px).
  * Bordas (Borda superior, inferior, esquerda e direita da banda e do elemento): linha
  * igual à "Sólida fina" do campo Borda do relatório, nos lados marcados:
- *   - banda: a faixa entre as margens esquerda e direita, com a altura da banda (na
- *     Lista, cada linha: o cabeçalho e cada registro);
+ *   - banda: a faixa entre as margens esquerda e direita, com a altura da banda (no
+ *     Detalhe, cada ocorrência: a linha dos labels e cada registro);
  *   - elemento: a caixa dele (Largura x Altura; sem elas, o tamanho do texto/imagem).
  * Os elementos ficam dentro da banda: o que passar da altura da banda (ou das margens
  * esquerda e direita) é cortado.
@@ -134,12 +147,63 @@ function textoDoValor(valor: unknown, tipo: DadosRelatorio["colunas"][number]["t
   return String(valor);
 }
 
-/** Valor do Alias numa linha do SQL (nome da coluna sem diferenciar maiúsculas). */
-function valorDoAlias(dados: DadosRelatorio | undefined, linha: unknown[] | undefined, alias: string | null | undefined): string {
+/** Data de um valor do banco ou digitado: Date, ISO, 'AAAA-MM-DD' ou 'DD/MM/AAAA'. */
+function paraData(valor: unknown): Date | null {
+  if (valor instanceof Date) return Number.isNaN(valor.getTime()) ? null : valor;
+  const texto = String(valor ?? "").trim();
+  let m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(texto);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  m = /^(\d{2})\/(\d{2})\/(\d{4})(?:\s+(\d{2}):(\d{2})(?::(\d{2}))?)?$/.exec(texto);
+  if (m) return new Date(Number(m[3]), Number(m[2]) - 1, Number(m[1]), Number(m[4] ?? 0), Number(m[5] ?? 0), Number(m[6] ?? 0));
+  if (!/^\d{4}-\d{2}-\d{2}T/.test(texto)) return null;
+  const d = new Date(texto);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
+
+/** Número de um valor do banco ou digitado ("1234.5", "1.234,5"). */
+function paraNumero(valor: unknown): number | null {
+  if (typeof valor === "number") return Number.isFinite(valor) ? valor : null;
+  const texto = String(valor ?? "").trim();
+  if (!texto) return null;
+  const n = Number(texto.includes(",") ? texto.replace(/\./g, "").replace(",", ".") : texto);
+  return Number.isFinite(n) ? n : null;
+}
+
+/**
+ * Valor com a Máscara do elemento: Data (dd/mm/aaaa), Data e hora, Hora (hh:mm), Número
+ * (separador de milhar e as Casas decimais; vazio = 2), Moeda (R$) e Porcentagem (valor + %).
+ * Sem máscara (ou valor que não combina com ela), como o banco devolve.
+ */
+export function formatarValor(valor: unknown, tipo: DadosRelatorio["colunas"][number]["tipo"] | undefined, elemento: Pick<ElementoBanda, "ie_mascara" | "qt_casas_decimais">): string {
+  if (valor === null || valor === undefined || valor === "") return "";
+  const mascara = elemento.ie_mascara ?? "";
+  if (mascara === "data" || mascara === "data_hora" || mascara === "hora") {
+    const d = paraData(valor);
+    if (d) {
+      if (mascara === "data") return d.toLocaleDateString("pt-BR");
+      const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+      return mascara === "hora" ? hora : `${d.toLocaleDateString("pt-BR")} ${hora}`;
+    }
+  } else if (mascara === "numero" || mascara === "moeda" || mascara === "porcentagem") {
+    const n = paraNumero(valor);
+    if (n !== null) {
+      const casas = Math.min(10, Math.max(0, numero(elemento.qt_casas_decimais) ?? 2));
+      const opcoes = { minimumFractionDigits: casas, maximumFractionDigits: casas };
+      if (mascara === "moeda") return n.toLocaleString("pt-BR", { ...opcoes, style: "currency", currency: "BRL" });
+      const texto = n.toLocaleString("pt-BR", opcoes);
+      return mascara === "porcentagem" ? `${texto}%` : texto;
+    }
+  }
+  return textoDoValor(valor, tipo);
+}
+
+/** Valor do Atributo numa linha do SQL (nome da coluna sem diferenciar maiúsculas), com a Máscara. */
+function valorDoAlias(dados: DadosRelatorio | undefined, linha: unknown[] | undefined, elemento: ElementoBanda): string {
+  const alias = elemento.cd_alias;
   if (!dados || !linha || !alias) return "";
   const alvo = alias.trim().toLowerCase();
   const i = dados.colunas.findIndex((c) => c.nome.toLowerCase() === alvo);
-  return i < 0 ? "" : textoDoValor(linha[i], dados.colunas[i].tipo);
+  return i < 0 ? "" : formatarValor(linha[i], dados.colunas[i].tipo, elemento);
 }
 
 /** Tamanho da fonte do elemento em pt (Tamanho da fonte; vazio = 10). */
@@ -197,21 +261,45 @@ function desenharElemento(doc: jsPDF, elemento: ElementoBanda, xBase: number, yB
   desenharBordas(doc, elemento, x, y, largura, altura);
 }
 
+/**
+ * Texto do elemento na caixa. Uma linha: centralizada na Altura. Quebrar linha (ou texto com
+ * várias linhas): as linhas que cabem no Tamanho (largura), a partir do topo da caixa.
+ */
 function desenharTexto(doc: jsPDF, elemento: ElementoBanda, texto: string, x: number, largura: number, y: number, altura: number): void {
   const alinhamento = elemento.ie_alinhamento === "centro" ? "center" : elemento.ie_alinhamento === "direita" ? "right" : "left";
   const xTexto = alinhamento === "center" ? x + largura / 2 : alinhamento === "right" ? x + largura : x;
-  const yTexto = y + altura / 2;
-  doc.setTextColor(elemento.cd_cor || "#000000");
-  doc.text(texto, xTexto, yTexto, { align: alinhamento, baseline: "middle" });
+  const linhaMm = tamanhoDaFonte(elemento) * PT_PARA_MM * 1.4;
+  const linhas: string[] = elemento.ie_quebrar_linha === "S" && largura > 0
+    ? doc.splitTextToSize(texto, largura)
+    : texto.split(/\r?\n/);
+  const cor = elemento.cd_cor || "#000000";
+  doc.setTextColor(cor);
+  linhas.forEach((linha, i) => {
+    const yTexto = linhas.length === 1 ? y + altura / 2 : y + linhaMm * (i + 0.5);
+    doc.text(linha, xTexto, yTexto, { align: alinhamento, baseline: "middle" });
+    if (estiloDaFonte(elemento.ie_estilo).sublinhado && linha) {
+      const larguraTexto = doc.getTextWidth(linha);
+      const inicio = alinhamento === "center" ? xTexto - larguraTexto / 2 : alinhamento === "right" ? xTexto - larguraTexto : xTexto;
+      const yLinha = yTexto + (tamanhoDaFonte(elemento) * PT_PARA_MM) / 2;
+      doc.setDrawColor(cor);
+      doc.setLineWidth(0.2);
+      doc.line(inicio, yLinha, inicio + larguraTexto, yLinha);
+    }
+  });
+}
 
-  if (estiloDaFonte(elemento.ie_estilo).sublinhado) {
-    const larguraTexto = doc.getTextWidth(texto);
-    const inicio = alinhamento === "center" ? xTexto - larguraTexto / 2 : alinhamento === "right" ? xTexto - larguraTexto : xTexto;
-    const yLinha = yTexto + (tamanhoDaFonte(elemento) * PT_PARA_MM) / 2;
-    doc.setDrawColor(elemento.cd_cor || "#000000");
-    doc.setLineWidth(0.2);
-    doc.line(inicio, yLinha, inicio + larguraTexto, yLinha);
-  }
+/** Elemento Linha: horizontal no meio da caixa (Tamanho >= Altura) ou vertical, na Cor do elemento. */
+function desenharLinha(doc: jsPDF, elemento: ElementoBanda, xBase: number, yBase: number): void {
+  const x = xBase + pxParaMm(numero(elemento.qt_esquerda) ?? 0);
+  const y = yBase + pxParaMm(numero(elemento.qt_topo) ?? 0);
+  const largura = pxParaMm(numero(elemento.qt_largura) ?? 0);
+  const altura = pxParaMm(numero(elemento.qt_altura) ?? 0);
+  if (largura <= 0 && altura <= 0) return;
+  doc.setDrawColor(elemento.cd_cor || "#000000");
+  doc.setLineWidth(0.3);
+  doc.setLineDashPattern([], 0);
+  if (largura >= altura) doc.line(x, y + altura / 2, x + largura, y + altura / 2);
+  else doc.line(x + largura / 2, y, x + largura / 2, y + altura);
 }
 
 /** Imagem carregada (convertida para PNG) com o tamanho original em px. */
@@ -260,23 +348,32 @@ function desenharImagem(doc: jsPDF, elemento: ElementoBanda, xBase: number, yBas
 
 /* ── Geração ── */
 
-interface BandaCompleta { banda: BandaSql; elementos: ElementoBanda[]; dados?: DadosRelatorio }
+interface BandaCompleta { banda: BandaSql; elementos: ElementoBanda[] }
 
 /**
- * Gera e baixa o PDF do relatório. Busca as bandas, os elementos e, das bandas que têm
- * elementos do tipo SQL (ou são Lista), o resultado do SQL (com os valores dos parâmetros).
+ * Gera e baixa o PDF do relatório. Busca as bandas, os elementos e os dados de todas as
+ * bandas numa chamada só (com os valores dos parâmetros; as dependentes dentro da superior).
  */
 export async function gerarPdfRelatorio(
   relatorio: Relatorio, formato: FormatoPapel | undefined, valores: Record<string, string>, nome: string, imagens: Imagem[] = [],
+  usuario = "",
 ): Promise<void> {
-  const bandas = await obterBandasSql(relatorio.nr_sequencia);
+  const [bandas, dados, parametros] = await Promise.all([
+    obterBandasSql(relatorio.nr_sequencia), obterDadosPdf(relatorio.nr_sequencia, valores), obterParametrosSql(relatorio.nr_sequencia),
+  ]);
+  // Valor de cada parâmetro (para o elemento Parâmetro): o informado ao gerar ou o Valor padrão.
+  const valoresParametros: Record<string, string> = {};
+  for (const p of parametros) {
+    const nomeParametro = nomeDoParametro(p.ds_parametro);
+    if (!nomeParametro) continue;
+    const perguntado = p.ie_perguntar === "S" && Object.prototype.hasOwnProperty.call(valores, nomeParametro);
+    valoresParametros[nomeParametro.toLowerCase()] = String((perguntado ? valores[nomeParametro] : p.vl_padrao) ?? "");
+  }
   const completas: BandaCompleta[] = await Promise.all(
-    bandas.map(async (banda) => {
-      const elementos = banda.nr_sequencia == null ? [] : await obterElementosDaBanda(Number(banda.nr_sequencia));
-      const usaSql = banda.ie_tipo === "lista" || elementos.some((e) => e.ie_tipo !== "conteudo" && e.ie_tipo !== "imagem");
-      const dados = usaSql && banda.nr_sequencia != null ? await obterDadosRelatorio(relatorio.nr_sequencia, valores, Number(banda.nr_sequencia)) : undefined;
-      return { banda, elementos, dados };
-    })
+    bandas.map(async (banda) => ({
+      banda,
+      elementos: banda.nr_sequencia == null ? [] : await obterElementosDaBanda(Number(banda.nr_sequencia)),
+    }))
   );
   // Imagens usadas pelos elementos (cada uma baixada uma vez).
   const usadas = new Set(completas.flatMap((b) => b.elementos).filter((e) => e.ie_tipo === "imagem" && e.nr_seq_imagem != null).map((e) => String(e.nr_seq_imagem)));
@@ -286,11 +383,27 @@ export async function gerarPdfRelatorio(
     const carregada = arquivo ? await carregarImagem(arquivo) : null;
     if (carregada) carregadas.set(nr, carregada);
   }));
-  const doc = montarPdf(relatorio, formato, completas, carregadas);
+  const doc = montarPdf(relatorio, formato, completas, dados, carregadas, { parametros: valoresParametros, usuario, geradoEm: new Date() });
   doc.save(`${nomeDeArquivo(nome)}.pdf`);
 }
 
-export function montarPdf(relatorio: Relatorio, formato: FormatoPapel | undefined, bandas: BandaCompleta[], imagens: Map<string, ImagemCarregada> = new Map()): jsPDF {
+/** Informações da geração usadas pelos elementos Parâmetro, Data/hora e Usuário. */
+export interface ContextoGeracao {
+  /** Valor de cada parâmetro (nome em minúsculas). */
+  parametros: Record<string, string>;
+  usuario: string;
+  geradoEm: Date;
+}
+
+/**
+ * Monta o PDF. `dados`: resultado do SQL por nr da banda (Cabeçalho, Rodapé e Detalhe sem
+ * banda superior); as dependentes vêm em `filhas` da superior.
+ */
+export function montarPdf(
+  relatorio: Relatorio, formato: FormatoPapel | undefined, bandas: BandaCompleta[], dados: Record<string, DadosRelatorio>,
+  imagens: Map<string, ImagemCarregada> = new Map(),
+  contexto: ContextoGeracao = { parametros: {}, usuario: "", geradoEm: new Date() },
+): jsPDF {
   const folha = medidasDaFolha(relatorio, formato);
   const orientacao = folha.largura > folha.altura ? "landscape" : "portrait";
   // Orientação do jsPDF conforme as medidas finais, para ele não trocar largura e altura.
@@ -322,25 +435,54 @@ export function montarPdf(relatorio: Relatorio, formato: FormatoPapel | undefine
       doc.restoreGraphicsState();
     }
   };
-  /** Elementos de Cabeçalho, Rodapé e Conteúdo: o SQL usa a 1ª linha. */
-  const desenharBandaFixa = (b: BandaCompleta, y: number, altura: number) => {
+  /** Texto dos elementos SQL, Conteúdo, Parâmetro, Data/hora e Usuário. */
+  const textoDoElemento = (el: ElementoBanda, dadosBanda: DadosRelatorio | undefined, linha: unknown[] | undefined): string => {
+    switch (el.ie_tipo) {
+      case "conteudo": return el.ds_conteudo ?? "";
+      case "parametro": return formatarValor(contexto.parametros[(el.cd_alias ?? "").trim().replace(/^:+/, "").toLowerCase()], "texto", el);
+      case "data_hora": return formatarValor(contexto.geradoEm, "datahora", { ie_mascara: el.ie_mascara || "data_hora" });
+      case "usuario": return contexto.usuario;
+      default: return valorDoAlias(dadosBanda, linha, el);
+    }
+  };
+  /** Elementos Página: "Página X de Y", desenhados no fim (quando o total é conhecido). */
+  const paginasPendentes: { pagina: number; elemento: ElementoBanda; y: number; altura: number }[] = [];
+  /**
+   * Uma ocorrência da banda (Cabeçalho e Rodapé: a 1ª linha do SQL; Detalhe: a linha do
+   * registro; sem linha, os elementos SQL ficam vazios).
+   */
+  const desenharBandaFixa = (b: BandaCompleta, y: number, altura: number, dadosBanda: DadosRelatorio | undefined, linha: unknown[] | undefined) => {
     dentroDaBanda(y, altura, () => {
       for (const el of b.elementos) {
         if (el.ie_tipo === "imagem") {
           desenharImagem(doc, el, margens.esquerda, y, imagens.get(String(el.nr_seq_imagem ?? "")));
           continue;
         }
-        const texto = el.ie_tipo === "conteudo" ? el.ds_conteudo ?? "" : valorDoAlias(b.dados, b.dados?.linhas[0], el.cd_alias);
-        desenharElemento(doc, el, margens.esquerda, y, texto);
+        if (el.ie_tipo === "linha") {
+          desenharLinha(doc, el, margens.esquerda, y);
+          continue;
+        }
+        if (el.ie_tipo === "pagina") {
+          // O total de páginas só é conhecido no fim: desenhado depois (paginasPendentes).
+          paginasPendentes.push({ pagina: doc.getCurrentPageInfo().pageNumber, elemento: el, y, altura });
+          continue;
+        }
+        desenharElemento(doc, el, margens.esquerda, y, textoDoElemento(el, dadosBanda, linha));
       }
     });
     // Por último, para o Background dos elementos não cobrir a borda.
     bordasDaBanda(b, y, altura);
   };
+  const desenharFixa = (area: BandaNaFolha | null) => {
+    const b = area ? porNr.get(area.banda.nr_sequencia) : undefined;
+    if (!area || !b) return;
+    const dadosBanda = dados[String(b.banda.nr_sequencia)];
+    desenharBandaFixa(b, area.area.y, area.area.altura, dadosBanda, dadosBanda?.linhas[0]);
+  };
   const prepararPagina = () => {
     desenharBordaPagina(doc, relatorio.ie_borda ?? null, margens.superior, margens.inferior, margens.esquerda, margens.direita);
-    if (layout.cabecalho) { const b = porNr.get(layout.cabecalho.banda.nr_sequencia); if (b) desenharBandaFixa(b, layout.cabecalho.area.y, layout.cabecalho.area.altura); }
-    if (layout.rodape) { const b = porNr.get(layout.rodape.banda.nr_sequencia); if (b) desenharBandaFixa(b, layout.rodape.area.y, layout.rodape.area.altura); }
+    desenharFixa(layout.cabecalho);
+    desenharFixa(layout.rodape);
   };
   const fimDoConteudo = layout.conteudo.y + layout.conteudo.altura;
   let y = layout.conteudo.y;
@@ -354,33 +496,71 @@ export function montarPdf(relatorio: Relatorio, formato: FormatoPapel | undefine
     if (y + altura > fimDoConteudo + 0.01 && y > layout.conteudo.y + 0.01) novaPagina();
   };
 
-  prepararPagina();
-  for (const b of ordenadas) {
-    if (b.banda.ie_tipo === "conteudo") {
-      const alturaPx = numero(b.banda.qt_altura) ?? alturaDosElementosPx(b.elementos);
-      const altura = pxParaMm(alturaPx);
-      garantirEspaco(altura);
-      desenharBandaFixa(b, y, altura);
+  // Bandas Detalhe (ou sem tipo): as sem banda superior saem na ordem da Sequência; cada
+  // dependente sai logo depois de cada registro da superior (na ordem da Sequência).
+  const detalhes = ordenadas.filter((b) => bandaEhDetalhe(b.banda));
+  const nrsDetalhe = new Set(detalhes.map((b) => String(b.banda.nr_sequencia)));
+  const superiorDe = (b: BandaCompleta) => {
+    const sup = b.banda.nr_seq_banda_superior;
+    return sup != null && sup !== "" && nrsDetalhe.has(String(sup)) ? String(sup) : null;
+  };
+  const dependentesDe = (b: BandaCompleta) => detalhes.filter((d) => superiorDe(d) === String(b.banda.nr_sequencia));
+
+  /**
+   * Banda Detalhe: uma ocorrência (com a Altura da banda; sem ela, o espaço que os
+   * elementos ocupam) para cada linha do SQL, seguida das bandas dependentes daquela linha.
+   *   - Exibir labels: antes dos registros (e no topo de cada página nova da banda), uma
+   *     linha com o Label de cada elemento;
+   *   - Nova página a cada registro: cada registro começa numa página nova;
+   *   - Imprimir sem registros: sem linhas, a banda sai uma vez (elementos SQL vazios).
+   */
+  const desenharDetalhe = (b: BandaCompleta, dadosBanda: DadosRelatorio | undefined, nivel: number) => {
+    const altura = pxParaMm(numero(b.banda.qt_altura) ?? alturaDosElementosPx(b.elementos));
+    if (altura <= 0) return;
+    const linhas = dadosBanda?.linhas ?? [];
+    const semRegistros = linhas.length === 0;
+    if (semRegistros && b.banda.ie_imprimir_vazio !== "S") return;
+    const comLabels = b.banda.ie_exibir_label === "S";
+    const novaPaginaPorRegistro = b.banda.ie_nova_pagina === "S";
+    const desenharLabels = () => {
+      dentroDaBanda(y, altura, () => {
+        for (const el of b.elementos) if (el.ie_tipo !== "imagem" && el.ie_tipo !== "linha") desenharElemento(doc, el, margens.esquerda, y, el.ds_label ?? "");
+      });
+      bordasDaBanda(b, y, altura);
       y += altura;
-    } else if (b.banda.ie_tipo === "lista") {
-      // Cada linha (o cabeçalho com os Labels e um registro) tem a Altura da banda
-      // (sem ela, o espaço que os elementos ocupam).
-      const alturaLinha = pxParaMm(numero(b.banda.qt_altura) ?? alturaDosElementosPx(b.elementos));
-      if (alturaLinha <= 0) continue;
-      const desenharCabecalhoDaLista = () => {
-        dentroDaBanda(y, alturaLinha, () => { for (const el of b.elementos) desenharElemento(doc, el, margens.esquerda, y, el.ds_label ?? ""); });
-        bordasDaBanda(b, y, alturaLinha);
-        y += alturaLinha;
-      };
-      garantirEspaco(alturaLinha * 2);
-      desenharCabecalhoDaLista();
-      for (const linha of b.dados?.linhas ?? []) {
-        if (y + alturaLinha > fimDoConteudo + 0.01) { novaPagina(); desenharCabecalhoDaLista(); }
-        dentroDaBanda(y, alturaLinha, () => { for (const el of b.elementos) desenharElemento(doc, el, margens.esquerda, y, valorDoAlias(b.dados, linha, el.cd_alias)); });
-        bordasDaBanda(b, y, alturaLinha);
-        y += alturaLinha;
+    };
+    /** Quebra a página (se preciso) antes de um registro; na página nova, repete os labels. */
+    const quebrar = (forcar: boolean) => {
+      const naoCabe = y + altura > fimDoConteudo + 0.01 && y > layout.conteudo.y + 0.01;
+      if (!forcar && !naoCabe) return;
+      if (y > layout.conteudo.y + 0.01) novaPagina();
+      if (comLabels) desenharLabels();
+    };
+
+    // A banda começa numa página nova quando cada registro tem a sua.
+    if (novaPaginaPorRegistro && y > layout.conteudo.y + 0.01) novaPagina();
+    if (comLabels) { garantirEspaco(altura * 2); desenharLabels(); }
+    const dependentes = nivel < 10 ? dependentesDe(b) : [];
+    const total = semRegistros ? 1 : linhas.length;
+    for (let i = 0; i < total; i++) {
+      quebrar(novaPaginaPorRegistro && i > 0);
+      desenharBandaFixa(b, y, altura, dadosBanda, linhas[i]);
+      y += altura;
+      for (const dependente of dependentes) {
+        desenharDetalhe(dependente, dadosBanda?.filhas?.[i]?.[String(dependente.banda.nr_sequencia)], nivel + 1);
       }
     }
+  };
+
+  prepararPagina();
+  for (const b of detalhes) {
+    if (superiorDe(b) !== null) continue;
+    desenharDetalhe(b, dados[String(b.banda.nr_sequencia)], 0);
+  }
+  const total = doc.getNumberOfPages();
+  for (const { pagina, elemento, y: yBanda, altura } of paginasPendentes) {
+    doc.setPage(pagina);
+    dentroDaBanda(yBanda, altura, () => desenharElemento(doc, elemento, margens.esquerda, yBanda, `Página ${pagina} de ${total}`));
   }
   return doc;
 }

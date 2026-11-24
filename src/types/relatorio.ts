@@ -5,8 +5,12 @@
 export interface Relatorio {
   id?: string;
   nr_sequencia: number;
+  /** Código do relatório (único; identifica o relatório na exportação e importação). */
+  cd_relatorio?: string | null;
   /** Descrição do relatório. */
   ds_relatorio: string;
+  /** SQL principal: usado pelas bandas sem SQL próprio. */
+  ds_sql?: string | null;
   /** Observação. */
   ds_observacao?: string;
 

@@ -22,6 +22,10 @@ import {
   ESTILOS_ELEMENTO,
   FONTES_ELEMENTO,
   TIPOS_ELEMENTO,
+  MASCARAS_ELEMENTO,
+  TAMANHO_ELEMENTO_PADRAO,
+  ALTURA_ELEMENTO_PADRAO,
+  obterColunasDaBanda,
   type TipoElemento,
   obterParametrosSql,
   ordenarParametros,
@@ -29,6 +33,8 @@ import {
   salvarParametroSql,
   TIPOS_BANDA,
   CAMPOS_BORDA,
+  OPCOES_DETALHE,
+  bandaEhDetalhe,
   type BandaSql,
   type ElementoBanda,
   type TipoBanda,
@@ -37,17 +43,21 @@ import {
 import type { Relatorio } from "@/types/relatorio";
 
 /**
- * Gerenciador de Relatórios > Relatórios (relatórios XLS por SQL).
+ * Gerenciador de Relatórios > Relatórios (relatórios por SQL, no modelo do Tasy).
  *
- *   - viewMode 'form' (Adicionar / Ver): Sequência, Descrição, Formato (XLS ou PDF) e Saída.
+ *   - viewMode 'form' (Adicionar / Ver): Sequência, Código, Descrição, Formato (XLS ou PDF),
+ *     SQL (o SQL principal, usado pelas bandas sem SQL próprio) e Saída.
  *     Os campos do PDF (Formato do papel, Orientação, Borda e margens) só ficam habilitados
  *     com o Formato PDF. Orientação 'P' usa as medidas do formato do papel; 'I' as inverte
  *     (largura e altura trocadas). Margens em centímetros.
  *   - viewMode 'bandas' (duplo clique no relatório): abas Bandas e Parâmetros.
- *       Bandas: no XLS, uma só (o "Adicionar" fica desabilitado enquanto ela existir);
- *         campos Sequência, Descrição e SQL — a consulta que gera o relatório.
- *         No PDF, várias, com Tipo (Cabeçalho, Conteúdo, Lista, Rodapé) e Altura (px);
- *         o duplo clique numa banda abre os Elementos dela (Relatório > Banda > Elemento).
+ *       Bandas: várias em qualquer formato; campos Sequência, Descrição e SQL (vazio = o SQL
+ *         do relatório). No XLS vale a banda Detalhe de menor Sequência.
+ *         No PDF, também Tipo (Cabeçalho, Detalhe, Rodapé), Altura (px), bordas e, na banda
+ *         Detalhe, Banda superior (dependência: o SQL roda para cada registro da superior,
+ *         com :COLUNA = valor da coluna) e as opções Nova página a cada registro, Exibir
+ *         labels e Imprimir sem registros. O duplo clique numa banda abre os Elementos
+ *         dela (Relatório > Banda > Elemento).
  *       Parâmetros: os :nome usados no SQL (Descrição do parâmetro = o nome), com Label,
  *         Ordem, Valor padrão, Perguntar e Obrigatório.
  *     Bandas e parâmetros são gravados na hora (cada um com auditoria própria).
@@ -60,8 +70,12 @@ interface ContextMenuItem {
 
 /** Dados do relatório gravados pelo formulário. */
 export interface DadosRelatorioForm {
+  /** Código do relatório (único; null = sem código). */
+  cd_relatorio: string | null;
   ds_relatorio: string;
   ie_formato: "xls" | "pdf";
+  /** SQL principal (usado pelas bandas sem SQL próprio). */
+  ds_sql: string;
   ds_nome_arquivo: string;
   /** Campos do PDF (null quando o formato é XLS). Margens em centímetros. */
   nr_seq_formato_papel: number | null;
@@ -233,6 +247,8 @@ export default function RelatorioBuilder({
 
   /* ── Formulário do relatório ── */
   const [dsRelatorio, setDsRelatorio] = useState(relatorio?.ds_relatorio ?? "");
+  const [codigo, setCodigo] = useState(relatorio?.cd_relatorio ?? "");
+  const [sqlCapa, setSqlCapa] = useState(relatorio?.ds_sql ?? "");
   const [nomeArquivo, setNomeArquivo] = useState(
     relatorio?.ds_nome_arquivo ?? pdf?.titulo ?? ""
   );
@@ -262,8 +278,8 @@ export default function RelatorioBuilder({
   const [elementos, setElementos] = useState<ElementoBanda[]>([]);
   const [carregandoElementos, setCarregandoElementos] = useState(false);
   const relatorioPdf = relatorio?.ie_formato === "pdf";
-  /** Banda Lista: elementos só do tipo SQL, com Label (nome da coluna). */
-  const bandaLista = bandaElementos?.ie_tipo === "lista";
+  /** Banda com Exibir labels: o Label do elemento é o cabeçalho da coluna. */
+  const bandaComLabels = !!bandaElementos && bandaEhDetalhe(bandaElementos) && bandaElementos.ie_exibir_label === "S";
   const [menu, setMenu] = useState<{ x: number; y: number; acoes: ContextMenuItem[] } | null>(null);
 
   // Carga das bandas e parâmetros ao abrir (resultado aplicado só se a tela ainda estiver aberta).
@@ -331,7 +347,9 @@ export default function RelatorioBuilder({
   // Os campos do PDF só contam (e só são gravados) com o Formato PDF.
   function salvarRelatorio() {
     const valores: Record<string, string> = {
+      cd_relatorio: codigo,
       ds_relatorio: dsRelatorio,
+      ds_sql: sqlCapa,
       ds_nome_arquivo: nomeArquivo,
       ie_formato: formato,
       ...(ehPdf ? { nr_seq_formato_papel: formatoPapel, ie_orientacao: orientacao, ie_borda: borda, ...margens } : {}),
@@ -345,8 +363,10 @@ export default function RelatorioBuilder({
     setErrosDetalhe([]);
     const margem = (c: CampoMargem) => (ehPdf ? medidaParaBanco(margens[c]) : null);
     onSave({
+      cd_relatorio: codigo.trim() || null,
       ds_relatorio: dsRelatorio.trim(),
       ie_formato: formato,
+      ds_sql: sqlCapa,
       ds_nome_arquivo: nomeArquivo.trim(),
       nr_seq_formato_papel: ehPdf && formatoPapel ? Number(formatoPapel) : null,
       ie_orientacao: ehPdf ? orientacao : null,
@@ -361,35 +381,42 @@ export default function RelatorioBuilder({
   const pdfDesabilitado = (campo: string) => !ehPdf || statusDe(campoRegras, campo) === "D";
 
   /* ── Elemento: campos habilitados pelo tipo da banda e do elemento ── */
-  const CAMPOS_ELEMENTO = ["ds_elemento", "ie_tipo", "nr_seq_imagem", "qt_esquerda", "qt_topo", "ie_estilo", "qt_largura", "qt_altura", "ie_alinhamento", "cd_background", "cd_cor", "ie_fonte", "qt_fonte", "ds_label", "cd_alias", "ds_conteudo"] as const;
+  const CAMPOS_ELEMENTO = ["ds_elemento", "ie_tipo", "nr_seq_imagem", "qt_esquerda", "qt_topo", "ie_estilo", "qt_largura", "qt_altura", "ie_alinhamento", "cd_background", "cd_cor", "ie_fonte", "qt_fonte", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais"] as const;
   type CampoElemento = (typeof CAMPOS_ELEMENTO)[number];
-  /** Tipo do elemento (banda Lista: sempre SQL). */
   function tipoDoElemento(el: ElementoBanda): TipoElemento {
-    if (bandaLista) return "sql";
-    return el.ie_tipo === "conteudo" || el.ie_tipo === "imagem" ? el.ie_tipo : "sql";
+    return TIPOS_ELEMENTO.some((t) => t.value === el.ie_tipo) ? (el.ie_tipo as TipoElemento) : "sql";
   }
   function elementoNormalizado(el: ElementoBanda): ElementoBanda {
     const normalizado: ElementoBanda = { ...el, ie_tipo: tipoDoElemento(el) };
     // Campos desabilitados pelo tipo não são gravados.
-    (["nr_seq_imagem", "ie_estilo", "ie_alinhamento", "ie_fonte", "qt_fonte", "cd_cor", "cd_background", "ds_label", "cd_alias", "ds_conteudo"] as const)
+    (["nr_seq_imagem", "ie_estilo", "ie_alinhamento", "ie_fonte", "qt_fonte", "cd_cor", "cd_background", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais"] as const)
       .forEach((c) => { if (elementoDesabilitadoPeloTipo(normalizado, c)) normalizado[c] = null; });
+    if (!quebraHabilitada(normalizado)) normalizado.ie_quebrar_linha = "N";
     return normalizado;
   }
   /**
-   * Cabeçalho, Rodapé e Conteúdo: SQL → Label e Conteúdo desabilitados; Conteúdo → Label e Alias desabilitados;
-   * Imagem → só a Imagem (tamanho por Largura e Altura): Estilo, Alinhamento, Fonte, Cor, Background, Label,
-   * Alias e Conteúdo desabilitados. Lista: só SQL, com Conteúdo desabilitado.
+   * Campos de cada tipo:
+   *   - Atributo: SQL (a coluna) e Parâmetro (o nome); Conteúdo: só Conteúdo; Imagem: só Imagem;
+   *   - Máscara: SQL, Parâmetro e Data/hora; Casas decimais: com Máscara Número, Moeda ou Porcentagem;
+   *   - Imagem e Linha não têm texto (Estilo, Alinhamento, Fonte e Background desabilitados;
+   *     a Linha usa a Cor);
+   *   - Label (o cabeçalho da coluna): só na banda Detalhe com Exibir labels.
    */
   function elementoDesabilitadoPeloTipo(el: ElementoBanda, campo: CampoElemento): boolean {
     const tipo = tipoDoElemento(el);
-    if (campo === "ie_tipo") return bandaLista;
+    const semTexto = tipo === "imagem" || tipo === "linha";
     if (campo === "nr_seq_imagem") return tipo !== "imagem";
-    if (campo === "ds_label") return !bandaLista;
-    if (campo === "cd_alias") return tipo !== "sql";
+    if (campo === "ds_label") return !bandaComLabels || semTexto;
+    if (campo === "cd_alias") return tipo !== "sql" && tipo !== "parametro";
     if (campo === "ds_conteudo") return tipo !== "conteudo";
-    if (campo === "ie_estilo" || campo === "ie_alinhamento" || campo === "ie_fonte" || campo === "qt_fonte" || campo === "cd_cor" || campo === "cd_background") return tipo === "imagem";
+    if (campo === "ie_mascara") return tipo !== "sql" && tipo !== "parametro" && tipo !== "data_hora";
+    if (campo === "qt_casas_decimais") return (tipo !== "sql" && tipo !== "parametro") || !["numero", "moeda", "porcentagem"].includes(el.ie_mascara ?? "");
+    if (campo === "cd_cor") return tipo === "imagem";
+    if (campo === "ie_estilo" || campo === "ie_alinhamento" || campo === "ie_fonte" || campo === "qt_fonte" || campo === "cd_background") return semTexto;
     return false;
   }
+  /** Quebrar linha: só nos textos que podem ser longos (SQL, Conteúdo e Parâmetro). */
+  const quebraHabilitada = (el: ElementoBanda) => ["sql", "conteudo", "parametro"].includes(tipoDoElemento(el));
   const elementoDesabilitado = (el: ElementoBanda, campo: CampoElemento) =>
     elementoDesabilitadoPeloTipo(el, campo) || statusDe(elementoCampoRegras, campo) === "D";
 
@@ -397,7 +424,9 @@ export default function RelatorioBuilder({
     if (!detalhe || nrRelatorio == null) return;
     if (detalhe.tipo === "banda") {
       const b = detalhe.banda;
-      const campos = relatorioPdf ? ["ds_banda", "ie_tipo", "qt_altura", "ds_sql"] : ["ds_banda", "ds_sql"];
+      const campos = relatorioPdf
+        ? ["ds_banda", "ie_tipo", "qt_altura", "ds_sql", ...(bandaEhDetalhe(b) ? ["nr_seq_banda_superior"] : [])]
+        : ["ds_banda", "ds_sql"];
       const faltantes = campos.filter((c) => statusDe(bandaCampoRegras, c) === "O" && !String(b[c as keyof BandaSql] ?? "").trim());
       if (faltantes.length > 0) {
         setErrosDetalhe(faltantes);
@@ -408,6 +437,17 @@ export default function RelatorioBuilder({
       if (relatorioPdf && (b.ie_tipo === "cabecalho" || b.ie_tipo === "rodape") && bandas.some((x) => x.id !== b.id && x.ie_tipo === b.ie_tipo)) {
         setErrosDetalhe(["ie_tipo"]);
         onToast?.(`O relatório já tem uma banda do tipo ${b.ie_tipo === "cabecalho" ? "Cabeçalho" : "Rodapé"}.`, "error");
+        return;
+      }
+      // Banda superior de outras: continua Detalhe (as dependentes saem dentro dela).
+      if (relatorioPdf && !bandaEhDetalhe(b) && b.id && dependentesDe(b).length > 0) {
+        setErrosDetalhe(["ie_tipo"]);
+        onToast?.("A banda é a banda superior de outras bandas: o tipo precisa ser Detalhe.", "error");
+        return;
+      }
+      if (relatorioPdf && bandaEhDetalhe(b) && b.nr_seq_banda_superior && !opcoesBandaSuperior(b).some((o) => o.value === String(b.nr_seq_banda_superior))) {
+        setErrosDetalhe(["nr_seq_banda_superior"]);
+        onToast?.("A banda superior precisa ser outra banda Detalhe, que não dependa desta.", "error");
         return;
       }
     } else if (detalhe.tipo === "elemento") {
@@ -446,10 +486,13 @@ export default function RelatorioBuilder({
     setGravando(true);
     try {
       if (detalhe.tipo === "banda") {
-        // Tipo e Altura só existem nas bandas do PDF.
+        // Tipo, Altura, bordas, Banda superior e opções só existem nas bandas do PDF.
         const banda = relatorioPdf
           ? detalhe.banda
-          : { ...detalhe.banda, ie_tipo: null, qt_altura: null, ...Object.fromEntries(CAMPOS_BORDA.map(({ campo }) => [campo, "N"])) };
+          : {
+              ...detalhe.banda, ie_tipo: null, qt_altura: null, nr_seq_banda_superior: null,
+              ...Object.fromEntries([...CAMPOS_BORDA, ...OPCOES_DETALHE].map(({ campo }) => [campo, "N"])),
+            };
         const salva = await salvarBandaSql({ ...banda, nr_seq_relatorio: nrRelatorio });
         setBandas((lista) => (detalhe.banda.id ? lista.map((b) => (b.id === salva.id ? salva : b)) : [...lista, salva]));
         setSelecionadoId(salva.id ?? null);
@@ -477,6 +520,10 @@ export default function RelatorioBuilder({
   function excluir(tipo: "banda" | "parametro" | "elemento", item: BandaSql | ParametroSql | ElementoBanda) {
     if (!item.id) return;
     const id = item.id;
+    if (tipo === "banda" && dependentesDe(item as BandaSql).length > 0) {
+      onToast?.("A banda é a banda superior de outras bandas. Altere ou exclua as bandas dependentes primeiro.", "error");
+      return;
+    }
     const nome = tipo === "banda" ? "a banda" : tipo === "elemento" ? "o elemento" : "o parâmetro";
     const mensagem = `Deseja mesmo excluir ${nome} ${item.nr_sequencia ?? ""}?`;
     const acao = async () => {
@@ -545,17 +592,19 @@ export default function RelatorioBuilder({
         ]
       : []),
     ...colunasAuditoria<BandaSql>(),
+    // Coluna nova no fim: a ordem e a largura salvas das colunas são por posição.
+    ...(relatorioPdf ? [{ key: "nr_seq_banda_superior", label: "Banda superior", render: (b: BandaSql) => (b.nr_seq_banda_superior == null ? "" : String(b.nr_seq_banda_superior)) }] : []),
   ];
   const px = (v: unknown) => (v === null || v === undefined || v === "" ? "" : `${v} px`);
   const colunasDeElemento: ResizableTableColumn<ElementoBanda>[] = [
     { key: "nr_sequencia", label: "#", render: (e) => String(e.nr_sequencia ?? "") },
     { key: "ds_elemento", label: "Descrição", render: (e) => e.ds_elemento ?? "" },
     { key: "ie_tipo", label: "Tipo", render: (e) => TIPOS_ELEMENTO.find((t) => t.value === e.ie_tipo)?.label ?? "" },
-    ...(bandaLista ? [{ key: "ds_label", label: "Label", render: (e: ElementoBanda) => e.ds_label ?? "" }] : []),
-    { key: "cd_alias", label: "Alias", render: (e) => e.cd_alias ?? "" },
+    ...(bandaComLabels ? [{ key: "ds_label", label: "Label", render: (e: ElementoBanda) => e.ds_label ?? "" }] : []),
+    { key: "cd_alias", label: "Atributo", render: (e) => e.cd_alias ?? "" },
     { key: "qt_esquerda", label: "Esquerda", render: (e) => px(e.qt_esquerda) },
     { key: "qt_topo", label: "Topo", render: (e) => px(e.qt_topo) },
-    { key: "qt_largura", label: "Largura", render: (e) => px(e.qt_largura) },
+    { key: "qt_largura", label: "Tamanho", render: (e) => px(e.qt_largura) },
     { key: "qt_altura", label: "Altura", render: (e) => px(e.qt_altura) },
     ...colunasAuditoria<ElementoBanda>(),
   ];
@@ -570,8 +619,26 @@ export default function RelatorioBuilder({
     ...colunasAuditoria<ParametroSql>(),
   ];
 
-  // XLS: uma banda só. PDF: várias.
-  const xlsTemBanda = !relatorioPdf && bandas.length >= 1;
+  /** Bandas que dependem diretamente desta (Banda superior = esta). */
+  function dependentesDe(banda: BandaSql): BandaSql[] {
+    if (banda.nr_sequencia == null) return [];
+    return bandas.filter((b) => b.nr_seq_banda_superior != null && String(b.nr_seq_banda_superior) === String(banda.nr_sequencia));
+  }
+  /** Opções de Banda superior: as outras bandas Detalhe, menos as que dependem desta (direta ou indiretamente). */
+  function opcoesBandaSuperior(banda: BandaSql): { value: string; label: string }[] {
+    const bloqueadas = new Set<string>();
+    if (banda.nr_sequencia != null) {
+      const fila = [banda];
+      while (fila.length > 0) {
+        const atual = fila.shift() as BandaSql;
+        bloqueadas.add(String(atual.nr_sequencia));
+        for (const d of dependentesDe(atual)) if (!bloqueadas.has(String(d.nr_sequencia))) fila.push(d);
+      }
+    }
+    return bandas
+      .filter((b) => b.nr_sequencia != null && bandaEhDetalhe(b) && !bloqueadas.has(String(b.nr_sequencia)))
+      .map((b) => ({ value: String(b.nr_sequencia), label: `${b.nr_sequencia} - ${b.ds_banda ?? ""}`.trim() }));
+  }
 
   /** PDF: duplo clique na banda abre os elementos dela. */
   function abrirElementos(banda: BandaSql) {
@@ -588,14 +655,52 @@ export default function RelatorioBuilder({
   function adicionar() {
     setErrosDetalhe([]);
     if (bandaElementos) {
-      setDetalhe({ tipo: "elemento", elemento: { ie_tipo: "sql" } });
+      // Como no Tasy: o elemento novo vem ao lado do último, com 70 x 17.
+      setDetalhe({ tipo: "elemento", elemento: { ie_tipo: "sql", ...proximaPosicao(), qt_largura: TAMANHO_ELEMENTO_PADRAO, qt_altura: ALTURA_ELEMENTO_PADRAO } });
       return;
     }
     if (aba === "bandas") {
-      if (xlsTemBanda) return;
-      setDetalhe({ tipo: "banda", banda: { ds_banda: "", ds_sql: "", ie_tipo: null, qt_altura: null } });
+      setDetalhe({ tipo: "banda", banda: { ds_banda: "", ds_sql: "", ie_tipo: relatorioPdf ? "detalhe" : null, qt_altura: null } });
     } else {
       setDetalhe({ tipo: "parametro", parametro: { ds_parametro: "", ds_label: "", nr_ordem: null, vl_padrao: "", ie_perguntar: "N", ie_obrigatorio: "N" } });
+    }
+  }
+  /** Posição do elemento novo: à direita do último (Esquerda + Tamanho + 5), no mesmo Topo. */
+  function proximaPosicao(lista: ElementoBanda[] = elementos): { qt_esquerda: number; qt_topo: number } {
+    const ultimo = lista[lista.length - 1];
+    if (!ultimo) return { qt_esquerda: 0, qt_topo: 0 };
+    const n = (v: unknown) => (v === null || v === undefined || v === "" ? 0 : Number(v) || 0);
+    return { qt_esquerda: n(ultimo.qt_esquerda) + n(ultimo.qt_largura) + 5, qt_topo: n(ultimo.qt_topo) };
+  }
+  /**
+   * "Gerar elementos do SQL" (o "Gerar Campos SQL" do Tasy): um elemento SQL para cada coluna
+   * do SQL da banda que ainda não tem elemento, lado a lado, com Descrição, Atributo e (com
+   * Exibir labels) Label = nome da coluna.
+   */
+  async function gerarElementosDoSql() {
+    if (!bandaElementos?.nr_sequencia || nrRelatorio == null) return;
+    setGravando(true);
+    try {
+      const colunas = await obterColunasDaBanda(nrRelatorio, Number(bandaElementos.nr_sequencia));
+      const existentes = new Set(elementos.map((e) => (e.cd_alias ?? "").trim().toLowerCase()).filter(Boolean));
+      const novas = colunas.filter((c, i) => !existentes.has(c.toLowerCase()) && colunas.findIndex((x) => x.toLowerCase() === c.toLowerCase()) === i);
+      if (colunas.length === 0) { onToast?.("O SQL da banda não tem colunas.", "warning"); return; }
+      if (novas.length === 0) { onToast?.("Todas as colunas do SQL já têm elemento.", "warning"); return; }
+      let lista = [...elementos];
+      for (const coluna of novas) {
+        const salvo = await salvarElementoBanda({
+          ie_tipo: "sql", ds_elemento: coluna, cd_alias: coluna, ds_label: bandaComLabels ? coluna : null,
+          ...proximaPosicao(lista), qt_largura: TAMANHO_ELEMENTO_PADRAO, qt_altura: ALTURA_ELEMENTO_PADRAO,
+          nr_seq_banda: Number(bandaElementos.nr_sequencia), nr_seq_relatorio: nrRelatorio,
+        });
+        lista = [...lista, salvo];
+        setElementos(lista);
+      }
+      onToast?.(`${novas.length} elemento(s) gerado(s) com sucesso!`, "success");
+    } catch (e) {
+      onToast?.(e instanceof Error && e.message ? e.message : "Erro ao gerar os elementos.", "error");
+    } finally {
+      setGravando(false);
     }
   }
   function abrirElemento(el: ElementoBanda) {
@@ -728,11 +833,15 @@ export default function RelatorioBuilder({
               ))}
             </div>
           )}
+          {ehBandas && !detalhe && bandaElementos && (
+            <button type="button" onClick={() => void gerarElementosDoSql()} disabled={gravando} className={BOTAO_LINK}>
+              Gerar elementos do SQL
+            </button>
+          )}
           {ehBandas && !detalhe && (
             <button
               type="button"
               onClick={adicionar}
-              disabled={!bandaElementos && aba === "bandas" && xlsTemBanda}
               className={BOTAO_LINK}
             >
               Adicionar
@@ -761,7 +870,17 @@ export default function RelatorioBuilder({
                     {rotulo("Sequência", "relatorio", "nr_sequencia", campoRegras)}
                     <input disabled value={String(relatorio?.nr_sequencia ?? "")} className={INPUT} />
                   </div>
-                  <div className="sm:col-span-7">
+                  <div className="sm:col-span-2">
+                    {rotulo("Código", "relatorio", "cd_relatorio", campoRegras)}
+                    <input
+                      value={codigo}
+                      onChange={(e) => setCodigo(e.target.value.replace(/\s/g, "").slice(0, 30))}
+                      disabled={statusDe(campoRegras, "cd_relatorio") === "D"}
+                      spellCheck={false}
+                      className={comErro([...errosDetalhe, ...campoErros], "cd_relatorio")}
+                    />
+                  </div>
+                  <div className="sm:col-span-5">
                     {rotulo("Descrição", "relatorio", "ds_relatorio", campoRegras)}
                     <input
                       value={dsRelatorio}
@@ -773,6 +892,17 @@ export default function RelatorioBuilder({
                   <div className="sm:col-span-3">
                     {rotulo("Formato", "relatorio", "ie_formato", campoRegras)}
                     <Select value={formato} onChange={(v) => setFormato(v === "pdf" ? "pdf" : "xls")} options={FORMATO_OPTIONS} showPlaceholder={false} disabled={statusDe(campoRegras, "ie_formato") === "D"} />
+                  </div>
+                  <div className="sm:col-span-12">
+                    {rotulo("SQL", "relatorio", "ds_sql", campoRegras)}
+                    <textarea
+                      value={sqlCapa}
+                      onChange={(e) => setSqlCapa(e.target.value)}
+                      disabled={statusDe(campoRegras, "ds_sql") === "D"}
+                      rows={3}
+                      spellCheck={false}
+                      className={`${comErro(errosDetalhe, "ds_sql")} resize-none`}
+                    />
                   </div>
                 </div>
               </section>
@@ -868,7 +998,7 @@ export default function RelatorioBuilder({
                   <p className="mt-4 font-medium text-slate-500">Nenhum registro encontrado.</p>
                   <p className="mt-1 text-sm text-slate-500">
                     {aba === "bandas"
-                      ? 'Clique em "Adicionar" para cadastrar a banda com o SQL do relatório.'
+                      ? 'Clique em "Adicionar" para cadastrar as bandas do relatório.'
                       : 'Clique em "Adicionar" para cadastrar os parâmetros usados no SQL (ex.: :teste).'}
                   </p>
                 </div>
@@ -958,6 +1088,41 @@ export default function RelatorioBuilder({
                       "relatorio_banda",
                       bandaCampoRegras,
                     )}
+                    {/* Banda superior e opções: só na banda Detalhe. */}
+                    {(() => {
+                      const naoDetalhe = !bandaEhDetalhe(detalhe.banda);
+                      return (
+                        <>
+                          <div className="sm:col-span-6">
+                            {rotulo("Banda superior", "relatorio_banda", "nr_seq_banda_superior", bandaCampoRegras)}
+                            <Select
+                              value={naoDetalhe ? "" : String(detalhe.banda.nr_seq_banda_superior ?? "")}
+                              onChange={(v) => setDetalhe({ tipo: "banda", banda: { ...detalhe.banda, nr_seq_banda_superior: v || null } })}
+                              options={opcoesBandaSuperior(detalhe.banda)}
+                              disabled={naoDetalhe || statusDe(bandaCampoRegras, "nr_seq_banda_superior") === "D"}
+                              error={errosDetalhe.includes("nr_seq_banda_superior")}
+                            />
+                          </div>
+                          <div className="sm:col-span-6 flex flex-wrap gap-8">
+                            {OPCOES_DETALHE.map(({ campo, label }) => (
+                              <div key={campo} className="flex flex-col">
+                                {rotulo(label, "relatorio_banda", campo, bandaCampoRegras)}
+                                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                                  <input
+                                    type="checkbox"
+                                    className="cg-checkbox"
+                                    checked={!naoDetalhe && detalhe.banda[campo] === "S"}
+                                    disabled={naoDetalhe || statusDe(bandaCampoRegras, campo) === "D"}
+                                    onChange={(e) => setDetalhe({ tipo: "banda", banda: { ...detalhe.banda, [campo]: e.target.checked ? "S" : "N" } })}
+                                  />
+                                  <span>Sim</span>
+                                </label>
+                              </div>
+                            ))}
+                          </div>
+                        </>
+                      );
+                    })()}
                   </>
                 )}
                 <div className="sm:col-span-12">
@@ -969,8 +1134,7 @@ export default function RelatorioBuilder({
                     // Mesmo estilo dos campos Observação do sistema.
                     rows={3}
                     spellCheck={false}
-                    placeholder="select * from pat_ativo where nr_sequencia = :teste"
-                    className={`${comErro(errosDetalhe, "ds_sql")} resize-none placeholder:text-[#aaa]`}
+                    className={`${comErro(errosDetalhe, "ds_sql")} resize-none`}
                   />
                 </div>
               </div>
@@ -1012,8 +1176,8 @@ export default function RelatorioBuilder({
                     {r("Tipo", "ie_tipo")}
                     <Select
                       value={tipoAtual}
-                      onChange={(v) => setEl({ ie_tipo: (v === "conteudo" || v === "imagem" ? v : "sql") })}
-                      options={bandaLista ? TIPOS_ELEMENTO.filter((t) => t.value === "sql") : TIPOS_ELEMENTO}
+                      onChange={(v) => setEl({ ie_tipo: (TIPOS_ELEMENTO.some((t) => t.value === v) ? v : "sql") as TipoElemento })}
+                      options={TIPOS_ELEMENTO}
                       showPlaceholder={false}
                       disabled={des("ie_tipo")}
                       error={errosDetalhe.includes("ie_tipo")}
@@ -1031,7 +1195,7 @@ export default function RelatorioBuilder({
                   </div>
                   {inputPx("qt_esquerda", "Esquerda", false)}
                   {inputPx("qt_topo", "Topo", false)}
-                  {inputPx("qt_largura", "Largura", true)}
+                  {inputPx("qt_largura", "Tamanho", true)}
                   {inputPx("qt_altura", "Altura", true)}
                   <div className="sm:col-span-2">
                     {r("Estilo", "ie_estilo")}
@@ -1063,13 +1227,49 @@ export default function RelatorioBuilder({
                     {r("Background", "cd_background")}
                     <CampoCor valor={valorDesabilitado("cd_background", el.cd_background)} onChange={(v) => setEl({ cd_background: v || null })} disabled={des("cd_background")} erro={errosDetalhe.includes("cd_background")} />
                   </div>
+                  <div className="sm:col-span-2">
+                    {r("Máscara", "ie_mascara")}
+                    <Select
+                      value={valorDesabilitado("ie_mascara", el.ie_mascara)}
+                      onChange={(v) => setEl({ ie_mascara: v || null })}
+                      options={tipoAtual === "data_hora" ? MASCARAS_ELEMENTO.filter((m) => ["data", "data_hora", "hora"].includes(m.value)) : MASCARAS_ELEMENTO}
+                      disabled={des("ie_mascara")}
+                      error={errosDetalhe.includes("ie_mascara")}
+                    />
+                  </div>
+                  <div className="sm:col-span-2">
+                    {r("Casas decimais", "qt_casas_decimais")}
+                    <input
+                      inputMode="numeric"
+                      value={valorDesabilitado("qt_casas_decimais", el.qt_casas_decimais)}
+                      onChange={(e) => {
+                        const digito = e.target.value.replace(/\D/g, "").slice(-1);
+                        setEl({ qt_casas_decimais: digito === "" ? null : digito });
+                      }}
+                      disabled={des("qt_casas_decimais")}
+                      className={comErro(errosDetalhe, "qt_casas_decimais")}
+                    />
+                  </div>
+                  <div className="sm:col-span-2 flex flex-col">
+                    {r("Quebrar linha", "ie_quebrar_linha")}
+                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                      <input
+                        type="checkbox"
+                        className="cg-checkbox"
+                        checked={quebraHabilitada(el) && el.ie_quebrar_linha === "S"}
+                        disabled={!quebraHabilitada(el) || statusDe(elementoCampoRegras, "ie_quebrar_linha") === "D"}
+                        onChange={(e) => setEl({ ie_quebrar_linha: e.target.checked ? "S" : "N" })}
+                      />
+                      <span>Sim</span>
+                    </label>
+                  </div>
                   {checkboxesBorda(el, (campo, marcado) => setEl({ [campo]: marcado ? "S" : "N" }), "relatorio_banda_elemento", elementoCampoRegras)}
                   <div className="sm:col-span-6">
                     {r("Label", "ds_label")}
                     <input value={valorDesabilitado("ds_label", el.ds_label)} onChange={(e) => setEl({ ds_label: e.target.value })} disabled={des("ds_label")} className={comErro(errosDetalhe, "ds_label")} />
                   </div>
                   <div className="sm:col-span-6">
-                    {r("Alias", "cd_alias")}
+                    {r("Atributo", "cd_alias")}
                     <input value={valorDesabilitado("cd_alias", el.cd_alias)} onChange={(e) => setEl({ cd_alias: e.target.value })} disabled={des("cd_alias")} spellCheck={false} className={comErro(errosDetalhe, "cd_alias")} />
                   </div>
                   <div className="sm:col-span-12">

@@ -70,16 +70,30 @@ export async function duplicarRelatorio(relatorioId: string, autor?: AuditAutor)
   const bandasOrigem = seqOrigem != null ? await obterBandasPorRelatorio(Number(seqOrigem)) : [];
   const parametrosOrigem = seqOrigem != null ? await obterParametrosPorRelatorio(Number(seqOrigem)) : [];
 
-  const novo = await criarDado<Relatorio>("relatorio", { ...dadosRelatorio, ds_relatorio: `${dadosRelatorio.ds_relatorio ?? ''} (Cópia)` });
+  // O Código é único: a cópia fica sem código.
+  const novo = await criarDado<Relatorio>("relatorio", { ...dadosRelatorio, cd_relatorio: null, ds_relatorio: `${dadosRelatorio.ds_relatorio ?? ''} (Cópia)` });
   const novoId = String(novo.id);
   const novaSeq = novo.nr_sequencia;
 
-  // Bandas e seus elementos
+  // Bandas e seus elementos. A banda superior é criada antes das dependentes, e a
+  // Banda superior da cópia aponta para a cópia da banda superior.
+  const nrNovoDe = new Map<string, number>();
+  const pendentes = [...bandasOrigem];
+  const ordem: typeof bandasOrigem = [];
+  while (pendentes.length > 0) {
+    const nrs = new Set(pendentes.map((b) => String(b.nr_sequencia)));
+    const prontas = pendentes.filter((b) => b.nr_seq_banda_superior == null || !nrs.has(String(b.nr_seq_banda_superior)));
+    const lote = prontas.length > 0 ? prontas : pendentes; // ciclo (não deveria existir): sem superior
+    ordem.push(...lote);
+    for (const b of lote) pendentes.splice(pendentes.indexOf(b), 1);
+  }
   const bandasNovas: Record<string, unknown>[] = [];
-  for (const banda of bandasOrigem) {
+  for (const banda of ordem) {
     const elementos = banda.nr_sequencia != null ? await obterElementosPorBandaSeq(Number(banda.nr_sequencia)) : [];
     const { campos: _campos, ...dadosBanda } = semIdentificacao(banda);
+    dadosBanda.nr_seq_banda_superior = banda.nr_seq_banda_superior == null ? null : nrNovoDe.get(String(banda.nr_seq_banda_superior)) ?? null;
     const novaBanda = await criarBanda(removerUndefinedProfundo({ ...dadosBanda, nr_seq_relatorio: novaSeq }), autor);
+    nrNovoDe.set(String(banda.nr_sequencia), novaBanda.nr_sequencia);
 
     const camposNovos: Record<string, unknown>[] = [];
     for (const elemento of elementos) {

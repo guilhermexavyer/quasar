@@ -56,6 +56,8 @@ const COLUMNS = [
   { key: "dt_alteracao", label: "Alteração" },
   { key: "ds_usuario_criacao", label: "Usuário criação" },
   { key: "ds_usuario_alteracao", label: "Usuário alteração" },
+  // Coluna nova no fim: a ordem e a largura salvas das colunas são por posição.
+  { key: "cd_relatorio", label: "Código" },
 ];
 
 const COLUMN_KEYS = COLUMNS.map((c) => c.key);

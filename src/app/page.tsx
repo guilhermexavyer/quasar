@@ -424,7 +424,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.88.0";
+const SYSTEM_VERSION = "0.90.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -3938,8 +3938,9 @@ export default function Home() {
       }
       await loadRelatorios();
       closeRelatorioBuilder();
-    } catch {
-      setMessage('Erro ao salvar relatório.');
+    } catch (err) {
+      // Ex.: Código repetido ("Já existe um registro com este valor.").
+      setMessage(err instanceof Error && err.message ? `Erro ao salvar relatório: ${err.message}` : 'Erro ao salvar relatório.');
     } finally {
       setRelatorioSubmitting(false);
     }
@@ -3949,9 +3950,15 @@ export default function Home() {
     try {
       // Excluir bandas vinculadas ao relatório na coleção relatorio_banda
       const { obterBandasPorRelatorioId, excluirBanda } = await import('@/services/relatorioServiceBandas');
-      const bandasExistentes = await obterBandasPorRelatorioId(id);
-      for (const b of bandasExistentes) {
-        await excluirBanda(b.id);
+      // Bandas dependentes antes da banda superior delas (a superior não sai enquanto é referenciada).
+      let restantes = await obterBandasPorRelatorioId(id);
+      while (restantes.length > 0) {
+        const referenciadas = new Set(restantes.map((b) => String(b.nr_seq_banda_superior ?? '')));
+        const livres = restantes.filter((b) => !referenciadas.has(String(b.nr_sequencia)));
+        const lote = livres.length > 0 ? livres : restantes; // ciclo (não deveria existir): tenta todas
+        for (const b of lote) await excluirBanda(b.id);
+        if (livres.length === 0) break;
+        restantes = restantes.filter((b) => !lote.includes(b));
       }
       // Parâmetros também ficam em coleção própria (relatorio_parametro).
       const relatorioExcluido = relatorios.find((r) => r.id === id);
@@ -3996,7 +4003,7 @@ export default function Home() {
       // PDF: folha (formato do papel, orientação, margens, borda) com as bandas e os elementos.
       if (relatorio.ie_formato === 'pdf') {
         const formato = formatosPapel.find((f) => String(f.nr_sequencia) === String(relatorio.nr_seq_formato_papel ?? ''));
-        await gerarPdfRelatorio(relatorio, formato, valores, nomeArquivo, imagens);
+        await gerarPdfRelatorio(relatorio, formato, valores, nomeArquivo, imagens, currentUser?.ds_usuario ?? '');
         setMessage('Relatório gerado com sucesso!');
         return;
       }

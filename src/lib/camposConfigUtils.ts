@@ -333,8 +333,10 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
   relatorio: [
     // ── Formulário do Relatório ──
     { key: "relatorio.nr_sequencia", label: "Sequência", tipo: "Relatórios", colecao: "relatorio" },
+    { key: "relatorio.cd_relatorio", label: "Código", tipo: "Relatórios", colecao: "relatorio" },
     { key: "relatorio.ds_relatorio", label: "Descrição", tipo: "Relatórios", colecao: "relatorio" },
     { key: "relatorio.ie_formato", label: "Formato", tipo: "Relatórios", colecao: "relatorio" },
+    { key: "relatorio.ds_sql", label: "SQL", tipo: "Relatórios", colecao: "relatorio" },
     { key: "relatorio.ds_nome_arquivo", label: "Nome do arquivo", tipo: "Relatórios", colecao: "relatorio" },
     { key: "relatorio.nr_seq_formato_papel", label: "Formato do papel", tipo: "Relatórios", colecao: "relatorio" },
     { key: "relatorio.ie_orientacao", label: "Orientação", tipo: "Relatórios", colecao: "relatorio" },
@@ -344,7 +346,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio.nr_margem_esquerda", label: "Margem esquerda", tipo: "Relatórios", colecao: "relatorio" },
     { key: "relatorio.nr_margem_direita", label: "Margem direita", tipo: "Relatórios", colecao: "relatorio" },
 
-    // ── Formulário de Bandas (XLS: SQL do relatório) ──
+    // ── Formulário de Bandas ──
     { key: "relatorio_banda.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ds_banda", label: "Descrição", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_tipo", label: "Tipo", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
@@ -354,6 +356,10 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda.ie_borda_inferior", label: "Borda inferior", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_borda_esquerda", label: "Borda esquerda", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_borda_direita", label: "Borda direita", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
+    { key: "relatorio_banda.nr_seq_banda_superior", label: "Banda superior", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
+    { key: "relatorio_banda.ie_nova_pagina", label: "Nova página a cada registro", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
+    { key: "relatorio_banda.ie_exibir_label", label: "Exibir labels", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
+    { key: "relatorio_banda.ie_imprimir_vazio", label: "Imprimir sem registros", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
 
     // ── Formulário de Elementos (bandas do PDF) ──
     { key: "relatorio_banda_elemento.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
@@ -363,7 +369,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda_elemento.qt_esquerda", label: "Esquerda", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.qt_topo", label: "Topo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_estilo", label: "Estilo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
-    { key: "relatorio_banda_elemento.qt_largura", label: "Largura", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.qt_largura", label: "Tamanho", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.qt_altura", label: "Altura", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_alinhamento", label: "Alinhamento", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.cd_background", label: "Background", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
@@ -371,8 +377,11 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_banda_elemento.ie_fonte", label: "Fonte", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.qt_fonte", label: "Tamanho da fonte", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ds_label", label: "Label", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
-    { key: "relatorio_banda_elemento.cd_alias", label: "Alias", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.cd_alias", label: "Atributo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ds_conteudo", label: "Conteúdo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.ie_mascara", label: "Máscara", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.qt_casas_decimais", label: "Casas decimais", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.ie_quebrar_linha", label: "Quebrar linha", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_borda_superior", label: "Borda superior", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_borda_inferior", label: "Borda inferior", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_borda_esquerda", label: "Borda esquerda", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
