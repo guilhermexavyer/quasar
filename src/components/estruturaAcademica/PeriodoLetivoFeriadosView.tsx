@@ -2,7 +2,6 @@
 
 import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import type { PeriodoLetivo } from "@/types/periodoLetivo";
 import type { PeriodoLetivoFeriado } from "@/types/periodoLetivoFeriado";
 import type { AuditAutor } from "@/services/auditService";
@@ -16,6 +15,8 @@ import PaginationFooter, { usePagination } from "@/components/ui/PaginationFoote
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import { elementoVisivel } from "@/lib/visibilidade";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import AbasRegistros from "@/components/ui/AbasRegistros";
 
 /** Campos editáveis do feriado (os demais são preenchidos pelo sistema). */
 type CampoFeriado = 'dt_feriado' | 'ds_feriado' | 'ie_tipo_feriado';
@@ -55,6 +56,7 @@ interface PeriodoLetivoFeriadosViewProps {
   /** Confirmação antes de excluir (modal padrão do sistema). */
   confirmar: (titulo: string, mensagem: string, acao: () => void) => void;
   colunas?: ConfigColunasTabela;
+  /** Mantido pela assinatura (as abas seguem o tema pelo CSS). */
   darkMode?: boolean;
 }
 
@@ -88,12 +90,12 @@ export default function PeriodoLetivoFeriadosView({
   onSavingChange,
   confirmar,
   colunas,
-  darkMode = false,
 }: PeriodoLetivoFeriadosViewProps) {
   const [feriados, setFeriados] = useState<PeriodoLetivoFeriado[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  /** Menu de contexto do feriado (`noVer`: aberto no "Ver" dele, sem a opção Ver). */
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number; noVer?: boolean } | null>(null);
   // Três cliques: crescente → decrescente → padrão (coluna null = por data).
   const [sortColumn, setSortColumn] = useState<string | null>(null);
   const [sortAsc, setSortAsc] = useState(true);
@@ -225,11 +227,6 @@ export default function PeriodoLetivoFeriadosView({
     }
   }
 
-  const corBreadcrumb = darkMode ? '#ddd' : '#333';
-  const sublinhar = {
-    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = darkMode ? '#fff' : '#000'; },
-    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = 'transparent'; },
-  };
   const classeSeta = (ativo: boolean) =>
     `inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer ${ativo ? 'hover:bg-slate-300' : 'opacity-40'}`;
 
@@ -254,33 +251,19 @@ export default function PeriodoLetivoFeriadosView({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 15 12 9 6" /></svg>
             </button>
           </div>
-          <div
-            className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1"
-            style={{ color: darkMode ? '#fff' : '#000', border: '1px solid', borderColor: darkMode ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999' }}
-          >
-            <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={onVoltar} {...sublinhar}>
-              <span style={{ color: corBreadcrumb }}>Período letivo: {periodo.nr_sequencia}</span>
-              <span className="ml-1" style={{ color: corBreadcrumb }}>{periodo.ds_periodo_letivo}</span>
-            </span>
-            {feriadoAberto && (
-              <>
-                <span className="mx-1">&gt;</span>
-                <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={fecharFormulario} {...sublinhar}>
-                  <span style={{ color: corBreadcrumb }}>Feriado: {feriadoAberto.nr_sequencia}</span>
-                  <span className="ml-1" style={{ color: corBreadcrumb }}>{feriadoAberto.ds_feriado}</span>
-                </span>
-              </>
-            )}
-          </div>
+          <NavegacaoRegistros
+            className="ml-2"
+            itens={[
+              { chave: 'periodo', texto: `Período letivo: ${periodo.nr_sequencia ?? ''} ${periodo.ds_periodo_letivo ?? ''}`, onClick: onVoltar },
+              ...(feriadoAberto
+                ? [{ chave: 'feriado', texto: `Feriado: ${feriadoAberto.nr_sequencia ?? ''} ${feriadoAberto.ds_feriado ?? ''}`, onClick: fecharFormulario }]
+                : []),
+            ]}
+          />
         </div>
         <div className="flex items-center gap-3">
         {!form && (
-          <div
-            className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2"
-            style={{ border: '1px solid', borderColor: darkMode ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999', color: darkMode ? '#fff' : '#000' }}
-          >
-            <button type="button" className="text-xs font-medium cursor-pointer transition" style={{ borderBottom: `1px solid ${darkMode ? '#fff' : '#000'}`, color: darkMode ? '#fff' : '#000' }}>Feriados</button>
-          </div>
+          <AbasRegistros abas={[{ valor: 'feriados', rotulo: 'Feriados' }]} ativa="feriados" />
         )}
         {!form && (
           <button
@@ -296,7 +279,17 @@ export default function PeriodoLetivoFeriadosView({
 
       {form ? (
         /* ── Formulário do feriado ── */
-        <form ref={formRef} onSubmit={salvar} className="mt-6 flex-1 flex flex-col min-h-0">
+        <form
+          ref={formRef}
+          onSubmit={salvar}
+          className="mt-6 flex-1 flex flex-col min-h-0"
+          // "Ver" do feriado: o menu dele (não o do período letivo).
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (feriadoAberto?.id) setMenu({ id: feriadoAberto.id, x: e.clientX, y: e.clientY, noVer: true });
+          }}
+        >
           <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
             <div className="sm:col-span-1">
               <RotuloCampo texto="Sequência" colecao={FIELD_INFOS.nr_sequencia.collection} campo="nr_sequencia" />
@@ -440,7 +433,7 @@ export default function PeriodoLetivoFeriadosView({
               className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
               style={{ left: menu.x, top: menu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
             >
-              <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { abrirFeriado(alvo); setMenu(null); }}>Ver</button>
+              <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { abrirFeriado(alvo); setMenu(null); }} hidden={menu.noVer}>Ver</button>
               <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { setMenu(null); pedirExclusao(alvo); }}>Excluir</button>
             </div>
           </>

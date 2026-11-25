@@ -2,7 +2,6 @@
 
 import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import Select from "@/components/ui/Select";
 import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
@@ -20,6 +19,7 @@ import {
 } from "@/lib/exclusoesUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
 import { obterExclusoes, type Exclusao } from "@/services/exclusaoService";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 
 /** Navegação por duplo clique: registros abertos (do mais externo ao atual) e a aba escolhida. */
 export interface NavegacaoExclusoes {
@@ -246,11 +246,6 @@ export default function ExclusoesView({
     direcao: o.direcao === "desc" ? "Decrescente" : "Crescente",
   }));
 
-  const corBreadcrumb = darkMode ? "#ddd" : "#333";
-  const sublinhar = {
-    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = darkMode ? "#fff" : "#000"; },
-    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = "transparent"; },
-  };
   const funcaoRaiz = FUNCOES_EXCLUSAO.find((fx) => fx.colecao === colecaoSelecionada);
 
   const vazio = (texto: string) => (
@@ -318,31 +313,20 @@ export default function ExclusoesView({
             {pai && funcaoRaiz && (
               <div className="mb-[5px] flex items-center justify-between gap-2">
                 {/* Breadcrumb: volta para a lista da função ou para um registro aberto antes. */}
-                <div
-                  className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 min-w-0"
-                  style={{ color: darkMode ? "#fff" : "#000", border: "1px solid", borderColor: darkMode ? "#2c2c31 #38383e #38383e #2c2c31" : "#999 #ccc #ccc #999" }}
-                >
-                  <span className="cursor-pointer" style={{ borderBottom: "1px solid transparent", color: corBreadcrumb }} onClick={() => irPara({ caminho: [], aba: null })} {...sublinhar}>
-                    {funcaoRaiz.dropdown}
-                  </span>
-                  {caminho.map((ex, i) => {
-                    const def = FILHOS_EXCLUSAO[ex.ds_colecao];
-                    const ultimo = i === caminho.length - 1;
-                    return (
-                      <span key={ex.id} className="inline-flex items-center">
-                        <span className="mx-1">&gt;</span>
-                        <span
-                          className={ultimo ? "" : "cursor-pointer"}
-                          style={{ borderBottom: "1px solid transparent", color: corBreadcrumb }}
-                          onClick={ultimo ? undefined : () => irPara({ caminho: caminho.slice(0, i + 1), aba: null })}
-                          {...(ultimo ? {} : sublinhar)}
-                        >
-                          {def?.rotulo}: {String(ex.dados.nr_sequencia ?? "")} {String(ex.dados[def?.campoDescricao ?? ""] ?? "")}
-                        </span>
-                      </span>
-                    );
-                  })}
-                </div>
+                <NavegacaoRegistros
+                  itens={[
+                    { chave: "raiz", texto: funcaoRaiz.dropdown, onClick: () => irPara({ caminho: [], aba: null }) },
+                    ...caminho.map((ex, i) => {
+                      const def = FILHOS_EXCLUSAO[ex.ds_colecao];
+                      const ultimo = i === caminho.length - 1;
+                      return {
+                        chave: ex.id,
+                        texto: `${def?.rotulo ?? ""}: ${String(ex.dados.nr_sequencia ?? "")} ${String(ex.dados[def?.campoDescricao ?? ""] ?? "")}`,
+                        onClick: ultimo ? undefined : () => irPara({ caminho: caminho.slice(0, i + 1), aba: null }),
+                      };
+                    }),
+                  ]}
+                />
                 {abasDoPai.length > 1 && (
                   <div
                     className="flex items-center text-xs whitespace-nowrap px-2 py-1 gap-2"

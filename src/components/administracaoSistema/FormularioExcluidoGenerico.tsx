@@ -153,7 +153,8 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       mostrar: (d) => !d.ie_tipo_banda,
       campos: [
         { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
-        { campo: "ds_banda", rotulo: "Descrição", span: 3 },
+        { campo: "ds_banda", rotulo: "Descrição", span: 2 },
+        { campo: "nr_ordem", rotulo: "Ordem", span: 1 },
         { campo: "ie_tipo", rotulo: "Tipo", span: 2, tipo: "dropdown", formatar: rotuloDe(TIPOS_BANDA_SQL) },
         { campo: "nr_seq_banda_superior", rotulo: "Banda superior", span: 2, tipo: "dropdown" },
         { campo: "qt_altura", rotulo: "Altura", span: 2 },

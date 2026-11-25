@@ -318,7 +318,8 @@ export default function Select({
       >
         <span className="flex items-center justify-between gap-2">
           <span className={`truncate ${selected ? "" : "text-[#aaa]"}`}>
-            {selected ? selected.label : (showPlaceholder ? "---" : "")}
+            {/* Sem valor e sem o "---": espaço que mantém a altura do campo (vazio, ele encolhia). */}
+            {selected ? selected.label : (showPlaceholder ? "---" : " ")}
           </span>
           <svg
             width="10"

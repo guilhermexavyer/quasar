@@ -201,3 +201,18 @@ export function bandasQueSaem<T extends { ie_status?: string | null }>(
   };
   return bandas.filter((b) => sai(b));
 }
+
+/**
+ * Ordem das bandas no relatório: a de menor Ordem (nr_ordem) primeiro; empate, ou sem
+ * Ordem (depois das que têm), pela Sequência (nr_sequencia). Decide a ordem das bandas
+ * Detalhe no PDF (também entre as dependentes de uma mesma banda superior) e, no XLS, a
+ * banda usada (a primeira).
+ */
+export function compararOrdemBanda(
+  a: { nr_ordem?: unknown; nr_sequencia?: unknown },
+  b: { nr_ordem?: unknown; nr_sequencia?: unknown },
+): number {
+  const ordem = (x: { nr_ordem?: unknown }) =>
+    x.nr_ordem === null || x.nr_ordem === undefined || x.nr_ordem === "" || !Number.isFinite(Number(x.nr_ordem)) ? Number.MAX_SAFE_INTEGER : Number(x.nr_ordem);
+  return ordem(a) - ordem(b) || Number(a.nr_sequencia ?? 0) - Number(b.nr_sequencia ?? 0);
+}

@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import type { PessoaFisica } from "@/types/pessoaFisica";
 import type { PessoaFisicaEndereco, PessoaFisicaSaude } from "@/types/pessoaFisicaAbas";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
@@ -24,6 +23,8 @@ import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import LoadingModal from "@/components/ui/LoadingModal";
 import { elementoVisivel } from "@/lib/visibilidade";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import AbasRegistros from "@/components/ui/AbasRegistros";
 
 /** Valores do formulário de qualquer aba (endereço ou saúde). */
 type FormAba = PessoaFisicaEndereco & PessoaFisicaSaude;
@@ -114,7 +115,6 @@ export default function PessoaFisicaDetalheView({
   resolverNomeAutor = (nome) => nome,
   onMessage,
   onSavingChange,
-  darkMode = false,
 }: PessoaFisicaDetalheViewProps) {
   const [aba, setAba] = useState<PessoaFisicaAba>(abaInicial ?? 'residencial');
   const colecao = colecaoDaAba(aba);
@@ -250,16 +250,8 @@ export default function PessoaFisicaDetalheView({
     }
   }
 
-  const corTexto = darkMode ? '#fff' : '#000';
-  const corBreadcrumb = darkMode ? '#ddd' : '#333';
-  const bordaCaixa = darkMode ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999';
-  const sublinhar = {
-    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = corTexto; },
-    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = 'transparent'; },
-  };
   const classeSeta = (ativa: boolean) =>
     `inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer ${ativa ? 'hover:bg-slate-300' : 'opacity-40'}`;
-  const estiloAba = (a: PessoaFisicaAba) => ({ borderBottom: `1px solid ${aba === a ? corTexto : 'transparent'}`, color: corTexto });
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -282,19 +274,13 @@ export default function PessoaFisicaDetalheView({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 15 12 9 6" /></svg>
             </button>
           </div>
-          <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: corTexto, border: '1px solid', borderColor: bordaCaixa }}>
-            <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={onVoltar} {...sublinhar}>
-              <span style={{ color: corBreadcrumb }}>Pessoa física: {pessoa.nr_sequencia}</span>
-              <span className="ml-1" style={{ color: corBreadcrumb }}>{pessoa.ds_nome}</span>
-            </span>
-          </div>
+          <NavegacaoRegistros
+            className="ml-2"
+            itens={[{ chave: 'pessoa', texto: `Pessoa física: ${pessoa.nr_sequencia ?? ''} ${pessoa.ds_nome ?? ''}`, onClick: onVoltar }]}
+          />
         </div>
         <div className="flex items-center gap-3">
-          <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: bordaCaixa, color: corTexto }}>
-            {PESSOA_FISICA_ABAS.map(({ aba: a, rotulo }) => (
-              <button key={a} type="button" onClick={() => trocarAba(a)} className="text-xs font-medium cursor-pointer transition" style={estiloAba(a)}>{rotulo}</button>
-            ))}
-          </div>
+          <AbasRegistros abas={PESSOA_FISICA_ABAS.map(({ aba: a, rotulo }) => ({ valor: a, rotulo }))} ativa={aba} onChange={trocarAba} />
           {/* Um único registro por aba: o Adicionar fica visível, mas desabilitado. */}
           <button
             type="button"

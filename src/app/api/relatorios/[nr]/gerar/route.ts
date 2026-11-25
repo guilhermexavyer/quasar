@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { FieldDef, PoolClient } from "pg";
 import { pool, query } from "@/lib/db";
-import { bandasQueSaem, itemAtivo, nomeDoParametro, prepararSql, problemaDoSql, type SqlPreparado } from "@/lib/relatorioSql";
+import { bandasQueSaem, compararOrdemBanda, itemAtivo, nomeDoParametro, prepararSql, problemaDoSql, type SqlPreparado } from "@/lib/relatorioSql";
 import { exigirPermissaoDaFuncao } from "@/lib/server/acesso";
 import { ErroValidacao, type Registro } from "@/lib/server/esquema";
 import { corpo, numeroDaUrl, rota } from "@/lib/server/http";
@@ -15,7 +15,7 @@ import { corpo, numeroDaUrl, rota } from "@/lib/server/http";
  *
  * SQL de cada banda: o da própria banda; vazio, o SQL do relatório (capa).
  *
- * XLS (sem modo): o SQL da banda Detalhe (ou sem tipo) de menor Sequência — sem banda, o
+ * XLS (sem modo): o SQL da primeira banda Detalhe (ou sem tipo), pela Ordem e pela Sequência — sem banda, o
  * SQL do relatório. Devolve { colunas, linhas } para a tela montar a planilha.
  *
  * PDF (modo "pdf"): o SQL de todas as bandas. Devolve { bandas: { <nr da banda>: dados } }
@@ -110,9 +110,11 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!itemAtivo(relatorios[0])) throw new ErroValidacao("O relatório está inativo.");
     const sqlCapa = String(relatorios[0].ds_sql ?? "");
     const { rows: linhasBanda } = await query<Registro>(
-      "select nr_sequencia, ie_tipo, ds_sql, nr_seq_banda_superior, ie_status from relatorio_banda where nr_seq_relatorio = $1 order by nr_sequencia",
+      "select nr_sequencia, nr_ordem, ie_tipo, ds_sql, nr_seq_banda_superior, ie_status from relatorio_banda where nr_seq_relatorio = $1",
       [nrRelatorio]
     );
+    // Ordem das bandas: a de menor Ordem primeiro; empate ou sem Ordem, pela Sequência.
+    linhasBanda.sort(compararOrdemBanda);
     // Só as bandas que saem: ativas, com a banda superior (se houver) também saindo.
     const bandas: Banda[] = bandasQueSaem(linhasBanda, (b) => b.nr_sequencia, (b) => b.nr_seq_banda_superior).map((b) => ({
       nr: Number(b.nr_sequencia),
@@ -227,7 +229,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await db.query("set local role quasar_relatorio");
 
       if (!modoPdf) {
-        // XLS: a banda Detalhe de menor Sequência (sem banda, o SQL do relatório).
+        // XLS: a primeira banda Detalhe (menor Ordem; empate ou sem Ordem, menor Sequência). Sem banda, o SQL do relatório.
         const banda = detalhes[0];
         const { dados: resultado } = await executar(db, banda ? banda.sql : sqlCapa, []);
         return NextResponse.json(resultado);

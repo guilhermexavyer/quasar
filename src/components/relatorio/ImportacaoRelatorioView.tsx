@@ -15,6 +15,7 @@ import {
   obterImportacoesRelatorio,
   type ImportacaoRelatorio,
 } from "@/services/relatorioSqlService";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 
 /**
  * Gerenciador de Relatórios > Importar relatório.
@@ -50,6 +51,7 @@ interface ImportacaoRelatorioViewProps {
   resolverNomeAutor?: (nome: string) => string;
   /** Abre o modal de confirmação de exclusão; `acao` roda se o usuário confirmar. */
   onConfirmarExclusao?: (mensagem: string, acao: () => void) => void;
+  /** Mantido pela assinatura (o menu de navegação segue o tema pelo CSS). */
   darkMode?: boolean;
 }
 
@@ -66,7 +68,6 @@ export default function ImportacaoRelatorioView({
   onOpenAudit,
   resolverNomeAutor = (nome) => nome,
   onConfirmarExclusao,
-  darkMode = false,
 }: ImportacaoRelatorioViewProps) {
   const [registros, setRegistros] = useState<ImportacaoRelatorio[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -76,7 +77,8 @@ export default function ImportacaoRelatorioView({
   const [arquivo, setArquivo] = useState<File | null>(null);
   const [problemas, setProblemas] = useState<string[]>([]);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ x: number; y: number; item: ImportacaoRelatorio } | null>(null);
+  /** Menu de contexto da importação (`noVer`: aberto no "Ver" dela, sem a opção Ver). */
+  const [menu, setMenu] = useState<{ x: number; y: number; item: ImportacaoRelatorio; noVer?: boolean } | null>(null);
   const inputArquivo = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
@@ -190,8 +192,6 @@ export default function ImportacaoRelatorioView({
 
   const registroAberto = aberto && aberto !== "novo" ? aberto : null;
   const indiceAberto = registroAberto ? ordenados.findIndex((r) => r.id === registroAberto.id) : -1;
-  const corBorda = darkMode ? "#2c2c31 #38383e #38383e #2c2c31" : "#999 #ccc #ccc #999";
-  const corTexto = darkMode ? "#fff" : "#000";
   const campoLeitura = (texto: string, campo: string, valor: string, span: string) => (
     <div className={span || undefined}>
       <RotuloCampo texto={texto} colecao={COLECAO} campo={campo} />
@@ -204,7 +204,7 @@ export default function ImportacaoRelatorioView({
       {menu && (
         <div className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}>
           {[
-            { label: "Ver", onClick: () => ver(menu.item) },
+            ...(menu.noVer ? [] : [{ label: "Ver", onClick: () => ver(menu.item) }]),
             ...(podeExcluir ? [{ label: "Excluir", onClick: () => excluir(menu.item) }] : []),
           ].map((acao) => (
             <button key={acao.label} type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { acao.onClick(); setMenu(null); }}>
@@ -229,11 +229,10 @@ export default function ImportacaoRelatorioView({
             </div>
           )}
           {aberto && (
-            <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: corTexto, border: "1px solid", borderColor: corBorda }}>
-              <button type="button" className="cursor-pointer hover:underline" onClick={() => setAberto(null)}>
-                Importação: {registroAberto ? registroAberto.nr_sequencia : "nova"}
-              </button>
-            </div>
+            <NavegacaoRegistros
+              className="ml-2"
+              itens={[{ chave: "importacao", texto: `Importação: ${registroAberto ? registroAberto.nr_sequencia ?? "" : "nova"}`, onClick: () => setAberto(null) }]}
+            />
           )}
         </div>
         {!aberto && manageSelection && podeImportar && (
@@ -286,6 +285,12 @@ export default function ImportacaoRelatorioView({
           ref={formRef}
           onSubmit={(e) => { e.preventDefault(); void salvar(); }}
           className="mt-6 flex-1 flex flex-col min-h-0"
+          // "Ver" da importação: o menu dela, sem o Ver (só Excluir, com a permissão).
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (registroAberto && podeExcluir) setMenu({ x: e.clientX, y: e.clientY, item: registroAberto, noVer: true });
+          }}
         >
           <div className="flex-1 min-h-0 overflow-y-auto pr-1">
             <section>

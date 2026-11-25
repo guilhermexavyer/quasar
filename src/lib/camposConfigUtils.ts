@@ -350,6 +350,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     // ── Formulário de Bandas ──
     { key: "relatorio_banda.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ds_banda", label: "Descrição", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
+    { key: "relatorio_banda.nr_ordem", label: "Ordem", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_tipo", label: "Tipo", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.qt_altura", label: "Altura", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },
     { key: "relatorio_banda.ie_status", label: "Status", tipo: "Relatórios > Bandas", colecao: "relatorio_banda" },

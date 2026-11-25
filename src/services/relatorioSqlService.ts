@@ -6,7 +6,7 @@ import { nomeDoParametro } from "@/lib/relatorioSql";
  * Relatórios por SQL (Gerenciador de Relatórios > Relatórios):
  *   - relatório (capa): o SQL principal, usado pelas bandas sem SQL próprio;
  *   - bandas (relatorio_banda): Sequência, Descrição e SQL (no PDF, também Tipo, Altura,
- *     Banda superior e opções); no XLS vale a banda Detalhe de menor Sequência;
+ *     Banda superior e opções); no XLS vale a primeira banda Detalhe (menor Ordem; empate ou sem Ordem, menor Sequência);
  *   - parâmetros (relatorio_parametro): os :nome usados no SQL;
  *   - geração: o servidor executa o SQL (/api/relatorios/<nr>/gerar); o XLS sai com as
  *     colunas e linhas, como o SGBD mostraria, e o PDF com as bandas e os elementos.
@@ -37,12 +37,14 @@ export const OPCOES_DETALHE = [
 ] as const;
 export type CampoOpcaoDetalhe = (typeof OPCOES_DETALHE)[number]["campo"];
 
-/** Banda do relatório (XLS: vale a Detalhe de menor Sequência; PDF: todas, com Tipo e Altura). */
+/** Banda do relatório (XLS: vale a primeira Detalhe pela Ordem e pela Sequência; PDF: todas, com Tipo e Altura). */
 export interface BandaSql {
   id?: string;
   nr_sequencia?: number;
   nr_seq_relatorio?: number;
   ds_banda?: string;
+  /** Ordem das bandas Detalhe no relatório (menor primeiro; empate ou vazio: pela Sequência). */
+  nr_ordem?: number | null;
   /** SQL da banda (vazio = o SQL do relatório). */
   ds_sql?: string;
   /** Tipo da banda (PDF). */
@@ -123,6 +125,8 @@ export async function salvarBandaSql(banda: BandaSql): Promise<BandaSql> {
   const dados = {
     nr_seq_relatorio: banda.nr_seq_relatorio,
     ds_banda: banda.ds_banda ?? "",
+    // Ordem: só na banda Detalhe.
+    nr_ordem: bandaEhDetalhe(banda) && banda.nr_ordem !== null && banda.nr_ordem !== undefined && String(banda.nr_ordem) !== "" ? Number(banda.nr_ordem) : null,
     ds_sql: banda.ds_sql ?? "",
     ie_status: banda.ie_status === "I" ? "I" : "A",
     ie_tipo: banda.ie_tipo || null,
@@ -396,7 +400,7 @@ export interface DadosRelatorio {
   filhas?: Record<string, DadosRelatorio>[];
 }
 
-/** XLS: executa no servidor o SQL da banda Detalhe de menor Sequência (sem banda, o do relatório). */
+/** XLS: executa no servidor o SQL da primeira banda Detalhe, pela Ordem e pela Sequência (sem banda, o do relatório). */
 export async function obterDadosRelatorio(nrRelatorio: number, valores: Record<string, string>): Promise<DadosRelatorio> {
   return api.post<DadosRelatorio>(`/api/relatorios/${nrRelatorio}/gerar`, { valores });
 }
@@ -609,6 +613,7 @@ export async function importarRelatorioXml(texto: string, nomeArquivo: string): 
         ...(b.campos as unknown as BandaSql),
         nr_seq_relatorio: nrRelatorio,
         qt_altura: numeroOuNulo(b.campos.qt_altura),
+        nr_ordem: numeroOuNulo(b.campos.nr_ordem),
         nr_seq_banda_superior: null,
       });
       if (!banda.id || banda.nr_sequencia == null) throw new Error(`Não foi possível criar a banda ${b.campos.ds_banda ?? b.ref}.`);

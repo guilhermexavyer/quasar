@@ -2,7 +2,6 @@
 
 import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import type { Aluno } from "@/types/aluno";
 import type { AlunoResponsavel } from "@/types/alunoResponsavel";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
@@ -17,6 +16,8 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import AbasRegistros from "@/components/ui/AbasRegistros";
 
 export type AlunoDetalheAba = 'responsaveis';
 type Aba = AlunoDetalheAba;
@@ -96,7 +97,6 @@ export default function AlunoDetalheView({
   onViewPessoaFisica,
   grauParentescoOptions,
   colunasResponsaveis,
-  darkMode = false,
   abaInicial,
   onAbaChange,
 }: AlunoDetalheViewProps) {
@@ -104,7 +104,8 @@ export default function AlunoDetalheView({
   const [responsaveis, setResponsaveis] = useState<AlunoResponsavel[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  /** Menu de contexto do responsável (`noVer`: aberto no "Ver" dele, sem a opção Ver). */
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number; noVer?: boolean } | null>(null);
   // Ordenação (três cliques: crescente → decrescente → padrão pela sequência).
   const [sortResp, setSortResp] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
   /** Formulário aberto (null = lista de responsáveis). */
@@ -273,16 +274,8 @@ export default function AlunoDetalheView({
     }
   }
 
-  const corBreadcrumb = darkMode ? '#ddd' : '#333';
-  const corTexto = darkMode ? '#fff' : '#000';
-  const bordaCaixa = darkMode ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999';
-  const sublinhar = {
-    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = corTexto; },
-    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = 'transparent'; },
-  };
   const classeSeta = (ativa: boolean) =>
     `inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer ${ativa ? 'hover:bg-slate-300' : 'opacity-40'}`;
-  const estiloAba = (a: Aba) => ({ borderBottom: `1px solid ${aba === a ? corTexto : 'transparent'}`, color: corTexto });
   const nrPessoaForm = Number(form?.nr_seq_pessoa_fisica || 0);
   const erroPessoa = erros.includes('nr_seq_pessoa_fisica');
   const erroGrau = erros.includes('nr_seq_grau_parentesco');
@@ -308,27 +301,23 @@ export default function AlunoDetalheView({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 15 12 9 6" /></svg>
             </button>
           </div>
-          <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: corTexto, border: '1px solid', borderColor: bordaCaixa }}>
-            <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={onVoltar} {...sublinhar}>
-              <span style={{ color: corBreadcrumb }}>Aluno: {aluno.nr_sequencia}</span>
-              <span className="ml-1" style={{ color: corBreadcrumb }}>{nomeAluno}</span>
-            </span>
-            {form && (
-              <>
-                <span className="mx-1">&gt;</span>
-                <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={fecharFormulario} {...sublinhar}>
-                  <span style={{ color: corBreadcrumb }}>Responsável{responsavelAberto ? `: ${responsavelAberto.nr_sequencia}` : ''}</span>
-                  {responsavelAberto && <span className="ml-1" style={{ color: corBreadcrumb }}>{nomePessoaFisica(responsavelAberto.nr_seq_pessoa_fisica)}</span>}
-                </span>
-              </>
-            )}
-          </div>
+          <NavegacaoRegistros
+            className="ml-2"
+            itens={[
+              { chave: 'aluno', texto: `Aluno: ${aluno.nr_sequencia ?? ''} ${nomeAluno ?? ''}`, onClick: onVoltar },
+              ...(form
+                ? [{
+                    chave: 'responsavel',
+                    texto: responsavelAberto ? `Responsável: ${responsavelAberto.nr_sequencia ?? ''} ${nomePessoaFisica(responsavelAberto.nr_seq_pessoa_fisica)}` : 'Responsável',
+                    onClick: fecharFormulario,
+                  }]
+                : []),
+            ]}
+          />
         </div>
         <div className="flex items-center gap-3">
           {!form && (
-            <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: bordaCaixa, color: corTexto }}>
-              <button type="button" onClick={() => trocarAba('responsaveis')} className="text-xs font-medium cursor-pointer transition" style={estiloAba('responsaveis')}>Responsáveis</button>
-            </div>
+            <AbasRegistros abas={[{ valor: 'responsaveis' as Aba, rotulo: 'Responsáveis' }]} ativa={aba} onChange={trocarAba} />
           )}
           {!form && (
             <button
@@ -344,7 +333,17 @@ export default function AlunoDetalheView({
 
       {form ? (
         /* ── Formulário do responsável ── */
-        <form ref={formRef} onSubmit={salvar} className="mt-6 flex-1 flex flex-col min-h-0">
+        <form
+          ref={formRef}
+          onSubmit={salvar}
+          className="mt-6 flex-1 flex flex-col min-h-0"
+          // "Ver" do responsável: o menu dele (não o do aluno).
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (responsavelAberto?.id) setMenu({ id: responsavelAberto.id, x: e.clientX, y: e.clientY, noVer: true });
+          }}
+        >
           <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
             <div className="sm:col-span-1">
               <RotuloCampo texto="Sequência" colecao={COLECAO_ALUNO_RESPONSAVEL} campo="nr_sequencia" />
@@ -490,7 +489,7 @@ export default function AlunoDetalheView({
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
             <div className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
-              <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { abrirResponsavel(resp); setMenu(null); }}>Ver</button>
+              {!menu.noVer && <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { abrirResponsavel(resp); setMenu(null); }}>Ver</button>}
               <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { setMenu(null); pedirExclusao(resp); }}>Excluir</button>
             </div>
           </>

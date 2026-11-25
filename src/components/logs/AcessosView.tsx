@@ -42,7 +42,7 @@ export const FILTRO_ACESSOS_VAZIO: FiltroAcessos = {
 const OPCOES_TIPO_LOGOUT = [
   { value: "M", label: "Manual" },
   { value: "A", label: "Automático" },
-  { value: "sem", label: "Sem logout registrado" },
+  { value: "sem", label: "Nenhum" },
 ];
 
 /** "DD/MM/AAAA" → AAAAMMDD (número), ou null se incompleta/inválida. */

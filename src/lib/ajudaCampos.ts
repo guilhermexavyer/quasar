@@ -322,9 +322,10 @@ const POR_TABELA: Record<string, Record<string, string>> = {
   relatorio_banda: {
     ie_status: "Ativa ou Inativa. A banda inativa não sai no relatório, nem as bandas que dependem dela (também pelo menu de contexto: Ativar/Inativar).",
     ds_banda: "Informe a descrição da banda.",
+    nr_ordem: "Só na banda Detalhe. Informe a ordem da banda no relatório: a de menor Ordem sai primeiro (acima). Com a mesma Ordem, ou sem Ordem (depois das que têm), sai primeiro a de menor Sequência. Vale também entre as bandas dependentes de uma mesma banda superior e, no XLS, para escolher a banda usada (a primeira).",
     ie_tipo: "Selecione o tipo da banda no PDF. Cabeçalho fica no topo de todas as páginas (logo abaixo da margem superior) e Rodapé no pé (logo acima da margem inferior), com a 1ª linha do SQL. Detalhe se repete uma vez para cada linha do SQL: com os elementos lado a lado vira uma lista; com \"Quebrar página por registro\", cada registro sai numa página.",
     qt_altura: "Informe a altura da banda em pixels (px). Na banda Detalhe, é a altura de cada registro; vazia, cada registro ocupa só o espaço dos elementos.",
-    ds_sql: "Informe a consulta SQL que gera as informações da banda (no XLS, as colunas e linhas da planilha: vale a banda Detalhe de menor Sequência). Vazio, a banda usa o SQL do relatório. Use :nome para parâmetros; na banda dependente, :COLUNA recebe o valor da coluna COLUNA do registro da banda superior.",
+    ds_sql: "Informe a consulta SQL que gera as informações da banda (no XLS, as colunas e linhas da planilha: vale a primeira banda Detalhe: a de menor Ordem; empate ou sem Ordem, a de menor Sequência). Vazio, a banda usa o SQL do relatório. Use :nome para parâmetros; na banda dependente, :COLUNA recebe o valor da coluna COLUNA do registro da banda superior.",
     ie_borda_superior: "Marque para desenhar uma borda sólida fina no lado superior da banda.",
     ie_borda_inferior: "Marque para desenhar uma borda sólida fina no lado inferior da banda.",
     ie_borda_esquerda: "Marque para desenhar uma borda sólida fina no lado esquerdo da banda.",

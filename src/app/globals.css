@@ -233,6 +233,14 @@ textarea:read-only {
 .row-selected { background-color: rgba(0, 0, 0, 0.08) !important; }
 .dark .row-selected { background-color: #2e2e33 !important; }
 
+/*
+ * Ícone sobreposto à 1ª coluna (ex.: lápis de editar na lista): fundo na cor da linha
+ * com o cursor sobre ela, sólido à esquerda e se dissolvendo para a direita.
+ */
+.rt-sobreposto { --rt-fundo: 238, 238, 238; background: linear-gradient(to right, rgb(var(--rt-fundo)) 0%, rgb(var(--rt-fundo)) 45%, rgba(var(--rt-fundo), 0) 100%); }
+.row-selected .rt-sobreposto { --rt-fundo: 235, 235, 235; }
+.dark .rt-sobreposto, .dark .row-selected .rt-sobreposto { --rt-fundo: 46, 46, 51; }
+
 /* Tabelas */
 .dark .bg-white.flex-1.flex.flex-col.min-h-0.overflow-hidden {
   background-color: #18181b !important;
@@ -708,4 +716,37 @@ html[data-sem-auditoria] .botao-auditoria {
 .dark .filtro-card {
   background-color: #2e2e33;
   border-color: #3f3f46;
+}
+/* Menu de abas (Bandas/Parâmetros, Responsáveis...): mesmos tamanhos do menu de navegação;
+   a aba selecionada tem o sublinhado de 3px na cor do fundo das funções do menu lateral. */
+/* Teste: sem borda no quadro das abas (antes: 1px, cores dos campos — #999 #ccc #ccc #999; escuro #2c2c31 #38383e). */
+.abas-registros {
+  color: #000;
+}
+.dark .abas-registros {
+  color: #fff;
+}
+.aba-registro {
+  border-bottom: 3px solid transparent;
+}
+.aba-registro-ativa {
+  /* Mesma cor do fundo das funções do menu lateral (função ativa / cursor em cima). */
+  border-bottom-color: #004a7a;
+}
+
+/* Menu de navegação (cards no estilo dos filtros): bordas iguais às dos campos do sistema;
+   com o cursor em cima, o fundo clareia um pouco. */
+.navegacao-card {
+  border-color: #999 #ccc #ccc #999;
+}
+.dark .navegacao-card {
+  border-color: #2c2c31 #38383e #38383e #2c2c31;
+}
+.navegacao-card:hover {
+  background-color: #fafafa;
+  border-color: #b3b3b3 #dedede #dedede #b3b3b3;
+}
+.dark .navegacao-card:hover {
+  background-color: #38383e;
+  border-color: #3a3a40 #46464d #46464d #3a3a40;
 }

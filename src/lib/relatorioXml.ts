@@ -57,7 +57,7 @@ export const CAMPOS_EXPORTADOS = {
   ],
   parametro: ["ds_parametro", "ds_label", "cd_atributo", "nr_ordem", "vl_padrao", "ie_status", "ie_perguntar", "ie_obrigatorio"],
   banda: [
-    "ds_banda", "ie_tipo", "qt_altura", "ie_status",
+    "ds_banda", "nr_ordem", "ie_tipo", "qt_altura", "ie_status",
     "ie_borda_superior", "ie_borda_inferior", "ie_borda_esquerda", "ie_borda_direita",
     "ie_nova_pagina", "ie_exibir_label", "ie_imprimir_vazio", "ie_alternar_background",
     "cd_background_registro", "cd_background_label", "ds_sql",

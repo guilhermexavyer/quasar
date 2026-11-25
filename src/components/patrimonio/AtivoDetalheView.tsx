@@ -2,7 +2,6 @@
 
 import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useRef, useState } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import type { Ativo } from "@/types/ativo";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
 import type { Manutencao } from "@/types/manutencao";
@@ -21,6 +20,8 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import AbasRegistros from "@/components/ui/AbasRegistros";
 
 export type AtivoDetalheAba = 'responsaveis' | 'manutencoes' | 'transferencias';
 type Aba = AtivoDetalheAba;
@@ -178,7 +179,6 @@ export default function AtivoDetalheView({
   colunasResponsaveis,
   colunasManutencoes,
   colunasTransferencias,
-  darkMode = false,
   abaInicial,
   onAbaChange,
 }: AtivoDetalheViewProps) {
@@ -186,7 +186,8 @@ export default function AtivoDetalheView({
   const [responsaveis, setResponsaveis] = useState<AtivoResponsavel[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
-  const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
+  /** Menu de contexto do item da aba (`noVer`: aberto no "Ver" dele, sem a opção Ver). */
+  const [menu, setMenu] = useState<{ id: string; x: number; y: number; noVer?: boolean } | null>(null);
   // Ordenação por aba (três cliques: crescente → decrescente → padrão).
   // Padrão (coluna null): responsáveis pela sequência; manutenções e
   // transferências da mais recente para a mais antiga.
@@ -461,16 +462,8 @@ export default function AtivoDetalheView({
     }
   }
 
-  const corBreadcrumb = darkMode ? '#ddd' : '#333';
-  const corTexto = darkMode ? '#fff' : '#000';
-  const bordaCaixa = darkMode ? '#2c2c31 #38383e #38383e #2c2c31' : '#999 #ccc #ccc #999';
-  const sublinhar = {
-    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = corTexto; },
-    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = 'transparent'; },
-  };
   const classeSeta = (ativa: boolean) =>
     `inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer ${ativa ? 'hover:bg-slate-300' : 'opacity-40'}`;
-  const estiloAba = (a: Aba) => ({ borderBottom: `1px solid ${aba === a ? corTexto : 'transparent'}`, color: corTexto });
   const nrForm = Number(form?.nr_seq_colaborador || 0);
 
   return (
@@ -494,37 +487,34 @@ export default function AtivoDetalheView({
               <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 18 15 12 9 6" /></svg>
             </button>
           </div>
-          <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: corTexto, border: '1px solid', borderColor: bordaCaixa }}>
-            <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={onVoltar} {...sublinhar}>
-              <span style={{ color: corBreadcrumb }}>Ativo: {ativo.nr_sequencia}</span>
-              <span className="ml-1" style={{ color: corBreadcrumb }}>{ativo.ds_ativo}</span>
-            </span>
-            {transferenciaAberta && (
-              <>
-                <span className="mx-1">&gt;</span>
-                <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={() => setTransfAberta(null)} {...sublinhar}>
-                  <span style={{ color: corBreadcrumb }}>Transferência: {transferenciaAberta.nr_sequencia}</span>
-                </span>
-              </>
-            )}
-            {form && (
-              <>
-                <span className="mx-1">&gt;</span>
-                <span className="cursor-pointer" style={{ borderBottom: '1px solid transparent' }} onClick={fecharFormulario} {...sublinhar}>
-                  <span style={{ color: corBreadcrumb }}>Responsável{responsavelAberto ? `: ${responsavelAberto.nr_sequencia}` : ''}</span>
-                  {responsavelAberto && <span className="ml-1" style={{ color: corBreadcrumb }}>{nomeColaborador(responsavelAberto.nr_seq_colaborador)}</span>}
-                </span>
-              </>
-            )}
-          </div>
+          <NavegacaoRegistros
+            className="ml-2"
+            itens={[
+              { chave: 'ativo', texto: `Ativo: ${ativo.nr_sequencia ?? ''} ${ativo.ds_ativo ?? ''}`, onClick: onVoltar },
+              ...(transferenciaAberta
+                ? [{ chave: 'transferencia', texto: `Transferência: ${transferenciaAberta.nr_sequencia ?? ''}`, onClick: () => setTransfAberta(null) }]
+                : []),
+              ...(form
+                ? [{
+                    chave: 'responsavel',
+                    texto: responsavelAberto ? `Responsável: ${responsavelAberto.nr_sequencia ?? ''} ${nomeColaborador(responsavelAberto.nr_seq_colaborador)}` : 'Responsável',
+                    onClick: fecharFormulario,
+                  }]
+                : []),
+            ]}
+          />
         </div>
         <div className="flex items-center gap-3">
           {!form && !transferenciaAberta && (
-            <div className="flex items-center text-xs whitespace-nowrap overflow-hidden px-2 py-1 gap-2" style={{ border: '1px solid', borderColor: bordaCaixa, color: corTexto }}>
-              <button type="button" onClick={() => trocarAba('responsaveis')} className="text-xs font-medium cursor-pointer transition" style={estiloAba('responsaveis')}>Responsáveis</button>
-              <button type="button" onClick={() => trocarAba('manutencoes')} className="text-xs font-medium cursor-pointer transition" style={estiloAba('manutencoes')}>Manutenções</button>
-              <button type="button" onClick={() => trocarAba('transferencias')} className="text-xs font-medium cursor-pointer transition" style={estiloAba('transferencias')}>Transferências</button>
-            </div>
+            <AbasRegistros
+              abas={[
+                { valor: 'responsaveis' as Aba, rotulo: 'Responsáveis' },
+                { valor: 'manutencoes' as Aba, rotulo: 'Manutenções' },
+                { valor: 'transferencias' as Aba, rotulo: 'Transferências' },
+              ]}
+              ativa={aba}
+              onChange={trocarAba}
+            />
           )}
           {/* Manutenções e Transferências são só consulta: o botão fica apagado (mantém o layout). */}
           {!form && !transferenciaAberta && (
@@ -543,7 +533,8 @@ export default function AtivoDetalheView({
 
       {transferenciaAberta ? (
         /* ── Ver transferência (somente leitura) ── */
-        <div className="mt-6 flex-1 flex flex-col min-h-0">
+        // O menu da transferência só tem o Ver: aqui não abre nenhum (nem o do ativo).
+        <div className="mt-6 flex-1 flex flex-col min-h-0" onContextMenu={(e) => { e.preventDefault(); e.stopPropagation(); }}>
           {/* Grade de 24 colunas: Sequência e Data com a mesma proporção dos formulários (1/12 e 2/12),
               Origem e Destino dividem o resto da linha. */}
           <div className="grid gap-[15px] sm:grid-cols-24 pt-2">
@@ -604,7 +595,17 @@ export default function AtivoDetalheView({
         </div>
       ) : form ? (
         /* ── Formulário do responsável ── */
-        <form ref={formRef} onSubmit={salvar} className="mt-6 flex-1 flex flex-col min-h-0">
+        <form
+          ref={formRef}
+          onSubmit={salvar}
+          className="mt-6 flex-1 flex flex-col min-h-0"
+          // "Ver" do responsável: o menu dele (não o do ativo).
+          onContextMenu={(e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            if (responsavelAberto?.id) setMenu({ id: responsavelAberto.id, x: e.clientX, y: e.clientY, noVer: true });
+          }}
+        >
           <div className="grid gap-[15px] sm:grid-cols-12 pt-2">
             <div className="sm:col-span-1">
               <RotuloCampo texto="Sequência" colecao={COLECAO_ATIVO_RESPONSAVEL} campo="nr_sequencia" />
@@ -825,7 +826,7 @@ export default function AtivoDetalheView({
             <div className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
               {resp && (
                 <>
-                  <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { abrirResponsavel(resp); setMenu(null); }}>Ver</button>
+                  {!menu.noVer && <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { abrirResponsavel(resp); setMenu(null); }}>Ver</button>}
                   <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { setMenu(null); pedirExclusao(resp); }}>Excluir</button>
                 </>
               )}

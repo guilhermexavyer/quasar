@@ -1,10 +1,12 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import CampoCorPaleta from "@/components/ui/CampoCorPaleta";
 import FormularioSomenteLeitura from "@/components/ui/FormularioSomenteLeitura";
 import Select from "@/components/ui/Select";
 import LoadingModal from "@/components/ui/LoadingModal";
+import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
@@ -45,6 +47,8 @@ import {
   type ParametroSql,
 } from "@/services/relatorioSqlService";
 import type { Relatorio } from "@/types/relatorio";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import AbasRegistros from "@/components/ui/AbasRegistros";
 
 /**
  * Gerenciador de Relatórios > Relatórios (relatórios por SQL, no modelo do Tasy).
@@ -56,7 +60,7 @@ import type { Relatorio } from "@/types/relatorio";
  *     (largura e altura trocadas). Margens em centímetros.
  *   - viewMode 'bandas' (duplo clique no relatório): abas Bandas e Parâmetros.
  *       Bandas: várias em qualquer formato; campos Sequência, Descrição e SQL (vazio = o SQL
- *         do relatório). No XLS vale a banda Detalhe de menor Sequência.
+ *         do relatório). No XLS vale a primeira banda Detalhe (menor Ordem; empate ou sem Ordem, menor Sequência).
  *         No PDF, também Tipo (Cabeçalho, Detalhe, Rodapé), Altura (px), bordas e, na banda
  *         Detalhe, Banda superior (dependência: o SQL roda para cada registro da superior,
  *         com :COLUNA = valor da coluna) e as opções Quebrar página por registro, Exibir
@@ -113,6 +117,8 @@ interface RelatorioBuilderProps {
   onManageSelectionChange?: (v: string) => void;
   allowedSubmodulos?: string[];
   contextMenuItems?: ContextMenuItem[];
+  /** Gera o relatório aberto (menu de contexto das bandas, elementos e parâmetros); sem ela, a opção não aparece. */
+  onGerarRelatorio?: () => void;
   onPrevRecord?: () => void;
   onNextRecord?: () => void;
   hasPrevRecord?: boolean;
@@ -170,12 +176,24 @@ const BOTAO_NAV = "inline-flex items-center justify-center rounded-[3px] border 
 const LINHAS_SQL = 6;
 
 type Detalhe ={ tipo: "banda"; banda: BandaSql } | { tipo: "parametro"; parametro: ParametroSql } | { tipo: "elemento"; elemento: ElementoBanda } | null;
+/** Linha em edição na lista: o rascunho da banda ou do elemento. */
+type EdicaoLinha = { tipo: "banda"; item: BandaSql } | { tipo: "elemento"; item: ElementoBanda } | null;
+
+/** Campos da edição na lista: mais baixos que os do formulário, para caber na linha. */
+const INPUT_LINHA = "w-full rounded-[3px] border border-slate-300 bg-white px-1.5 py-0 text-sm leading-[22px] transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500";
+const SELECT_LINHA = "!px-1.5 !py-0 leading-[22px]";
 
 /** Só dígitos (px), sem zeros à esquerda; `minimo1` impede o 0 (largura e altura). */
 function mascararPx(texto: string, minimo1: boolean): string {
   const digitos = texto.replace(/\D/g, "").slice(0, 5);
   const sem0 = digitos.replace(/^0+(?=\d)/, "");
   return minimo1 ? sem0.replace(/^0$/, "") : sem0;
+}
+
+/** Ordem da banda digitada: só dígitos (até 5), sem zeros à esquerda; vazio = sem Ordem. */
+function textoParaOrdem(texto: string): number | null {
+  const digitos = texto.replace(/\D/g, "").slice(0, 5);
+  return digitos === "" ? null : Number(digitos);
 }
 
 function simNao(v: unknown): string {
@@ -192,6 +210,7 @@ export default function RelatorioBuilder({
   onManageSelectionChange,
   allowedSubmodulos = ["relatorio"],
   contextMenuItems = [],
+  onGerarRelatorio,
   onPrevRecord,
   onNextRecord,
   hasPrevRecord = false,
@@ -210,7 +229,6 @@ export default function RelatorioBuilder({
   elementoCampoRegras = {},
   parametroCampoRegras = {},
   campoErros = [],
-  darkMode = false,
   onNavigateToList,
   onToast,
   onConfirmarExclusao,
@@ -268,6 +286,27 @@ export default function RelatorioBuilder({
   /** Banda com Exibir labels: o Label do elemento é o cabeçalho da coluna. */
   const bandaComLabels = !!bandaElementos && bandaEhDetalhe(bandaElementos) && bandaElementos.ie_exibir_label === "S";
   const [menu, setMenu] = useState<{ x: number; y: number; acoes: ContextMenuItem[] } | null>(null);
+  /**
+   * Edição na lista (Bandas e Elementos), como no Tasy: o lápis da linha deixa editar as
+   * colunas ali mesmo. Tab passa ao campo da direita; Enter grava e passa a editar a linha
+   * de baixo; Ctrl+S ou o Salvar do rodapé gravam e encerram; Esc ou o Cancelar descartam.
+   */
+  const [edicaoLinha, setEdicaoLinha] = useState<EdicaoLinha>(null);
+  const [errosLinha, setErrosLinha] = useState<string[]>([]);
+  const listaRef = useRef<HTMLElement | null>(null);
+  /** Campo que recebe o foco quando a edição passa para outra linha (o mesmo da linha anterior). */
+  const focoLinhaRef = useRef<string | null>(null);
+  const gravandoLinhaRef = useRef(false);
+  /** Paginação das listas (rodapé igual ao das demais telas de registros). */
+  const paginacaoBandas = usePagination(bandas.length);
+  const paginacaoElementos = usePagination(elementos.length);
+  const paginacaoParametros = usePagination(parametros.length);
+  // Saiu da lista da linha (Ver, Adicionar, outra aba, elementos da banda): a edição é descartada.
+  const edicaoNaTela = !edicaoLinha || (!detalhe && (edicaoLinha.tipo === "banda" ? !bandaElementos && aba === "bandas" : !!bandaElementos));
+  if (!edicaoNaTela) {
+    setEdicaoLinha(null);
+    setErrosLinha([]);
+  }
 
   // Carga das bandas e parâmetros ao abrir (resultado aplicado só se a tela ainda estiver aberta).
   const onToastRef = useRef(onToast);
@@ -409,42 +448,51 @@ export default function RelatorioBuilder({
   const elementoDesabilitado = (el: ElementoBanda, campo: CampoElemento) =>
     elementoDesabilitadoPeloTipo(el, campo) || statusDe(elementoCampoRegras, campo) === "D";
 
+  /** Problema que impede gravar: campos em vermelho e a mensagem. */
+  type ProblemaGravacao = { campos: string[]; mensagem: string };
+  /** Validação da banda (formulário e edição na lista). */
+  function problemaDaBanda(b: BandaSql): ProblemaGravacao | null {
+    const campos = relatorioPdf
+      ? ["ds_banda", "ie_tipo", "qt_altura", "ds_sql", ...(bandaEhDetalhe(b) ? ["nr_ordem", "nr_seq_banda_superior"] : [])]
+      : ["ds_banda", "nr_ordem", "ds_sql"];
+    const faltantes = campos.filter((c) => statusDe(bandaCampoRegras, c) === "O" && !String(b[c as keyof BandaSql] ?? "").trim());
+    if (faltantes.length > 0) return { campos: faltantes, mensagem: "Preencha os campos obrigatórios." };
+    // Um Cabeçalho e um Rodapé por relatório.
+    if (relatorioPdf && (b.ie_tipo === "cabecalho" || b.ie_tipo === "rodape") && bandas.some((x) => x.id !== b.id && x.ie_tipo === b.ie_tipo)) {
+      return { campos: ["ie_tipo"], mensagem: `O relatório já tem uma banda do tipo ${b.ie_tipo === "cabecalho" ? "Cabeçalho" : "Rodapé"}.` };
+    }
+    // Banda superior de outras: continua Detalhe (as dependentes saem dentro dela).
+    if (relatorioPdf && !bandaEhDetalhe(b) && b.id && dependentesDe(b).length > 0) {
+      return { campos: ["ie_tipo"], mensagem: "A banda é a banda superior de outras bandas: o tipo precisa ser Detalhe." };
+    }
+    if (relatorioPdf && bandaEhDetalhe(b) && b.nr_seq_banda_superior && !opcoesBandaSuperior(b).some((o) => o.value === String(b.nr_seq_banda_superior))) {
+      return { campos: ["nr_seq_banda_superior"], mensagem: "A banda superior precisa ser outra banda Detalhe, que não dependa desta." };
+    }
+    return null;
+  }
+  /** Validação do elemento (já normalizado), no formulário e na edição na lista. */
+  function problemaDoElemento(el: ElementoBanda): ProblemaGravacao | null {
+    const faltantes = CAMPOS_ELEMENTO.filter((c) => !elementoDesabilitado(el, c) && statusDe(elementoCampoRegras, c) === "O" && !String(el[c] ?? "").trim());
+    return faltantes.length > 0 ? { campos: faltantes, mensagem: "Preencha os campos obrigatórios." } : null;
+  }
+  /** Banda como é gravada: Tipo, Altura, bordas, Banda superior e opções só existem no PDF. */
+  function bandaParaGravar(b: BandaSql): BandaSql {
+    const banda = relatorioPdf
+      ? b
+      : {
+          ...b, ie_tipo: null, qt_altura: null, nr_seq_banda_superior: null, cd_background_registro: null, cd_background_label: null,
+          ...Object.fromEntries([...CAMPOS_BORDA, ...OPCOES_DETALHE].map(({ campo }) => [campo, "N"])),
+        };
+    return { ...banda, nr_seq_relatorio: nrRelatorio ?? undefined };
+  }
+
   async function salvarDetalhe() {
     if (!detalhe || nrRelatorio == null) return;
-    if (detalhe.tipo === "banda") {
-      const b = detalhe.banda;
-      const campos = relatorioPdf
-        ? ["ds_banda", "ie_tipo", "qt_altura", "ds_sql", ...(bandaEhDetalhe(b) ? ["nr_seq_banda_superior"] : [])]
-        : ["ds_banda", "ds_sql"];
-      const faltantes = campos.filter((c) => statusDe(bandaCampoRegras, c) === "O" && !String(b[c as keyof BandaSql] ?? "").trim());
-      if (faltantes.length > 0) {
-        setErrosDetalhe(faltantes);
-        onToast?.("Preencha os campos obrigatórios.", "error");
-        return;
-      }
-      // Um Cabeçalho e um Rodapé por relatório.
-      if (relatorioPdf && (b.ie_tipo === "cabecalho" || b.ie_tipo === "rodape") && bandas.some((x) => x.id !== b.id && x.ie_tipo === b.ie_tipo)) {
-        setErrosDetalhe(["ie_tipo"]);
-        onToast?.(`O relatório já tem uma banda do tipo ${b.ie_tipo === "cabecalho" ? "Cabeçalho" : "Rodapé"}.`, "error");
-        return;
-      }
-      // Banda superior de outras: continua Detalhe (as dependentes saem dentro dela).
-      if (relatorioPdf && !bandaEhDetalhe(b) && b.id && dependentesDe(b).length > 0) {
-        setErrosDetalhe(["ie_tipo"]);
-        onToast?.("A banda é a banda superior de outras bandas: o tipo precisa ser Detalhe.", "error");
-        return;
-      }
-      if (relatorioPdf && bandaEhDetalhe(b) && b.nr_seq_banda_superior && !opcoesBandaSuperior(b).some((o) => o.value === String(b.nr_seq_banda_superior))) {
-        setErrosDetalhe(["nr_seq_banda_superior"]);
-        onToast?.("A banda superior precisa ser outra banda Detalhe, que não dependa desta.", "error");
-        return;
-      }
-    } else if (detalhe.tipo === "elemento") {
-      const el = elementoNormalizado(detalhe.elemento);
-      const faltantes = CAMPOS_ELEMENTO.filter((c) => !elementoDesabilitado(el, c) && statusDe(elementoCampoRegras, c) === "O" && !String(el[c] ?? "").trim());
-      if (faltantes.length > 0) {
-        setErrosDetalhe(faltantes);
-        onToast?.("Preencha os campos obrigatórios.", "error");
+    if (detalhe.tipo === "banda" || detalhe.tipo === "elemento") {
+      const problema = detalhe.tipo === "banda" ? problemaDaBanda(detalhe.banda) : problemaDoElemento(elementoNormalizado(detalhe.elemento));
+      if (problema) {
+        setErrosDetalhe(problema.campos);
+        onToast?.(problema.mensagem, "error");
         return;
       }
     } else {
@@ -475,14 +523,7 @@ export default function RelatorioBuilder({
     setGravando(true);
     try {
       if (detalhe.tipo === "banda") {
-        // Tipo, Altura, bordas, Banda superior e opções só existem nas bandas do PDF.
-        const banda = relatorioPdf
-          ? detalhe.banda
-          : {
-              ...detalhe.banda, ie_tipo: null, qt_altura: null, nr_seq_banda_superior: null, cd_background_registro: null, cd_background_label: null,
-              ...Object.fromEntries([...CAMPOS_BORDA, ...OPCOES_DETALHE].map(({ campo }) => [campo, "N"])),
-            };
-        const salva = await salvarBandaSql({ ...banda, nr_seq_relatorio: nrRelatorio });
+        const salva = await salvarBandaSql(bandaParaGravar(detalhe.banda));
         setBandas((lista) => (detalhe.banda.id ? lista.map((b) => (b.id === salva.id ? salva : b)) : [...lista, salva]));
         setSelecionadoId(salva.id ?? null);
         onToast?.(detalhe.banda.id ? "Banda atualizada com sucesso!" : "Banda cadastrada com sucesso!", "success");
@@ -548,7 +589,11 @@ export default function RelatorioBuilder({
   useEffect(() => {
     salvarRef.current = () => {
       if (somenteLeitura) return;
-      if (ehBandas) { if (detalhe && !gravando) void salvarDetalhe(); }
+      if (ehBandas) {
+        if (detalhe) { if (!gravando) void salvarDetalhe(); }
+        // Linha em edição na lista: grava sem passar para a de baixo.
+        else if (edicaoLinha) void salvarLinha();
+      }
       else if (!saving) salvarRelatorio();
     };
   });
@@ -572,31 +617,140 @@ export default function RelatorioBuilder({
     { key: "ds_usuario_criacao", label: "Usuário criação", render: (r) => r.ds_usuario_criacao ?? "" },
     { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (r) => r.ds_usuario_alteracao ?? "" },
   ];
+  // Colunas de Bandas e Elementos: na linha em edição (lápis), os campos editáveis; os
+  // desabilitados (pela regra do perfil ou pelo tipo) ficam como no formulário.
+  const desBanda = (campo: string) => statusDe(bandaCampoRegras, campo) === "D";
   const colunasDeBanda: ResizableTableColumn<BandaSql>[] = [
     { key: "nr_sequencia", label: "#", render: (b) => String(b.nr_sequencia ?? "") },
-    { key: "ds_banda", label: "Descrição", render: (b) => b.ds_banda ?? "" },
+    {
+      key: "ds_banda",
+      label: "Descrição",
+      render: (b) => {
+        const e = bandaEmEdicao(b);
+        return e ? inputLinha("ds_banda", e.ds_banda, (t) => alterarLinha({ ds_banda: t }), desBanda("ds_banda")) : b.ds_banda ?? "";
+      },
+    },
+    {
+      key: "nr_ordem",
+      label: "Ordem",
+      render: (b) => {
+        const e = bandaEmEdicao(b);
+        // Só na banda Detalhe.
+        if (e) return inputLinha("nr_ordem", bandaEhDetalhe(e) ? e.nr_ordem : null, (t) => alterarLinha({ nr_ordem: textoParaOrdem(t) }), !bandaEhDetalhe(e) || desBanda("nr_ordem"));
+        return bandaEhDetalhe(b) && b.nr_ordem != null ? String(b.nr_ordem) : "";
+      },
+    },
     ...(relatorioPdf
       ? [
-          { key: "ie_tipo", label: "Tipo", render: (b: BandaSql) => TIPOS_BANDA.find((t) => t.value === b.ie_tipo)?.label ?? "" },
-          { key: "qt_altura", label: "Altura", render: (b: BandaSql) => (b.qt_altura == null ? "" : String(b.qt_altura)) },
+          {
+            key: "ie_tipo",
+            label: "Tipo",
+            render: (b: BandaSql) => {
+              const e = bandaEmEdicao(b);
+              if (!e) return TIPOS_BANDA.find((t) => t.value === b.ie_tipo)?.label ?? "";
+              return campoLinha("ie_tipo", (
+                <Select
+                  value={e.ie_tipo ?? ""}
+                  onChange={(v) => alterarLinha({ ie_tipo: (v || null) as TipoBanda | null })}
+                  options={TIPOS_BANDA}
+                  disabled={desBanda("ie_tipo")}
+                  error={errosLinha.includes("ie_tipo")}
+                  className={SELECT_LINHA}
+                />
+              ));
+            },
+          },
+          {
+            key: "qt_altura",
+            label: "Altura",
+            render: (b: BandaSql) => {
+              const e = bandaEmEdicao(b);
+              if (!e) return b.qt_altura == null ? "" : String(b.qt_altura);
+              return inputLinha("qt_altura", e.qt_altura, (t) => {
+                const digitos = t.replace(/\D/g, "").replace(/^0+/, "").slice(0, 5);
+                alterarLinha({ qt_altura: digitos === "" ? null : Number(digitos) });
+              }, desBanda("qt_altura"));
+            },
+          },
         ]
       : []),
     ...colunasAuditoria<BandaSql>(),
     // Coluna nova no fim: a ordem e a largura salvas das colunas são por posição.
-    ...(relatorioPdf ? [{ key: "nr_seq_banda_superior", label: "Banda superior", render: (b: BandaSql) => nomeDaBanda(b.nr_seq_banda_superior) }] : []),
+    ...(relatorioPdf
+      ? [{
+          key: "nr_seq_banda_superior",
+          label: "Banda superior",
+          render: (b: BandaSql) => {
+            const e = bandaEmEdicao(b);
+            if (!e) return nomeDaBanda(b.nr_seq_banda_superior);
+            const naoDetalhe = !bandaEhDetalhe(e);
+            return campoLinha("nr_seq_banda_superior", (
+              <Select
+                value={naoDetalhe ? "" : String(e.nr_seq_banda_superior ?? "")}
+                onChange={(v) => alterarLinha({ nr_seq_banda_superior: v || null })}
+                options={opcoesBandaSuperior(e)}
+                disabled={naoDetalhe || desBanda("nr_seq_banda_superior")}
+                error={errosLinha.includes("nr_seq_banda_superior")}
+                className={SELECT_LINHA}
+              />
+            ));
+          },
+        }]
+      : []),
   ];
   /** Medidas em pixels: só o número (o px fica no infobutton do campo). */
   const px = (v: unknown) => (v === null || v === undefined || v === "" ? "" : String(v));
+  /** Campo do elemento na linha em edição: vazio e desabilitado quando o tipo não usa o campo. */
+  const inputElementoLinha = (e: ElementoBanda, campo: "ds_elemento" | "ds_label" | "cd_alias" | "qt_esquerda" | "qt_topo" | "qt_largura" | "qt_altura") => {
+    const ehPx = campo.startsWith("qt_");
+    const minimo1 = campo === "qt_largura" || campo === "qt_altura";
+    return inputLinha(
+      campo,
+      elementoDesabilitadoPeloTipo(e, campo) ? null : e[campo],
+      (t) => alterarLinha({ [campo]: ehPx ? mascararPx(t, minimo1) : t }),
+      elementoDesabilitado(e, campo),
+    );
+  };
+  const colunaElemento = (
+    key: "ds_elemento" | "ds_label" | "cd_alias" | "qt_esquerda" | "qt_topo" | "qt_largura" | "qt_altura",
+    label: string,
+    exibir: (el: ElementoBanda) => string,
+  ): ResizableTableColumn<ElementoBanda> => ({
+    key,
+    label,
+    render: (el) => {
+      const e = elementoEmEdicao(el);
+      return e ? inputElementoLinha(e, key) : exibir(el);
+    },
+  });
   const colunasDeElemento: ResizableTableColumn<ElementoBanda>[] = [
     { key: "nr_sequencia", label: "#", render: (e) => String(e.nr_sequencia ?? "") },
-    { key: "ds_elemento", label: "Descrição", render: (e) => e.ds_elemento ?? "" },
-    { key: "ie_tipo", label: "Tipo", render: (e) => TIPOS_ELEMENTO.find((t) => t.value === e.ie_tipo)?.label ?? "" },
-    ...(bandaComLabels ? [{ key: "ds_label", label: "Label", render: (e: ElementoBanda) => e.ds_label ?? "" }] : []),
-    { key: "cd_alias", label: "Atributo", render: (e) => e.cd_alias ?? "" },
-    { key: "qt_esquerda", label: "Esquerda", render: (e) => px(e.qt_esquerda) },
-    { key: "qt_topo", label: "Topo", render: (e) => px(e.qt_topo) },
-    { key: "qt_largura", label: "Tamanho", render: (e) => px(e.qt_largura) },
-    { key: "qt_altura", label: "Altura", render: (e) => px(e.qt_altura) },
+    colunaElemento("ds_elemento", "Descrição", (e) => e.ds_elemento ?? ""),
+    {
+      key: "ie_tipo",
+      label: "Tipo",
+      render: (el) => {
+        const e = elementoEmEdicao(el);
+        if (!e) return TIPOS_ELEMENTO.find((t) => t.value === el.ie_tipo)?.label ?? "";
+        return campoLinha("ie_tipo", (
+          <Select
+            value={tipoDoElemento(e)}
+            onChange={(v) => alterarLinha({ ie_tipo: (TIPOS_ELEMENTO.some((t) => t.value === v) ? v : "sql") as TipoElemento })}
+            options={TIPOS_ELEMENTO}
+            showPlaceholder={false}
+            disabled={elementoDesabilitado(e, "ie_tipo")}
+            error={errosLinha.includes("ie_tipo")}
+            className={SELECT_LINHA}
+          />
+        ));
+      },
+    },
+    ...(bandaComLabels ? [colunaElemento("ds_label", "Label", (e) => e.ds_label ?? "")] : []),
+    colunaElemento("cd_alias", "Atributo", (e) => e.cd_alias ?? ""),
+    colunaElemento("qt_esquerda", "Esquerda", (e) => px(e.qt_esquerda)),
+    colunaElemento("qt_topo", "Topo", (e) => px(e.qt_topo)),
+    colunaElemento("qt_largura", "Tamanho", (e) => px(e.qt_largura)),
+    colunaElemento("qt_altura", "Altura", (e) => px(e.qt_altura)),
     ...colunasAuditoria<ElementoBanda>(),
   ];
   const colunasDeParametro: ResizableTableColumn<ParametroSql>[] = [
@@ -716,13 +870,200 @@ export default function RelatorioBuilder({
       setGravando(false);
     }
   }
-  /** Menu de contexto de uma linha: Ver, Duplicar (banda e elemento), Ativar/Inativar e Excluir. */
+  /* ── Edição na lista (lápis) ── */
+  /**
+   * Grava a linha em edição (sem alteração, não grava nada). Com `abaixo` (Enter), passa a
+   * editar a linha de baixo; sem ela (ou sem linha abaixo), encerra a edição. Com problema
+   * (campo obrigatório, Cabeçalho repetido...), continua na linha. Devolve se terminou.
+   */
+  async function salvarLinha(abaixo = false): Promise<boolean> {
+    const atual = edicaoLinha;
+    if (!atual || nrRelatorio == null || gravandoLinhaRef.current) return false;
+    const lista: { id?: string }[] = atual.tipo === "banda" ? bandas : elementos;
+    const indice = lista.findIndex((x) => x.id === atual.item.id);
+    const original = lista[indice];
+    const proxima = abaixo && indice >= 0 ? lista[indice + 1] : undefined;
+    if (!original || JSON.stringify(original) !== JSON.stringify(atual.item)) {
+      const problema = atual.tipo === "banda" ? problemaDaBanda(atual.item) : problemaDoElemento(elementoNormalizado(atual.item));
+      if (problema) {
+        setErrosLinha(problema.campos);
+        onToast?.(problema.mensagem, "error");
+        return false;
+      }
+      gravandoLinhaRef.current = true;
+      try {
+        if (atual.tipo === "banda") {
+          const salva = await salvarBandaSql(bandaParaGravar(atual.item));
+          setBandas((l) => l.map((b) => (b.id === salva.id ? salva : b)));
+          onToast?.("Banda atualizada com sucesso!", "success");
+        } else {
+          if (!bandaElementos?.nr_sequencia) return false;
+          const salvo = await salvarElementoBanda({ ...elementoNormalizado(atual.item), nr_seq_banda: Number(bandaElementos.nr_sequencia), nr_seq_relatorio: nrRelatorio });
+          setElementos((l) => l.map((x) => (x.id === salvo.id ? salvo : x)));
+          onToast?.("Elemento atualizado com sucesso!", "success");
+        }
+      } catch (e) {
+        onToast?.(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
+        return false;
+      } finally {
+        gravandoLinhaRef.current = false;
+      }
+    }
+    setErrosLinha([]);
+    if (proxima?.id) {
+      // Linha de baixo em outra página: a lista vai para a página dela.
+      const paginacao = atual.tipo === "banda" ? paginacaoBandas : paginacaoElementos;
+      if (paginacao.pageSize !== "all") {
+        const pagina = Math.floor((indice + 1) / paginacao.pageSize) + 1;
+        if (pagina !== paginacao.currentPage) paginacao.setCurrentPage(pagina);
+      }
+      setSelecionadoId(proxima.id);
+      setEdicaoLinha(atual.tipo === "banda" ? { tipo: "banda", item: { ...(proxima as BandaSql) } } : { tipo: "elemento", item: { ...(proxima as ElementoBanda) } });
+    } else {
+      focoLinhaRef.current = null;
+      setEdicaoLinha(null);
+    }
+    return true;
+  }
+  /** Lápis: começa a editar a linha (a que estava em edição é gravada antes). */
+  async function iniciarEdicaoLinha(tipo: "banda" | "elemento", item: BandaSql | ElementoBanda) {
+    if (somenteLeitura || !item.id) return;
+    if (edicaoLinha) {
+      if (edicaoLinha.item.id === item.id) return;
+      if (!(await salvarLinha())) return;
+    }
+    focoLinhaRef.current = null;
+    setErrosLinha([]);
+    setSelecionadoId(item.id);
+    setEdicaoLinha(tipo === "banda" ? { tipo: "banda", item: { ...(item as BandaSql) } } : { tipo: "elemento", item: { ...(item as ElementoBanda) } });
+  }
+  function cancelarEdicaoLinha() {
+    focoLinhaRef.current = null;
+    setErrosLinha([]);
+    setEdicaoLinha(null);
+  }
+  const alterarLinha = (mudanca: Partial<BandaSql> | Partial<ElementoBanda>) =>
+    setEdicaoLinha((e) => (e ? ({ ...e, item: { ...e.item, ...mudanca } } as EdicaoLinha) : e));
+  // Linha nova em edição: o foco vai para o mesmo campo da linha anterior (Enter) ou para o primeiro.
+  const idEmEdicao = edicaoLinha?.item.id;
+  useEffect(() => {
+    if (!idEmEdicao) return;
+    const raiz = listaRef.current;
+    if (!raiz) return;
+    const habilitado = (seletor: string) => raiz.querySelector<HTMLElement>(`${seletor} input:not(:disabled), ${seletor} button:not(:disabled)`);
+    const alvo = (focoLinhaRef.current ? habilitado(`[data-campo="${focoLinhaRef.current}"]`) : null) ?? habilitado("[data-campo]");
+    alvo?.focus();
+    if (alvo instanceof HTMLInputElement) alvo.select();
+  }, [idEmEdicao]);
+  /** Teclas nos campos da linha: Enter grava e desce; Esc descarta (com a lista do dropdown aberta, valem para ela). */
+  function teclaNaLinha(e: ReactKeyboardEvent<HTMLDivElement>) {
+    const listaAberta = (e.target as HTMLElement).getAttribute("aria-expanded") === "true";
+    if (listaAberta) return;
+    if (e.key === "Enter" && !e.shiftKey && !e.altKey && !e.ctrlKey && !e.metaKey) {
+      e.preventDefault();
+      e.stopPropagation();
+      focoLinhaRef.current = e.currentTarget.dataset.campo ?? null;
+      void salvarLinha(true);
+    } else if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      cancelarEdicaoLinha();
+    }
+  }
+  /** Campo da linha em edição. Cliques não chegam à linha (o duplo clique abriria a banda). */
+  const campoLinha = (campo: string, conteudo: ReactNode) => (
+    <div data-campo={campo} onKeyDownCapture={teclaNaLinha} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+      {conteudo}
+    </div>
+  );
+  const classeCampoLinha = (campo: string) => (errosLinha.includes(campo) ? `${INPUT_LINHA} !border-red-500` : INPUT_LINHA);
+  const inputLinha = (campo: string, valor: unknown, onChange: (texto: string) => void, desabilitado: boolean) =>
+    campoLinha(
+      campo,
+      <input
+        value={desabilitado && valor == null ? "" : String(valor ?? "")}
+        onChange={(e) => onChange(e.target.value)}
+        disabled={desabilitado}
+        inputMode={campo.startsWith("qt_") || campo === "nr_ordem" ? "numeric" : undefined}
+        aria-label={campo}
+        className={classeCampoLinha(campo)}
+      />,
+    );
+  const bandaEmEdicao = (b: BandaSql) => (edicaoLinha?.tipo === "banda" && edicaoLinha.item.id === b.id ? edicaoLinha.item : null);
+  const elementoEmEdicao = (el: ElementoBanda) => (edicaoLinha?.tipo === "elemento" && edicaoLinha.item.id === el.id ? edicaoLinha.item : null);
+  /**
+   * Lápis da linha: sobreposto à 1ª coluna (com fundo desfocado), aparece com o cursor sobre
+   * a linha. Na linha em edição não aparece (gravar e cancelar ficam no rodapé).
+   */
+  function lapisDaLinha(tipo: "banda" | "elemento", row: BandaSql | ElementoBanda): ReactNode {
+    if (somenteLeitura || !row.id) return null;
+    if (edicaoLinha?.tipo === tipo && edicaoLinha.item.id === row.id) return null;
+    return (
+      <button
+        type="button"
+        aria-label="Editar na lista"
+        className="inline-flex items-center justify-center bg-transparent border-none p-0 cursor-pointer"
+        onClick={(e) => { e.stopPropagation(); void iniciarEdicaoLinha(tipo, row); }}
+      >
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M17 3a2.83 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z" />
+        </svg>
+      </button>
+    );
+  }
+  /**
+   * Rodapé das listas de Bandas, Elementos e Parâmetros: o mesmo das demais telas de
+   * registros (página, registros por página e quantidade). Com uma linha em edição, dá
+   * lugar aos botões Cancelar e Salvar.
+   */
+  function rodapeDaLista(total: number, paginacao: ReturnType<typeof usePagination>, comEdicao: boolean) {
+    if (comEdicao && edicaoLinha) {
+      return (
+        <div className="bg-white/95 backdrop-blur-sm px-0 pt-3 pb-0 sticky bottom-0 z-10">
+          <div className="flex items-center justify-end gap-3">
+            <button
+              type="button"
+              onClick={cancelarEdicaoLinha}
+              className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
+              style={{ backgroundColor: "#bdbdbd", borderBottomColor: "#000" }}
+            >
+              Cancelar
+            </button>
+            <button
+              type="button"
+              onClick={() => { void salvarLinha(); }}
+              className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
+              style={{ backgroundColor: "#003056", borderBottomColor: "#000" }}
+            >
+              Salvar
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return (
+      <PaginationFooter
+        totalRecords={total}
+        currentPage={paginacao.currentPage}
+        pageSize={paginacao.pageSize}
+        onPageChange={paginacao.setCurrentPage}
+        onPageSizeChange={paginacao.setPageSize}
+      />
+    );
+  }
+
+  /**
+   * Menu de contexto de uma linha: Ver, Gerar relatório (o relatório aberto, com a permissão
+   * de gerar e ativo), Duplicar (banda e elemento), Ativar/Inativar e Excluir.
+   */
   function acoesDoItem(tipo: "banda" | "parametro" | "elemento", item: BandaSql | ParametroSql | ElementoBanda): ContextMenuItem[] {
     const ver = tipo === "elemento" ? () => abrirElemento(item as ElementoBanda) : () => abrir(item as BandaSql | ParametroSql);
-    // Relatório Quasar: só ver.
-    if (somenteLeitura) return [{ label: "Ver", onClick: ver }];
+    const gerar = onGerarRelatorio ? [{ label: "Gerar relatório", onClick: onGerarRelatorio }] : [];
+    // Relatório Quasar: só ver (e gerar).
+    if (somenteLeitura) return [{ label: "Ver", onClick: ver }, ...gerar];
     return [
       { label: "Ver", onClick: ver },
+      ...gerar,
       ...(tipo !== "parametro" ? [{ label: "Duplicar", onClick: () => { void duplicar(tipo, item as BandaSql | ElementoBanda); } }] : []),
       { label: item.ie_status === "I" ? "Ativar" : "Inativar", onClick: () => { void alternarStatus(tipo, item); } },
       { label: "Excluir", onClick: () => excluir(tipo, item) },
@@ -776,17 +1117,23 @@ export default function RelatorioBuilder({
       <circle cx="12" cy="16" r="0.5" />
     </svg>
   );
-  const corBorda = darkMode ? "#2c2c31 #38383e #38383e #2c2c31" : "#999 #ccc #ccc #999";
-  const corTexto = darkMode ? "#fff" : "#000";
   const mostraRodape = !ehBandas || !!detalhe;
 
   return (
     <div
       className="flex-1 flex flex-col min-h-0"
       onContextMenu={(e) => {
-        // Menu do relatório no "Ver" e nas listas de Bandas/Parâmetros (o clique numa banda
-        // ou num parâmetro abre o menu do item, que não chega aqui).
-        if ((ehBandas && detalhe) || contextMenuItems.length === 0) return;
+        // "Ver" de uma banda, elemento ou parâmetro: o menu do item (o mesmo da lista, sem o Ver).
+        if (ehBandas && detalhe) {
+          const item = detalhe.tipo === "banda" ? detalhe.banda : detalhe.tipo === "elemento" ? detalhe.elemento : detalhe.parametro;
+          if (!item.id) return;
+          e.preventDefault();
+          setMenu({ x: e.clientX, y: e.clientY, acoes: acoesDoItem(detalhe.tipo, item).filter((a) => a.label !== "Ver") });
+          return;
+        }
+        // Menu do relatório só no "Ver" dele. Nas listas de Bandas, Elementos e Parâmetros não
+        // (o menu de cada item tem o Gerar relatório).
+        if (ehBandas || contextMenuItems.length === 0) return;
         e.preventDefault();
         setMenu({ x: e.clientX, y: e.clientY, acoes: contextMenuItems });
       }}
@@ -848,48 +1195,35 @@ export default function RelatorioBuilder({
             </div>
           )}
           {relatorio && (
-            <div className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1" style={{ color: corTexto, border: "1px solid", borderColor: corBorda }}>
-              <button type="button" className="cursor-pointer hover:underline" onClick={() => onNavigateToList?.()}>
-                Relatório: {relatorio.nr_sequencia} {relatorio.ds_relatorio}
-              </button>
-              {bandaElementos && (
-                <>
-                  <span className="mx-1">&gt;</span>
-                  <button type="button" className="cursor-pointer hover:underline" onClick={() => { setDetalhe(null); setBandaElementos(null); }}>
-                    Banda: {bandaElementos.nr_sequencia} {bandaElementos.ds_banda ?? ""}
-                  </button>
-                </>
-              )}
-              {detalhe && (
-                <>
-                  <span className="mx-1">&gt;</span>
-                  <button type="button" className="cursor-pointer hover:underline" onClick={() => setDetalhe(null)}>
-                    {detalhe.tipo === "banda"
-                      ? `Banda: ${detalhe.banda.nr_sequencia ?? "nova"} ${detalhe.banda.ds_banda ?? ""}`
-                      : detalhe.tipo === "elemento"
-                        ? `Elemento: ${detalhe.elemento.nr_sequencia ?? "novo"} ${detalhe.elemento.ds_elemento ?? ""}`
-                        : `Parâmetro: ${detalhe.parametro.nr_sequencia ?? "novo"} ${detalhe.parametro.ds_parametro ?? ""}`}
-                  </button>
-                </>
-              )}
-            </div>
+            <NavegacaoRegistros
+              className="ml-2"
+              itens={[
+                { chave: "relatorio", texto: `Relatório: ${relatorio.nr_sequencia ?? ""} ${relatorio.ds_relatorio ?? ""}`, onClick: () => onNavigateToList?.() },
+                ...(bandaElementos
+                  ? [{ chave: "banda-elementos", texto: `Banda: ${bandaElementos.nr_sequencia ?? ""} ${bandaElementos.ds_banda ?? ""}`, onClick: () => { setDetalhe(null); setBandaElementos(null); } }]
+                  : []),
+                ...(detalhe
+                  ? [{
+                      chave: "detalhe",
+                      texto: detalhe.tipo === "banda"
+                        ? `Banda: ${detalhe.banda.nr_sequencia ?? "nova"} ${detalhe.banda.ds_banda ?? ""}`
+                        : detalhe.tipo === "elemento"
+                          ? `Elemento: ${detalhe.elemento.nr_sequencia ?? "novo"} ${detalhe.elemento.ds_elemento ?? ""}`
+                          : `Parâmetro: ${detalhe.parametro.nr_sequencia ?? "novo"} ${detalhe.parametro.ds_parametro ?? ""}`,
+                      onClick: () => setDetalhe(null),
+                    }]
+                  : []),
+              ]}
+            />
           )}
         </div>
         <div className="flex items-center gap-3">
           {ehBandas && !detalhe && !bandaElementos && (
-            <div className="flex items-center text-xs whitespace-nowrap px-2 py-1 gap-2" style={{ border: "1px solid", borderColor: corBorda, color: corTexto }}>
-              {(["bandas", "parametros"] as const).map((a) => (
-                <button
-                  key={a}
-                  type="button"
-                  onClick={() => { setAba(a); setSelecionadoId(null); }}
-                  className="text-xs font-medium cursor-pointer"
-                  style={{ borderBottom: `1px solid ${aba === a ? corTexto : "transparent"}`, color: corTexto }}
-                >
-                  {a === "bandas" ? "Bandas" : "Parâmetros"}
-                </button>
-              ))}
-            </div>
+            <AbasRegistros
+              abas={[{ valor: "bandas", rotulo: "Bandas" }, { valor: "parametros", rotulo: "Parâmetros" }]}
+              ativa={aba}
+              onChange={(a) => { setAba(a); setSelecionadoId(null); }}
+            />
           )}
           {ehBandas && !detalhe && !somenteLeitura && (
             <button
@@ -1016,7 +1350,7 @@ export default function RelatorioBuilder({
           )}
 
           {ehBandas && !detalhe && bandaElementos && (
-            <section className="h-full flex min-h-0 flex-col">
+            <section ref={listaRef} className="h-full flex min-h-0 flex-col">
               {carregandoElementos ? (
                 <LoadingModal open message="Carregando..." />
               ) : elementos.length === 0 ? (
@@ -1025,13 +1359,16 @@ export default function RelatorioBuilder({
                   <p className="mt-1 text-sm text-slate-500">Clique em &quot;Adicionar&quot; para cadastrar os elementos da banda (o estilo, o alinhamento e a posição das informações).</p>
                 </div>
               ) : (
+                <>
+                <div className="min-h-0 flex-1 overflow-auto">
                 <ResizableTable<ElementoBanda>
                   columns={colunasDeElemento}
-                  rows={elementos}
+                  rows={paginacaoElementos.slice(elementos)}
                   rowKey={(e) => String(e.id ?? e.nr_sequencia)}
                   onRowClick={(e) => setSelecionadoId(e.id ?? null)}
-                  onRowDoubleClick={abrirElemento}
+                  // Sem duplo clique: o elemento abre pelo "Ver" do menu de contexto (ou é editado pelo lápis).
                   rowClassName={classeDaLinha}
+                  rowOverlay={(el) => lapisDaLinha("elemento", el)}
                   onRowContextMenu={(el, e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1039,12 +1376,15 @@ export default function RelatorioBuilder({
                     setMenu({ x: e.clientX, y: e.clientY, acoes: acoesDoItem("elemento", el) });
                   }}
                 />
+                </div>
+                {rodapeDaLista(elementos.length, paginacaoElementos, true)}
+                </>
               )}
             </section>
           )}
 
           {ehBandas && !detalhe && !bandaElementos && (
-            <section className="h-full flex min-h-0 flex-col">
+            <section ref={listaRef} className="h-full flex min-h-0 flex-col">
               {carregando ? (
                 <LoadingModal open message="Carregando..." />
               ) : (aba === "bandas" ? bandas : parametros).length === 0 ? (
@@ -1057,16 +1397,19 @@ export default function RelatorioBuilder({
                   </p>
                 </div>
               ) : aba === "bandas" ? (
+                <>
+                <div className="min-h-0 flex-1 overflow-auto">
                 <ResizableTable<BandaSql>
                   {...colunasBandas}
                   columns={colunasDeBanda}
-                  rows={bandas}
+                  rows={paginacaoBandas.slice(bandas)}
                   rowKey={(b) => String(b.id ?? b.nr_sequencia)}
                   onRowClick={(b) => setSelecionadoId(b.id ?? null)}
                   // PDF: o duplo clique abre os elementos da banda. XLS: a banda não tem
                   // conteúdo próprio para abrir no duplo clique (só "Ver" no menu).
-                  onRowDoubleClick={relatorioPdf ? abrirElementos : undefined}
+                  onRowDoubleClick={relatorioPdf ? (b) => { if (!bandaEmEdicao(b)) abrirElementos(b); } : undefined}
                   rowClassName={classeDaLinha}
+                  rowOverlay={(b) => lapisDaLinha("banda", b)}
                   onRowContextMenu={(b, e) => {
                     e.preventDefault();
                     e.stopPropagation();
@@ -1074,11 +1417,16 @@ export default function RelatorioBuilder({
                     setMenu({ x: e.clientX, y: e.clientY, acoes: acoesDoItem("banda", b) });
                   }}
                 />
+                </div>
+                {rodapeDaLista(bandas.length, paginacaoBandas, true)}
+                </>
               ) : (
+                <>
+                <div className="min-h-0 flex-1 overflow-auto">
                 <ResizableTable<ParametroSql>
                   {...colunasParametros}
                   columns={colunasDeParametro}
-                  rows={parametros}
+                  rows={paginacaoParametros.slice(parametros)}
                   rowKey={(p) => String(p.id ?? p.nr_sequencia)}
                   onRowClick={(p) => setSelecionadoId(p.id ?? null)}
                   onRowDoubleClick={abrir}
@@ -1090,6 +1438,9 @@ export default function RelatorioBuilder({
                     setMenu({ x: e.clientX, y: e.clientY, acoes: acoesDoItem("parametro", p) });
                   }}
                 />
+                </div>
+                {rodapeDaLista(parametros.length, paginacaoParametros, false)}
+                </>
               )}
             </section>
           )}
@@ -1104,19 +1455,30 @@ export default function RelatorioBuilder({
               <section>
                 <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Banda</h2>
                 <div className="space-y-[15px]">
-                  {/* Linha 1: Sequência, Descrição, Tipo, Banda superior, Altura e Status. */}
+                  {/* Linha 1: Sequência, Descrição, Ordem, Tipo, Banda superior, Altura e Status. */}
                   <div className="grid gap-[15px] sm:grid-cols-12">
                     <div className={relatorioPdf ? "sm:col-span-1" : "sm:col-span-2"}>
                       {r("Sequência", "nr_sequencia")}
                       <input disabled value={String(banda.nr_sequencia ?? "")} className={INPUT} />
                     </div>
-                    <div className={relatorioPdf ? "sm:col-span-3" : "sm:col-span-8"}>
+                    <div className={relatorioPdf ? "sm:col-span-3" : "sm:col-span-6"}>
                       {r("Descrição", "ds_banda")}
                       <input
                         value={banda.ds_banda ?? ""}
                         onChange={(e) => setBanda({ ds_banda: e.target.value })}
                         disabled={statusDe(bandaCampoRegras, "ds_banda") === "D"}
                         className={comErro(errosDetalhe, "ds_banda")}
+                      />
+                    </div>
+                    <div className={relatorioPdf ? "sm:col-span-1" : "sm:col-span-2"}>
+                      {r("Ordem", "nr_ordem")}
+                      <input
+                        inputMode="numeric"
+                        // Só na banda Detalhe (Cabeçalho e Rodapé não têm Ordem).
+                        value={naoDetalhe ? "" : String(banda.nr_ordem ?? "")}
+                        onChange={(e) => setBanda({ nr_ordem: textoParaOrdem(e.target.value) })}
+                        disabled={naoDetalhe || statusDe(bandaCampoRegras, "nr_ordem") === "D"}
+                        className={comErro(errosDetalhe, "nr_ordem")}
                       />
                     </div>
                     {relatorioPdf && (
@@ -1141,7 +1503,7 @@ export default function RelatorioBuilder({
                             error={errosDetalhe.includes("nr_seq_banda_superior")}
                           />
                         </div>
-                        <div className="sm:col-span-2">
+                        <div className="sm:col-span-1">
                           {r("Altura", "qt_altura")}
                           <input
                             inputMode="numeric"

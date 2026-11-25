@@ -1,12 +1,12 @@
 "use client";
 
 import type { ReactNode } from "react";
-import type { MouseEvent as ReactMouseEvent } from "react";
 import Select from "@/components/ui/Select";
 import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import type { FuncaoExclusao } from "@/lib/exclusoesUtils";
 import type { Exclusao } from "@/services/exclusaoService";
+import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 
 interface ExclusaoFormularioViewProps {
   exclusao: Exclusao;
@@ -16,6 +16,7 @@ interface ExclusaoFormularioViewProps {
   /** Volta para a lista de exclusões. */
   onFechar: () => void;
   resolverNomeAutor?: (nome: string) => string;
+  /** Mantido pela assinatura (o menu de navegação segue o tema pelo CSS). */
   darkMode?: boolean;
   /**
    * Formulário da própria função (com os dados da exclusão). Fica dentro de um
@@ -40,15 +41,9 @@ export default function ExclusaoFormularioView({
   allowedSubmodulos = ["exclusoes"],
   onFechar,
   resolverNomeAutor = (nome) => nome,
-  darkMode = false,
   children,
   generico = false,
 }: ExclusaoFormularioViewProps) {
-  const corBreadcrumb = darkMode ? "#ddd" : "#333";
-  const sublinhar = {
-    onMouseEnter: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = darkMode ? "#fff" : "#000"; },
-    onMouseLeave: (e: ReactMouseEvent<HTMLElement>) => { e.currentTarget.style.borderBottomColor = "transparent"; },
-  };
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -62,16 +57,14 @@ export default function ExclusaoFormularioView({
             showPlaceholder={false}
             className="!w-[180px]"
           />
-          <div
-            className="flex items-center text-xs ml-2 whitespace-nowrap overflow-hidden px-2 py-1"
-            style={{ color: darkMode ? "#fff" : "#000", border: "1px solid", borderColor: darkMode ? "#2c2c31 #38383e #38383e #2c2c31" : "#999 #ccc #ccc #999" }}
-          >
-            <span className="cursor-pointer" style={{ borderBottom: "1px solid transparent", color: corBreadcrumb }} onClick={onFechar} {...sublinhar}>
-              Exclusões: {funcao.funcao} &gt; {funcao.dropdown}
-            </span>
-            <span className="mx-1">&gt;</span>
-            <span style={{ color: corBreadcrumb }}>Registro: {exclusao.nr_sequencia ?? ""}</span>
-          </div>
+          <NavegacaoRegistros
+            className="ml-2"
+            itens={[
+              { chave: "funcao", texto: `Exclusões: ${funcao.funcao}`, onClick: onFechar },
+              { chave: "dropdown", texto: funcao.dropdown, onClick: onFechar },
+              { chave: "registro", texto: `Registro: ${exclusao.nr_sequencia ?? ""}` },
+            ]}
+          />
         </div>
         <button
           type="button"

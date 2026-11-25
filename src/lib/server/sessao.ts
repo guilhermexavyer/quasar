@@ -59,6 +59,8 @@ export async function criarSessao(usuario: Registro): Promise<void> {
   const nrUsuario = Number(usuario.nr_sequencia);
   const token = randomBytes(32).toString("base64url");
   const expira = new Date(Date.now() + DURACAO_DIAS * 24 * 60 * 60 * 1000);
+  // Sessões vencidas pela regra de logout automático saem antes (registradas como Automático).
+  await aplicarLogoutAutomatico(true);
   await query("delete from sessao where dt_expiracao < now()");
   const { rows } = await query<{ nr_sequencia: string }>(
     "insert into sessao (ds_token_hash, nr_seq_usuario, dt_expiracao) values ($1, $2, $3) returning nr_sequencia",
@@ -74,7 +76,65 @@ export async function criarSessao(usuario: Registro): Promise<void> {
   });
 }
 
+/** Horário de Brasília (sem horário de verão desde 2019): a regra de logout usa a hora local. */
+const FUSO_BRASILIA_MS = -3 * 60 * 60 * 1000;
+
+/**
+ * Último logout automático programado até `agora`, pela regra de Administração
+ * do Sistema > Sistema (dia e horário em hora de Brasília). Mesma conta de
+ * ultimoLogoutProgramado (src/lib/regraUtils.ts), feita no servidor.
+ */
+function ultimoLogoutProgramadoServidor(dia: string, horario: string, agora: Date): Date | null {
+  const m = /^(\d{2}):(\d{2})$/.exec(horario);
+  if (!m || !/^[0-6T]$/.test(dia)) return null;
+  const local = new Date(agora.getTime() + FUSO_BRASILIA_MS);
+  for (let atras = 0; atras <= 7; atras++) {
+    const candidatoLocal = Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate() - atras, Number(m[1]), Number(m[2]));
+    const candidato = new Date(candidatoLocal - FUSO_BRASILIA_MS);
+    if (candidato > agora) continue;
+    if (dia === "T" || new Date(candidatoLocal).getUTCDay() === Number(dia)) return candidato;
+  }
+  return null;
+}
+
+let ultimaVerificacaoRegra = 0;
+
+/**
+ * Logout automático também no servidor: encerra as sessões iniciadas antes do
+ * último horário programado (e depois da vigência da regra) e completa o
+ * registro em Logs > Acessos com o horário programado e Tipo de logout
+ * Automático. Cobre o que a tela não consegue registrar: aba fechada ou
+ * computador suspenso no horário, ou o aviso de logout que não chegou ao
+ * servidor. Roda no login, no logout e, no máximo a cada 30 s, nos pedidos.
+ */
+export async function aplicarLogoutAutomatico(forcar = false): Promise<void> {
+  const agora = Date.now();
+  if (!forcar && agora - ultimaVerificacaoRegra < 30_000) return;
+  ultimaVerificacaoRegra = agora;
+  try {
+    const { rows } = await query<{ ie_logout_dia: string | null; hr_logout: string | null; dt_vigencia_logout: string | null; dt_alteracao: string | null }>(
+      "select ie_logout_dia, hr_logout, dt_vigencia_logout, dt_alteracao from regra limit 1"
+    );
+    const regra = rows[0];
+    if (!regra) return;
+    const programado = ultimoLogoutProgramadoServidor(String(regra.ie_logout_dia ?? ""), String(regra.hr_logout ?? ""), new Date(agora));
+    if (!programado) return;
+    const vigencia = Date.parse(String(regra.dt_vigencia_logout ?? regra.dt_alteracao ?? "")) || 0;
+    if (programado.getTime() <= vigencia) return;
+    await query(
+      `with encerradas as (delete from sessao where dt_criacao < $1 returning nr_sequencia)
+       update log_acesso set dt_logout = $1, ie_tipo_logout = 'A'
+        where nr_seq_sessao in (select nr_sequencia from encerradas) and dt_logout is null`,
+      [programado.toISOString()]
+    );
+  } catch (e) {
+    console.error("[log_acesso] não foi possível aplicar o logout automático:", e);
+  }
+}
+
 export async function encerrarSessao(tipo: TipoLogout = "M"): Promise<void> {
+  // Sessão já vencida pela regra fica registrada como Automático, mesmo que o pedido diga outra coisa.
+  await aplicarLogoutAutomatico(true);
   const loja = await cookies();
   const token = loja.get(COOKIE)?.value;
   if (token) {
@@ -97,6 +157,7 @@ export async function encerrarSessao(tipo: TipoLogout = "M"): Promise<void> {
 export async function obterSessao(): Promise<Sessao | null> {
   const token = (await cookies()).get(COOKIE)?.value;
   if (!token) return null;
+  await aplicarLogoutAutomatico();
   const { rows } = await query<Registro>(
     `select u.* from sessao s join usuario u on u.nr_sequencia = s.nr_seq_usuario
       where s.ds_token_hash = $1 and s.dt_expiracao > now()`,

@@ -62,6 +62,12 @@ interface ResizableTableProps<T> {
    * ficam com cursor de mãozinha. Padrão: cursor de menu de contexto.
    */
   rowPointer?: (row: T) => boolean;
+  /**
+   * Conteúdo sobreposto à 1ª coluna exibida, alinhado à esquerda, numa camada acima
+   * do texto e com fundo desfocado (ex.: o lápis de editar na lista). Aparece só com
+   * o cursor sobre a linha; null = nada naquela linha.
+   */
+  rowOverlay?: (row: T) => ReactNode;
   /** Colunas fixas que ficam sempre à esquerda e não podem ser reordenadas/redimensionadas. */
   pinnedColumns?: string[];
   /** Sufixo para a chave de persistência no localStorage (ex.: userId). */
@@ -90,6 +96,7 @@ export default function ResizableTable<T>({
   onRowContextMenu,
   rowClassName,
   rowPointer,
+  rowOverlay,
   pinnedColumns = [],
   storageKeySuffix = '',
   onColumnsChange,
@@ -515,7 +522,7 @@ export default function ResizableTable<T>({
               return (
                 <tr
                   key={rk}
-                  className={`${rowPointer?.(row) ? "cursor-pointer" : "cursor-[context-menu]"} hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
+                  className={`group/linha ${rowPointer?.(row) ? "cursor-pointer" : "cursor-[context-menu]"} hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
                   onClick={() => onRowClick?.(row)}
                   onDoubleClick={() => onRowDoubleClick?.(row)}
                   onContextMenu={(e) => {
@@ -523,19 +530,29 @@ export default function ResizableTable<T>({
                     onRowContextMenu?.(row, e);
                   }}
                 >
-                  {columnOrder.map((key) => {
+                  {columnOrder.map((key, indiceColuna) => {
                     const col = columns.find((c) => c.key === key);
                     if (!col) return null;
                     const value = (row as Record<string, unknown>)[key];
+                    const sobreposto = indiceColuna === 0 && rowOverlay ? rowOverlay(row) : null;
                     const content =
                       col.render !== undefined ? col.render(row) : value === undefined || value === null ? "" : String(value);
                     return (
                       <td
                         key={key}
                         className={`${col.status ? "px-[8px] text-center" : "px-[10px]"} py-[3px] min-w-0 align-middle font-normal ${col.cellClassName || ""} ${col.key === "nr_sequencia" ? "text-right" : col.align === "center" ? "text-center" : ""}`}
-                        style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)" }}
+                        style={{ color: "#333", borderBottom: "0.5px solid rgba(0,0,0,0.06)", ...(sobreposto ? { position: "relative" } : {}) }}
                       >
                         <span className="rt-cell-content">{content}</span>
+                        {sobreposto && (
+                          <span
+                            className="invisible group-hover/linha:visible absolute inset-y-0 left-0 z-[1] flex items-center pl-[6px] pr-[18px] rt-sobreposto"
+                            onClick={(e) => e.stopPropagation()}
+                            onDoubleClick={(e) => e.stopPropagation()}
+                          >
+                            {sobreposto}
+                          </span>
+                        )}
                       </td>
                     );
                   })}

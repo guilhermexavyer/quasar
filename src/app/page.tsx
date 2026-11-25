@@ -427,7 +427,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.94.0";
+const SYSTEM_VERSION = "0.95.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -9141,6 +9141,11 @@ export default function Home() {
     } else if (activeSection === 'administracaoSistema') {
       if (adminManageSelection === 'perfis') {
         item = perfis.find((p) => p.id === perfilEditingId) ?? null;
+      } else if (adminManageSelection === 'imagens') {
+        item = (imagens.find((i) => i.id === imagemEditingId) ?? null) as unknown as ContextMenuState['item'] | null;
+      } else if (adminManageSelection !== 'usuarios') {
+        // Demais telas (Avisos, Regras, Parâmetros, Campos...) não têm menu de registro.
+        item = null;
       } else {
         item = usuarios.find((u) => u.id === adminEditingId) ?? null;
       }
@@ -9165,7 +9170,9 @@ export default function Home() {
     } else if (activeSection === 'patrimonio') {
       item = ativoManageSelection === 'categoria'
         ? categoriasAtivos.find((c) => c.id === categoriaEditingId) ?? null
-        : ativos.find((a) => a.id === ativoEditingId) ?? null;
+        : ativoManageSelection === 'manutencoes'
+          ? (manutencoes.find((m) => m.id === manutencaoEditingId) ?? null) as unknown as ContextMenuState['item'] | null
+          : ativos.find((a) => a.id === ativoEditingId) ?? null;
     } else {
       item = cgItems.find((i) => i.id === cgEditingId) ?? null;
     }
@@ -12438,6 +12445,7 @@ export default function Home() {
                       allowedSubmodulos={allowedRelatorioSubmodulos}
                       resolverNomeAutorExibicao={resolverNomeAutorExibicao}
                       onToast={mostrarToast}
+                      onGerarRelatorio={permissoesRelatorio.gerar && relatorioForm && relatorioForm.ie_status !== 'I' ? () => { void handleRelatorioGerar(relatorioForm); } : undefined}
                       contextMenuItems={relatorioEditingId ? [
                         ...(permissoesRelatorio.gerar && relatorioForm?.ie_status !== 'I' ? [{ label: 'Gerar relatório', onClick: () => { if (relatorioForm) void handleRelatorioGerar(relatorioForm); } }] : []),
                         ...(permissoesRelatorio.duplicar ? [{ label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } }] : []),
@@ -13401,10 +13409,11 @@ export default function Home() {
               // Com várias manutenções marcadas, cada opção só aparece se valer para todas.
               const items: { label: string; onClick: () => void }[] = [];
               const manutItem = contextMenu.item as Manutencao;
-              const alvos = manutencoesAlvoDoContexto(manutItem);
+              // No "Ver" da manutenção, o menu vale só para ela (e sem o Ver).
+              const alvos = view === 'form' ? [manutItem] : manutencoesAlvoDoContexto(manutItem);
               const todasEmAndamento = alvos.every((m) => m.ie_status_manutencao === 'E');
               // "Ver" abre um único formulário: não aparece com várias manutenções selecionadas.
-              if (permissoesPatrimonio.verManutencao && alvos.length === 1) {
+              if (permissoesPatrimonio.verManutencao && alvos.length === 1 && view === 'list') {
                 items.push({ label: 'Ver', onClick: () => { openManutencaoEditForm(manutItem); setContextMenu(null); } });
               }
               if (todasEmAndamento && permissoesPatrimonio.concluirManutencaoRegistro) {
@@ -17845,7 +17854,7 @@ export default function Home() {
               'dt_criacao', 'dt_alteracao',
             ]                      : isRelatorio && isBanda
           ? [
-              'nr_sequencia', 'ds_banda', 'ie_tipo', 'qt_altura', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
+              'nr_sequencia', 'ds_banda', 'nr_ordem', 'ie_tipo', 'qt_altura', 'ie_tipo_banda', 'ie_colecao_principal', 'nr_posicao', 'nr_altura',
               'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
               'espessuraLabel', 'topoLabel', 'espessuraCampo', 'topoRegistro', 'bgLabel', 'bgCampo',
               'corLabelGlobal', 'corCampoGlobal', 'fonteLabel', 'tamanhoFonteLabel', 'fonteCampo', 'tamanhoFonteCampo',
@@ -18083,6 +18092,7 @@ export default function Home() {
                       pdf_margem_direita: 'Margem direita',
                       bandas_sequencia: 'Bandas',
                       ds_banda: 'Descrição',
+                      nr_ordem: 'Ordem',
                       ie_tipo_banda: 'Tipo',
                       ie_tipo: 'Tipo',
                       ie_colecao_principal: 'Coleção principal',

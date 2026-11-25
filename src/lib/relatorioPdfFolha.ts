@@ -3,7 +3,7 @@ import { desenharBordaPagina } from "@/lib/relatorioPdf";
 import type { Relatorio } from "@/types/relatorio";
 import type { FormatoPapel } from "@/types/formatoPapel";
 import type { Imagem } from "@/types/imagem";
-import { bandasQueSaem, itemAtivo, nomeDoParametro } from "@/lib/relatorioSql";
+import { bandasQueSaem, compararOrdemBanda, itemAtivo, nomeDoParametro } from "@/lib/relatorioSql";
 import {
   bandaEhDetalhe,
   obterParametrosSql,
@@ -25,7 +25,7 @@ import {
  * Bandas (layoutDaFolha):
  *   - Cabeçalho: no topo (abaixo da margem superior); Rodapé: no pé (acima da margem
  *     inferior), crescendo para cima. Os dois se repetem em todas as páginas;
- *   - Detalhe: no espaço entre o Cabeçalho e o Rodapé, na ordem da Sequência, uma vez
+ *   - Detalhe: no espaço entre o Cabeçalho e o Rodapé, pela Ordem (empate ou sem Ordem, pela Sequência), uma vez
  *     para cada linha do SQL (com quebra de página quando não cabe). A banda dependente
  *     (Banda superior) sai logo depois de cada registro da superior, com o SQL rodado
  *     para aquele registro. Opções: Exibir labels, Quebrar página por registro e
@@ -477,7 +477,8 @@ export function montarPdf(
     esquerda: margemMm(relatorio.nr_margem_esquerda),
     direita: margemMm(relatorio.nr_margem_direita),
   };
-  const ordenadas = [...bandas].sort((a, b) => Number(a.banda.nr_sequencia ?? 0) - Number(b.banda.nr_sequencia ?? 0));
+  // Ordem das bandas: menor Ordem primeiro; empate ou sem Ordem, pela Sequência.
+  const ordenadas = [...bandas].sort((a, b) => compararOrdemBanda(a.banda, b.banda));
   const layout = layoutDaFolha(margens, folha, ordenadas.map((b) => b.banda));
   const porNr = new Map(ordenadas.map((b) => [b.banda.nr_sequencia, b]));
 
@@ -575,8 +576,8 @@ export function montarPdf(
     if (y + altura > fimDoConteudo + 0.01 && y > layout.conteudo.y + 0.01) novaPagina();
   };
 
-  // Bandas Detalhe (ou sem tipo): as sem banda superior saem na ordem da Sequência; cada
-  // dependente sai logo depois de cada registro da superior (na ordem da Sequência).
+  // Bandas Detalhe (ou sem tipo): as sem banda superior saem pela Ordem (empate ou sem Ordem, pela Sequência); cada
+  // dependente sai logo depois de cada registro da superior (também pela Ordem).
   const detalhes = ordenadas.filter((b) => bandaEhDetalhe(b.banda));
   const nrsDetalhe = new Set(detalhes.map((b) => String(b.banda.nr_sequencia)));
   const superiorDe = (b: BandaCompleta) => {
