@@ -1,18 +1,17 @@
 import { NextResponse, type NextRequest } from "next/server";
 import type { FieldDef, PoolClient } from "pg";
 import { pool, query } from "@/lib/db";
-import { nomeDoParametro, prepararSql, problemaDoSql, type SqlPreparado } from "@/lib/relatorioSql";
+import { bandasQueSaem, itemAtivo, nomeDoParametro, prepararSql, problemaDoSql, type SqlPreparado } from "@/lib/relatorioSql";
 import { exigirPermissaoDaFuncao } from "@/lib/server/acesso";
 import { ErroValidacao, type Registro } from "@/lib/server/esquema";
 import { corpo, numeroDaUrl, rota } from "@/lib/server/http";
 
 /**
  * Gera os dados de um relatório (Gerenciador de Relatórios > Relatórios > Gerar relatório).
- * Corpo: { valores: { <parâmetro>: <valor> }, modo?: "pdf" | "colunas", nr_banda? } (valores =
- * os perguntados no modal).
+ * Corpo: { valores: { <parâmetro>: <valor> }, modo?: "pdf" } (valores = os perguntados no modal).
  *
- * Colunas (modo "colunas", com nr_banda; permissão de configurar bandas): só os nomes e
- * tipos das colunas do SQL da banda, sem registros — para "Gerar elementos do SQL".
+ * Inativos (ie_status 'I'): o relatório não é gerado; a banda não sai (nem as dependentes
+ * dela); o parâmetro não vale (o :nome fica vazio).
  *
  * SQL de cada banda: o da própria banda; vazio, o SQL do relatório (capa).
  *
@@ -101,21 +100,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   return rota(request, async (sessao) => {
     const nrRelatorio = numeroDaUrl(nr);
     const dados = await corpo(request);
-    const modoColunas = dados.modo === "colunas";
-    // "Gerar elementos do SQL" é configuração da banda; o resto é gerar o relatório.
-    await exigirPermissaoDaFuncao(sessao, "relatorio", modoColunas ? "bandas_relatorio" : "gerar_relatorio");
+    await exigirPermissaoDaFuncao(sessao, "relatorio", "gerar_relatorio");
     const valoresTela = (dados.valores && typeof dados.valores === "object" ? dados.valores : {}) as Record<string, unknown>;
     const modoPdf = dados.modo === "pdf";
 
     // ── Configuração do relatório (SQL da capa, bandas e parâmetros) ──
-    const { rows: relatorios } = await query<Registro>("select ds_sql from relatorio where nr_sequencia = $1", [nrRelatorio]);
+    const { rows: relatorios } = await query<Registro>("select ds_sql, ie_status from relatorio where nr_sequencia = $1", [nrRelatorio]);
     if (relatorios.length === 0) throw new ErroValidacao("Relatório não encontrado.");
+    if (!itemAtivo(relatorios[0])) throw new ErroValidacao("O relatório está inativo.");
     const sqlCapa = String(relatorios[0].ds_sql ?? "");
     const { rows: linhasBanda } = await query<Registro>(
-      "select nr_sequencia, ie_tipo, ds_sql, nr_seq_banda_superior from relatorio_banda where nr_seq_relatorio = $1 order by nr_sequencia",
+      "select nr_sequencia, ie_tipo, ds_sql, nr_seq_banda_superior, ie_status from relatorio_banda where nr_seq_relatorio = $1 order by nr_sequencia",
       [nrRelatorio]
     );
-    const bandas: Banda[] = linhasBanda.map((b) => ({
+    // Só as bandas que saem: ativas, com a banda superior (se houver) também saindo.
+    const bandas: Banda[] = bandasQueSaem(linhasBanda, (b) => b.nr_sequencia, (b) => b.nr_seq_banda_superior).map((b) => ({
       nr: Number(b.nr_sequencia),
       tipo: (b.ie_tipo as string | null) ?? null,
       // Banda sem SQL próprio usa o SQL do relatório.
@@ -123,21 +122,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       superior: b.nr_seq_banda_superior == null ? null : Number(b.nr_seq_banda_superior),
     }));
     const { rows: parametros } = await query<Registro>(
-      "select ds_parametro, ds_label, vl_padrao, ie_perguntar, ie_obrigatorio from relatorio_parametro where nr_seq_relatorio = $1",
+      "select cd_atributo, ds_parametro, ds_label, vl_padrao, ie_perguntar, ie_obrigatorio from relatorio_parametro where nr_seq_relatorio = $1 and coalesce(ie_status, 'A') = 'A'",
       [nrRelatorio]
     );
-    const porNome = new Map(parametros.map((p) => [nomeDoParametro(p.ds_parametro as string).toLowerCase(), p]));
+    const porNome = new Map(parametros.map((p) => [nomeDoParametro(p.cd_atributo as string).toLowerCase(), p]));
 
     /** Valor de um parâmetro do relatório: o informado no modal (Perguntar) ou o valor padrão. */
     function valorDoParametro(nome: string): string | null {
       const parametro = porNome.get(nome.toLowerCase());
       if (!parametro) return null;
-      const chave = nomeDoParametro(parametro.ds_parametro as string);
+      const chave = nomeDoParametro(parametro.cd_atributo as string);
       const perguntado = parametro.ie_perguntar === "S" && Object.prototype.hasOwnProperty.call(valoresTela, chave);
       const bruto = perguntado ? valoresTela[chave] : parametro.vl_padrao;
       const valor = bruto === null || bruto === undefined ? "" : String(bruto).trim();
       if (valor === "" && parametro.ie_obrigatorio === "S") {
-        throw new ErroValidacao(`Informe o parâmetro "${String(parametro.ds_label || chave)}".`);
+        throw new ErroValidacao(`Informe o parâmetro "${String(parametro.ds_label || parametro.ds_parametro || chave)}".`);
       }
       return valor === "" ? null : valor;
     }
@@ -226,26 +225,6 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       await db.query("begin transaction read only");
       await db.query(`set local statement_timeout = '${TEMPO_MAXIMO}'`);
       await db.query("set local role quasar_relatorio");
-
-      if (modoColunas) {
-        // Só os nomes das colunas: o SQL roda dentro de "limit 0", com os parâmetros nulos.
-        // NULL escrito no texto (e não $1 = null): "$1 is null" não teria tipo para o banco.
-        const nrBanda = Number(dados.nr_banda);
-        const banda = bandas.find((b) => b.nr === nrBanda);
-        if (!banda) throw new ErroValidacao("Banda não encontrada.");
-        if (!banda.sql.trim()) throw new ErroValidacao("A banda e o relatório estão sem SQL.");
-        const preparado = prepararSql(banda.sql);
-        const problema = problemaDoSql(preparado);
-        if (problema) throw new ErroValidacao(problema);
-        try {
-          const semParametros = preparado.texto.replace(/\$(\d+)\b/g, (marca, n) => (Number(n) <= preparado.nomes.length ? "null" : marca));
-          const resultado = await db.query({ text: `select * from (${semParametros}\n) as consulta limit 0`, rowMode: "array" });
-          return NextResponse.json({ colunas: resultado.fields.map((f) => ({ nome: f.name, tipo: tipoDaColuna(f) })) });
-        } catch (e) {
-          if (!erroDoSql(e)) throw e;
-          throw new ErroValidacao(`O SQL da banda tem erro: ${(e as Error).message}`);
-        }
-      }
 
       if (!modoPdf) {
         // XLS: a banda Detalhe de menor Sequência (sem banda, o SQL do relatório).

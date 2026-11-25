@@ -71,7 +71,7 @@ export async function duplicarRelatorio(relatorioId: string, autor?: AuditAutor)
   const parametrosOrigem = seqOrigem != null ? await obterParametrosPorRelatorio(Number(seqOrigem)) : [];
 
   // O Código é único: a cópia fica sem código.
-  const novo = await criarDado<Relatorio>("relatorio", { ...dadosRelatorio, cd_relatorio: null, ds_relatorio: `${dadosRelatorio.ds_relatorio ?? ''} (Cópia)` });
+  const novo = await criarDado<Relatorio>("relatorio", { ...dadosRelatorio, ie_origem: 'C', ds_relatorio: `${dadosRelatorio.ds_relatorio ?? ''} (Cópia)` });
   const novoId = String(novo.id);
   const novaSeq = novo.nr_sequencia;
 

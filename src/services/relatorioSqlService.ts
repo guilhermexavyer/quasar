@@ -1,5 +1,6 @@
 import * as XLSX from "xlsx";
 import { api, atualizarDado, criarDado, excluirDado, listarDados } from "@/lib/apiCliente";
+import { nomeDoParametro } from "@/lib/relatorioSql";
 
 /**
  * Relatórios por SQL (Gerenciador de Relatórios > Relatórios):
@@ -15,7 +16,7 @@ import { api, atualizarDado, criarDado, excluirDado, listarDados } from "@/lib/a
  * Tipo da banda do PDF:
  *   - Cabeçalho: no topo de todas as páginas (1ª linha do SQL);
  *   - Detalhe: repete uma vez para cada linha do SQL (elementos lado a lado = lista; com
- *     "Nova página a cada registro", um registro por página);
+ *     "Quebrar página por registro", um registro por página);
  *   - Rodapé: no pé de todas as páginas (1ª linha do SQL).
  */
 export type TipoBanda = "cabecalho" | "detalhe" | "rodape";
@@ -29,7 +30,7 @@ export const bandaEhDetalhe = (b: Pick<BandaSql, "ie_tipo">) => !b.ie_tipo || b.
 
 /** Opções S/N da banda Detalhe (checkboxes), na ordem do formulário. */
 export const OPCOES_DETALHE = [
-  { campo: "ie_nova_pagina", label: "Nova página a cada registro" },
+  { campo: "ie_nova_pagina", label: "Quebrar página por registro" },
   { campo: "ie_exibir_label", label: "Exibir labels" },
   { campo: "ie_imprimir_vazio", label: "Imprimir sem registros" },
   { campo: "ie_alternar_background", label: "Alternar background" },
@@ -58,11 +59,17 @@ export interface BandaSql {
   ie_imprimir_vazio?: "S" | "N" | null;
   /** 'S' = registros com fundo alternado (transparente e #cccccc). */
   ie_alternar_background?: "S" | "N" | null;
+  /** Cor de fundo de todos os registros (com cor, o Alternar background não vale). */
+  cd_background_registro?: string | null;
+  /** Cor de fundo da linha dos labels (Exibir labels). */
+  cd_background_label?: string | null;
   /** Bordas da banda (PDF): 'S' desenha a borda daquele lado. */
   ie_borda_superior?: "S" | "N" | null;
   ie_borda_inferior?: "S" | "N" | null;
   ie_borda_esquerda?: "S" | "N" | null;
   ie_borda_direita?: "S" | "N" | null;
+  /** A = ativa; I = inativa (não sai no relatório). */
+  ie_status?: "A" | "I" | null;
   dt_criacao?: string;
   dt_alteracao?: string;
   ds_usuario_criacao?: string;
@@ -74,13 +81,17 @@ export interface ParametroSql {
   id?: string;
   nr_sequencia?: number;
   nr_seq_relatorio?: number;
-  /** Nome usado no SQL (sem os dois-pontos). */
+  /** Descrição do parâmetro. */
   ds_parametro?: string;
+  /** Atributo: o nome usado no SQL (o :nome, sem os dois-pontos). */
+  cd_atributo?: string | null;
   ds_label?: string;
   nr_ordem?: number | null;
   vl_padrao?: string;
   ie_perguntar?: "S" | "N";
   ie_obrigatorio?: "S" | "N";
+  /** A = ativo; I = inativo (não é perguntado; o :nome fica vazio). */
+  ie_status?: "A" | "I" | null;
   dt_criacao?: string;
   dt_alteracao?: string;
   ds_usuario_criacao?: string;
@@ -108,16 +119,25 @@ function bordasParaBanco(registro: Partial<Record<CampoBorda, "S" | "N" | null>>
 }
 
 export async function salvarBandaSql(banda: BandaSql): Promise<BandaSql> {
+  const corRegistros = bandaEhDetalhe(banda) ? textoOuNulo(banda.cd_background_registro) : null;
   const dados = {
     nr_seq_relatorio: banda.nr_seq_relatorio,
     ds_banda: banda.ds_banda ?? "",
     ds_sql: banda.ds_sql ?? "",
+    ie_status: banda.ie_status === "I" ? "I" : "A",
     ie_tipo: banda.ie_tipo || null,
     qt_altura: banda.qt_altura ?? null,
     ...bordasParaBanco(banda),
     // Banda superior e opções só valem na banda Detalhe.
     nr_seq_banda_superior: bandaEhDetalhe(banda) && banda.nr_seq_banda_superior ? Number(banda.nr_seq_banda_superior) : null,
-    ...Object.fromEntries(OPCOES_DETALHE.map(({ campo }) => [campo, bandaEhDetalhe(banda) && banda[campo] === "S" ? "S" : "N"])),
+    // Com cor nos registros, o Alternar background não vale.
+    ...Object.fromEntries(OPCOES_DETALHE.map(({ campo }) => [
+      campo,
+      bandaEhDetalhe(banda) && banda[campo] === "S" && !(campo === "ie_alternar_background" && corRegistros) ? "S" : "N",
+    ])),
+    // Cores de fundo: só na banda Detalhe; a dos labels, só com Exibir labels.
+    cd_background_registro: corRegistros,
+    cd_background_label: bandaEhDetalhe(banda) && banda.ie_exibir_label === "S" ? textoOuNulo(banda.cd_background_label) : null,
   };
   if (banda.id) {
     const { registro } = await atualizarDado<BandaSql>("relatorio_banda", banda.id, dados);
@@ -157,33 +177,38 @@ export const TIPOS_ELEMENTO: { value: TipoElemento; label: string }[] = [
   { value: "usuario", label: "Usuário" },
   { value: "linha", label: "Linha" },
 ];
-/** Máscara do valor (SQL e Parâmetro). */
+/** Máscara do valor (SQL e Parâmetro), em ordem alfabética. */
 export const MASCARAS_ELEMENTO = [
+  { value: "cep", label: "CEP" },
+  { value: "cnpj", label: "CNPJ" },
+  { value: "cpf", label: "CPF" },
   { value: "data", label: "Data" },
   { value: "data_hora", label: "Data e hora" },
   { value: "hora", label: "Hora" },
-  { value: "numero", label: "Número" },
   { value: "moeda", label: "Moeda" },
+  { value: "numero", label: "Número" },
   { value: "porcentagem", label: "Porcentagem" },
 ];
-/** Tamanho (largura) e Altura do elemento novo, como no Tasy (px). */
-export const TAMANHO_ELEMENTO_PADRAO = 70;
-export const ALTURA_ELEMENTO_PADRAO = 17;
+/** Estilo do texto, em ordem alfabética. */
 export const ESTILOS_ELEMENTO = [
-  { value: "negrito", label: "Negrito" },
   { value: "italico", label: "Itálico" },
-  { value: "sublinhado", label: "Sublinhado" },
+  { value: "italico_sublinhado", label: "Itálico + Sublinhado" },
+  { value: "negrito", label: "Negrito" },
   { value: "negrito_italico", label: "Negrito + Itálico" },
   { value: "negrito_sublinhado", label: "Negrito + Sublinhado" },
-  { value: "italico_sublinhado", label: "Itálico + Sublinhado" },
+  { value: "sublinhado", label: "Sublinhado" },
   { value: "negrito_italico_sublinhado", label: "Todos" },
 ];
+/** Alinhamento do texto, em ordem alfabética (sem "---": padrão Esquerda). */
 export const ALINHAMENTOS_ELEMENTO = [
-  { value: "esquerda", label: "Esquerda" },
-  { value: "direita", label: "Direita" },
   { value: "centro", label: "Centro" },
+  { value: "direita", label: "Direita" },
+  { value: "esquerda", label: "Esquerda" },
 ];
+export const ALINHAMENTO_ELEMENTO_PADRAO = "esquerda";
 /** Fontes do elemento (no PDF, cada uma usa a fonte padrão do PDF mais parecida). */
+/** Fonte padrão (sem "---"). */
+export const FONTE_ELEMENTO_PADRAO = "arial";
 export const FONTES_ELEMENTO = [
   { value: "arial", label: "Arial" },
   { value: "calibri", label: "Calibri" },
@@ -232,6 +257,8 @@ export interface ElementoBanda {
   ie_borda_inferior?: "S" | "N" | null;
   ie_borda_esquerda?: "S" | "N" | null;
   ie_borda_direita?: "S" | "N" | null;
+  /** A = ativo; I = inativo (não sai no PDF). */
+  ie_status?: "A" | "I" | null;
   dt_criacao?: string;
   dt_alteracao?: string;
   ds_usuario_criacao?: string;
@@ -251,6 +278,7 @@ export async function salvarElementoBanda(elemento: ElementoBanda): Promise<Elem
     nr_seq_banda: elemento.nr_seq_banda,
     nr_seq_relatorio: elemento.nr_seq_relatorio,
     ds_elemento: textoOuNulo(elemento.ds_elemento),
+    ie_status: elemento.ie_status === "I" ? "I" : "A",
     ie_tipo: elemento.ie_tipo || null,
     nr_seq_imagem: inteiroOuNulo(elemento.nr_seq_imagem),
     qt_esquerda: inteiroOuNulo(elemento.qt_esquerda),
@@ -286,13 +314,42 @@ export async function excluirElementoBanda(id: string): Promise<void> {
   await excluirDado("relatorio_banda_elemento", id);
 }
 
+/* ── Status e duplicação ── */
+
+/** Tabelas com status (menu de contexto Ativar/Inativar). */
+export type TabelaComStatus = "relatorio" | "relatorio_banda" | "relatorio_banda_elemento" | "relatorio_parametro";
+
+/** Ativa ('A') ou inativa ('I') o relatório, a banda, o elemento ou o parâmetro. */
+export async function alterarStatusItem<T>(tabela: TabelaComStatus, id: string, status: "A" | "I"): Promise<T | undefined> {
+  const { registro } = await atualizarDado<T>(tabela, id, { ie_status: status });
+  return registro ?? undefined;
+}
+
+/** Dados do registro sem a identificação e os logs (para gravar uma cópia). */
+function semIdentificacao<T extends object>(registro: T): T {
+  const copia = { ...registro } as Record<string, unknown>;
+  for (const c of ["id", "nr_sequencia", "dt_criacao", "dt_alteracao", "ds_usuario_criacao", "ds_usuario_alteracao"]) delete copia[c];
+  return copia as T;
+}
+
+/** Cópia do elemento na mesma banda (Descrição com "(Cópia)"), com o mesmo status. */
+export async function duplicarElementoBanda(elemento: ElementoBanda): Promise<ElementoBanda> {
+  return salvarElementoBanda({ ...semIdentificacao(elemento), ds_elemento: `${elemento.ds_elemento ?? ""} (Cópia)`.trim() });
+}
+
 /**
- * "Gerar elementos do SQL": nomes das colunas do SQL da banda (vazio = o do relatório),
- * sem trazer registros. Erro no SQL vem com a mensagem do banco.
+ * Cópia da banda no mesmo relatório (Descrição com "(Cópia)"), com os elementos dela e o
+ * mesmo status. As bandas dependentes não são copiadas.
  */
-export async function obterColunasDaBanda(nrRelatorio: number, nrBanda: number): Promise<string[]> {
-  const { colunas } = await api.post<{ colunas: { nome: string }[] }>(`/api/relatorios/${nrRelatorio}/gerar`, { modo: "colunas", nr_banda: nrBanda });
-  return (colunas ?? []).map((c) => c.nome);
+export async function duplicarBandaSql(banda: BandaSql): Promise<{ banda: BandaSql; elementos: ElementoBanda[] }> {
+  const nova = await salvarBandaSql({ ...semIdentificacao(banda), ds_banda: `${banda.ds_banda ?? ""} (Cópia)`.trim() });
+  const elementos: ElementoBanda[] = [];
+  if (banda.nr_sequencia != null && nova.nr_sequencia != null) {
+    for (const el of await obterElementosDaBanda(Number(banda.nr_sequencia))) {
+      elementos.push(await salvarElementoBanda({ ...semIdentificacao(el), nr_seq_banda: Number(nova.nr_sequencia) }));
+    }
+  }
+  return { banda: nova, elementos };
 }
 
 /* ── Parâmetros ── */
@@ -310,12 +367,14 @@ export async function obterParametrosSql(nrRelatorio: number): Promise<Parametro
 export async function salvarParametroSql(parametro: ParametroSql): Promise<ParametroSql> {
   const dados = {
     nr_seq_relatorio: parametro.nr_seq_relatorio,
-    ds_parametro: (parametro.ds_parametro ?? "").trim().replace(/^:+/, ""),
+    ds_parametro: (parametro.ds_parametro ?? "").trim(),
+    cd_atributo: nomeDoParametro(parametro.cd_atributo) || null,
     ds_label: parametro.ds_label ?? "",
     nr_ordem: parametro.nr_ordem ?? null,
     vl_padrao: parametro.vl_padrao ?? "",
     ie_perguntar: parametro.ie_perguntar === "S" ? "S" : "N",
     ie_obrigatorio: parametro.ie_obrigatorio === "S" ? "S" : "N",
+    ie_status: parametro.ie_status === "I" ? "I" : "A",
   };
   if (parametro.id) {
     const { registro } = await atualizarDado<ParametroSql>("relatorio_parametro", parametro.id, dados);
@@ -407,4 +466,190 @@ export function baixarPlanilha(dados: DadosRelatorio, nome: string): void {
   const pasta = XLSX.utils.book_new();
   XLSX.utils.book_append_sheet(pasta, planilha, "Relatório");
   XLSX.writeFile(pasta, `${nomeDeArquivo(nome)}.xlsx`, { compression: true });
+}
+
+/* ── Exportação (XML) ── */
+
+/**
+ * "Exportar relatório": baixa um .xml com o relatório, as bandas (com os elementos), os
+ * parâmetros e o formato do papel — sem nr_sequencia e sem as imagens (ver
+ * src/lib/relatorioXml.ts), para ser importado em outro ambiente.
+ */
+export async function exportarRelatorioXml(
+  relatorio: Record<string, unknown> & { nr_sequencia: number },
+  formatosPapel: { nr_sequencia: number; ds_formato_papel?: string; qt_largura?: unknown; qt_altura?: unknown }[],
+  versaoSistema: string,
+): Promise<void> {
+  const { relatorioParaXml, nomeArquivoExportacao } = await import("@/lib/relatorioXml");
+  const [bandas, parametros] = await Promise.all([obterBandasSql(relatorio.nr_sequencia), obterParametrosSql(relatorio.nr_sequencia)]);
+  const bandasCompletas = await Promise.all(
+    bandas.map(async (b) => ({ ...b, elementos: b.nr_sequencia == null ? [] : await obterElementosDaBanda(Number(b.nr_sequencia)) })),
+  );
+  const formatoPapel = formatosPapel.find((f) => String(f.nr_sequencia) === String(relatorio.nr_seq_formato_papel ?? "")) ?? null;
+  const xml = relatorioParaXml({
+    relatorio,
+    formatoPapel: formatoPapel as Record<string, unknown> | null,
+    parametros: parametros as unknown as Record<string, unknown>[],
+    bandas: bandasCompletas as unknown as (Record<string, unknown> & { elementos: Record<string, unknown>[] })[],
+    versaoSistema,
+  });
+  const url = URL.createObjectURL(new Blob([xml], { type: "application/xml;charset=utf-8" }));
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = nomeArquivoExportacao(relatorio);
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+}
+
+/* ── Importação (XML) ── */
+
+/** Registro de uma importação (Gerenciador de Relatórios > Importar relatório). */
+export interface ImportacaoRelatorio {
+  id?: string;
+  nr_sequencia?: number;
+  ds_arquivo?: string | null;
+  nr_seq_relatorio?: number | null;
+  ds_relatorio?: string | null;
+  ds_versao_sistema?: string | null;
+  /** Quando o relatório foi importado neste ambiente. */
+  dt_importacao?: string | null;
+  qt_bandas?: number | null;
+  qt_elementos?: number | null;
+  qt_parametros?: number | null;
+  ds_xml?: string | null;
+  dt_criacao?: string;
+  dt_alteracao?: string;
+  ds_usuario_criacao?: string;
+  ds_usuario_alteracao?: string;
+}
+
+export async function obterImportacoesRelatorio(): Promise<ImportacaoRelatorio[]> {
+  return listarDados<ImportacaoRelatorio>("relatorio_importacao");
+}
+
+export async function excluirImportacaoRelatorio(id: string): Promise<void> {
+  await excluirDado("relatorio_importacao", id);
+}
+
+/** Erro da importação com a lista de problemas do arquivo (para a tela mostrar). */
+export class ErroImportacaoRelatorio extends Error {
+  constructor(public problemas: string[]) {
+    super(problemas.length === 1 ? problemas[0] : `O arquivo tem ${problemas.length} problemas: ${problemas.join(" ")}`);
+  }
+}
+
+/**
+ * Importa um relatório exportado (formato em src/lib/relatorioXml.ts): confere o arquivo e
+ * cria o relatório (Origem 'I'), os parâmetros, as bandas (depois a Banda superior de cada
+ * uma, pelo ref) e os elementos — com sequências novas. O Formato do papel é procurado pela
+ * descrição (ou largura x altura) e criado se não existir. Imagens não vêm no arquivo: o
+ * elemento do tipo Imagem fica sem imagem. Se algo falhar no meio, o que já foi criado é
+ * excluído (nada fica pela metade). No fim, registra a importação.
+ */
+export async function importarRelatorioXml(texto: string, nomeArquivo: string): Promise<{ importacao: ImportacaoRelatorio; nrRelatorio: number }> {
+  const { lerRelatorioXml } = await import("@/lib/relatorioXml");
+  const { dados, problemas } = lerRelatorioXml(texto);
+  if (!dados) throw new ErroImportacaoRelatorio(problemas);
+
+  const numeroOuNulo = (v?: string) => (v === undefined || v === "" ? null : Number(v));
+  const criados: { tabela: string; id: string; nr?: number }[] = [];
+  let formatoCriado: string | null = null;
+  try {
+    // Formato do papel: o do destino com a mesma descrição (ou medidas); senão, um novo.
+    let nrFormatoPapel: number | null = null;
+    if (dados.formatoPapel && dados.formatoPapel.ds_formato_papel) {
+      const fp = dados.formatoPapel;
+      const formatos = await listarDados<{ id: string; nr_sequencia: number; ds_formato_papel?: string; qt_largura?: unknown; qt_altura?: unknown }>("cg_formato_papel");
+      const mesmaMedida = (a: unknown, b?: string) => b !== undefined && b !== "" && Number(a) === Number(b);
+      const existente = formatos.find((f) => (f.ds_formato_papel ?? "").trim().toLowerCase() === fp.ds_formato_papel.trim().toLowerCase())
+        ?? formatos.find((f) => mesmaMedida(f.qt_largura, fp.qt_largura) && mesmaMedida(f.qt_altura, fp.qt_altura));
+      if (existente) {
+        nrFormatoPapel = existente.nr_sequencia;
+      } else {
+        const novo = await criarDado<{ id: string; nr_sequencia: number }>("cg_formato_papel", {
+          ds_formato_papel: fp.ds_formato_papel, qt_largura: numeroOuNulo(fp.qt_largura), qt_altura: numeroOuNulo(fp.qt_altura), ie_status: "A",
+        });
+        formatoCriado = novo.id;
+        nrFormatoPapel = novo.nr_sequencia;
+      }
+    }
+
+    const r = dados.relatorio;
+    const relatorio = await criarDado<{ id: string; nr_sequencia: number }>("relatorio", {
+      ...r,
+      ie_formato: r.ie_formato === "pdf" ? "pdf" : "xls",
+      ie_status: r.ie_status === "I" ? "I" : "A",
+      ie_origem: "I",
+      nr_seq_formato_papel: nrFormatoPapel,
+      nr_margem_superior: numeroOuNulo(r.nr_margem_superior),
+      nr_margem_inferior: numeroOuNulo(r.nr_margem_inferior),
+      nr_margem_esquerda: numeroOuNulo(r.nr_margem_esquerda),
+      nr_margem_direita: numeroOuNulo(r.nr_margem_direita),
+    });
+    criados.push({ tabela: "relatorio", id: relatorio.id, nr: relatorio.nr_sequencia });
+    const nrRelatorio = relatorio.nr_sequencia;
+
+    for (const p of dados.parametros) {
+      const salvo = await salvarParametroSql({
+        ...(p.campos as unknown as ParametroSql),
+        nr_seq_relatorio: nrRelatorio,
+        nr_ordem: numeroOuNulo(p.campos.nr_ordem),
+      });
+      if (salvo.id) criados.push({ tabela: "relatorio_parametro", id: salvo.id });
+    }
+
+    // Bandas na ordem do arquivo (a Sequência nova mantém a ordem); a Banda superior depois.
+    const nrDaBanda = new Map<string, number>();
+    const idDaBanda = new Map<string, string>();
+    let qtElementos = 0;
+    for (const b of dados.bandas) {
+      const banda = await salvarBandaSql({
+        ...(b.campos as unknown as BandaSql),
+        nr_seq_relatorio: nrRelatorio,
+        qt_altura: numeroOuNulo(b.campos.qt_altura),
+        nr_seq_banda_superior: null,
+      });
+      if (!banda.id || banda.nr_sequencia == null) throw new Error(`Não foi possível criar a banda ${b.campos.ds_banda ?? b.ref}.`);
+      criados.push({ tabela: "relatorio_banda", id: banda.id, nr: banda.nr_sequencia });
+      nrDaBanda.set(b.ref, banda.nr_sequencia);
+      idDaBanda.set(b.ref, banda.id);
+      for (const e of b.elementos) {
+        const el = await salvarElementoBanda({
+          ...(e.campos as unknown as ElementoBanda),
+          nr_seq_banda: banda.nr_sequencia,
+          nr_seq_relatorio: nrRelatorio,
+          nr_seq_imagem: null,
+        });
+        if (el.id) criados.push({ tabela: "relatorio_banda_elemento", id: el.id });
+        qtElementos += 1;
+      }
+    }
+    for (const b of dados.bandas) {
+      if (!b.superior) continue;
+      await atualizarDado("relatorio_banda", idDaBanda.get(b.ref) as string, { nr_seq_banda_superior: nrDaBanda.get(b.superior) });
+    }
+
+    const importacao = await criarDado<ImportacaoRelatorio>("relatorio_importacao", {
+      ds_arquivo: nomeArquivo,
+      nr_seq_relatorio: nrRelatorio,
+      ds_relatorio: r.ds_relatorio ?? "",
+      ds_versao_sistema: dados.versaoSistema || null,
+      dt_importacao: new Date().toISOString(),
+      qt_bandas: dados.bandas.length,
+      qt_elementos: qtElementos,
+      qt_parametros: dados.parametros.length,
+      ds_xml: texto,
+    });
+    return { importacao, nrRelatorio };
+  } catch (e) {
+    // Desfaz o que foi criado: primeiro as ligações entre bandas, depois do fim para o começo.
+    for (const c of criados.filter((x) => x.tabela === "relatorio_banda")) {
+      await atualizarDado("relatorio_banda", c.id, { nr_seq_banda_superior: null }).catch(() => undefined);
+    }
+    for (const c of [...criados].reverse()) await excluirDado(c.tabela, c.id).catch(() => undefined);
+    if (formatoCriado) await excluirDado("cg_formato_papel", formatoCriado).catch(() => undefined);
+    throw e;
+  }
 }

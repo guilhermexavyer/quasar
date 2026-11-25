@@ -34,6 +34,7 @@ export const ADMIN_FIELD_INFOS = {
   ie_base_conhecimento: { type: 'string', field: 'ie_base_conhecimento', collection: 'usuario' },
   ie_central_suporte: { type: 'string', field: 'ie_central_suporte', collection: 'usuario' },
   ie_ver_auditoria: { type: 'string', field: 'ie_ver_auditoria', collection: 'usuario' },
+  ie_parametros_funcao: { type: 'string', field: 'ie_parametros_funcao', collection: 'usuario' },
   dt_ultimo_login: { type: 'timestamp', field: 'dt_ultimo_login', collection: 'usuario' },
   dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'usuario' },
   dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'usuario' },

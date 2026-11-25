@@ -109,6 +109,8 @@ export interface Usuario {
   ie_central_suporte?: string;
   /** Ver auditoria: S mostra os infobuttons dos logs do rodapé (histórico de auditoria). */
   ie_ver_auditoria?: string;
+  /** 'S' = opção "Parâmetros da Função" na pop-up do usuário. */
+  ie_parametros_funcao?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;
   dt_criacao: string;

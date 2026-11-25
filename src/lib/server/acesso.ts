@@ -91,7 +91,31 @@ async function exigirPermissao(sessao: Sessao, permissao: string) {
 }
 
 /** Tabelas com regra própria de escrita (exigirAcessoEscrita); nas demais, basta a sessão. */
-export const TABELAS_COM_REGRA_DE_ESCRITA = new Set(["usuario", "perfil", "relatorio_banda", "relatorio_parametro"]);
+export const TABELAS_COM_REGRA_DE_ESCRITA = new Set(["usuario", "perfil", "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro"]);
+
+/**
+ * Relatório de origem Quasar ('Q'): desenvolvido pela equipe do Quasar, não pode ser
+ * alterado nem excluído — nem as bandas, os elementos e os parâmetros dele. Pela tela,
+ * ninguém cria um relatório com essa origem.
+ */
+async function exigirRelatorioAlteravel(tabela: string, operacao: "criar" | "atualizar" | "excluir", atual: Registro | null, dados?: Registro): Promise<void> {
+  if (tabela === "relatorio") {
+    if (operacao !== "criar" && String(atual?.ie_origem ?? "") === "Q") {
+      throw new ErroAcesso(`Relatório de origem Quasar não pode ser ${operacao === "excluir" ? "excluído" : "alterado"}.`);
+    }
+    if (operacao !== "excluir" && dados && "ie_origem" in dados && String(dados.ie_origem ?? "") === "Q") {
+      throw new ErroAcesso("A origem Quasar é reservada aos relatórios do Quasar.");
+    }
+    return;
+  }
+  // Banda, elemento e parâmetro: vale a origem do relatório deles.
+  const nrRelatorio = atual?.nr_seq_relatorio ?? dados?.nr_seq_relatorio;
+  if (nrRelatorio === null || nrRelatorio === undefined || nrRelatorio === "") return;
+  const { rows } = await query<{ ie_origem: string | null }>("select ie_origem from relatorio where nr_sequencia = $1", [Number(nrRelatorio)]);
+  if (rows[0]?.ie_origem === "Q") {
+    throw new ErroAcesso("Os itens de um relatório de origem Quasar não podem ser alterados nem excluídos.");
+  }
+}
 
 /** Confere se o usuário logado pode gravar/excluir em `usuario`, `perfil` e nas bandas/parâmetros dos relatórios. Demais tabelas: basta a sessão. */
 export async function exigirAcessoEscrita(
@@ -115,9 +139,12 @@ export async function exigirAcessoEscrita(
     if (ehPerfilAdministrador(atual)) throw new ErroAcesso("O perfil Administrador não pode ser alterado.");
     if (operacao !== "excluir" && ehPerfilAdministrador(dados)) throw new ErroAcesso("Nome de perfil reservado.");
     await exigirPermissao(sessao, "acessar_perfis");
-  } else if (tabela === "relatorio_banda" || tabela === "relatorio_parametro") {
+  } else if (tabela === "relatorio") {
+    await exigirRelatorioAlteravel(tabela, operacao, atual, dados);
+  } else if (tabela === "relatorio_banda" || tabela === "relatorio_banda_elemento" || tabela === "relatorio_parametro") {
     // A banda guarda o SQL executado pelo relatório: só quem configura bandas grava.
     await exigirPermissaoDaFuncao(sessao, "relatorio", "bandas_relatorio");
+    await exigirRelatorioAlteravel(tabela, operacao, atual, dados);
   }
 }
 

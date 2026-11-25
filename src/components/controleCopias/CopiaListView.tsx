@@ -82,7 +82,7 @@ export default function CopiaListView({
   selectOptions,
   manageSelection,
   onManageSelectionChange,
-  allowedSubmodulos = ['copias', 'parametrosFuncao'],
+  allowedSubmodulos = ['copias'],
   sortColumn,
   sortAsc,
   onSortChange,

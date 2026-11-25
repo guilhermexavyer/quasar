@@ -537,6 +537,45 @@ tr.registro-desligado > td:not(.col-selecao) * {
   border-color: #066fc5 !important;
 }
 
+/* Desabilitado (formulários somente leitura, usuário e perfil administrador,
+   auditoria...): a mesma caixinha num tom apagado. Desmarcado, o fundo dos
+   campos desabilitados; marcado, o azul do sistema esmaecido. Sem cursor de
+   clique. */
+.cg-checkbox:disabled {
+  cursor: default;
+  background-color: #f1f5f9;
+  border-color: #cbd5e1;
+}
+.cg-checkbox:disabled:checked {
+  background-color: #a7c8e8;
+  border-color: #a7c8e8;
+}
+.cg-checkbox:disabled:checked::after {
+  border-color: #f8fafc;
+}
+.dark .cg-checkbox:disabled {
+  background-color: #27272a;
+  border-color: #3f3f46;
+}
+.dark .cg-checkbox:disabled:checked,
+.dark input[type="checkbox"].cg-checkbox:disabled:checked {
+  background-color: #1e4566 !important;
+  border-color: #1e4566 !important;
+}
+.dark .cg-checkbox:disabled:checked::after {
+  border-color: #a1a1aa;
+}
+/* O texto ao lado ("Sim") e o rótulo clicável acompanham o tom apagado. */
+label:has(> .cg-checkbox:disabled) {
+  cursor: default;
+}
+label:has(> .cg-checkbox:disabled) > span {
+  color: #94a3b8;
+}
+.dark label:has(> .cg-checkbox:disabled) > span {
+  color: #71717a;
+}
+
 /* ============================================================
    CAMPOS OBRIGATÓRIOS — BORDA VERMELHA
    Campos obrigatórios vazios ao salvar ficam com borda vermelha.

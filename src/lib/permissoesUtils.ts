@@ -65,8 +65,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "excluir_pessoa_juridica", label: "Permite excluir" },
   ],
   estruturaAcademica: [
-    // Parâmetros
-    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros" },
     // Alunos
     { key: "acessar_aluno", label: "Permite acessar Alunos" },
     { key: "adicionar_aluno", label: "Permite adicionar" },
@@ -129,8 +127,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "excluir_turma_disciplina", label: "Permite excluir" },
   ],
   patrimonio: [
-    // Parâmetros
-    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros" },
     // Ativos
     { key: "acessar_ativo", label: "Permite acessar Ativos" },
     { key: "adicionar_ativo", label: "Permite adicionar" },
@@ -177,8 +173,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "editar_copia", label: "Permite editar" },
     { key: "alterar_status_copia", label: "Permite alterar status" },
     { key: "excluir_copia", label: "Permite excluir" },
-    // Parâmetros
-    { key: "acessar_parametros_funcao", label: "Permite acessar Parâmetros" },
   ],
   relatorio: [
     { key: "adicionar_relatorio", label: "Permite adicionar" },
@@ -189,6 +183,10 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "duplicar_relatorio", label: "Permite duplicar" },
     { key: "bandas_relatorio", label: "Permite configurar bandas" },
     { key: "excluir_relatorio", label: "Permite excluir" },
+    // Importar relatório (dropdown Pai). Nova sem subir PERMISSOES_CONFIG_VERSION: a
+    // migração re-concederia todas as permissões dos perfis já salvos; nos perfis com a
+    // função configurada, esta precisa ser marcada.
+    { key: "importar_relatorio", label: "Permite importar relatório" },
   ],
   cadastrosGerais: [
     // Cor/Raça
@@ -373,10 +371,6 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_disciplina', 'adicionar_disciplina', 'ver_disciplina', 'editar_disciplina', 'excluir_disciplina'],
     },
     {
-      titulo: 'Parâmetros',
-      chaves: ['acessar_parametros_funcao'],
-    },
-    {
       titulo: 'Período letivo',
       chaves: ['acessar_periodo_letivo', 'adicionar_periodo_letivo', 'ver_periodo_letivo', 'editar_periodo_letivo', 'encerrar_periodo_letivo', 'reativar_periodo_letivo', 'feriados_periodo_letivo', 'excluir_periodo_letivo'],
     },
@@ -402,10 +396,6 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Manutenções',
       chaves: ['acessar_manutencao', 'adicionar_manutencao', 'ver_manutencao', 'editar_manutencao', 'concluir_manutencao_registro', 'cancelar_manutencao', 'excluir_manutencao'],
     },
-    {
-      titulo: 'Parâmetros',
-      chaves: ['acessar_parametros_funcao'],
-    },
   ],
   logs: [
     {
@@ -422,15 +412,15 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Cópias',
       chaves: ['acessar_copias', 'adicionar_copia', 'ver_copia', 'editar_copia', 'alterar_status_copia', 'excluir_copia'],
     },
-    {
-      titulo: 'Parâmetros',
-      chaves: ['acessar_parametros_funcao'],
-    },
   ],
   relatorio: [
     {
       titulo: 'Relatórios',
       chaves: ['adicionar_relatorio', 'ver_relatorio', 'editar_relatorio', 'gerar_relatorio', 'duplicar_relatorio', 'bandas_relatorio', 'excluir_relatorio'],
+    },
+    {
+      titulo: 'Importar relatório',
+      chaves: ['importar_relatorio'],
     },
   ],
   cadastrosGerais: [
@@ -542,7 +532,6 @@ export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[
   { value: 'turmas', label: 'Turmas', permissao: 'acessar_turma' },
   { value: 'disciplinas', label: 'Disciplinas', permissao: 'acessar_disciplina' },
   { value: 'turmasDisciplinas', label: 'Turmas x Disciplinas', permissao: 'acessar_turma_disciplina' },
-  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
 
 /** Configuração de permissões: `funcao` → lista de chaves de permissão concedidas. */
@@ -718,7 +707,6 @@ export const PATRIMONIO_SUBMODULOS: { value: string; label: string; permissao: s
   { value: 'ativos', label: 'Ativos', permissao: 'acessar_ativo' },
   { value: 'categoria', label: 'Categoria', permissao: 'acessar_categoria' },
   { value: 'manutencoes', label: 'Manutenções', permissao: 'acessar_manutencao' },
-  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
 
 /**
@@ -744,7 +732,6 @@ export function logsSubmodulosPermitidos(config: PermissoesConfig | undefined): 
 /** Submódulos da função Controle de Cópias (dropdown PAI) e a permissão que libera o acesso a cada um deles. */
 export const CC_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'copias', label: 'Cópias', permissao: 'acessar_copias' },
-  { value: 'parametrosFuncao', label: 'Parâmetros', permissao: 'acessar_parametros_funcao' },
 ];
 
 /** Submódulos de Controle de Cópias liberados conforme as permissões salvas (sem configuração = tudo liberado). */

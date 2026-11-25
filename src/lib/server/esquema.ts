@@ -37,7 +37,7 @@ export const TABELAS_DADOS = new Set([
   "pat_ativo", "pat_ativo_responsavel", "pat_manutencao",
   "copia",
   "perfil", "usuario", "imagem",
-  "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro",
+  "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro", "relatorio_importacao",
   ...TABELAS_REGISTRO_UNICO,
 ]);
 

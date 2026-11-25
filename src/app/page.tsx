@@ -209,6 +209,8 @@ import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 import { useDescricaoLookupSemFoco } from "@/lib/useDescricaoLookupSemFoco";
 import ExclusaoFormularioView from "@/components/administracaoSistema/ExclusaoFormularioView";
 import FormularioExcluidoGenerico, { FORMULARIOS_GENERICOS } from "@/components/administracaoSistema/FormularioExcluidoGenerico";
+import FormularioSomenteLeitura from "@/components/ui/FormularioSomenteLeitura";
+import { carregarEsquema, tipoDaColuna } from "@/lib/esquemaBanco";
 import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
 import { definirAutorExclusoes, type Exclusao } from "@/services/exclusaoService";
 import { excluirFeriadosDoPeriodo } from "@/services/periodoLetivoFeriadoService";
@@ -220,7 +222,7 @@ import AtivoDetalheView, { type AtivoDetalheAba } from "@/components/patrimonio/
 import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
 import { excluirResponsaveisDoAluno } from "@/services/alunoResponsavelService";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
-import ParametrosDaFuncaoView, { PARAMETROS_ADMINISTRACAO_SISTEMA, PARAMETROS_CONTROLE_COPIAS, PARAMETROS_ESTRUTURA_ACADEMICA, PARAMETROS_PATRIMONIO } from "@/components/parametros/ParametrosDaFuncaoView";
+import ParametrosDaFuncaoView from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
 import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
@@ -241,10 +243,11 @@ import type { Imagem } from "@/types/imagem";
 import { obterImagens, criarImagem, atualizarImagem, excluirImagem, uploadImagem, excluirArquivoImagem, renomearArquivoImagem } from "@/services/imagemService";
 import RelatorioBuilder, { type DadosRelatorioForm } from "@/components/relatorio/RelatorioBuilder";
 import RelatorioListView from "@/components/relatorio/RelatorioListView";
+import ImportacaoRelatorioView from "@/components/relatorio/ImportacaoRelatorioView";
 import type { Relatorio } from "@/types/relatorio";
 import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio } from "@/services/relatorioService";
 
-import { baixarPlanilha, obterDadosRelatorio, obterParametrosSql, type ParametroSql } from "@/services/relatorioSqlService";
+import { alterarStatusItem, exportarRelatorioXml, baixarPlanilha, obterDadosRelatorio, obterParametrosSql, type ParametroSql } from "@/services/relatorioSqlService";
 import { gerarPdfRelatorio } from "@/lib/relatorioPdfFolha";
 import { nomeDoParametro } from "@/lib/relatorioSql";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
@@ -424,7 +427,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.93.0";
+const SYSTEM_VERSION = "0.94.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -485,6 +488,7 @@ const emptyAdminForm: AdminFormData = {
   ie_status: 'A',
   ie_base_conhecimento: 'N',
   ie_central_suporte: 'N',
+  ie_parametros_funcao: 'N',
   ie_ver_auditoria: 'N',
 };
 
@@ -576,7 +580,6 @@ const EA_SELECT_OPTIONS = [
   { value: 'turmas', label: '5. Turmas' },
   { value: 'disciplinas', label: '6. Disciplinas' },
   { value: 'turmasDisciplinas', label: '7. Turmas x Disciplinas' },
-  { value: 'parametrosFuncao', label: '8. Parâmetros' },
 ];
 
 /* Opções do dropdown da função Patrimônio */
@@ -584,21 +587,35 @@ const PATRIMONIO_SELECT_OPTIONS = [
   { value: 'ativos', label: 'Ativos' },
   { value: 'categoria', label: 'Categoria' },
   { value: 'manutencoes', label: 'Manutenções' },
-  { value: 'parametrosFuncao', label: 'Parâmetros' },
 ];
 
 const RELATORIO_SELECT_OPTIONS = [
-  { value: 'relatorio', label: 'Gerenciador de Relatórios' },
+  { value: 'relatorio', label: 'Relatórios' },
+  { value: 'importarRelatorio', label: 'Importar relatório' },
 ];
 
 /* Opções do dropdown da função Controle de Cópias */
 const CC_SELECT_OPTIONS = [
   { value: 'copias', label: 'Cópias' },
-  { value: 'parametrosFuncao', label: 'Parâmetros' },
 ];
 
 /** Filtro extra de Cópias (rascunho e aplicado). */
+/** Filtro de Gerenciador de Relatórios > Relatórios, além de Sequência e Descrição (rascunho e aplicado). */
+const RELATORIO_FILTRO_VAZIO = {
+  ie_formato: '', ds_nome_arquivo: '', nr_seq_formato_papel: '', ie_orientacao: '', ie_status: 'T',
+  nr_seq_usuario_criacao: '', nr_seq_usuario_alteracao: '',
+};
+const RELATORIO_FORMATO_FILTRO_OPTIONS = [{ value: 'pdf', label: 'PDF' }, { value: 'xls', label: 'XLS' }];
+const RELATORIO_ORIENTACAO_FILTRO_OPTIONS = [{ value: 'P', label: 'Padrão' }, { value: 'I', label: 'Invertido' }];
+const RELATORIO_STATUS_FILTRO_OPTIONS = [{ value: 'T', label: 'Todos' }, { value: 'A', label: 'Ativo' }, { value: 'I', label: 'Inativo' }];
+
 const COPIA_FILTRO_VAZIO = { ie_status: '', nr_seq_solicitante: '', nr_seq_turma_disciplina: '', nr_seq_formato_papel: '', nr_seq_tipo_papel: '' };
+
+/** Coleções com formulário próprio reaproveitado no "Ver" de Exclusões e no Detalhe da auditoria. */
+const COLECOES_COM_FORMULARIO = new Set([
+  'pessoa_fisica', 'pessoa_juridica', 'usuario', 'perfil', 'imagem', 'periodo_letivo', 'aluno', 'colaborador',
+  'pat_categoria', 'disciplina', 'turma', 'turma_disciplina', 'copia', 'curso', 'pat_manutencao', 'pat_ativo',
+]);
 
 /** Evento para chamar um handler de submit fora do formulário ("Salvar filtro", "Salvar e adicionar"). */
 const EVENTO_SUBMIT = { preventDefault() {} } as React.FormEvent<HTMLFormElement>;
@@ -1092,6 +1109,10 @@ export default function Home() {
   const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
+  /** Tipos das colunas do banco (Detalhe da auditoria: datas sem hora exibidas como DD/MM/AAAA). */
+  const [esquemaAuditoria, setEsquemaAuditoria] = useState<Awaited<ReturnType<typeof carregarEsquema>> | null>(null);
+  /** Nome ("Cidade - UF") de cada código IBGE exibido no Detalhe da auditoria (Naturalidade, Cidade). */
+  const [cidadesAuditoria, setCidadesAuditoria] = useState<Record<string, string>>({});
   const [message, setMessageEstado] = useState("");
   /** Última mensagem enviada ao toast (lida pelo "Salvar e adicionar"). */
   const ultimaMensagemRef = useRef("");
@@ -1115,6 +1136,8 @@ export default function Home() {
   const [loginWarning, setLoginWarning] = useState<string | null>(null);
   // Nenhuma função vem selecionada ao entrar: o usuário escolhe no menu lateral.
   const [activeSection, setActiveSection] = useState<SectionType | null>(null);
+  /** "Parâmetros da Função" (pop-up do usuário): função a selecionar em Parâmetros; `vez` remonta a tela. */
+  const [parametrosFuncaoInicial, setParametrosFuncaoInicial] = useState<{ funcao: string | null; vez: number }>({ funcao: null, vez: 0 });
   /** Funções abertas (montadas) — a ativa aparece, as demais ficam escondidas até o usuário voltar a elas. */
   const [secoesAbertas, setSecoesAbertas] = useState<SectionType[]>([]);
   /** Função cujo fechamento aguarda confirmação no modal. */
@@ -1711,6 +1734,13 @@ export default function Home() {
   const [relatorioAuditItemId, setRelatorioAuditItemId] = useState<string | null>(null);
   const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
   const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
+  const [relatorioFilterModalOpen, setRelatorioFilterModalOpen] = useState(false);
+  const [relatorioFilterForm, setRelatorioFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [appliedRelatorioFilterForm, setAppliedRelatorioFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+  const [relatorioFiltroExtra, setRelatorioFiltroExtra] = useState(RELATORIO_FILTRO_VAZIO);
+  const [relatorioFiltroExtraAplicado, setRelatorioFiltroExtraAplicado] = useState(RELATORIO_FILTRO_VAZIO);
+  /** Lookup de usuário aberto no filtro de Relatórios (Usuário criação / Usuário alteração). */
+  const [relatorioUsuarioLookup, setRelatorioUsuarioLookup] = useState<'nr_seq_usuario_criacao' | 'nr_seq_usuario_alteracao' | null>(null);
 
   // ── Callbacks de exclusão remota (campo / banda) ──
   const relatorioStateActionsRef = useRef<{ removeCampo: (id: string) => void; removeBanda: (id: string) => void } | null>(null);
@@ -1788,9 +1818,6 @@ export default function Home() {
     }
   }, [activeSection, relatorioInteracted, relatorioManageSelection]);
 
-  const allowedRelatorioSubmodulos = useMemo(() => {
-    return ['relatorio'];
-  }, []);
 
   function handleRelatorioSortChange(logicalIndex: number) {
     // Se já está ordenando por esta coluna
@@ -1816,7 +1843,7 @@ export default function Home() {
 
   const filteredSortedRelatorios = useMemo(() => {
     // Ordem padrão: coluna # decrescente (mais recente primeiro).
-    const list = [...relatorios].sort((a, b) => b.nr_sequencia - a.nr_sequencia);
+    const list = [...relatorios].filter(relatorioPassaNoFiltro).sort((a, b) => b.nr_sequencia - a.nr_sequencia);
     if (relatorioSortColumn != null && relatorioSortAsc != null) {
       // Mesma ordem das colunas de RelatorioListView (o índice vem de lá).
       const keys = ['nr_sequencia', 'ds_relatorio', 'ie_formato', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao'];
@@ -1831,7 +1858,51 @@ export default function Home() {
       }
     }
     return list;
-  }, [relatorios, relatorioSortColumn, relatorioSortAsc]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [relatorios, relatorioSortColumn, relatorioSortAsc, appliedRelatorioFilterForm, relatorioFiltroExtraAplicado, usuarios]);
+
+  /** ds_usuario do usuário pela sequência (filtro de Relatórios: Usuário criação/alteração). */
+  function dsUsuarioPorSeq(seq: string): string {
+    return seq ? usuarios.find((u) => String(u.nr_sequencia) === seq)?.ds_usuario ?? '' : '';
+  }
+  /** Filtro de Relatórios: Sequência, Descrição, Formato, Nome do arquivo, Formato do papel, Orientação, Status e usuários. */
+  function relatorioPassaNoFiltro(r: Relatorio): boolean {
+    const f = appliedRelatorioFilterForm;
+    const x = relatorioFiltroExtraAplicado;
+    const contem = (valor: unknown, busca: string) => String(valor ?? '').toLowerCase().includes(busca.trim().toLowerCase());
+    const mesmoUsuario = (valor: unknown, seq: string) => {
+      const ds = dsUsuarioPorSeq(seq);
+      return String(valor ?? '').trim().toLowerCase() === ds.trim().toLowerCase();
+    };
+    if (f.nr_sequencia && String(r.nr_sequencia) !== f.nr_sequencia) return false;
+    if (f.descricao.trim() && !contem(r.ds_relatorio, f.descricao)) return false;
+    if (x.ie_formato && (r.ie_formato === 'pdf' ? 'pdf' : 'xls') !== x.ie_formato) return false;
+    if (x.ds_nome_arquivo.trim() && !contem(r.ds_nome_arquivo, x.ds_nome_arquivo)) return false;
+    if (x.nr_seq_formato_papel && String(r.nr_seq_formato_papel ?? '') !== x.nr_seq_formato_papel) return false;
+    if (x.ie_orientacao && (r.ie_orientacao ?? '') !== x.ie_orientacao) return false;
+    if (x.ie_status !== 'T' && (r.ie_status === 'I' ? 'I' : 'A') !== x.ie_status) return false;
+    if (x.nr_seq_usuario_criacao && !mesmoUsuario(r.ds_usuario_criacao, x.nr_seq_usuario_criacao)) return false;
+    if (x.nr_seq_usuario_alteracao && !mesmoUsuario(r.ds_usuario_alteracao, x.nr_seq_usuario_alteracao)) return false;
+    return true;
+  }
+
+  function openRelatorioFilterModal() {
+    setRelatorioFilterForm(appliedRelatorioFilterForm);
+    setRelatorioFiltroExtra(relatorioFiltroExtraAplicado);
+    setRelatorioFilterModalOpen(true);
+  }
+  function clearRelatorioFilter() {
+    setRelatorioFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setAppliedRelatorioFilterForm({ nr_sequencia: '', descricao: '', ie_status: 'T' });
+    setRelatorioFiltroExtra(RELATORIO_FILTRO_VAZIO);
+    setRelatorioFiltroExtraAplicado(RELATORIO_FILTRO_VAZIO);
+  }
+  function handleRelatorioFilterSubmit(event: React.FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setAppliedRelatorioFilterForm({ ...relatorioFilterForm, ie_status: 'T' });
+    setRelatorioFiltroExtraAplicado(relatorioFiltroExtra);
+    setRelatorioFilterModalOpen(false);
+  }
 
   // ── Navegação entre registros de relatório ──
   const currentRelatorioEditIndex = useMemo(() => {
@@ -2058,7 +2129,7 @@ export default function Home() {
 
   // Submódulos da função Controle de Cópias (Cópias/Parâmetros) liberados ao usuário logado.
   const allowedCcSubmodulos = useMemo(() => {
-    if (isAdminSemConfig) return ['copias', 'parametrosFuncao'];
+    if (isAdminSemConfig) return ['copias'];
     return ccSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2224,7 +2295,7 @@ export default function Home() {
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'periodoLetivo', 'cursos', 'turmas', 'disciplinas', 'turmasDisciplinas', 'parametrosFuncao'];
+    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'periodoLetivo', 'cursos', 'turmas', 'disciplinas', 'turmasDisciplinas'];
     return eaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2292,7 +2363,7 @@ export default function Home() {
   // conforme as permissões do perfil ativo.
   const allowedPatrimonioSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['ativos', 'categoria', 'manutencoes', 'parametrosFuncao'];
+    if (isAdminSemConfig) return ['ativos', 'categoria', 'manutencoes'];
     return patrimonioSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2314,7 +2385,6 @@ export default function Home() {
       detalhesAtivo: permitida('detalhes_ativo'),
       transferirAtivo: permitida('transferir_ativo'),
       alterarStatusDescartado: permitida('alterar_status_descartado'),
-      acessarParametrosFuncao: permitida('acessar_parametros_funcao'),
       acessarManutencao: permitida('acessar_manutencao'),
       adicionarManutencao: permitida('adicionar_manutencao'),
       verManutencao: permitida('ver_manutencao'),
@@ -2343,8 +2413,17 @@ export default function Home() {
       duplicar: permitida('duplicar_relatorio'),
       bandas: permitida('bandas_relatorio'),
       excluir: permitida('excluir_relatorio'),
+      importar: permitida('importar_relatorio'),
     };
   }, [isAdminSemConfig, permissoesAtivas]);
+
+  // Importar relatório: com a permissão "Permite importar relatório".
+  const allowedRelatorioSubmodulos = useMemo(() => {
+    return ['relatorio', ...(permissoesRelatorio.importar ? ['importarRelatorio'] : [])];
+  }, [permissoesRelatorio.importar]);
+  // Opção que deixou de ser permitida (ex.: sessão restaurada): volta para a seleção vazia
+  // (ajuste durante o render, sem efeito).
+  if (relatorioManageSelection && !allowedRelatorioSubmodulos.includes(relatorioManageSelection)) setRelatorioManageSelection('');
 
   // Se o submódulo ativo de Patrimônio deixar de ser permitido, volta para
   // o primeiro submódulo permitido.
@@ -3112,6 +3191,18 @@ export default function Home() {
     }
   }, []);
 
+  /** Administração do Sistema > Parâmetros: depois de salvar, recarrega o que usa o parâmetro. */
+  const aposSalvarParametro = useCallback((colecao: string) => {
+    if ([COLECAO_PARAM_COR_ATIVO_DESCARTADO, COLECAO_PARAM_COR_ATIVO_ESTOQUE, COLECAO_PARAM_COR_ATIVO_MANUTENCAO, COLECAO_PARAM_COR_ATIVO_OPERACIONAL].includes(colecao)) loadCoresStatusAtivo();
+    if ([COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO, COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA, COLECAO_PARAM_COR_MANUTENCAO_CANCELADA].includes(colecao)) loadCoresStatusManutencao();
+    if (colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO || colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO) loadCoresStatusPeriodoLetivo();
+    if (colecao === COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO) loadEncerramentoAutomaticoPeriodoLetivo();
+    if (colecao === COLECAO_PARAM_TIPOS_ARQUIVO_COPIA) loadExtensoesCopia();
+    if ([COLECAO_PARAM_COR_COPIA_AGUARDANDO, COLECAO_PARAM_COR_COPIA_CANCELADO, COLECAO_PARAM_COR_COPIA_ENTREGUE, COLECAO_PARAM_COR_COPIA_IMPRESSO].includes(colecao)) loadCoresStatusCopia();
+    if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
+    if (colecao === COLECAO_PARAM_FORMATO_PAPEL_PADRAO || colecao === COLECAO_PARAM_TIPO_PAPEL_PADRAO) loadPapelPadraoCopia();
+  }, [loadCoresStatusAtivo, loadCoresStatusManutencao, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadPapelPadraoCopia]);
+
   const loadDisciplinas = useCallback(async () => {
     setLoading(true);
     try {
@@ -3590,15 +3681,15 @@ export default function Home() {
           setPjManageSelection(session.pjManageSelection);
           setPjInteracted(true);
         }
-        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'parametrosFuncao' || session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos' || session.alunoManageSelection === 'disciplinas' || session.alunoManageSelection === 'turmas' || session.alunoManageSelection === 'turmasDisciplinas')) {
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos' || session.alunoManageSelection === 'disciplinas' || session.alunoManageSelection === 'turmas' || session.alunoManageSelection === 'turmasDisciplinas')) {
           setAlunoManageSelection(session.alunoManageSelection);
           setAlunoInteracted(true);
         }
-        if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "") {
+        if (typeof session.patrimonioManageSelection === "string" && session.patrimonioManageSelection.trim() !== "" && session.patrimonioManageSelection !== "parametrosFuncao") {
           setAtivoManageSelection(session.patrimonioManageSelection);
           setAtivoInteracted(true);
         }
-        if (session.ccManageSelection === 'copias' || session.ccManageSelection === 'parametrosFuncao') {
+        if (session.ccManageSelection === 'copias') {
           setCcManageSelection(session.ccManageSelection);
         }
         if (session.logsManageSelection === 'acessos' || session.logsManageSelection === 'exclusoes') {
@@ -3925,6 +4016,10 @@ export default function Home() {
 
   async function handleRelatorioSave(data: DadosRelatorioForm) {
     if (relatorioEditingId && bloquearEdicaoSemPermissao(permissoesRelatorio.editar)) return;
+    if (relatorioEditingId && relatorioForm?.ie_origem === 'Q') {
+      setMessage('Relatório de origem Quasar não pode ser alterado.');
+      return;
+    }
     setRelatorioSubmitting(true);
     setMessage('');
     try {
@@ -3947,6 +4042,10 @@ export default function Home() {
   }
 
   async function handleRelatorioDelete(id: string) {
+    if (relatorios.find((r) => r.id === id)?.ie_origem === 'Q') {
+      setMessage('Relatório de origem Quasar não pode ser excluído.');
+      return;
+    }
     try {
       // Excluir bandas vinculadas ao relatório na coleção relatorio_banda
       const { obterBandasPorRelatorioId, excluirBanda } = await import('@/services/relatorioServiceBandas');
@@ -3980,10 +4079,14 @@ export default function Home() {
    */
   async function handleRelatorioGerar(relatorio: Relatorio) {
     if (relatorio.nr_sequencia == null) return;
+    if (relatorio.ie_status === 'I') {
+      setMessage('O relatório está inativo.');
+      return;
+    }
     try {
-      const perguntar = (await obterParametrosSql(relatorio.nr_sequencia)).filter((p) => p.ie_perguntar === 'S');
+      const perguntar = (await obterParametrosSql(relatorio.nr_sequencia)).filter((p) => p.ie_perguntar === 'S' && p.ie_status !== 'I');
       if (perguntar.length > 0) {
-        setRelatorioParamValues(Object.fromEntries(perguntar.map((p) => [nomeDoParametro(p.ds_parametro), p.vl_padrao ?? ''])));
+        setRelatorioParamValues(Object.fromEntries(perguntar.map((p) => [nomeDoParametro(p.cd_atributo), p.vl_padrao ?? ''])));
         setParamGerarFaltantes([]);
         setRelatorioParamModal({ relatorio, parametros: perguntar });
         return;
@@ -3991,6 +4094,37 @@ export default function Home() {
       await executarRelatorioGerar(relatorio, {});
     } catch {
       setMessage('Erro ao carregar os parâmetros do relatório.');
+    }
+  }
+
+  /** Exporta o relatório (com bandas, elementos, parâmetros e formato do papel; sem as imagens) em .xml. */
+  async function handleRelatorioExportar(relatorio: Relatorio) {
+    if (relatorio.nr_sequencia == null) return;
+    setRelatorioGerando(true);
+    try {
+      await exportarRelatorioXml(relatorio as unknown as Record<string, unknown> & { nr_sequencia: number }, formatosPapel, SYSTEM_VERSION);
+      setMessage('Relatório exportado com sucesso!');
+    } catch {
+      setMessage('Erro ao exportar o relatório.');
+    } finally {
+      setRelatorioGerando(false);
+    }
+  }
+
+  /** Ativa ou inativa o relatório (menu de contexto). Inativo, o relatório não é gerado. */
+  async function handleRelatorioStatus(relatorio: Relatorio) {
+    if (!relatorio.id || relatorio.ie_origem === 'Q') return;
+    const novo = relatorio.ie_status === 'I' ? 'A' : 'I';
+    try {
+      setRelatorioGerando(true);
+      await alterarStatusItem('relatorio', relatorio.id, novo);
+      setRelatorioForm((atual) => (atual && atual.id === relatorio.id ? { ...atual, ie_status: novo } : atual));
+      await loadRelatorios();
+      setMessage(novo === 'I' ? 'Relatório inativado com sucesso!' : 'Relatório ativado com sucesso!');
+    } catch {
+      setMessage(novo === 'I' ? 'Erro ao inativar o relatório.' : 'Erro ao ativar o relatório.');
+    } finally {
+      setRelatorioGerando(false);
     }
   }
 
@@ -4020,8 +4154,8 @@ export default function Home() {
   function handleRelatorioParamConfirm() {
     if (!relatorioParamModal) return;
     const faltantes = relatorioParamModal.parametros
-      .filter((p) => p.ie_obrigatorio === 'S' && !(relatorioParamValues[nomeDoParametro(p.ds_parametro)] ?? '').trim())
-      .map((p) => nomeDoParametro(p.ds_parametro));
+      .filter((p) => p.ie_obrigatorio === 'S' && !(relatorioParamValues[nomeDoParametro(p.cd_atributo)] ?? '').trim())
+      .map((p) => nomeDoParametro(p.cd_atributo));
     if (faltantes.length > 0) {
       setParamGerarFaltantes(faltantes);
       setMessage('Preencha todos os campos obrigatórios antes de gerar o relatório.');
@@ -4131,7 +4265,8 @@ export default function Home() {
       return permissoesPatrimonio.excluirAtivo;
     }
     if (s === 'controleCopias') return permissoesCC.excluirCopia;
-    if (s === 'relatorio') return permissoesRelatorio.excluir;
+    // Relatório Quasar (Origem 'Q'): não pode ser excluído.
+    if (s === 'relatorio') return permissoesRelatorio.excluir && (contextMenu?.item as Relatorio | undefined)?.ie_origem !== 'Q';
     return true;
   }
 
@@ -4926,6 +5061,8 @@ export default function Home() {
     restaurar(salvo('colaborador')?.form, setAppliedColaboradorFilterForm, setColaboradorFilterForm);
     restaurar(salvo('copia')?.form, setAppliedCopiaFilterForm, setCopiaFilterForm);
     restaurar(salvo('copia')?.extra, setCopiaFiltroExtraAplicado, setCopiaFiltroExtra);
+    restaurar(salvo('relatorio')?.form, setAppliedRelatorioFilterForm, setRelatorioFilterForm);
+    restaurar(salvo('relatorio')?.extra, setRelatorioFiltroExtraAplicado, setRelatorioFiltroExtra);
     const acessos = salvo('logs_acessos')?.form;
     if (acessos) setAcessosFiltro(normalizarFiltroAcessos(acessos as Partial<FiltroAcessos>));
   }
@@ -5462,6 +5599,7 @@ export default function Home() {
       ie_status: usuario.ie_status ?? 'A',
       ie_base_conhecimento: usuario.ie_base_conhecimento ?? 'N',
       ie_central_suporte: usuario.ie_central_suporte ?? 'N',
+      ie_parametros_funcao: usuario.ie_parametros_funcao ?? 'N',
       ie_ver_auditoria: usuario.ie_ver_auditoria ?? 'N',
     });
     setAdminEditingId(usuario.id ?? null);
@@ -8216,6 +8354,7 @@ export default function Home() {
         ie_status: adminForm.ie_status,
         ie_base_conhecimento: adminForm.ie_base_conhecimento ?? 'N',
         ie_central_suporte: adminForm.ie_central_suporte ?? 'N',
+        ie_parametros_funcao: adminForm.ie_parametros_funcao ?? 'N',
         ie_ver_auditoria: adminForm.ie_ver_auditoria ?? 'N',
       };
       if (adminForm.nr_seq_pessoa_fisica !== undefined && adminForm.nr_seq_pessoa_fisica !== null) {
@@ -8234,6 +8373,7 @@ export default function Home() {
               'ie_status',
               'ie_base_conhecimento',
               'ie_central_suporte',
+              'ie_parametros_funcao',
               'ie_ver_auditoria',
             ].some((field) => String((currentUsuario as any)[field] ?? '') !== String((adminForm as any)[field] ?? ''))
             || Boolean(adminForm.ds_senha)
@@ -8267,6 +8407,7 @@ export default function Home() {
             ie_status: adminForm.ie_status,
             ie_base_conhecimento: adminForm.ie_base_conhecimento,
             ie_central_suporte: adminForm.ie_central_suporte,
+            ie_parametros_funcao: adminForm.ie_parametros_funcao,
             ie_ver_auditoria: adminForm.ie_ver_auditoria,
             nr_seq_pessoa_fisica: adminForm.nr_seq_pessoa_fisica,
           } : u);
@@ -10760,19 +10901,10 @@ export default function Home() {
     setLoginError(null);
     setLoginWarning(null);
     setMessage("");
-    // Reseta os dropdowns para "---" ao sair
-    setAdminManageSelection('');
-    setCgManageSelection('');
-    setPjManageSelection('');
-    setAlunoManageSelection('');
-    setAtivoManageSelection('');
-    setRelatorioManageSelection('');
-    setAdminInteracted(false);
-    setCgInteracted(false);
-    setPjInteracted(false);
-    setAlunoInteracted(false);
-    setAtivoInteracted(false);
-    setRelatorioInteracted(false);
+    // Ao sair, todas as funções voltam ao estado de quem acabou de entrar: o mesmo que
+    // fechar cada uma pelo X (dropdown PAI em "---", nada em edição). Assim nenhuma
+    // função reabre com a opção do dropdown PAI já selecionada.
+    SECOES.forEach((secao) => fecharSecao(secao));
     setRelatorioParamValues({});
   }
 
@@ -10914,7 +11046,16 @@ export default function Home() {
   }
 
   /** Formulário da função com os dados do registro excluído (tudo desabilitado). */
-  function renderFormularioExcluido(ex: Exclusao) {
+  /** Descrição dos nr_seq_* do formulário genérico (Formato do papel, Imagem, Banda superior). */
+  function descricaoReferenciaGenerica(campo: string, valor: unknown, dados: Record<string, unknown>): string | undefined {
+    const nr = String(valor);
+    if (campo === 'nr_seq_formato_papel') return formatosPapel.find((p) => String(p.nr_sequencia) === nr)?.ds_formato_papel;
+    if (campo === 'nr_seq_imagem') return imagens.find((i) => String(i.nr_sequencia) === nr)?.ds_imagem;
+    if (campo === 'nr_seq_banda_superior') return bandasDaAuditoria.find((b) => String(b.nr_sequencia) === nr && (dados.nr_seq_relatorio == null || String(b.nr_seq_relatorio) === String(dados.nr_seq_relatorio)))?.ds_banda;
+    return undefined;
+  }
+
+  function renderFormularioExcluido(ex: Exclusao, cidadeNome: string = exclusaoCidadeNome) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const dados = ex.dados as any;
     const nada = () => {};
@@ -10946,9 +11087,9 @@ export default function Home() {
     const cg = Object.values(CG_DEFS).find((d) => d.collection === ex.ds_colecao);
     switch (ex.ds_colecao) {
       case 'pessoa_fisica':
-        return <PessoaFisicaFormView {...comuns} sexos={pfCgOptions.sexos} estadoCivis={pfCgOptions.estadoCivis} coresRacas={pfCgOptions.coresRacas} profissoes={pfCgOptions.profissoes} orgaosEmissores={pfCgOptions.orgaosEmissores} logradouros={pfCgOptions.logradouros} estados={estados} naturalidadeNome={exclusaoCidadeNome} onOpenNaturalidadeLookup={nada} onNaturalidadeCodeChange={nada} selectOptions={[]} />;
+        return <PessoaFisicaFormView {...comuns} sexos={pfCgOptions.sexos} estadoCivis={pfCgOptions.estadoCivis} coresRacas={pfCgOptions.coresRacas} profissoes={pfCgOptions.profissoes} orgaosEmissores={pfCgOptions.orgaosEmissores} logradouros={pfCgOptions.logradouros} estados={estados} naturalidadeNome={cidadeNome} onOpenNaturalidadeLookup={nada} onNaturalidadeCodeChange={nada} selectOptions={[]} />;
       case 'pessoa_juridica':
-        return <PessoaJuridicaFormView {...comuns} cidadeNome={exclusaoCidadeNome} onOpenCidadeLookup={nada} onCidadeCodeChange={nada} logradouros={pfCgOptions.logradouros} estados={estados} selectOptions={[]} />;
+        return <PessoaJuridicaFormView {...comuns} cidadeNome={cidadeNome} onOpenCidadeLookup={nada} onCidadeCodeChange={nada} logradouros={pfCgOptions.logradouros} estados={estados} selectOptions={[]} />;
       case 'usuario':
         return <AdministracaoSistemaFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} readOnly />;
       case 'perfil':
@@ -11036,7 +11177,7 @@ export default function Home() {
         if (cg) {
           return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showDimensoes={cg.collection === 'cg_formato_papel'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
         }
-        return <FormularioExcluidoGenerico colecao={ex.ds_colecao} dados={ex.dados} resolverNomeAutor={resolverNomeAutorExibicao} />;
+        return <FormularioExcluidoGenerico colecao={ex.ds_colecao} dados={ex.dados} resolverNomeAutor={resolverNomeAutorExibicao} resolverReferencia={descricaoReferenciaGenerica} />;
     }
   }
 
@@ -11272,6 +11413,62 @@ export default function Home() {
       });
   }
 
+  useEffect(() => {
+    if (!detailModalOpen || selectedAuditIndex === null) return;
+    let ativo = true;
+    if (!esquemaAuditoria) carregarEsquema().then((e) => { if (ativo) setEsquemaAuditoria(e); }).catch(() => undefined);
+    const estado = (log?: AuditEntry) => (log?.detalhes ?? (log as { depois?: unknown } | undefined)?.depois) as Record<string, unknown> | undefined;
+    const codigos = [estado(auditLogs[selectedAuditIndex]), estado(auditLogs[selectedAuditIndex + 1])]
+      .flatMap((d) => (d ? [d.cd_ibge_naturalidade, d.cd_ibge_cidade] : []))
+      .map((c) => String(c ?? '').trim())
+      .filter((c) => c && !(c in cidadesAuditoria));
+    for (const codigo of new Set(codigos)) {
+      cidadePorCodigo(codigo)
+        .then((cidade) => { if (ativo) setCidadesAuditoria((m) => ({ ...m, [codigo]: cidade ? `${cidade.nome} - ${cidade.uf}` : '' })); })
+        .catch(() => undefined);
+    }
+    return () => { ativo = false; };
+  }, [detailModalOpen, selectedAuditIndex, auditLogs, esquemaAuditoria, cidadesAuditoria]);
+
+  /**
+   * Dados do histórico como o formulário os recebe ao abrir o registro: datas sem hora
+   * (coluna date) em DD/MM/AAAA — os logs antigos guardam AAAA-MM-DD ou o instante ISO.
+   */
+  function dadosDoHistoricoParaFormulario(colecao: string, dados: Record<string, unknown>): Record<string, unknown> {
+    if (!esquemaAuditoria) return dados;
+    const saida: Record<string, unknown> = { ...dados };
+    for (const [campo, valor] of Object.entries(dados)) {
+      if (typeof valor !== 'string' || tipoDaColuna(esquemaAuditoria, colecao, campo) !== 'date') continue;
+      const m = /^(\d{4})-(\d{2})-(\d{2})(T.*)?$/.exec(valor.trim());
+      if (!m) continue;
+      if (m[4]) {
+        // Instante: o dia no fuso do Brasil.
+        const d = new Date(valor);
+        if (Number.isNaN(d.getTime())) continue;
+        const [ano, mes, dia] = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Sao_Paulo' }).format(d).split('-');
+        saida[campo] = `${dia}/${mes}/${ano}`;
+      } else {
+        saida[campo] = `${m[3]}/${m[2]}/${m[1]}`;
+      }
+    }
+    return saida;
+  }
+
+  const [bandasDaAuditoria, setBandasDaAuditoria] = useState<{ nr_sequencia?: number; nr_seq_relatorio?: number; ds_banda?: string }[]>([]);
+  /** Histórico de auditoria de uma importação (Gerenciador de Relatórios > Importar relatório). */
+  async function openImportacaoRelatorioAuditModal(id: string) {
+    setAuditDocumentType('relatorio_importacao' as typeof auditDocumentType);
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId('relatorio_importacao', id));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
   async function openRelatorioAuditModal(
     relatorioId?: string | null,
     itemId?: string | null,
@@ -11287,6 +11484,13 @@ export default function Home() {
     try {
       const logs = await fetchAuditByDocumentId(tipo, docId);
       setAuditLogs(logs);
+      if (tipo === 'relatorio_banda') {
+        const nrRel = (logs.find((l) => l.detalhes && (l.detalhes as Record<string, unknown>).nr_seq_relatorio != null)?.detalhes as Record<string, unknown> | undefined)?.nr_seq_relatorio;
+        if (nrRel != null) {
+          const { obterBandasSql } = await import('@/services/relatorioSqlService');
+          setBandasDaAuditoria(await obterBandasSql(Number(nrRel)).catch(() => []));
+        }
+      }
     } catch (e) {
       setAuditLogs([]);
     } finally {
@@ -11542,6 +11746,22 @@ export default function Home() {
     { campo: 'ie_status_manutencao', rotulo: 'Status', padrao: 'T', exibir: rotuloDeOpcao(MANUTENCAO_STATUS_OPTIONS) },
   ], removedorDeFiltro(setAppliedManutencaoFilterForm, setManutencaoFilterForm));
 
+  const cardsRelatorio = [
+    ...cardsDeFiltro('relatorio', appliedRelatorioFilterForm, [
+      { campo: 'nr_sequencia', rotulo: 'Sequência' },
+      { campo: 'descricao', rotulo: 'Descrição' },
+    ], removedorDeFiltro(setAppliedRelatorioFilterForm, setRelatorioFilterForm)),
+    ...cardsDeFiltro('relatorio_extra', relatorioFiltroExtraAplicado, [
+      { campo: 'ie_formato', rotulo: 'Formato', exibir: rotuloDeOpcao(RELATORIO_FORMATO_FILTRO_OPTIONS) },
+      { campo: 'ds_nome_arquivo', rotulo: 'Nome do arquivo' },
+      { campo: 'nr_seq_formato_papel', rotulo: 'Formato do papel', exibir: (v) => formatosPapel.find((p) => String(p.nr_sequencia) === v)?.ds_formato_papel ?? v },
+      { campo: 'ie_orientacao', rotulo: 'Orientação', exibir: rotuloDeOpcao(RELATORIO_ORIENTACAO_FILTRO_OPTIONS) },
+      { campo: 'ie_status', rotulo: 'Status', padrao: 'T', exibir: rotuloDeOpcao(RELATORIO_STATUS_FILTRO_OPTIONS) },
+      { campo: 'nr_seq_usuario_criacao', rotulo: 'Usuário criação', exibir: (v) => dsUsuarioPorSeq(v) || v },
+      { campo: 'nr_seq_usuario_alteracao', rotulo: 'Usuário alteração', exibir: (v) => dsUsuarioPorSeq(v) || v },
+    ], removedorDeFiltro(setRelatorioFiltroExtraAplicado, setRelatorioFiltroExtra)),
+  ];
+
   const cardsCopia = [
     ...cardsDeFiltro('copia', appliedCopiaFilterForm, camposCg(false, false), removedorDeFiltro(setAppliedCopiaFilterForm, setCopiaFilterForm)),
     ...cardsDeFiltro('copia_extra', copiaFiltroExtraAplicado, [
@@ -11645,8 +11865,9 @@ export default function Home() {
                   onSavingChange={setParametrosSaving}
                 />
               ) : adminManageSelection === 'parametros' ? (
-                <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_as')} paineis={paineisPorChave('config_paineis_parametros_funcao_as')}
-                  parametros={PARAMETROS_ADMINISTRACAO_SISTEMA}
+                <ParametrosDaFuncaoView key={`parametros-${parametrosFuncaoInicial.vez}`} funcaoInicial={parametrosFuncaoInicial.funcao} colunas={colunasPorChave('config_colunas_parametros_funcao_as')} paineis={paineisPorChave('config_paineis_parametros_funcao_as')}
+                  opcoesValorPadrao={opcoesValorPadraoCopia}
+                  onAfterSave={aposSalvarParametro}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   selectOptions={ADMIN_OPCOES_DROPDOWN}
@@ -11747,28 +11968,7 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "estruturaAcademica" ? (
-                alunoManageSelection === 'parametrosFuncao' ? (
-                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_ea')} paineis={paineisPorChave('config_paineis_parametros_funcao_ea')}
-                    parametros={PARAMETROS_ESTRUTURA_ACADEMICA}
-                    manageSelection={alunoManageSelection}
-                    onManageSelectionChange={handleAlunoManageSelectionChange}
-                    selectOptions={EA_SELECT_OPTIONS}
-                    allowedSubmodulos={allowedAlunoSubmodulos}
-                    onSaveSuccess={(msg) => setMessage(msg)}
-                    onSavingChange={setParametrosSaving}
-                    onOpenAudit={openParametroAuditModal}
-                    resolverNomeAutor={resolverNomeAutorExibicao}
-                    auditAutor={auditAutor}
-                    onAfterSave={(colecao) => {
-                      if (colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO || colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO) {
-                        loadCoresStatusPeriodoLetivo();
-                      }
-                      if (colecao === COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO) {
-                        loadEncerramentoAutomaticoPeriodoLetivo();
-                      }
-                    }}
-                  />
-                ) : alunoManageSelection === 'cursos' ? (
+                alunoManageSelection === 'cursos' ? (
                   <CadastroGeralListView
                     filtrosAplicados={cardsCurso}
                     key="cursos"
@@ -11991,28 +12191,7 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "patrimonio" ? (
-                ativoManageSelection === 'parametrosFuncao' ? (
-                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao')} paineis={paineisPorChave('config_paineis_parametros_funcao')}
-                    parametros={PARAMETROS_PATRIMONIO}
-                    onAfterSave={(colecao) => {
-                      if ([COLECAO_PARAM_COR_ATIVO_DESCARTADO, COLECAO_PARAM_COR_ATIVO_ESTOQUE, COLECAO_PARAM_COR_ATIVO_MANUTENCAO, COLECAO_PARAM_COR_ATIVO_OPERACIONAL].includes(colecao)) {
-                        loadCoresStatusAtivo();
-                      }
-                      if ([COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO, COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA, COLECAO_PARAM_COR_MANUTENCAO_CANCELADA].includes(colecao)) {
-                        loadCoresStatusManutencao();
-                      }
-                    }}
-                    manageSelection={ativoManageSelection}
-                    onManageSelectionChange={handlePatrimonioManageSelectionChange}
-                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
-                    allowedSubmodulos={allowedPatrimonioSubmodulos}
-                    onSaveSuccess={(msg) => setMessage(msg)}
-                    onSavingChange={setParametrosSaving}
-                    onOpenAudit={openParametroAuditModal}
-                    resolverNomeAutor={resolverNomeAutorExibicao}
-                    auditAutor={auditAutor}
-                  />
-                ) : ativoManageSelection === 'categoria' ? (
+                ativoManageSelection === 'categoria' ? (
                   <CadastroGeralListView
                     filtrosAplicados={cardsCategoria}
                     loading={loading}
@@ -12020,7 +12199,7 @@ export default function Home() {
                     columns={CATEGORIA_ATIVO_COLUMNS}
                     formatCellValue={formatCadastroGeralCellValue}
                     emptyMessage='Clique em "Adicionar" para cadastrar uma categoria.'
-                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                     manageSelection={ativoManageSelection}
                     onManageSelectionChange={handlePatrimonioManageSelectionChange}
                     allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -12046,7 +12225,7 @@ export default function Home() {
                     openEditForm={openManutencaoEditForm}
                     handleDelete={handleManutencaoDelete}
                     setContextMenu={setContextMenu}
-                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                     manageSelection={ativoManageSelection}
                     onManageSelectionChange={handlePatrimonioManageSelectionChange}
                     openFilter={openManutencaoFilterModal}
@@ -12085,7 +12264,7 @@ export default function Home() {
                     abaInicial={ativoDetalheAba}
                     onAbaChange={setAtivoDetalheAba}
                     ativo={ativoDetalhe}
-                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                    selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                     manageSelection={ativoManageSelection}
                     onManageSelectionChange={handlePatrimonioManageSelectionChange}
                     allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -12138,7 +12317,7 @@ export default function Home() {
                   openEditForm={openAtivoEditForm}
                   handleDelete={handleAtivoDelete}
                   setContextMenu={setContextMenu}
-                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   openFilter={openAtivoFilterModal}
@@ -12158,29 +12337,7 @@ export default function Home() {
                 />
                 )
               ) : activeSection === "controleCopias" ? (
-                ccManageSelection === 'parametrosFuncao' ? (
-                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_cc')} paineis={paineisPorChave('config_paineis_parametros_funcao_cc')}
-                    parametros={PARAMETROS_CONTROLE_COPIAS}
-                    opcoesValorPadrao={opcoesValorPadraoCopia}
-                    manageSelection={ccManageSelection}
-                    onManageSelectionChange={handleCcManageSelectionChange}
-                    selectOptions={CC_SELECT_OPTIONS}
-                    allowedSubmodulos={allowedCcSubmodulos}
-                    onSaveSuccess={(msg) => setMessage(msg)}
-                    onSavingChange={setParametrosSaving}
-                    onOpenAudit={openParametroAuditModal}
-                    resolverNomeAutor={resolverNomeAutorExibicao}
-                    auditAutor={auditAutor}
-                    onAfterSave={(colecao) => {
-                      if (colecao === COLECAO_PARAM_TIPOS_ARQUIVO_COPIA) loadExtensoesCopia();
-                      if ([COLECAO_PARAM_COR_COPIA_AGUARDANDO, COLECAO_PARAM_COR_COPIA_CANCELADO, COLECAO_PARAM_COR_COPIA_ENTREGUE, COLECAO_PARAM_COR_COPIA_IMPRESSO].includes(colecao)) {
-                        loadCoresStatusCopia();
-                      }
-                      if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
-                      if (colecao === COLECAO_PARAM_FORMATO_PAPEL_PADRAO || colecao === COLECAO_PARAM_TIPO_PAPEL_PADRAO) loadPapelPadraoCopia();
-                    }}
-                  />
-                ) : ccManageSelection === 'copias' ? (
+                ccManageSelection === 'copias' ? (
                   <CopiaListView
                     filtrosAplicados={cardsCopia}
                     key="copias"
@@ -12247,7 +12404,27 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "relatorio" ? (
-                relatorioView === 'builder' ? (
+                relatorioManageSelection === 'importarRelatorio' ? (
+                  <ImportacaoRelatorioView
+                    manageSelection={relatorioManageSelection}
+                    onManageSelectionChange={handleRelatorioManageSelectionChange}
+                    selectOptions={RELATORIO_SELECT_OPTIONS.filter((o) => allowedRelatorioSubmodulos.includes(o.value))}
+                    // Importar cria bandas, elementos e parâmetros: também pede a permissão de configurar bandas.
+                    podeImportar={permissoesRelatorio.importar && permissoesRelatorio.bandas}
+                    podeExcluir={permissoesRelatorio.importar}
+                    onMensagem={setMessage}
+                    onImportado={() => { void loadRelatorios(); }}
+                    onOpenAudit={podeVerAuditoria ? openImportacaoRelatorioAuditModal : undefined}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onConfirmarExclusao={(mensagem, acao) => {
+                      setConfirmDeleteMessage(mensagem);
+                      setConfirmDeleteType('');
+                      setConfirmDeleteAction(() => acao);
+                      setConfirmDeleteOpen(true);
+                    }}
+                    darkMode={darkMode}
+                  />
+                ) : relatorioView === 'builder' ? (
                   <div className="flex flex-col h-full">
                     <RelatorioBuilder
                       key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
@@ -12262,9 +12439,11 @@ export default function Home() {
                       resolverNomeAutorExibicao={resolverNomeAutorExibicao}
                       onToast={mostrarToast}
                       contextMenuItems={relatorioEditingId ? [
-                        ...(permissoesRelatorio.gerar ? [{ label: 'Gerar relatório', onClick: () => { if (relatorioForm) void handleRelatorioGerar(relatorioForm); } }] : []),
+                        ...(permissoesRelatorio.gerar && relatorioForm?.ie_status !== 'I' ? [{ label: 'Gerar relatório', onClick: () => { if (relatorioForm) void handleRelatorioGerar(relatorioForm); } }] : []),
                         ...(permissoesRelatorio.duplicar ? [{ label: 'Duplicar', onClick: () => { if (relatorioForm) handleRelatorioDuplicate(relatorioForm); } }] : []),
-                        ...(permissoesRelatorio.excluir ? [{ label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } }] : []),
+                        ...(permissoesRelatorio.bandas ? [{ label: 'Exportar relatório', onClick: () => { if (relatorioForm) void handleRelatorioExportar(relatorioForm); } }] : []),
+                        ...(permissoesRelatorio.editar && relatorioForm?.ie_origem !== 'Q' ? [{ label: relatorioForm?.ie_status === 'I' ? 'Ativar' : 'Inativar', onClick: () => { if (relatorioForm) void handleRelatorioStatus(relatorioForm); } }] : []),
+                        ...(permissoesRelatorio.excluir && relatorioForm?.ie_origem !== 'Q' ? [{ label: 'Excluir', onClick: () => { if (relatorioEditingId) handleRelatorioDelete(relatorioEditingId); } }] : []),
                       ] : []}
                       onPrevRecord={goToPrevRelatorioRecord}
                       onNextRecord={goToNextRelatorioRecord}
@@ -12313,6 +12492,8 @@ export default function Home() {
                     allowedSubmodulos={allowedRelatorioSubmodulos}
                     userId={currentUser?.id}
                     initialColumns={relatorioColunasConfig}
+                    openFilter={openRelatorioFilterModal}
+                    filtrosAplicados={cardsRelatorio}
                     onColumnsChange={handleRelatorioColumnsChange}
                     selectedRecordId={lastRelatorioEditingIdRef.current}
                   />
@@ -12427,8 +12608,9 @@ export default function Home() {
                   onSavingChange={setParametrosSaving}
                 />
               ) : adminManageSelection === 'parametros' ? (
-                <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_as')} paineis={paineisPorChave('config_paineis_parametros_funcao_as')}
-                  parametros={PARAMETROS_ADMINISTRACAO_SISTEMA}
+                <ParametrosDaFuncaoView key={`parametros-${parametrosFuncaoInicial.vez}`} funcaoInicial={parametrosFuncaoInicial.funcao} colunas={colunasPorChave('config_colunas_parametros_funcao_as')} paineis={paineisPorChave('config_paineis_parametros_funcao_as')}
+                  opcoesValorPadrao={opcoesValorPadraoCopia}
+                  onAfterSave={aposSalvarParametro}
                   manageSelection={adminManageSelection}
                   onManageSelectionChange={handleAdminManageSelectionChange}
                   selectOptions={ADMIN_OPCOES_DROPDOWN}
@@ -12851,29 +13033,7 @@ export default function Home() {
                   />
                 )
               ) : activeSection === "controleCopias" ? (
-                ccManageSelection === 'parametrosFuncao' ? (
-                  <ParametrosDaFuncaoView colunas={colunasPorChave('config_colunas_parametros_funcao_cc')} paineis={paineisPorChave('config_paineis_parametros_funcao_cc')}
-                    parametros={PARAMETROS_CONTROLE_COPIAS}
-                    opcoesValorPadrao={opcoesValorPadraoCopia}
-                    manageSelection={ccManageSelection}
-                    onManageSelectionChange={handleCcManageSelectionChange}
-                    selectOptions={CC_SELECT_OPTIONS}
-                    allowedSubmodulos={allowedCcSubmodulos}
-                    onSaveSuccess={(msg) => setMessage(msg)}
-                    onSavingChange={setParametrosSaving}
-                    onOpenAudit={openParametroAuditModal}
-                    resolverNomeAutor={resolverNomeAutorExibicao}
-                    auditAutor={auditAutor}
-                    onAfterSave={(colecao) => {
-                      if (colecao === COLECAO_PARAM_TIPOS_ARQUIVO_COPIA) loadExtensoesCopia();
-                      if ([COLECAO_PARAM_COR_COPIA_AGUARDANDO, COLECAO_PARAM_COR_COPIA_CANCELADO, COLECAO_PARAM_COR_COPIA_ENTREGUE, COLECAO_PARAM_COR_COPIA_IMPRESSO].includes(colecao)) {
-                        loadCoresStatusCopia();
-                      }
-                      if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
-                      if (colecao === COLECAO_PARAM_FORMATO_PAPEL_PADRAO || colecao === COLECAO_PARAM_TIPO_PAPEL_PADRAO) loadPapelPadraoCopia();
-                    }}
-                  />
-                ) : ccManageSelection === 'copias' ? (
+                ccManageSelection === 'copias' ? (
                   <CadastroGeralFormView
                     editingId={copiaEditingId}
                     sequence={copiaEditingId ? (copias.find((c) => c.id === copiaEditingId)?.nr_sequencia ?? null) : null}
@@ -12987,7 +13147,7 @@ export default function Home() {
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
-                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS}
                   descFieldKey="ds_categoria"
                   collectionName="pat_categoria"
@@ -13022,7 +13182,7 @@ export default function Home() {
                   prestadorName={manutencaoPrestadorName}
                   onOpenPrestadorLookup={() => openEnviarManutPrestadorLookup('form')}
                   onViewPrestador={(seq) => openColaboradorView(seq)}
-                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -13054,7 +13214,7 @@ export default function Home() {
                   localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))}
                   marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))}
                   sistemasOperacionais={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))}
-                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'parametrosFuncao' || permissoesPatrimonio.acessarParametrosFuncao) && (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
+                  selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
@@ -13345,14 +13505,20 @@ export default function Home() {
             }
             if (contextMenu.section === 'relatorio') {
               const items: { label: string; onClick: () => void }[] = [];
-              if (permissoesRelatorio.gerar) {
-                items.push({ label: 'Gerar relatório', onClick: () => { handleRelatorioGerar(contextMenu.item as Relatorio); setContextMenu(null); } });
+              const relatorioClicado = contextMenu.item as Relatorio;
+              if (permissoesRelatorio.gerar && relatorioClicado.ie_status !== 'I') {
+                items.push({ label: 'Gerar relatório', onClick: () => { handleRelatorioGerar(relatorioClicado); setContextMenu(null); } });
               }
               if (permissoesRelatorio.duplicar) {
-                items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(contextMenu.item as Relatorio); setContextMenu(null); } });
+                items.push({ label: 'Duplicar', onClick: () => { handleRelatorioDuplicate(relatorioClicado); setContextMenu(null); } });
               }
+              // Exportar: leva o SQL das bandas, então segue a permissão de configurar as bandas.
               if (permissoesRelatorio.bandas) {
-                items.push({ label: 'Bandas', onClick: () => { openRelatorioBandas(contextMenu.item as Relatorio); setContextMenu(null); } });
+                items.push({ label: 'Exportar relatório', onClick: () => { void handleRelatorioExportar(relatorioClicado); setContextMenu(null); } });
+              }
+              // Ativar/Inativar: o último antes do Excluir (relatório Quasar não é alterado).
+              if (permissoesRelatorio.editar && relatorioClicado.ie_origem !== 'Q') {
+                items.push({ label: relatorioClicado.ie_status === 'I' ? 'Ativar' : 'Inativar', onClick: () => { void handleRelatorioStatus(relatorioClicado); setContextMenu(null); } });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -13857,7 +14023,7 @@ export default function Home() {
                     </div>
                   )}
 
-                  {/* Alterar senha, Base de Conhecimento, Central de Suporte e Política de Privacidade */}
+                  {/* Alterar senha, Base de Conhecimento, Central de Suporte, Parâmetros da Função e Política de Privacidade */}
                   <div className="mt-8 flex flex-col gap-2">
                     {!isAdministrador && (
                       <button
@@ -13886,6 +14052,23 @@ export default function Home() {
                         className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
                       >
                         Central de Suporte
+                      </button>
+                    )}
+                    {/* Abre Administração do Sistema > Parâmetros com a função atual já selecionada. */}
+                    {currentUser?.ie_parametros_funcao === 'S' && allowedSections.includes('administracaoSistema') && allowedAdminSubmodulos.includes('parametros') && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setIsUserMenuOpen(false);
+                          setIsUserMenuClosing(false);
+                          setContextMenu(null);
+                          setParametrosFuncaoInicial((p) => ({ funcao: activeSection, vez: p.vez + 1 }));
+                          setActiveSection('administracaoSistema');
+                          handleAdminManageSelectionChange('parametros');
+                        }}
+                        className="flex w-full cursor-pointer items-center justify-center rounded-[2px] bg-[#1A4567] px-[7px] py-[5px] text-[13px] text-white transition hover:bg-[#173d5c] focus:bg-[#173d5c] outline-none"
+                      >
+                        Parâmetros da Função
                       </button>
                     )}
                     <button
@@ -15391,6 +15574,89 @@ export default function Home() {
               </div>
             </>
           )}
+        />
+      )}
+
+      {/* Filtro de Gerenciador de Relatórios > Relatórios (na ordem pedida: Sequência, Descrição, Formato,
+          Nome do arquivo, Formato do papel, Orientação, Status, Usuário criação e Usuário alteração). */}
+      {relatorioFilterModalOpen && activeSection === "relatorio" && relatorioView === 'list' && (
+        <CadastroGeralFilterModal
+          open={relatorioFilterModalOpen}
+          onClose={() => setRelatorioFilterModalOpen(false)}
+          filterForm={relatorioFilterForm}
+          setFilterForm={setRelatorioFilterForm}
+          onSubmit={handleRelatorioFilterSubmit}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('relatorio', { form: relatorioFilterForm, extra: relatorioFiltroExtra }, () => handleRelatorioFilterSubmit(EVENTO_SUBMIT)); }}
+          onClear={clearRelatorioFilter}
+          colecao="relatorio"
+          campoDescricao="ds_relatorio"
+          hideStatus
+          extraFields={(
+            <>
+              <div className="sm:col-span-3">
+                <RotuloCampo texto="Formato" colecao="relatorio" campo="ie_formato" />
+                <Select value={relatorioFiltroExtra.ie_formato} onChange={(v) => setRelatorioFiltroExtra((f) => ({ ...f, ie_formato: v }))} options={RELATORIO_FORMATO_FILTRO_OPTIONS} />
+              </div>
+              <div className="sm:col-span-9">
+                <RotuloCampo texto="Nome do arquivo" colecao="relatorio" campo="ds_nome_arquivo" />
+                <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={relatorioFiltroExtra.ds_nome_arquivo} onChange={(e) => setRelatorioFiltroExtra((f) => ({ ...f, ds_nome_arquivo: e.target.value }))} />
+              </div>
+              <div className="sm:col-span-6">
+                <RotuloCampo texto="Formato do papel" colecao="relatorio" campo="nr_seq_formato_papel" />
+                <Select
+                  value={relatorioFiltroExtra.nr_seq_formato_papel}
+                  onChange={(v) => setRelatorioFiltroExtra((f) => ({ ...f, nr_seq_formato_papel: v }))}
+                  options={opcoesDeReferencia(formatosPapel, (p) => p.ds_formato_papel, relatorioFiltroExtra.nr_seq_formato_papel)}
+                />
+              </div>
+              <div className="sm:col-span-3">
+                <RotuloCampo texto="Orientação" colecao="relatorio" campo="ie_orientacao" />
+                <Select value={relatorioFiltroExtra.ie_orientacao} onChange={(v) => setRelatorioFiltroExtra((f) => ({ ...f, ie_orientacao: v }))} options={RELATORIO_ORIENTACAO_FILTRO_OPTIONS} />
+              </div>
+              <div className="sm:col-span-3">
+                <RotuloCampo texto="Status" colecao="relatorio" campo="ie_status" />
+                <Select value={relatorioFiltroExtra.ie_status} onChange={(v) => setRelatorioFiltroExtra((f) => ({ ...f, ie_status: v || 'T' }))} options={RELATORIO_STATUS_FILTRO_OPTIONS} showPlaceholder={false} />
+              </div>
+              <CampoLookupReferencia
+                className="sm:col-span-12"
+                rotulo={<RotuloCampo texto="Usuário criação" colecao="relatorio" campo="ds_usuario_criacao" />}
+                ariaLocalizar="Localizar usuário criação"
+                inputClass="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                valor={relatorioFiltroExtra.nr_seq_usuario_criacao}
+                descricao={dsUsuarioPorSeq(relatorioFiltroExtra.nr_seq_usuario_criacao)}
+                onChange={(v) => setRelatorioFiltroExtra((f) => ({ ...f, nr_seq_usuario_criacao: v }))}
+                onLocalizar={() => setRelatorioUsuarioLookup('nr_seq_usuario_criacao')}
+              />
+              <CampoLookupReferencia
+                className="sm:col-span-12"
+                rotulo={<RotuloCampo texto="Usuário alteração" colecao="relatorio" campo="ds_usuario_alteracao" />}
+                ariaLocalizar="Localizar usuário alteração"
+                inputClass="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
+                valor={relatorioFiltroExtra.nr_seq_usuario_alteracao}
+                descricao={dsUsuarioPorSeq(relatorioFiltroExtra.nr_seq_usuario_alteracao)}
+                onChange={(v) => setRelatorioFiltroExtra((f) => ({ ...f, nr_seq_usuario_alteracao: v }))}
+                onLocalizar={() => setRelatorioUsuarioLookup('nr_seq_usuario_alteracao')}
+              />
+            </>
+          )}
+        />
+      )}
+
+      {/* ── Lookup: Usuário (filtro de Relatórios: Usuário criação / Usuário alteração) ── */}
+      {relatorioUsuarioLookup && (
+        <ReferenciaLookupModal
+          titulo="Usuário"
+          colecao="usuario"
+          campoDescricao="ds_usuario"
+          registros={usuarios.map((u) => ({ nr_sequencia: u.nr_sequencia, descricao: u.ds_usuario || `#${u.nr_sequencia}`, ie_status: u.ie_status === 'I' ? 'Inativo' : 'Ativo' }))}
+          colunas={[{ key: 'nr_sequencia', label: '#', dataClass: 'text-right' }, { key: 'descricao', label: 'Usuário' }, { key: 'ie_status', label: 'Status' }]}
+          filtros={[{ key: 'descricao', rotulo: 'Usuário', campo: 'ds_usuario' }]}
+          {...filtroDoReferenciaLookup('usuario')}
+          onClose={() => setRelatorioUsuarioLookup(null)}
+          onSelect={(item) => {
+            setRelatorioFiltroExtra((f) => ({ ...f, [relatorioUsuarioLookup]: String(item.nr_sequencia) }));
+            setRelatorioUsuarioLookup(null);
+          }}
         />
       )}
 
@@ -17402,6 +17668,7 @@ export default function Home() {
           flat.nr_sequencia = detalhes.nr_sequencia;
           flat.ds_relatorio = detalhes.ds_relatorio;
           flat.formato = detalhes.ie_formato;
+          flat.ie_status = detalhes.ie_status;
           const cfg = detalhes.configPdf || {};
           flat.titulo_arquivo = detalhes.ds_nome_arquivo ?? cfg.titulo ?? '';
           // Campos do PDF (margens em cm).
@@ -17582,6 +17849,7 @@ export default function Home() {
               'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
               'espessuraLabel', 'topoLabel', 'espessuraCampo', 'topoRegistro', 'bgLabel', 'bgCampo',
               'corLabelGlobal', 'corCampoGlobal', 'fonteLabel', 'tamanhoFonteLabel', 'fonteCampo', 'tamanhoFonteCampo',
+              'ie_status',
               'dt_criacao', 'dt_alteracao',
             ]
           : isRelatorio && isElemento
@@ -17590,17 +17858,19 @@ export default function Home() {
               'ie_alinhamento', 'cd_background', 'cd_cor', 'ie_fonte', 'qt_fonte', 'ds_label', 'cd_alias', 'ds_conteudo',
               'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
               'nr_seq_banda', 'nr_seq_relatorio',
+              'ie_status',
               'dt_criacao', 'dt_alteracao',
             ]
           : isRelatorio && isParametroRel
           ? [
               'nr_sequencia', 'nr_seq_relatorio', 'ie_colecao', 'ie_campo', 'operador', 'ie_mascara',
               'vl_padrao', 'valorFinal', 'ie_conector', 'ie_parametro', 'ds_label', 'ie_obrigatorio',
+              'ie_status',
               'dt_criacao', 'dt_alteracao',
             ]
           : isRelatorio
           ? [
-              'nr_sequencia', 'ds_relatorio', 'formato', 'titulo_arquivo',
+              'nr_sequencia', 'ds_relatorio', 'formato', 'ie_status', 'titulo_arquivo',
               'pdf_formato_papel', 'pdf_orientacao', 'pdf_borda',
               'pdf_margem_superior', 'pdf_margem_inferior', 'pdf_margem_esquerda', 'pdf_margem_direita',
               'bandas_sequencia',
@@ -17990,6 +18260,8 @@ export default function Home() {
                       if (field === 'ie_status' && isAtivo) {
                         return ATIVO_STATUS_OPTIONS.find((o) => o.value === String(normalized))?.label ?? String(normalized);
                       }
+                      // Relatório, banda, elemento e parâmetro: A = Ativo, I = Inativo.
+                      if (field === 'ie_status' && isRelatorio) return String(normalized) === 'I' ? 'Inativo' : String(normalized) === 'A' ? 'Ativo' : String(normalized);
                       if (field === 'ie_status' && auditDocumentType === 'copia') return rotuloStatusCopia(normalized) || String(normalized);
                       if (field === 'ie_status') {
                         if (isColaborador) return formatColaboradorCellValue('ie_status', normalized);
@@ -18274,19 +18546,50 @@ export default function Home() {
                     const effectiveBefore = comControle(baseBefore, auditLogs[selectedAuditIndex + 1]);
                     const effectiveAfter = comControle(baseAfter, auditLogs[selectedAuditIndex]);
 
+                    // Funções com formulário: o próprio formulário (antes e depois), com os mesmos
+                    // campos, controles, ordem e infobuttons, desabilitado e um campo em cima do outro.
+                    const colecaoDoFormulario = isRelatorio ? relatorioAuditTipo : auditDocumentType;
+                    const temFormulario = COLECOES_COM_FORMULARIO.has(colecaoDoFormulario)
+                      || !!FORMULARIOS_GENERICOS[colecaoDoFormulario]
+                      || Object.values(CG_DEFS).some((d) => d.collection === colecaoDoFormulario);
+                    if (temFormulario) {
+                      const generico = !!FORMULARIOS_GENERICOS[colecaoDoFormulario];
+                      const comoExclusao = (dados: Record<string, unknown>) => ({ ds_colecao: colecaoDoFormulario, dados: dadosDoHistoricoParaFormulario(colecaoDoFormulario, dados), id_registro: relatorioAuditItemId ?? '' }) as unknown as Exclusao;
+                      const cidadeDe = (dados: Record<string, unknown> | null) => cidadesAuditoria[String(dados?.cd_ibge_naturalidade ?? dados?.cd_ibge_cidade ?? '').trim()] ?? '';
+                      const dadosAntes = before ? comControle(before as Record<string, unknown>, auditLogs[selectedAuditIndex + 1]) : null;
+                      const dadosDepois = comControle(after as Record<string, unknown>, auditLogs[selectedAuditIndex]) ?? {};
+                      return (
+                        <div className="grid grid-cols-2 gap-x-6 w-full">
+                          <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Antes</div>
+                          <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Depois</div>
+                          <div className="min-w-0">
+                            {/* Criação: sem registro anterior, o "Antes" fica vazio. */}
+                            {dadosAntes && (
+                              <FormularioSomenteLeitura ocultarBarra={!generico}>{renderFormularioExcluido(comoExclusao(dadosAntes), cidadeDe(dadosAntes))}</FormularioSomenteLeitura>
+                            )}
+                          </div>
+                          <div className="min-w-0">
+                            <FormularioSomenteLeitura ocultarBarra={!generico}>{renderFormularioExcluido(comoExclusao(dadosDepois), cidadeDe(dadosDepois))}</FormularioSomenteLeitura>
+                          </div>
+                        </div>
+                      );
+                    }
+
+                    // Demais (avisos, regras, Campos x Formulários, parâmetros das funções e abas da
+                    // pessoa física): os campos do histórico, com o rótulo e o infobutton do campo.
                     return (
-                      <div className="grid grid-cols-2 gap-x-6 gap-y-4 w-full">
-                        <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Antes</div>
-                        <div className="text-sm font-medium mb-1" style={{ color: '#000' }}>Depois</div>
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-[15px] w-full">
+                        <div className="text-sm font-medium -mb-[11px]" style={{ color: '#000' }}>Antes</div>
+                        <div className="text-sm font-medium -mb-[11px]" style={{ color: '#000' }}>Depois</div>
                         {camposDetalhe.map((field) => {
                           return (
                           <React.Fragment key={field}>
                             <div className="w-full min-w-0">
-                              <div className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</div>
+                              <RotuloCampo texto={FIELD_LABELS[field] ?? field} colecao={colecaoDoFormulario} campo={field} />
                               {renderFieldValue(field, effectiveBefore ? (effectiveBefore as any)[field] : undefined)}
                             </div>
                             <div className="w-full min-w-0">
-                              <div className="block text-sm mb-1" style={{ color: '#666' }}>{FIELD_LABELS[field] ?? field}</div>
+                              <RotuloCampo texto={FIELD_LABELS[field] ?? field} colecao={colecaoDoFormulario} campo={field} />
                               {renderFieldValue(field, (effectiveAfter as any)[field])}
                             </div>
                           </React.Fragment>
@@ -18669,8 +18972,8 @@ export default function Home() {
             {/* Um campo por parâmetro com Perguntar, na ordem (Ordem; empate pela Sequência). */}
             <div className="grid gap-[15px] p-[15px] max-h-[60vh] overflow-y-auto">
               {relatorioParamModal.parametros.map((parametro, i) => {
-                const nome = nomeDoParametro(parametro.ds_parametro);
-                const texto = (parametro.ds_label ?? '').trim() || nome;
+                const nome = nomeDoParametro(parametro.cd_atributo);
+                const texto = (parametro.ds_label ?? '').trim() || (parametro.ds_parametro ?? '').trim() || nome;
                 return (
                   <div key={parametro.id ?? nome}>
                     <RotuloCampo

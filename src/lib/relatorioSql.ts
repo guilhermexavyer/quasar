@@ -175,3 +175,29 @@ export function problemaDoSql(preparado: SqlPreparado): string | null {
   }
   return null;
 }
+
+/** Status do relatório, da banda, do elemento e do parâmetro: sem valor (antigo) = ativo. */
+export const itemAtivo = (item: { ie_status?: string | null } | null | undefined) => (item?.ie_status ?? "A") !== "I";
+
+/**
+ * Bandas que saem no relatório: as ativas cuja Banda superior (se houver) também sai.
+ * Banda inativa leva junto as dependentes dela (direta ou indiretamente).
+ */
+export function bandasQueSaem<T extends { ie_status?: string | null }>(
+  bandas: T[], nrDe: (b: T) => unknown, superiorDe: (b: T) => unknown,
+): T[] {
+  const porNr = new Map(bandas.map((b) => [String(nrDe(b)), b]));
+  const sai = (b: T, visitadas = new Set<string>()): boolean => {
+    if (!itemAtivo(b)) return false;
+    const sup = superiorDe(b);
+    if (sup === null || sup === undefined || sup === "") return true;
+    const chave = String(sup);
+    const superior = porNr.get(chave);
+    // Banda superior que não existe mais: a banda sai sozinha (como antes).
+    if (!superior) return true;
+    if (visitadas.has(chave)) return false; // ciclo (não deveria existir)
+    visitadas.add(chave);
+    return sai(superior, visitadas);
+  };
+  return bandas.filter((b) => sai(b));
+}

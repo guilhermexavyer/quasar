@@ -6,6 +6,7 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import CampoPesquisa from "@/components/ui/CampoPesquisa";
+import CampoCorPaleta from "@/components/ui/CampoCorPaleta";
 import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/ativoUtils";
@@ -242,6 +243,23 @@ export const PARAMETROS_CONTROLE_COPIAS: ParametroDef[] = [
   },
 ];
 
+/** Função com parâmetros (painel Funções de Administração do Sistema > Parâmetros). */
+export interface FuncaoComParametros {
+  /** Chave da função (ex.: "patrimonio"). */
+  funcao: string;
+  /** Nome exibido. */
+  label: string;
+  parametros: ParametroDef[];
+}
+
+/** Funções com parâmetros, em ordem alfabética. */
+export const FUNCOES_COM_PARAMETROS: FuncaoComParametros[] = [
+  { funcao: "administracaoSistema", label: "Administração do Sistema", parametros: PARAMETROS_ADMINISTRACAO_SISTEMA },
+  { funcao: "controleCopias", label: "Controle de Cópias", parametros: PARAMETROS_CONTROLE_COPIAS },
+  { funcao: "estruturaAcademica", label: "Estrutura Acadêmica", parametros: PARAMETROS_ESTRUTURA_ACADEMICA },
+  { funcao: "patrimonio", label: "Patrimônio", parametros: PARAMETROS_PATRIMONIO },
+];
+
 /** Opções do parâmetro Sim/Não ("---" vale como Não). */
 const OPCOES_SIM_NAO = [
   { value: "N", label: "Não" },
@@ -261,8 +279,8 @@ function segmentoVazio(): Segmento {
 }
 
 interface ParametrosDaFuncaoViewProps {
-  /** Parâmetros da função (lista do painel esquerdo). */
-  parametros: ParametroDef[];
+  /** Funções (painel da esquerda); cada uma com os seus parâmetros (painel do centro). */
+  funcoes?: FuncaoComParametros[];
   manageSelection: string;
   onManageSelectionChange: (v: string) => void;
   selectOptions?: { value: string; label: string }[];
@@ -282,10 +300,17 @@ interface ParametrosDaFuncaoViewProps {
   paineis?: ConfigPaineis;
   /** Opções do dropdown "Valor padrão" de cada parâmetro do tipo "valorPadrao" (pelo id). */
   opcoesValorPadrao?: Record<string, { value: string; label: string }[]>;
+  /** Função já selecionada ao abrir (ex.: "Parâmetros da Função" da pop-up do usuário). */
+  funcaoInicial?: string | null;
 }
 
+/**
+ * Administração do Sistema > Parâmetros, no layout de Campos x Formulários: três painéis
+ * redimensionáveis — Funções (as que têm parâmetros), Parâmetros da função selecionada
+ * (Dropdown e Parâmetro) e a Regra do parâmetro selecionado (valor, logs e Cancelar/Salvar).
+ */
 export default function ParametrosDaFuncaoView({
-  parametros,
+  funcoes = FUNCOES_COM_PARAMETROS,
   manageSelection,
   onManageSelectionChange,
   selectOptions = [],
@@ -299,7 +324,12 @@ export default function ParametrosDaFuncaoView({
   colunas,
   paineis,
   opcoesValorPadrao = {},
+  funcaoInicial = null,
 }: ParametrosDaFuncaoViewProps) {
+  const [funcaoSelecionada, setFuncaoSelecionada] = useState<string | null>(
+    funcaoInicial && funcoes.some((f) => f.funcao === funcaoInicial) ? funcaoInicial : null,
+  );
+  const [pesquisaFuncao, setPesquisaFuncao] = useState("");
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [pesquisa, setPesquisa] = useState("");
   const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
@@ -322,6 +352,8 @@ export default function ParametrosDaFuncaoView({
   const handleSalvarRef = useRef<() => void>(() => {});
   const raizRef = useRef<HTMLDivElement>(null);
 
+  const funcaoAtiva = funcoes.find((f) => f.funcao === funcaoSelecionada) ?? null;
+  const parametros = funcaoAtiva?.parametros ?? [];
   const selectedParametro = parametros.find((p) => p.id === selectedParametroId) ?? null;
   const colecaoSelecionada = selectedParametro?.colecao ?? null;
   const segmentosEmEdicao = segmentosDraft ?? segmentos;
@@ -398,6 +430,22 @@ export default function ParametrosDaFuncaoView({
       }
       return { tipo: parte, texto: "" };
     });
+  }
+
+  /** Troca de parâmetro (ou de função): descarta o valor/edição do anterior até o novo carregar. */
+  function selecionarParametro(id: string | null) {
+    setSegmentos([segmentoVazio()]);
+    setSegmentosDraft(null);
+    setCor("");
+    setCorDraft(null);
+    setSimNao("");
+    setSimNaoDraft(null);
+    setValorPadrao("");
+    setValorPadraoDraft(null);
+    setExtensoesSalvas(null);
+    setExtensoesDraft(null);
+    setAuditInfo(AUDIT_VAZIO);
+    setSelectedParametroId(id);
   }
 
   function adicionarSegmento(index: number) {
@@ -513,8 +561,9 @@ export default function ParametrosDaFuncaoView({
       </div>
 
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
-        <PaineisRedimensionaveis proporcoesPadrao={[1, 2]} config={paineis?.config} onChange={paineis?.onChange}>
-          {/* ── Painel 1: Lista de Parâmetros (1/3) ── */}
+        {/* Padrão como em Campos x Formulários: Funções 7/30, Parâmetros 9/30 e a Regra com o restante. */}
+        <PaineisRedimensionaveis proporcoesPadrao={[7, 9, 14]} config={paineis?.config} onChange={paineis?.onChange}>
+          {/* ── Painel 1: Funções com parâmetros ── */}
           <div
             className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
             style={{
@@ -526,6 +575,41 @@ export default function ParametrosDaFuncaoView({
               borderRightColor: "#ccc",
             }}
           >
+            <CampoPesquisa valor={pesquisaFuncao} onChange={setPesquisaFuncao} />
+            <div className="overflow-auto flex-1 min-h-0">
+              <ResizableTable<FuncaoComParametros>
+                columns={[{ key: "funcao", label: "Função", render: (f) => f.label }]}
+                rows={filtrarPesquisa(funcoes, pesquisaFuncao, (f) => [f.label])}
+                rowKey={(f) => f.funcao}
+                rowClassName={(f) => (f.funcao === funcaoSelecionada ? "row-selected" : "")}
+                onRowClick={(f) => {
+                  if (f.funcao === funcaoSelecionada) return;
+                  setFuncaoSelecionada(f.funcao);
+                  setPesquisa("");
+                  selecionarParametro(null);
+                }}
+              />
+            </div>
+          </div>
+
+          {/* ── Painel 2: Parâmetros da função ── */}
+          <div
+            className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
+            style={{
+              borderStyle: "solid",
+              borderWidth: "1px",
+              borderTopColor: "#999",
+              borderLeftColor: "#999",
+              borderBottomColor: "#ccc",
+              borderRightColor: "#ccc",
+            }}
+          >
+            {!funcaoAtiva ? (
+              <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">
+                Selecione uma função.
+              </div>
+            ) : (
+            <>
             <CampoPesquisa valor={pesquisa} onChange={setPesquisa} />
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
@@ -540,25 +624,15 @@ export default function ParametrosDaFuncaoView({
                 rowClassName={(p) => (p.id === selectedParametroId ? "row-selected" : "")}
                 onRowClick={(p) => {
                   if (p.id === selectedParametroId) return;
-                  // Troca de parâmetro: descarta o valor/edição do anterior até o novo carregar.
-                  setSegmentos([segmentoVazio()]);
-                  setSegmentosDraft(null);
-                  setCor("");
-                  setCorDraft(null);
-                  setSimNao("");
-                  setSimNaoDraft(null);
-                  setValorPadrao("");
-                  setValorPadraoDraft(null);
-                  setExtensoesSalvas(null);
-                  setExtensoesDraft(null);
-                  setAuditInfo(AUDIT_VAZIO);
-                  setSelectedParametroId(p.id);
+                  selecionarParametro(p.id);
                 }}
               />
             </div>
+            </>
+            )}
           </div>
 
-          {/* ── Painel 2: Configuração do Parâmetro (2/3) ── */}
+          {/* ── Painel 3: Regra do parâmetro ── */}
           <div
             className="flex min-h-0 flex-col overflow-hidden border p-[5px]"
             style={{
@@ -642,20 +716,13 @@ export default function ParametrosDaFuncaoView({
                       />
                     </div>
                   ) : selectedParametro.tipo === "cor" ? (
-                    <div className="relative w-full" style={{ height: 34 }}>
-                      <input
-                        type="color"
-                        id={`cor-parametro-${selectedParametro.id}`}
-                        value={corEmEdicao}
-                        onChange={(e) => setCorDraft(e.target.value)}
-                        className="absolute opacity-0 w-0 h-0 pointer-events-none"
-                      />
-                      <div
-                        className="cg-cor w-full h-full cursor-pointer"
-                        style={{ backgroundColor: corEmEdicao }}
-                        onClick={() => document.getElementById(`cor-parametro-${selectedParametro.id}`)?.click()}
-                      />
-                    </div>
+                    // A cor do status não pode ficar vazia: paleta sem a opção Transparente.
+                    <CampoCorPaleta
+                      valor={corEmEdicao}
+                      onChange={(v) => setCorDraft(v)}
+                      rotuloAcessivel={selectedParametro.parametro}
+                      semTransparente
+                    />
                   ) : (
                   <div className="space-y-2 w-full">
                     {segmentosEmEdicao.map((seg, index) => {

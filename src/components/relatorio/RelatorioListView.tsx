@@ -11,9 +11,11 @@ import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import Select from "@/components/ui/Select";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
+import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 
 const RELATORIO_SELECT_OPTIONS = [
   { value: 'relatorio', label: 'Relatórios' },
+  { value: 'importarRelatorio', label: 'Importar relatório' },
 ];
 
 interface RelatorioListViewProps {
@@ -35,12 +37,19 @@ interface RelatorioListViewProps {
   onColumnsChange?: (order: string[], widths: Record<string, number>) => void;
   /** ID do registro selecionado (controlado pelo pai). */
   selectedRecordId?: string | null;
+  /** Abre o modal de filtro. */
+  openFilter?: () => void;
+  /** Cards dos filtros aplicados (ao lado do dropdown Pai). */
+  filtrosAplicados?: FiltroAplicado[];
 }
 
 function formatCellValue(key: string, value: any): string {
   if (value == null || value === "") return "";
   if (key === "dt_alteracao" || key === "dt_criacao") {
     return formatDate(String(value));
+  }
+  if (key === "ie_origem") {
+    return value === "I" ? "Importação" : value === "Q" ? "Quasar" : "Criação";
   }
   if (key === "formato") {
     return value === "pdf" ? "PDF" : "XLS";
@@ -57,7 +66,7 @@ const COLUMNS = [
   { key: "ds_usuario_criacao", label: "Usuário criação" },
   { key: "ds_usuario_alteracao", label: "Usuário alteração" },
   // Coluna nova no fim: a ordem e a largura salvas das colunas são por posição.
-  { key: "cd_relatorio", label: "Código" },
+  { key: "ie_origem", label: "Origem" },
 ];
 
 const COLUMN_KEYS = COLUMNS.map((c) => c.key);
@@ -80,6 +89,8 @@ export default function RelatorioListView({
   initialColumns,
   onColumnsChange,
   selectedRecordId,
+  openFilter,
+  filtrosAplicados,
 }: RelatorioListViewProps) {
   const [selectedId, setSelectedId] = useState<string | null>(selectedRecordId ?? null);
   useEffect(() => { if (selectedRecordId != null) setSelectedId(selectedRecordId); }, [selectedRecordId]);
@@ -122,7 +133,8 @@ export default function RelatorioListView({
   return (
     <div className="flex-1 flex flex-col min-h-0 space-y-6">
       {/* ── Toolbar ── */}
-      <div className="flex items-center justify-between gap-3 min-h-[42px]">
+      <div className="relative flex items-center justify-between gap-3 min-h-[42px]">
+        {manageSelection && <FiltrosAplicados filtros={filtrosAplicados} />}
         <div className="flex items-center gap-2">
           <Select
             value={manageSelection}
@@ -131,6 +143,18 @@ export default function RelatorioListView({
             showPlaceholder={showPlaceholder}
             className="!w-[180px]"
           />
+          {manageSelection && openFilter && (
+            <button
+              type="button"
+              onClick={openFilter}
+              className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] bg-transparent text-[#aaa] hover:text-[#777] cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
+              aria-label="Abrir filtro"
+            >
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M3 4h18l-7.5 9.5V20l-3-1.5v-5L3 4z" />
+              </svg>
+            </button>
+          )}
         </div>
         {manageSelection && (
           <button
@@ -189,8 +213,9 @@ export default function RelatorioListView({
               onRowDoubleClick={handleRowDoubleClick}
               rowPointer={() => true}
               onRowContextMenu={handleContextMenu}
+              // Inativo: mesmo estilo do colaborador Desligado.
               rowClassName={(row) =>
-                row._id === selectedId ? "row-selected" : ""
+                `${row._id === selectedId ? "row-selected" : ""} ${row.ie_status === "I" ? "registro-desligado" : ""}`
               }
             />
           </div>

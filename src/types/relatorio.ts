@@ -5,14 +5,16 @@
 export interface Relatorio {
   id?: string;
   nr_sequencia: number;
-  /** Código do relatório (único; identifica o relatório na exportação e importação). */
-  cd_relatorio?: string | null;
+  /** Origem: C = Criação, I = Importação, Q = Quasar (não pode ser alterado nem excluído). */
+  ie_origem?: "C" | "I" | "Q" | null;
   /** Descrição do relatório. */
   ds_relatorio: string;
   /** SQL principal: usado pelas bandas sem SQL próprio. */
   ds_sql?: string | null;
   /** Observação. */
   ds_observacao?: string;
+  /** A = ativo; I = inativo (não é gerado). */
+  ie_status?: "A" | "I" | null;
 
   /* ── Fonte de dados ── */
   /** Tabela principal (ex.: 'pat_ativo'). */

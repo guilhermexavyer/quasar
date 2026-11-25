@@ -3,7 +3,7 @@ import { desenharBordaPagina } from "@/lib/relatorioPdf";
 import type { Relatorio } from "@/types/relatorio";
 import type { FormatoPapel } from "@/types/formatoPapel";
 import type { Imagem } from "@/types/imagem";
-import { nomeDoParametro } from "@/lib/relatorioSql";
+import { bandasQueSaem, itemAtivo, nomeDoParametro } from "@/lib/relatorioSql";
 import {
   bandaEhDetalhe,
   obterParametrosSql,
@@ -28,7 +28,7 @@ import {
  *   - Detalhe: no espaço entre o Cabeçalho e o Rodapé, na ordem da Sequência, uma vez
  *     para cada linha do SQL (com quebra de página quando não cabe). A banda dependente
  *     (Banda superior) sai logo depois de cada registro da superior, com o SQL rodado
- *     para aquele registro. Opções: Exibir labels, Nova página a cada registro e
+ *     para aquele registro. Opções: Exibir labels, Quebrar página por registro e
  *     Imprimir sem registros (ver desenharDetalhe).
  *   - SQL vazio na banda: vale o SQL do relatório (capa).
  * Elementos (medidas em px; 96 px = 1 polegada):
@@ -47,9 +47,10 @@ import {
  *   - Padding (superior, inferior, esquerda, direita, em px): distância entre a borda da caixa
  *     e o texto (o Background e as bordas continuam na caixa inteira);
  *   - Detalhe com Exibir labels: Estilo, Cor e Background valem só para o label; os registros
- *     saem no estilo padrão. Alternar background: registros pares com fundo #cccccc na
- *     largura da banda; na linha dos labels, o Background do elemento de menor Sequência
- *     preenche a linha toda. Os dois fundos ficam do lado de dentro da Borda da página;
+ *     saem no estilo padrão. Registros (banda): todos os
+ *     registros com a cor, na largura da banda; sem ela, Alternar background: registros
+ *     pares com fundo #cccccc. Labels (banda): a linha dos labels inteira.
+ *     Os fundos ficam do lado de dentro da Borda da página;
  *   - Imagem: a imagem de Administração do Sistema > Imagens, no tamanho Largura x Altura
  *     (sem um deles, mantém a proporção; sem os dois, o tamanho original em px).
  * Bordas (Borda superior, inferior, esquerda e direita da banda e do elemento): linha
@@ -193,6 +194,17 @@ export function formatarValor(valor: unknown, tipo: DadosRelatorio["colunas"][nu
       const hora = d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
       return mascara === "hora" ? hora : `${d.toLocaleDateString("pt-BR")} ${hora}`;
     }
+  } else if (mascara === "cep" || mascara === "cpf" || mascara === "cnpj") {
+    // Só os dígitos (zeros à esquerda completados, para colunas numéricas). Com mais
+    // dígitos do que o documento tem, o valor sai como o banco devolve.
+    const formatos = {
+      cep: [8, /^(\d{5})(\d{3})$/, "$1-$2"],
+      cpf: [11, /^(\d{3})(\d{3})(\d{3})(\d{2})$/, "$1.$2.$3-$4"],
+      cnpj: [14, /^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, "$1.$2.$3/$4-$5"],
+    } as const;
+    const [tamanho, padrao, troca] = formatos[mascara];
+    const digitos = String(valor).replace(/\D/g, "");
+    if (digitos && digitos.length <= tamanho) return digitos.padStart(tamanho, "0").replace(padrao, troca);
   } else if (mascara === "numero" || mascara === "moeda" || mascara === "porcentagem") {
     const n = paraNumero(valor);
     if (n !== null) {
@@ -406,13 +418,15 @@ export async function gerarPdfRelatorio(
   relatorio: Relatorio, formato: FormatoPapel | undefined, valores: Record<string, string>, nome: string, imagens: Imagem[] = [],
   usuario = "",
 ): Promise<void> {
-  const [bandas, dados, parametros] = await Promise.all([
+  const [todasBandas, dados, parametros] = await Promise.all([
     obterBandasSql(relatorio.nr_sequencia), obterDadosPdf(relatorio.nr_sequencia, valores), obterParametrosSql(relatorio.nr_sequencia),
   ]);
+  // Inativos não saem: a banda inativa leva junto as dependentes; elemento e parâmetro inativos ficam de fora.
+  const bandas = bandasQueSaem(todasBandas, (b) => b.nr_sequencia, (b) => b.nr_seq_banda_superior);
   // Valor de cada parâmetro (para o elemento Parâmetro): o informado ao gerar ou o Valor padrão.
   const valoresParametros: Record<string, string> = {};
-  for (const p of parametros) {
-    const nomeParametro = nomeDoParametro(p.ds_parametro);
+  for (const p of parametros.filter(itemAtivo)) {
+    const nomeParametro = nomeDoParametro(p.cd_atributo);
     if (!nomeParametro) continue;
     const perguntado = p.ie_perguntar === "S" && Object.prototype.hasOwnProperty.call(valores, nomeParametro);
     valoresParametros[nomeParametro.toLowerCase()] = String((perguntado ? valores[nomeParametro] : p.vl_padrao) ?? "");
@@ -420,7 +434,7 @@ export async function gerarPdfRelatorio(
   const completas: BandaCompleta[] = await Promise.all(
     bandas.map(async (banda) => ({
       banda,
-      elementos: banda.nr_sequencia == null ? [] : await obterElementosDaBanda(Number(banda.nr_sequencia)),
+      elementos: banda.nr_sequencia == null ? [] : (await obterElementosDaBanda(Number(banda.nr_sequencia))).filter(itemAtivo),
     }))
   );
   // Imagens usadas pelos elementos (cada uma baixada uma vez).
@@ -582,7 +596,7 @@ export function montarPdf(
    *     (do menor Topo até o maior Topo + Altura);
    *   - Exibir labels: antes dos registros (e no topo de cada página nova da banda), uma
    *     linha com o Label de cada elemento;
-   *   - Nova página a cada registro: cada registro começa numa página nova;
+   *   - Quebrar página por registro: cada registro começa numa página nova;
    *   - Imprimir sem registros: sem linhas, a banda sai uma vez (elementos SQL vazios).
    */
   const desenharDetalhe = (b: BandaCompleta, dadosBanda: DadosRelatorio | undefined, nivel: number) => {
@@ -604,17 +618,18 @@ export function montarPdf(
     if (semRegistros && b.banda.ie_imprimir_vazio !== "S") return;
     const comLabels = b.banda.ie_exibir_label === "S";
     const novaPaginaPorRegistro = b.banda.ie_nova_pagina === "S";
-    // Linha dos labels: o Background do elemento de menor Sequência preenche a linha toda
-    // (como o Alternar background); os labels saem sem o Background próprio.
-    const primeiro = [...b.elementos].sort((a, c) => Number(a.nr_sequencia ?? 0) - Number(c.nr_sequencia ?? 0))[0];
-    const fundoDosLabels = primeiro?.cd_background || undefined;
+    // Linha dos labels: o campo Labels da banda preenche a linha toda; o Background
+    // do elemento fica só na caixa do label dele.
+    const fundoDosLabels = b.banda.cd_background_label || undefined;
+    // Registros (cor da banda): todos com a cor; sem ela, o Alternar background.
+    const fundoDosRegistros = b.banda.cd_background_registro || undefined;
     const desenharLabels = () => {
       aplicarTopo();
       dentroDaBanda(y, altura, () => {
         if (fundoDosLabels) preencherLinha(y, altura, fundoDosLabels);
         for (const el of b.elementos) {
           if (el.ie_tipo === "imagem" || el.ie_tipo === "linha") continue;
-          desenharElemento(doc, { ...el, cd_background: null }, margens.esquerda, y - deslocamento, el.ds_label ?? "");
+          desenharElemento(doc, el, margens.esquerda, y - deslocamento, el.ds_label ?? "");
         }
       });
       bordasDaBanda(b, y, altura);
@@ -639,8 +654,8 @@ export function montarPdf(
       desenharBandaFixa(b, y, altura, dadosBanda, linhas[i], deslocamento, {
         // Com labels, Estilo, Cor e Background são só do label; os registros ficam no padrão.
         estiloPadrao: comLabels,
-        // Alternar background: 1º registro transparente, 2º cinza, 3º transparente...
-        fundo: b.banda.ie_alternar_background === "S" && i % 2 === 1 ? COR_LINHA_ALTERNADA : undefined,
+        // Registros (cor da banda); sem ela, Alternar background: 1º transparente, 2º cinza...
+        fundo: fundoDosRegistros ?? (b.banda.ie_alternar_background === "S" && i % 2 === 1 ? COR_LINHA_ALTERNADA : undefined),
       });
       y += altura;
       for (const dependente of dependentes) {

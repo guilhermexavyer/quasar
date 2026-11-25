@@ -169,6 +169,7 @@ export default function AdministracaoSistemaFormView({
             options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
             showPlaceholder={false}
             className="!w-[180px]"
+            disabled
           />
           <div className="flex items-center gap-1">
             <button
@@ -344,7 +345,7 @@ export default function AdministracaoSistemaFormView({
           </div>
 
           <div className="sm:col-span-6">
-            <div className="flex gap-8">
+            <div className="flex flex-wrap gap-x-8 gap-y-[15px]">
               <div className="group flex flex-col">
                 {renderFieldLabel('ie_base_conhecimento', 'Base de Conhecimento')}
                 <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
@@ -367,6 +368,19 @@ export default function AdministracaoSistemaFormView({
                     disabled={readOnly || statusDe('ie_central_suporte') === 'D'}
                     checked={form.ie_central_suporte === 'S'}
                     onChange={() => setForm({ ...form, ie_central_suporte: form.ie_central_suporte === 'S' ? 'N' : 'S' })}
+                  />
+                  <span>Sim</span>
+                </label>
+              </div>
+              <div className="group flex flex-col">
+                {renderFieldLabel('ie_parametros_funcao', 'Parâmetros da Função')}
+                <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="cg-checkbox"
+                    disabled={readOnly || statusDe('ie_parametros_funcao') === 'D'}
+                    checked={form.ie_parametros_funcao === 'S'}
+                    onChange={() => setForm({ ...form, ie_parametros_funcao: form.ie_parametros_funcao === 'S' ? 'N' : 'S' })}
                   />
                   <span>Sim</span>
                 </label>

@@ -121,6 +121,10 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
     colunas: [SEQ, { key: "ds_relatorio", label: "Descrição" }],
   },
   {
+    colecao: "relatorio_importacao", funcao: "Gerenciador de Relatórios", dropdown: "Importar relatório",
+    colunas: [SEQ, { key: "ds_arquivo", label: "Arquivo" }, { key: "nr_seq_relatorio", label: "Sequência do relatório", alinharDireita: true }, { key: "ds_relatorio", label: "Descrição do relatório" }],
+  },
+  {
     colecao: "relatorio_banda", funcao: "Gerenciador de Relatórios", dropdown: "Relatórios > Bandas",
     colunas: [SEQ, { key: "nr_seq_relatorio", label: "Relatório", alinharDireita: true }, { key: "ds_banda", label: "Descrição" }, { key: "ie_tipo_banda", label: "Tipo" }],
   },
