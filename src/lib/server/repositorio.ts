@@ -61,7 +61,7 @@ function tratarSenha(tabela: string, valores: Map<string, unknown>) {
 async function alterarSenhaNoProximoLogin(db: Executor): Promise<boolean> {
   // Sem registro (nunca configurado) ou "---"/Não: equivale a Não.
   const { rows } = await db.query<Registro>(
-    "select ie_regra from as_param_alterar_senha_proximo_login where nr_sequencia = 1"
+    "select ie_regra from as_param_redefinir_senha_primeiro_login where nr_sequencia = 1"
   );
   return String(rows[0]?.ie_regra ?? "").toUpperCase() === "S";
 }

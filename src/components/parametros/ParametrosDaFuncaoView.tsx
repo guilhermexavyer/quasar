@@ -20,7 +20,7 @@ import {
   COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
-  COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN,
+  COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
   COLECAO_PARAM_MATRICULA_ALUNO,
   COLECAO_PARAM_MATRICULA_COLABORADOR,
@@ -34,9 +34,16 @@ import {
   COLECAO_PARAM_TIPO_PAPEL_PADRAO,
   obterParametro,
   salvarParametro,
+  salvarParametroCampos,
   type CampoParametro,
 } from "@/services/parametroFuncaoService";
-import { OPCOES_SEGMENTO_REGRA } from "@/lib/regraCodigoUtils";
+import {
+  OPCOES_SEGMENTO_REGRA,
+  QTD_SEGMENTOS_REGRA,
+  segmentoUsaCampo,
+  segmentoUsaDigitos,
+  type SegmentoRegra,
+} from "@/lib/regraCodigoUtils";
 import { CORES_STATUS_PERIODO_LETIVO_PADRAO } from "@/lib/periodoLetivoUtils";
 import { CORES_STATUS_ATIVO_PADRAO } from "@/lib/ativoUtils";
 import { CORES_STATUS_MANUTENCAO_PADRAO } from "@/lib/manutencaoUtils";
@@ -47,7 +54,7 @@ import { EXTENSOES_ARQUIVO_COPIA, extensoesPermitidasCopia, serializarExtensoesC
 
 /**
  * Parâmetro de uma função: linha da lista + coleção onde o valor é salvo.
- * - "regra": regra de geração de código (ds_regra);
+ * - "regra": regra de geração de código, 10 segmentos fixos (ie_regra_N: tipo; ds_regra_N: texto ou dígitos);
  * - "cor": cor de um status (cd_cor), com a cor padrão usada enquanto não for configurada;
  * - "simNao": dropdown "Regra" com ---/Não/Sim (ie_regra; --- equivale a Não);
  * - "extensoes": checkboxes com os tipos de arquivo permitidos (ds_regra: extensões separadas por vírgula);
@@ -169,10 +176,10 @@ export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
 /** Parâmetros de configuração da função Administração do Sistema. */
 export const PARAMETROS_ADMINISTRACAO_SISTEMA: ParametroDef[] = [
   {
-    id: "alterar_senha_proximo_login",
+    id: "redefinir_senha_primeiro_login",
     dropdown: "Usuários",
     parametro: "Redefinir senha no primeiro login após alterar senha",
-    colecao: COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN,
+    colecao: COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN,
     tipo: "simNao",
   },
 ];
@@ -268,14 +275,54 @@ const OPCOES_SIM_NAO = [
 
 const AUDIT_VAZIO = { createdAt: "", updatedAt: "", createdBy: "", updatedBy: "" };
 
-/** Tipo de cada segmento: tipo obrigatório + texto opcional (quando tipo === "texto"). */
-interface Segmento {
-  tipo: string;
-  texto: string;
+/** Os 10 segmentos da regra, vazios. */
+function segmentosVazios(): SegmentoRegra[] {
+  return Array.from({ length: QTD_SEGMENTOS_REGRA }, () => ({ tipo: "", texto: "" }));
 }
 
-function segmentoVazio(): Segmento {
-  return { tipo: "", texto: "" };
+/** Os 10 segmentos do registro do parâmetro (ie_regra_N / ds_regra_N), na posição de cada um. */
+function segmentosDoRegistro(doc: Record<string, unknown> | null | undefined): SegmentoRegra[] {
+  return segmentosVazios().map((_, i) => ({
+    tipo: String(doc?.[`ie_regra_${i + 1}`] ?? ""),
+    texto: String(doc?.[`ds_regra_${i + 1}`] ?? ""),
+  }));
+}
+
+/** Rótulo de um campo do parâmetro com infobutton (como os demais campos do sistema). */
+function RotuloCampo({ texto, campo, colecao }: { texto: string; campo: string; colecao: string }) {
+  const [aberto, setAberto] = useState(false);
+  const [anchor, setAnchor] = useState<HTMLElement | null>(null);
+  return (
+    <div className="block text-sm mb-1" style={{ color: "#666" }}>
+      <div className="relative group inline-flex items-center gap-2">
+        <span>{texto}</span>
+        <button
+          type="button"
+          onClick={(event) => {
+            event.stopPropagation();
+            setAnchor(event.currentTarget);
+            setAberto((v) => !v);
+          }}
+          tabIndex={-1}
+          aria-label={`Informações do campo ${texto}`}
+          className={`inline-flex h-5 w-5 items-center justify-center rounded text-[#777] bg-transparent cursor-pointer transition-none ${aberto ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+        >
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+            <circle cx="12" cy="12" r="10" />
+            <path d="M12 8v4" />
+            <circle cx="12" cy="16" r="0.5" />
+          </svg>
+        </button>
+        {aberto && (
+          <FieldInfoPopup
+            anchor={anchor}
+            meta={{ type: "string", field: campo, collection: colecao }}
+            onClose={() => setAberto(false)}
+          />
+        )}
+      </div>
+    </div>
+  );
 }
 
 interface ParametrosDaFuncaoViewProps {
@@ -332,8 +379,8 @@ export default function ParametrosDaFuncaoView({
   const [pesquisaFuncao, setPesquisaFuncao] = useState("");
   const [selectedParametroId, setSelectedParametroId] = useState<string | null>(null);
   const [pesquisa, setPesquisa] = useState("");
-  const [segmentos, setSegmentos] = useState<Segmento[]>([segmentoVazio()]);
-  const [segmentosDraft, setSegmentosDraft] = useState<Segmento[] | null>(null);
+  const [segmentos, setSegmentos] = useState<SegmentoRegra[]>(segmentosVazios);
+  const [segmentosDraft, setSegmentosDraft] = useState<SegmentoRegra[] | null>(null);
   const [cor, setCor] = useState("");
   const [corDraft, setCorDraft] = useState<string | null>(null);
   const [simNao, setSimNao] = useState("");
@@ -372,10 +419,7 @@ export default function ParametrosDaFuncaoView({
   /** Lê o documento do parâmetro: valor salvo + logs de criação/alteração. */
   const carregarParametro = useCallback(async (colecao: string, campoValor?: CampoParametro) => {
     const doc = await obterParametro(colecao);
-    if (doc?.ds_regra) {
-      const parsed = parseRegra(doc.ds_regra);
-      setSegmentos(parsed.length > 0 ? parsed : [segmentoVazio()]);
-    }
+    setSegmentos(segmentosDoRegistro(doc as Record<string, unknown> | null));
     setCor(doc?.cd_cor ?? "");
     setSimNao(doc?.ie_regra ?? "");
     setValorPadrao(campoValor && doc?.[campoValor] != null ? String(doc[campoValor]) : "");
@@ -403,38 +447,9 @@ export default function ParametrosDaFuncaoView({
     return () => { cancelled = true; };
   }, [colecaoSelecionada, campoValorSelecionado, carregarParametro]);
 
-  /** Serializa segmentos para string (ex.: "AnoAtual-Hifen-Texto:ESCOLA"). */
-  function serializarRegra(segs: Segmento[]): string {
-    return segs
-      .filter((s) => s.tipo !== "")
-      .map((s) => {
-        if (s.tipo === "texto" && s.texto) return `texto:${s.texto}`;
-        if ((s.tipo === "sequencia_digitos" || s.tipo === "sequencial_digitos") && s.texto) return `${s.tipo}:${s.texto}`;
-        return s.tipo;
-      })
-      .join("-");
-  }
-
-  /** Faz o parse inverso da string salva para array de segmentos. */
-  function parseRegra(regra: string): Segmento[] {
-    if (!regra || !regra.trim()) return [segmentoVazio()];
-    return regra.split("-").filter((v) => v.trim() !== "").map((parte) => {
-      if (parte.toLowerCase().startsWith("texto:")) {
-        return { tipo: "texto", texto: parte.slice(6) };
-      }
-      if (parte.toLowerCase().startsWith("sequencia_digitos:")) {
-        return { tipo: "sequencia_digitos", texto: parte.slice(18) };
-      }
-      if (parte.toLowerCase().startsWith("sequencial_digitos:")) {
-        return { tipo: "sequencial_digitos", texto: parte.slice(19) };
-      }
-      return { tipo: parte, texto: "" };
-    });
-  }
-
   /** Troca de parâmetro (ou de função): descarta o valor/edição do anterior até o novo carregar. */
   function selecionarParametro(id: string | null) {
-    setSegmentos([segmentoVazio()]);
+    setSegmentos(segmentosVazios());
     setSegmentosDraft(null);
     setCor("");
     setCorDraft(null);
@@ -448,22 +463,12 @@ export default function ParametrosDaFuncaoView({
     setSelectedParametroId(id);
   }
 
-  function adicionarSegmento(index: number) {
-    const next = [...segmentosEmEdicao];
-    next.splice(index + 1, 0, segmentoVazio());
-    setSegmentosDraft(next);
-  }
-
-  function removerSegmento(index: number) {
-    const next = [...segmentosEmEdicao];
-    next.splice(index, 1);
-    if (next.length === 0) next.push(segmentoVazio());
-    setSegmentosDraft(next);
-  }
-
   function atualizarSegmentoTipo(index: number, valor: string) {
     const next = [...segmentosEmEdicao];
-    next[index] = { ...next[index], tipo: valor, texto: valor === "texto" ? next[index].texto : "" };
+    // O campo ao lado guarda texto (Texto) ou dígitos (Sequência/Sequencial): trocar de um para o outro limpa.
+    const mantem = (valor === "texto" && next[index].tipo === "texto")
+      || (segmentoUsaDigitos(valor) && segmentoUsaDigitos(next[index].tipo));
+    next[index] = { ...next[index], tipo: valor, texto: mantem ? next[index].texto : "" };
     setSegmentosDraft(next);
   }
 
@@ -511,11 +516,15 @@ export default function ParametrosDaFuncaoView({
         setExtensoesDraft(null);
         await salvarParametro(colecaoSelecionada, "ds_regra", valor, auditAutor);
       } else {
-        const limpos = segmentosEmEdicao.filter((s) => s.tipo !== "");
-        const salvos = limpos.length > 0 ? limpos : [segmentoVazio()];
-        setSegmentos(salvos);
+        // Cada segmento fica na própria posição; sem tipo, o campo ao lado não é gravado.
+        const valores: Partial<Record<CampoParametro, string>> = {};
+        segmentosEmEdicao.forEach((seg, i) => {
+          valores[`ie_regra_${i + 1}`] = seg.tipo;
+          valores[`ds_regra_${i + 1}`] = segmentoUsaCampo(seg.tipo) ? seg.texto : "";
+        });
+        setSegmentos(segmentosEmEdicao);
         setSegmentosDraft(null);
-        await salvarParametro(colecaoSelecionada, "ds_regra", serializarRegra(salvos), auditAutor);
+        await salvarParametroCampos(colecaoSelecionada, valores);
       }
       onSaveSuccess?.("Parâmetro salvo com sucesso");
       // Atualizar info de auditoria
@@ -651,7 +660,8 @@ export default function ParametrosDaFuncaoView({
             ) : (
               <div className="flex flex-col h-full min-h-0">
                 <div className="overflow-auto flex-1 min-h-0">
-                  {/* Rótulo do campo (com infobutton, como os demais campos do sistema) */}
+                  {/* Rótulo do campo (com infobutton, como os demais campos do sistema); na regra, cada campo tem o seu. */}
+                  {selectedParametro.tipo !== "regra" && (
                   <div className="block text-sm mb-1" style={{ color: "#666" }}>
                     <div className="relative group inline-flex items-center gap-2">
                       <span>{rotuloValor}</span>
@@ -683,6 +693,7 @@ export default function ParametrosDaFuncaoView({
                       )}
                     </div>
                   </div>
+                  )}
                   {selectedParametro.tipo === "extensoes" ? (
                     <div className="grid w-full grid-cols-3 sm:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-2">
                       {[...EXTENSOES_ARQUIVO_COPIA].sort((a, b) => a.ext.localeCompare(b.ext, "pt-BR")).map((e) => (
@@ -727,56 +738,36 @@ export default function ParametrosDaFuncaoView({
                   <div className="space-y-2 w-full">
                     {segmentosEmEdicao.map((seg, index) => {
                       const isTexto = seg.tipo === "texto";
-                      const isSequenciaDigitos = seg.tipo === "sequencia_digitos" || seg.tipo === "sequencial_digitos";
-                      const mostraInputExtra = isTexto || isSequenciaDigitos;
+                      // Texto sempre visível; habilitado com Texto (texto livre) ou Sequência/Sequencial (dígitos).
+                      const habilitado = segmentoUsaCampo(seg.tipo);
                       return (
-                        <div key={index} className="flex items-center gap-2 w-full">
-                          <div className={mostraInputExtra ? "w-1/2 min-w-0" : "flex-1 min-w-0"}>
+                        <div key={index} className="flex items-end gap-2 w-full">
+                          <div className="w-1/2 min-w-0">
+                            <RotuloCampo texto={`Regra ${index + 1}`} campo={`ie_regra_${index + 1}`} colecao={selectedParametro.colecao} />
                             <Select
                               value={seg.tipo}
                               onChange={(v) => atualizarSegmentoTipo(index, v)}
                               options={OPCOES_SEGMENTO_REGRA}
                               showPlaceholder
-                              visibleOptions={7}
+                              visibleOptions={9}
                             />
                           </div>
-                          {mostraInputExtra && (
-                            <div className="w-1/2 min-w-0">
-                              <input
-                                type="text"
-                                inputMode={isTexto ? 'text' : 'numeric'}
-                                pattern={isTexto ? undefined : '[0-9]*'}
-                                value={seg.texto}
-                                onChange={(e) => {
-                                  const val = isTexto ? e.target.value : e.target.value.replace(/[^0-9]/g, "");
-                                  atualizarSegmentoTexto(index, val);
-                                }}
-                                className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                              />
-                            </div>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => adicionarSegmento(index)}
-                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-[#003056] hover:text-[#003056]"
-                            aria-label={`Adicionar segmento após o ${index + 1}`}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <path d="M12 5v14" />
-                              <path d="M5 12h14" />
-                            </svg>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => removerSegmento(index)}
-                            disabled={segmentosEmEdicao.length <= 1}
-                            className="btn-responsavel inline-flex h-[34px] w-[34px] shrink-0 items-center justify-center cursor-pointer text-slate-700 hover:border-red-500 hover:text-red-600 disabled:cursor-default disabled:opacity-40 disabled:hover:border-[#999] disabled:hover:text-slate-700"
-                            aria-label={`Remover segmento ${index + 1}`}
-                          >
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                              <path d="M5 12h14" />
-                            </svg>
-                          </button>
+                          <div className="w-1/2 min-w-0">
+                            <RotuloCampo texto={`Texto ${index + 1}`} campo={`ds_regra_${index + 1}`} colecao={selectedParametro.colecao} />
+                            <input
+                              type="text"
+                              aria-label={`Texto ${index + 1}`}
+                              disabled={!habilitado}
+                              inputMode={isTexto || !habilitado ? "text" : "numeric"}
+                              pattern={isTexto || !habilitado ? undefined : "[0-9]*"}
+                              value={seg.texto}
+                              onChange={(e) => {
+                                const val = isTexto ? e.target.value : e.target.value.replace(/[^0-9]/g, "");
+                                atualizarSegmentoTexto(index, val);
+                              }}
+                              className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500"
+                            />
+                          </div>
                         </div>
                       );
                     })}

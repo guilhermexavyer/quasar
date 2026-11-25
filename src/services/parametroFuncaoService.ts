@@ -4,7 +4,8 @@ import { fetchAuditByDocumentId, type AuditAutor } from "@/services/auditService
 /**
  * Parâmetros das funções (tela Parâmetros). Cada parâmetro tem a própria
  * tabela com um único registro e a auditoria. O valor fica em
- * ds_regra (regra de geração de código), cd_cor (cor de status) ou ie_regra (opção Sim/Não).
+ * ds_regra (texto, ex.: extensões), cd_cor (cor de status), ie_regra (opção Sim/Não) ou,
+ * na regra de geração de código (matrículas), nos pares ie_regra_N / ds_regra_N (N = 1 a 10).
  */
 export const COLECAO_PARAM_COR_ATIVO_DESCARTADO = "pat_param_cor_ativo_descartado";
 export const COLECAO_PARAM_COR_ATIVO_ESTOQUE = "pat_param_cor_ativo_estoque";
@@ -18,7 +19,7 @@ export const COLECAO_PARAM_MATRICULA_COLABORADOR = "ea_param_matricula_colaborad
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "ea_param_cor_periodo_letivo_andamento";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "ea_param_cor_periodo_letivo_encerrado";
 export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "ea_param_encerramento_automatico_periodo_letivo";
-export const COLECAO_PARAM_ALTERAR_SENHA_PROXIMO_LOGIN = "as_param_alterar_senha_proximo_login";
+export const COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN = "as_param_redefinir_senha_primeiro_login";
 /** Extensões permitidas no anexo de Controle de Cópias > Cópias (ds_regra: "pdf,docx,..."). */
 export const COLECAO_PARAM_TIPOS_ARQUIVO_COPIA = "cc_param_tipos_arquivo_copia";
 export const COLECAO_PARAM_COR_COPIA_AGUARDANDO = "cc_param_cor_copia_aguardando";
@@ -33,9 +34,12 @@ export const COLECAO_PARAM_FORMATO_PAPEL_PADRAO = "cc_param_formato_papel_padrao
 export const COLECAO_PARAM_TIPO_PAPEL_PADRAO = "cc_param_tipo_papel_padrao";
 
 /** Campo onde o valor do parâmetro é gravado. */
-export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra" | "nr_seq_formato_papel" | "nr_seq_tipo_papel";
+export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra" | "nr_seq_formato_papel" | "nr_seq_tipo_papel" | CampoSegmentoRegra;
 
-export interface ParametroFuncao {
+/** Segmentos da regra de geração de código: tipo (ie_regra_N) e texto/dígitos (ds_regra_N). */
+export type CampoSegmentoRegra = `ie_regra_${number}` | `ds_regra_${number}`;
+
+export interface ParametroFuncao extends Partial<Record<CampoSegmentoRegra, string>> {
   id?: string;
   ds_regra?: string;
   cd_cor?: string;
@@ -88,4 +92,24 @@ export async function salvarParametro(colecao: string, campo: CampoParametro, va
   }
   if (String(atual[campo] ?? "") === valor) return;
   await atualizarDado(colecao, atual.id, { [campo]: valor }, auditoria);
+}
+
+/**
+ * Grava vários campos do parâmetro de uma vez (ex.: os segmentos da regra de
+ * geração de código). Só os campos alterados são gravados e vão para a auditoria;
+ * sem alteração, nada é gravado.
+ */
+export async function salvarParametroCampos(colecao: string, valores: Partial<Record<CampoParametro, string>>): Promise<void> {
+  const atual = (await listarDados<ParametroFuncao>(colecao))[0];
+  const alterados: Record<string, string> = {};
+  for (const [campo, valor] of Object.entries(valores) as [CampoParametro, string][]) {
+    if (String(atual?.[campo] ?? "") !== valor) alterados[campo] = valor;
+  }
+  if (Object.keys(alterados).length === 0) return;
+  const auditoria = { detalhes: alterados };
+  if (!atual?.id) {
+    await criarDado(colecao, alterados, auditoria);
+    return;
+  }
+  await atualizarDado(colecao, atual.id, alterados, auditoria);
 }

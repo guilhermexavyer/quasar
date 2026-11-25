@@ -500,8 +500,6 @@ export default function CopiaListView({
     <>
       <style>{`
         .resizer-handle { position: absolute; right: 0; top: 0; bottom: 0; width: 7px; cursor: col-resize; z-index: 10; }
-        .resizer-handle::after { content: ""; position: absolute; right: 2px; top: 4px; bottom: 4px; width: 3px; border-radius: 2px; background: transparent; transition: background-color 150ms; }
-        .resizer-handle:hover::after { background-color: #94a3b8; }
         th, td { min-width: 0 !important; box-sizing: border-box; }
         th { white-space: nowrap; overflow: hidden; }
         th .header-content { display: flex; align-items: center; justify-content: space-between; gap: 4px; white-space: nowrap; overflow: hidden; width: 100%; }

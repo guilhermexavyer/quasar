@@ -390,12 +390,22 @@ const POR_TABELA: Record<string, Record<string, string>> = {
   },
 };
 
+/** Ajuda dos 10 segmentos da regra de geração de matrícula (ie_regra_N e ds_regra_N). */
+function ajudaSegmentosRegra(quem: string): Record<string, string> {
+  const ajuda: Record<string, string> = {};
+  for (let i = 1; i <= 10; i++) {
+    ajuda[`ie_regra_${i}`] = `Monte a matrícula dos ${quem} em até 10 segmentos, na ordem (ex.: Ano atual + Texto "-" + Sequencial). Segmento sem Regra é ignorado.`;
+    ajuda[`ds_regra_${i}`] = "Com Regra Texto: o texto inserido na matrícula (inclusive símbolos, como - . / ( )). Com Sequência ou Sequencial: a quantidade de dígitos, com zeros à esquerda (vazio = sem zeros).";
+  }
+  return ajuda;
+}
+
 /** Parâmetros das funções (tabelas *_param_*): texto pela coluna do valor. */
 const PARAMETROS: Record<string, Record<string, string>> = {
-  ea_param_matricula_aluno: { ds_regra: "Monte a regra de geração da matrícula dos alunos, segmento a segmento (ex.: ano + sequencial)." },
-  ea_param_matricula_colaborador: { ds_regra: "Monte a regra de geração da matrícula dos colaboradores, segmento a segmento (ex.: ano + sequencial)." },
+  ea_param_matricula_aluno: ajudaSegmentosRegra("alunos"),
+  ea_param_matricula_colaborador: ajudaSegmentosRegra("colaboradores"),
   ea_param_encerramento_automatico_periodo_letivo: { ie_regra: "Sim: o período letivo é encerrado automaticamente na data da previsão de término." },
-  as_param_alterar_senha_proximo_login: { ie_regra: "Sim: o usuário precisa criar uma nova senha no primeiro login após ter a senha alterada." },
+  as_param_redefinir_senha_primeiro_login: { ie_regra: "Sim: o usuário precisa criar uma nova senha no primeiro login após ter a senha alterada." },
   cc_param_tipos_arquivo_copia: { ds_regra: "Marque os tipos de arquivo que podem ser anexados em Cópias." },
   cc_param_data_recebimento_automatica: { ie_regra: "Sim: a Data do recebimento de uma cópia nova já vem com a data atual." },
   cc_param_formato_papel_padrao: { nr_seq_formato_papel: "Formato do papel que já vem selecionado em uma cópia nova." },

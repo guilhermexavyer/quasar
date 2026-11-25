@@ -22,7 +22,7 @@ export const TABELAS_REGISTRO_UNICO = new Set([
   "pat_param_cor_ativo_manutencao", "pat_param_cor_ativo_operacional", "pat_param_cor_manutencao_andamento",
   "pat_param_cor_manutencao_concluida", "pat_param_cor_manutencao_cancelada", "ea_param_matricula_aluno",
   "ea_param_matricula_colaborador", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado",
-  "ea_param_encerramento_automatico_periodo_letivo", "as_param_alterar_senha_proximo_login",
+  "ea_param_encerramento_automatico_periodo_letivo", "as_param_redefinir_senha_primeiro_login",
   "cc_param_tipos_arquivo_copia", "cc_param_cor_copia_aguardando", "cc_param_cor_copia_cancelado",
   "cc_param_cor_copia_entregue", "cc_param_cor_copia_impresso", "cc_param_data_recebimento_automatica",
   "cc_param_formato_papel_padrao", "cc_param_tipo_papel_padrao",

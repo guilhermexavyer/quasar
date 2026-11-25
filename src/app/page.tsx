@@ -155,7 +155,7 @@ import {
   COLECAO_PARAM_TIPO_PAPEL_PADRAO,
   obterParametro,
 } from "@/services/parametroFuncaoService";
-import { gerarCodigoPorRegra } from "@/lib/regraCodigoUtils";
+import { gerarCodigoPorRegra, segmentosDoParametro, OPCOES_SEGMENTO_REGRA, QTD_SEGMENTOS_REGRA } from "@/lib/regraCodigoUtils";
 import { EVENTO_SESSAO_EXPIRADA, atualizarPropriaSenha } from "@/lib/apiCliente";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
@@ -427,7 +427,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.95.0";
+const SYSTEM_VERSION = "0.96.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -9366,12 +9366,9 @@ export default function Home() {
     setGerandoMatricula(true);
     try {
       const doc = await obterParametro(COLECAO_PARAM_MATRICULA_ALUNO);
-      if (!doc?.ds_regra) {
+      const regra = segmentosDoParametro(doc as Record<string, unknown> | null);
+      if (regra.length === 0) {
         setMessage("Nenhuma regra de geração de matrícula configurada.");
-        return;
-      }
-      if (doc.ds_regra.split("-").every((v) => v.trim() === "")) {
-        setMessage("Regra de matrícula vazia.");
         return;
       }
 
@@ -9380,7 +9377,6 @@ export default function Home() {
         setMessage("Erro: aluno sem ID.");
         return;
       }
-      const regra = doc.ds_regra;
       const regerando = alvos.every((a) => !!a.nr_matricula?.trim());
       // Matrículas geradas neste lote: entram no Sequencial dos próximos.
       const geradas = new Map<string, string>();
@@ -9416,12 +9412,9 @@ export default function Home() {
     setGerandoMatricula(true);
     try {
       const doc = await obterParametro(COLECAO_PARAM_MATRICULA_COLABORADOR);
-      if (!doc?.ds_regra) {
+      const regra = segmentosDoParametro(doc as Record<string, unknown> | null);
+      if (regra.length === 0) {
         setMessage("Nenhuma regra de geração de matrícula configurada.");
-        return;
-      }
-      if (doc.ds_regra.split("-").every((v) => v.trim() === "")) {
-        setMessage("Regra de matrícula vazia.");
         return;
       }
       const alvos = lote.filter((c) => c.id);
@@ -9429,7 +9422,6 @@ export default function Home() {
         setMessage("Erro: colaborador sem ID.");
         return;
       }
-      const regra = doc.ds_regra;
       const regerando = alvos.every((c) => !!c.nr_matricula?.trim());
       // Matrículas geradas neste lote: entram no Sequencial dos próximos.
       const geradas = new Map<string, string>();
@@ -17846,6 +17838,8 @@ export default function Home() {
               'ds_regra',
               'cd_cor',
               'ie_regra',
+              // Regra de geração de código (matrículas): os 10 segmentos.
+              ...Array.from({ length: QTD_SEGMENTOS_REGRA }, (_, i) => [`ie_regra_${i + 1}`, `ds_regra_${i + 1}`]).flat(),
               'dt_criacao', 'dt_alteracao',
             ]
           : isManutencao
@@ -18185,6 +18179,13 @@ export default function Home() {
                       dt_criacao: 'Criação',
                       dt_alteracao: 'Alteração',
                     };
+                    // Parâmetros com regra de geração de código: Regra N (tipo) e Texto N.
+                    if (isParametros) {
+                      for (let i = 1; i <= QTD_SEGMENTOS_REGRA; i++) {
+                        FIELD_LABELS[`ie_regra_${i}`] = `Regra ${i}`;
+                        FIELD_LABELS[`ds_regra_${i}`] = `Texto ${i}`;
+                      }
+                    }
                     // Em Manutenções, o campo nr_seq_prestador_servico é o Prestador.
                     if (isManutencao) FIELD_LABELS['nr_seq_prestador_servico'] = 'Prestador de serviço';
 
@@ -18206,6 +18207,8 @@ export default function Home() {
                       const normalized = normalizeAuditValue(val);
                       if (normalized === null || normalized === undefined || normalized === '') return '';
                       if (field.startsWith('dt_')) return formatDate(String(normalized));
+                      // Segmento da regra de geração de código: nome da opção.
+                      if (isParametros && /^ie_regra_\d+$/.test(field)) return OPCOES_SEGMENTO_REGRA.find((o) => o.value === normalized)?.label ?? String(normalized);
                       // Formato do papel: medidas como no formulário ("210", "215,9").
                       if (auditDocumentType === 'cg_formato_papel' && (field === 'qt_largura' || field === 'qt_altura')) return formatarMedida(normalized);
                       // Referências (nr_seq_*) exibidas pela descrição do registro vinculado.
