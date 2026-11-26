@@ -211,7 +211,8 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
   relatorio_banda_elemento: [{
     titulo: "Elemento",
     campos: [
-      { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
+      { campo: "nr_camada", rotulo: "Camada", span: 1 },
       { campo: "ds_elemento", rotulo: "Descrição", span: 4 },
       { campo: "ie_tipo", rotulo: "Tipo", span: 2, tipo: "dropdown", formatar: rotuloDe([{ value: "sql", label: "SQL" }, { value: "conteudo", label: "Conteúdo" }, { value: "imagem", label: "Imagem" }, { value: "parametro", label: "Parâmetro" }, { value: "pagina", label: "Página" }, { value: "data_hora", label: "Data/hora" }, { value: "usuario", label: "Usuário" }, { value: "linha", label: "Linha" }]) },
       { campo: "nr_seq_imagem", rotulo: "Imagem", span: 4, tipo: "dropdown" },

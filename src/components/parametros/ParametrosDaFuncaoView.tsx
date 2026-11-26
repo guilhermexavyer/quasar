@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
-import ResizableTable from "@/components/ui/ResizableTable";
+import ResizableTable, { useOrdenacaoTabela } from "@/components/ui/ResizableTable";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import FieldInfoPopup from "@/components/ui/FieldInfoPopup";
 import CampoPesquisa from "@/components/ui/CampoPesquisa";
@@ -401,6 +401,13 @@ export default function ParametrosDaFuncaoView({
 
   const funcaoAtiva = funcoes.find((f) => f.funcao === funcaoSelecionada) ?? null;
   const parametros = funcaoAtiva?.parametros ?? [];
+  const { ordenados: funcoesOrdenadas, props: ordenacaoFuncoes } = useOrdenacaoTabela(
+    filtrarPesquisa(funcoes, pesquisaFuncao, (f) => [f.label]),
+    (f) => f.label,
+  );
+  const { ordenados: parametrosOrdenados, props: ordenacaoParametros } = useOrdenacaoTabela(
+    filtrarPesquisa(parametros, pesquisa, (p) => [p.dropdown, p.parametro]),
+  );
   const selectedParametro = parametros.find((p) => p.id === selectedParametroId) ?? null;
   const colecaoSelecionada = selectedParametro?.colecao ?? null;
   const segmentosEmEdicao = segmentosDraft ?? segmentos;
@@ -587,8 +594,9 @@ export default function ParametrosDaFuncaoView({
             <CampoPesquisa valor={pesquisaFuncao} onChange={setPesquisaFuncao} />
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable<FuncaoComParametros>
+                {...ordenacaoFuncoes}
                 columns={[{ key: "funcao", label: "Função", render: (f) => f.label }]}
-                rows={filtrarPesquisa(funcoes, pesquisaFuncao, (f) => [f.label])}
+                rows={funcoesOrdenadas}
                 rowKey={(f) => f.funcao}
                 rowClassName={(f) => (f.funcao === funcaoSelecionada ? "row-selected" : "")}
                 onRowClick={(f) => {
@@ -628,7 +636,8 @@ export default function ParametrosDaFuncaoView({
                   { key: "parametro", label: "Parâmetro" },
                   // Sem colunas de auditoria: os parâmetros são padrão do sistema, não registros criados pelo usuário.
                 ]}
-                rows={filtrarPesquisa(parametros, pesquisa, (p) => [p.dropdown, p.parametro])}
+                {...ordenacaoParametros}
+                rows={parametrosOrdenados}
                 rowKey={(p) => p.id}
                 rowClassName={(p) => (p.id === selectedParametroId ? "row-selected" : "")}
                 onRowClick={(p) => {

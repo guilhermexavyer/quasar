@@ -4,7 +4,7 @@ import LoadingModal from "@/components/ui/LoadingModal";
 import { useEffect, useMemo, useState } from "react";
 import Select from "@/components/ui/Select";
 import { LOGS_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
-import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
+import ResizableTable, { useOrdenacaoTabela, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import CampoPesquisa from "@/components/ui/CampoPesquisa";
@@ -252,6 +252,9 @@ export default function ExclusoesView({
     <div className="flex h-full items-center justify-center p-4 text-center text-sm text-slate-500">{texto}</div>
   );
 
+  const { ordenados: linhasOrdenacaoOrdenadas, props: ordenacaoLinhasOrdenacao } = useOrdenacaoTabela(
+    filtrarPesquisa(linhasOrdenacao, pesquisaRegistro, (o) => [o.nr_sequencia, o.campo, o.direcao]),
+  );
   return (
     <div className="flex-1 flex flex-col min-h-0 gap-6">
       <div className="flex min-h-[42px] items-center gap-2">
@@ -359,7 +362,8 @@ export default function ExclusoesView({
                       { key: "campo", label: "Campo" },
                       { key: "direcao", label: "Direção" },
                     ]}
-                    rows={filtrarPesquisa(linhasOrdenacao, pesquisaRegistro, (o) => [o.nr_sequencia, o.campo, o.direcao])}
+                    rows={linhasOrdenacaoOrdenadas}
+                    {...ordenacaoLinhasOrdenacao}
                     rowKey={(o) => o.id}
                   />
                 </div>

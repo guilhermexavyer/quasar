@@ -216,3 +216,14 @@ export function compararOrdemBanda(
     x.nr_ordem === null || x.nr_ordem === undefined || x.nr_ordem === "" || !Number.isFinite(Number(x.nr_ordem)) ? Number.MAX_SAFE_INTEGER : Number(x.nr_ordem);
   return ordem(a) - ordem(b) || Number(a.nr_sequencia ?? 0) - Number(b.nr_sequencia ?? 0);
 }
+
+/**
+ * Camada dos elementos: o de menor Camada (nr_camada) sai por cima; empate, ou sem Camada
+ * (abaixo dos que têm), sai por cima o de menor Sequência (nr_sequencia). Devolve os
+ * elementos na ordem de desenho do PDF: de baixo para cima (o último desenhado fica visível).
+ */
+export function elementosPorCamada<T extends { nr_camada?: unknown; nr_sequencia?: unknown }>(elementos: T[]): T[] {
+  const camada = (x: T) =>
+    x.nr_camada === null || x.nr_camada === undefined || x.nr_camada === "" || !Number.isFinite(Number(x.nr_camada)) ? Number.MAX_SAFE_INTEGER : Number(x.nr_camada);
+  return [...elementos].sort((a, b) => camada(b) - camada(a) || Number(b.nr_sequencia ?? 0) - Number(a.nr_sequencia ?? 0));
+}

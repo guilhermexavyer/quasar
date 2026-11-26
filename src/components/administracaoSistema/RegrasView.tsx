@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
-import ResizableTable from "@/components/ui/ResizableTable";
+import ResizableTable, { useOrdenacaoTabela } from "@/components/ui/ResizableTable";
 import CampoPesquisa from "@/components/ui/CampoPesquisa";
 import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
@@ -74,6 +74,7 @@ export default function RegrasView({
 }: RegrasViewProps) {
   const [regraDoc, setRegraDoc] = useState<Regra | null>(null);
   const [pesquisa, setPesquisa] = useState("");
+  const { ordenados: regrasOrdenadas, props: ordenacao } = useOrdenacaoTabela(filtrarPesquisa(REGRAS, pesquisa, (x) => [x.regra]));
   const [selecionada, setSelecionada] = useState<IdRegra | null>(null);
   // Logs da regra selecionada (só aparecem depois que ela for salva pela primeira vez).
   const logsRegra = useLogsDoItem("regra", regraDoc?.id, selecionada, filtrarAuditoriaDaRegra, regraDoc?.dt_alteracao);
@@ -217,8 +218,9 @@ export default function RegrasView({
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
                 {...colunas}
+                {...ordenacao}
                 columns={[{ key: "regra", label: "Regra" }]}
-                rows={filtrarPesquisa(REGRAS, pesquisa, (x) => [x.regra])}
+                rows={regrasOrdenadas}
                 rowKey={(r) => r.id}
                 rowClassName={(r) => (r.id === selecionada ? "row-selected" : "")}
                 onRowClick={(r) => selecionar(r.id)}

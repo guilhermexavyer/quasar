@@ -20,9 +20,11 @@ interface LoginScreenProps {
   warningMessage?: string | null;
   onClearWarning?: () => void;
   isLoading?: boolean;
+  /** Login aprovado: título e formulário somem antes da transição para o sistema. */
+  saindo?: boolean;
 }
 
-export default function LoginScreen({ onLogin, onAlterarSenha, errorMessage, onClearError, warningMessage, onClearWarning, isLoading = false }: LoginScreenProps) {
+export default function LoginScreen({ onLogin, onAlterarSenha, errorMessage, onClearError, warningMessage, onClearWarning, isLoading = false, saindo = false }: LoginScreenProps) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const usernameRef = useRef<HTMLInputElement>(null);
@@ -160,7 +162,7 @@ export default function LoginScreen({ onLogin, onAlterarSenha, errorMessage, onC
   return (
     <>
       <div
-        className={`fixed inset-0 overflow-hidden px-4 py-8 text-white transition-opacity duration-300 ease-out ${isLoading ? "opacity-70" : "opacity-100"}`}
+        className={`fixed inset-0 overflow-hidden px-4 py-8 text-white transition-opacity duration-300 ease-out ${isLoading && !saindo ? "opacity-70" : "opacity-100"}`}
         style={{ backgroundColor: "#003056" }}
       >
       <div className="mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl items-center justify-center">
@@ -169,13 +171,15 @@ export default function LoginScreen({ onLogin, onAlterarSenha, errorMessage, onC
             <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full border border-white/20 bg-white/10 p-3 shadow-[0_0_0_8px_rgba(255,255,255,0.08)]">
               {/* Logo negativa (anel branco) para o fundo azul. O anel ocupa 75% da imagem: 68px deixam o anel
                   com o mesmo diâmetro do disco da logo anterior (80% de 64px). */}
-              <Image src="/images/Logo%20Quasar%202.0%20-%20Negativa.png" alt="Quasar" width={68} height={68} className="h-[68px] w-[68px] max-w-none object-contain" />
+              <Image data-login-logo src="/images/Logo%20Quasar%202.0%20-%20Negativa.png" alt="Quasar" width={68} height={68} className="h-[68px] w-[68px] max-w-none object-contain" />
             </div>
-            <h1 className="text-[2rem] font-semibold tracking-tight text-white">Quasar</h1>
-            <p className="mt-2 text-base text-blue-100">Bem vindo(a)</p>
+            <div className={`flex flex-col items-center transition-all duration-200 ease-out ${saindo ? "-translate-y-1 opacity-0" : ""}`}>
+              <h1 className="text-[2rem] font-semibold tracking-tight text-white">Quasar</h1>
+              <p className="mt-2 text-base text-blue-100">Bem vindo(a)</p>
+            </div>
           </div>
 
-          <form onSubmit={handleSubmit} className="login-form mt-8 flex flex-col items-center space-y-3">
+          <form onSubmit={handleSubmit} className={`login-form mt-8 flex flex-col items-center space-y-3 transition-all duration-200 ease-out ${saindo ? "pointer-events-none translate-y-1 opacity-0" : ""}`}>
             <style jsx>{`
               .login-form input {
                 border: none !important;

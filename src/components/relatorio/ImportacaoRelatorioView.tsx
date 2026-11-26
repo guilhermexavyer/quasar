@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import LoadingModal from "@/components/ui/LoadingModal";
 import RotuloCampo from "@/components/ui/RotuloCampo";
-import ResizableTable, { type ResizableTableColumn } from "@/components/ui/ResizableTable";
+import ResizableTable, { useOrdenacaoTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { elementoVisivel } from "@/lib/visibilidade";
@@ -82,8 +82,9 @@ export default function ImportacaoRelatorioView({
   const inputArquivo = useRef<HTMLInputElement | null>(null);
   const formRef = useRef<HTMLFormElement | null>(null);
 
-  // Mais recente primeiro.
-  const ordenados = [...registros].sort((a, b) => Number(b.nr_sequencia ?? 0) - Number(a.nr_sequencia ?? 0));
+  // Mais recente primeiro; o clique no cabeçalho ordena pela coluna.
+  const porSequencia = [...registros].sort((a, b) => Number(b.nr_sequencia ?? 0) - Number(a.nr_sequencia ?? 0));
+  const { ordenados, props: ordenacao } = useOrdenacaoTabela(porSequencia);
   const paginacao = usePagination(ordenados.length, "relatorio_importacao");
 
   useEffect(() => {
@@ -256,6 +257,7 @@ export default function ImportacaoRelatorioView({
             <>
               <div className="flex-1 overflow-auto">
                 <ResizableTable<ImportacaoRelatorio>
+                  {...ordenacao}
                   columns={colunas}
                   rows={paginacao.slice(ordenados)}
                   rowKey={(r) => String(r.id ?? r.nr_sequencia)}

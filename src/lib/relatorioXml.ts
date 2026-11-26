@@ -63,7 +63,7 @@ export const CAMPOS_EXPORTADOS = {
     "cd_background_registro", "cd_background_label", "ds_sql",
   ],
   elemento: [
-    "ds_elemento", "ie_tipo", "qt_esquerda", "qt_topo", "qt_largura", "qt_altura",
+    "ds_elemento", "nr_camada", "ie_tipo", "qt_esquerda", "qt_topo", "qt_largura", "qt_altura",
     "qt_padding_superior", "qt_padding_inferior", "qt_padding_esquerda", "qt_padding_direita",
     "ie_alinhamento", "ie_fonte", "qt_fonte", "ie_estilo", "ie_mascara", "qt_casas_decimais", "ie_status",
     "cd_cor", "cd_background", "ie_quebrar_linha",
@@ -198,9 +198,9 @@ const OPCOES_IMPORTACAO: Record<string, readonly string[]> = {
 const SIM_NAO = ["S", "N"];
 const STATUS = ["A", "I"];
 const CAMPOS_SIM_NAO = /^ie_(borda_|nova_pagina|exibir_label|imprimir_vazio|alternar_background|quebrar_linha|perguntar|obrigatorio)/;
-/** Campos numéricos: inteiros (qt_*, nr_ordem) ou decimais (margens e medidas do papel). */
+/** Campos numéricos: inteiros (qt_*, nr_ordem, nr_camada) ou decimais (margens e medidas do papel). */
 const ehDecimal = (campo: string) => campo.startsWith("nr_margem_") || campo === "qt_largura" || campo === "qt_altura";
-const ehNumero = (campo: string) => campo.startsWith("qt_") || campo === "nr_ordem" || campo.startsWith("nr_margem_");
+const ehNumero = (campo: string) => campo.startsWith("qt_") || campo === "nr_ordem" || campo === "nr_camada" || campo.startsWith("nr_margem_");
 const ehCor = (campo: string) => campo === "cd_cor" || campo.startsWith("cd_background");
 
 /**

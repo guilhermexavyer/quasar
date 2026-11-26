@@ -256,6 +256,8 @@ export interface ElementoBanda {
   qt_padding_inferior?: number | string | null;
   qt_padding_esquerda?: number | string | null;
   qt_padding_direita?: number | string | null;
+  /** Camada no PDF: o de menor Camada sai por cima (empate ou vazio: o de menor Sequência). */
+  nr_camada?: number | string | null;
   /** Bordas do elemento: 'S' desenha a borda daquele lado. */
   ie_borda_superior?: "S" | "N" | null;
   ie_borda_inferior?: "S" | "N" | null;
@@ -282,6 +284,7 @@ export async function salvarElementoBanda(elemento: ElementoBanda): Promise<Elem
     nr_seq_banda: elemento.nr_seq_banda,
     nr_seq_relatorio: elemento.nr_seq_relatorio,
     ds_elemento: textoOuNulo(elemento.ds_elemento),
+    nr_camada: inteiroOuNulo(elemento.nr_camada),
     ie_status: elemento.ie_status === "I" ? "I" : "A",
     ie_tipo: elemento.ie_tipo || null,
     nr_seq_imagem: inteiroOuNulo(elemento.nr_seq_imagem),
@@ -625,6 +628,7 @@ export async function importarRelatorioXml(texto: string, nomeArquivo: string): 
           ...(e.campos as unknown as ElementoBanda),
           nr_seq_banda: banda.nr_sequencia,
           nr_seq_relatorio: nrRelatorio,
+          nr_camada: numeroOuNulo(e.campos.nr_camada),
           nr_seq_imagem: null,
         });
         if (el.id) criados.push({ tabela: "relatorio_banda_elemento", id: el.id });

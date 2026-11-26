@@ -39,6 +39,48 @@ export function proximaOrdenacao(
   return atual.asc ? { coluna: key, asc: false } : { coluna: null, asc: true };
 }
 
+/** Valor vazio na ordenação: fica sempre no fim, crescente ou decrescente. */
+const vazioNaOrdenacao = (v: unknown) => v === null || v === undefined || (typeof v === "string" && v.trim() === "");
+
+/** Compara dois valores de coluna: números como números; o resto como texto (pt-BR, "2" antes de "10"). */
+export function compararValoresColuna(a: unknown, b: unknown): number {
+  if (typeof a === "number" && typeof b === "number") return a - b;
+  return String(a).localeCompare(String(b), "pt-BR", { numeric: true, sensitivity: "base" });
+}
+
+/**
+ * Ordenação pelo clique no cabeçalho para as listas que não guardam a ordenação em outro
+ * lugar: devolve as linhas ordenadas e as props sortColumn, sortAsc e onSortChange da
+ * ResizableTable. Sem coluna escolhida, as linhas ficam na ordem recebida (a padrão).
+ * `valorDe` dá o valor de uma coluna (padrão: o campo de mesmo nome da linha); use-o
+ * quando a célula mostra outra coisa (o nome em vez do código, por exemplo).
+ */
+export function useOrdenacaoTabela<T>(rows: T[], valorDe?: (row: T, coluna: string) => unknown) {
+  const [ordem, setOrdem] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
+  let ordenados = rows;
+  const coluna = ordem.coluna;
+  if (coluna) {
+    const valor = (row: T) => (valorDe ? valorDe(row, coluna) : (row as Record<string, unknown>)[coluna]);
+    ordenados = [...rows].sort((x, y) => {
+      const a = valor(x);
+      const b = valor(y);
+      const va = vazioNaOrdenacao(a);
+      const vb = vazioNaOrdenacao(b);
+      if (va || vb) return va === vb ? 0 : va ? 1 : -1;
+      const cmp = compararValoresColuna(a, b);
+      return ordem.asc ? cmp : -cmp;
+    });
+  }
+  return {
+    ordenados,
+    props: {
+      sortColumn: ordem.coluna,
+      sortAsc: ordem.asc,
+      onSortChange: (key: string) => setOrdem((atual) => proximaOrdenacao(atual, key)),
+    },
+  };
+}
+
 /** Persistência de ordem/largura das colunas (configuração do usuário). */
 export interface ConfigColunasTabela {
   initialColumns?: { order: string[]; widths: Record<string, number> } | null;

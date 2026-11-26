@@ -369,6 +369,7 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     // ── Formulário de Elementos (bandas do PDF) ──
     { key: "relatorio_banda_elemento.nr_sequencia", label: "Sequência", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
+    { key: "relatorio_banda_elemento.nr_camada", label: "Camada", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ds_elemento", label: "Descrição", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.ie_tipo", label: "Tipo", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },
     { key: "relatorio_banda_elemento.nr_seq_imagem", label: "Imagem", tipo: "Relatórios > Bandas > Elementos", colecao: "relatorio_banda_elemento" },

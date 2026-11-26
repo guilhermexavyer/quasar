@@ -188,6 +188,7 @@ import ContextMenu from "@/components/ui/ContextMenu";
 import Toast from "@/components/ui/Toast";
 import LoginScreen, { type ResultadoLoginTela } from "@/components/ui/LoginScreen";
 import LoadingModal from "@/components/ui/LoadingModal";
+import TransicaoLogin from "@/components/ui/TransicaoLogin";
 import PessoaFisicaListView from "@/components/pessoaFisica/PessoaFisicaListView";
 import PessoaFisicaDetalheView from "@/components/pessoaFisica/PessoaFisicaDetalheView";
 import { CAMPOS_PF_MOVIDOS_PARA_ABAS, type PessoaFisicaAba } from "@/lib/pessoaFisicaAbasUtils";
@@ -427,7 +428,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.96.0";
+const SYSTEM_VERSION = "0.97.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1129,6 +1130,22 @@ export default function Home() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [sessionRestoring, setSessionRestoring] = useState(true);
   const [isLoginLoading, setIsLoginLoading] = useState(false);
+  /** Login aprovado: o título e o formulário da tela de login somem antes de entrar. */
+  const [loginSaindo, setLoginSaindo] = useState(false);
+  /**
+   * Entrada no sistema depois do login: "transicao" enquanto o fundo azul encolhe até virar o menu
+   * lateral (logo e funções do menu escondidas); "entrada" enquanto a logo e as funções aparecem.
+   */
+  const [faseEntrada, setFaseEntrada] = useState<null | 'transicao' | 'entrada'>(null);
+  const [origemLogoLogin, setOrigemLogoLogin] = useState<{ left: number; top: number } | null>(null);
+  /** Entrou pela transição do login: a tela não repete o fade-in quando a transição termina. */
+  const [entrouPeloLogin, setEntrouPeloLogin] = useState(false);
+  useEffect(() => {
+    if (faseEntrada !== 'entrada') return;
+    // Tempo para a última função e o rodapé do menu terminarem de aparecer.
+    const t = window.setTimeout(() => setFaseEntrada(null), 1400);
+    return () => window.clearTimeout(t);
+  }, [faseEntrada]);
   const [isUserMenuOpen, setIsUserMenuOpen] = useState(false);
   const [isUserMenuClosing, setIsUserMenuClosing] = useState(false);
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
@@ -10823,7 +10840,15 @@ export default function Home() {
 
       if (resultado.status === 'ok') {
         const usuarioValido = resultado.usuario;
+        // Login aprovado: fecha o carregamento e some com o formulário; depois o fundo azul vira o menu.
+        setIsLoginLoading(false);
+        setLoginSaindo(true);
         window.setTimeout(() => {
+          const logoLogin = document.querySelector<HTMLElement>("[data-login-logo]")?.getBoundingClientRect();
+          setOrigemLogoLogin(logoLogin ? { left: logoLogin.left, top: logoLogin.top } : null);
+          setFaseEntrada('transicao');
+          setEntrouPeloLogin(true);
+          setLoginSaindo(false);
           // Ao entrar, nenhuma função vem selecionada (inclusive após a sessão ter sido encerrada).
           limparPaginacaoDaSecao();
           setActiveSection(null);
@@ -10834,7 +10859,6 @@ export default function Home() {
           restaurarFiltrosSalvos(usuarioValido);
           setSessaoInicio(Date.now());
           setIsAuthenticated(true);
-          setIsLoginLoading(false);
         }, 250);
         return;
       }
@@ -10890,6 +10914,9 @@ export default function Home() {
     setIsAuthenticated(false);
     setSessaoInicio(null);
     setIsLoginLoading(false);
+    setLoginSaindo(false);
+    setFaseEntrada(null);
+    setEntrouPeloLogin(false);
     setIsUserMenuOpen(false);
     setActiveSection(null);
     setSecoesAbertas([]);
@@ -11577,6 +11604,7 @@ export default function Home() {
           warningMessage={loginWarning}
           onClearWarning={() => setLoginWarning(null)}
           isLoading={isLoginLoading}
+          saindo={loginSaindo}
         />
 
         {isLoginLoading && <LoadingModal open={true} message="Validando login..." />}
@@ -13264,8 +13292,19 @@ export default function Home() {
     );
   }
 
+  /** Logo e funções do menu lateral: escondidas durante a transição do login e depois aparecem em sequência. */
+  const classeEntradaMenu = faseEntrada === 'transicao' ? "opacity-0" : faseEntrada === 'entrada' ? "animate-entrada-menu" : "";
+
   return (
-    <div className={`relative h-screen overflow-hidden animate-fade-in ${darkMode ? "dark bg-[#18181b] text-slate-200" : "bg-white text-slate-800"}`}>
+    <div className={`relative h-screen overflow-hidden ${entrouPeloLogin ? "" : "animate-fade-in"} ${darkMode ? "dark bg-[#18181b] text-slate-200" : "bg-white text-slate-800"}`}>
+      {faseEntrada === 'transicao' && (
+        <TransicaoLogin
+          origemLogo={origemLogoLogin}
+          larguraFinal={isSidebarOpen ? larguraMenuAberto : 48}
+          onFim={() => setFaseEntrada('entrada')}
+        />
+      )}
+
       {/* Overlay do sidebar */}
       {isSidebarOpen && (
         <div
@@ -13735,7 +13774,7 @@ export default function Home() {
           }}
           aria-label="Alternar menu"
         >
-          <div className="absolute left-6 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center">
+          <div className={`absolute left-6 top-1/2 -translate-x-1/2 -translate-y-1/2 flex h-7 w-7 items-center justify-center ${faseEntrada === 'transicao' ? "opacity-0" : ""}`}>
             {/* Logo negativa (anel branco) para o fundo azul; 30px deixam o anel com o tamanho da logo anterior. */}
             <Image
               src="/images/Logo%20Quasar%202.0%20-%20Negativa.png"
@@ -13748,7 +13787,7 @@ export default function Home() {
           <div
             className={`h-7 flex items-center overflow-hidden transition-all duration-300 ease-out ml-[46px] ${
               isSidebarOpen ? "max-w-[100px] opacity-100" : "max-w-0 opacity-0"
-            }`}
+            } ${classeEntradaMenu}`}
           >
             <span className="text-sm font-semibold leading-none text-white whitespace-nowrap">
               Quasar
@@ -13757,7 +13796,7 @@ export default function Home() {
         </div>
 
         <nav className="mt-2 flex flex-col gap-0.5 px-1">
-          {menuOrder.filter((section) => allowedSections.includes(section)).map((section) => {
+          {menuOrder.filter((section) => allowedSections.includes(section)).map((section, indiceMenu) => {
             const def = SECTION_DEFS[section];
             const isActive = activeSection === section;
             const isDragging = dragSection === section;
@@ -13786,7 +13825,8 @@ export default function Home() {
                 onDragEnd={handleSectionDragEnd}
                 className={`relative group flex items-center rounded-[3px] px-1.5 py-1.5 text-blue-200 transition hover:bg-[#004a7a] focus:bg-[#004a7a] outline-none ${
                   isSidebarOpen ? "justify-start gap-2.5 cursor-grab active:cursor-grabbing" : "justify-center gap-0 cursor-pointer"
-                } ${isActive ? 'bg-[#004a7a]' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-inset ring-[#2cc958]' : ''}`}
+                } ${isActive ? 'bg-[#004a7a]' : ''} ${isDragging ? 'opacity-50' : ''} ${isDropTarget ? 'ring-2 ring-inset ring-[#2cc958]' : ''} ${classeEntradaMenu}`}
+                style={faseEntrada === 'entrada' ? { animationDelay: `${60 + indiceMenu * 45}ms` } : undefined}
                 onClick={() => {
                   if (draggedRef.current) return;
                   setContextMenu(null);
@@ -13865,7 +13905,10 @@ export default function Home() {
           })}
         </nav>
 
-        <div className="mt-auto border-t border-[#004a7a] px-1 py-2">
+        <div
+          className={`mt-auto border-t border-[#004a7a] px-1 py-2 ${classeEntradaMenu}`}
+          style={faseEntrada === 'entrada' ? { animationDelay: `${60 + allowedSections.length * 45}ms` } : undefined}
+        >
           {/* Regra "Badge de teste": identifica a base de homologação. */}
           {regraSistema?.ie_badge_teste === 'S' && (
             <div
@@ -14111,8 +14154,18 @@ export default function Home() {
           ) : (
             <>
               {!activeSection && (
-                <div className="flex h-full items-center justify-center">
-                  <p className="text-sm text-slate-500">Selecione uma função no menu lateral.</p>
+                <div className="flex h-full items-center justify-center animate-fade-in">
+                  {/* Nenhuma função selecionada: a logo do sistema (a mesma da aba do navegador). No modo escuro,
+                      a versão negativa (anel branco) para não sumir no fundo. */}
+                  <Image
+                    src={darkMode ? "/images/Logo%20Quasar%202.0%20-%20Negativa.png" : "/images/Logo%20Quasar%202.0%20-%20Colorida.png"}
+                    alt="Quasar"
+                    width={90}
+                    height={90}
+                    priority
+                    className="pointer-events-none h-[90px] w-[90px] select-none object-contain"
+                    draggable={false}
+                  />
                 </div>
               )}
               {/* Cada função aberta fica montada (só a ativa aparece): ao voltar para ela,
@@ -17857,7 +17910,7 @@ export default function Home() {
             ]
           : isRelatorio && isElemento
           ? [
-              'nr_sequencia', 'ds_elemento', 'ie_tipo', 'nr_seq_imagem', 'qt_esquerda', 'qt_topo', 'ie_estilo', 'qt_largura', 'qt_altura',
+              'nr_sequencia', 'nr_camada', 'ds_elemento', 'ie_tipo', 'nr_seq_imagem', 'qt_esquerda', 'qt_topo', 'ie_estilo', 'qt_largura', 'qt_altura',
               'ie_alinhamento', 'cd_background', 'cd_cor', 'ie_fonte', 'qt_fonte', 'ds_label', 'cd_alias', 'ds_conteudo',
               'ie_borda_superior', 'ie_borda_inferior', 'ie_borda_esquerda', 'ie_borda_direita',
               'nr_seq_banda', 'nr_seq_relatorio',
@@ -18087,6 +18140,7 @@ export default function Home() {
                       bandas_sequencia: 'Bandas',
                       ds_banda: 'Descrição',
                       nr_ordem: 'Ordem',
+                      nr_camada: 'Camada',
                       ie_tipo_banda: 'Tipo',
                       ie_tipo: 'Tipo',
                       ie_colecao_principal: 'Coleção principal',

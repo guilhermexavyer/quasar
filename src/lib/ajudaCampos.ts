@@ -341,6 +341,7 @@ const POR_TABELA: Record<string, Record<string, string>> = {
   relatorio_banda_elemento: {
     ie_status: "Ativo ou Inativo. O elemento inativo não sai no PDF (também pelo menu de contexto: Ativar/Inativar).",
     ds_elemento: "Informe a descrição do elemento.",
+    nr_camada: "Informe a camada do elemento no PDF: quando elementos ficam um sobre o outro, o de menor Camada sai por cima (visível). Com a mesma Camada, ou sem Camada (abaixo dos que têm), sai por cima o de menor Sequência.",
     ie_tipo: "SQL exibe o valor da coluna do SQL da banda informada no Atributo; Conteúdo exibe o texto do campo Conteúdo; Imagem exibe a imagem selecionada; Parâmetro exibe o valor do parâmetro (Atributo = nome do parâmetro) informado ao gerar; Página exibe \"Página X de Y\"; Data/hora exibe a data e a hora da geração; Usuário exibe quem gerou o relatório; Linha desenha uma linha reta (horizontal se o Tamanho for maior ou igual à Altura; senão, vertical).",
     nr_seq_imagem: "Selecione a imagem exibida pelo elemento (Administração do Sistema > Imagens). O tamanho é o da Largura e da Altura.",
     qt_esquerda: "Informe a distância, em pixels (px), entre a margem esquerda da folha e o elemento.",

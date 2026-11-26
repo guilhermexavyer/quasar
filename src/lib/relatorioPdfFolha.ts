@@ -3,7 +3,7 @@ import { desenharBordaPagina } from "@/lib/relatorioPdf";
 import type { Relatorio } from "@/types/relatorio";
 import type { FormatoPapel } from "@/types/formatoPapel";
 import type { Imagem } from "@/types/imagem";
-import { bandasQueSaem, compararOrdemBanda, itemAtivo, nomeDoParametro } from "@/lib/relatorioSql";
+import { bandasQueSaem, compararOrdemBanda, elementosPorCamada, itemAtivo, nomeDoParametro } from "@/lib/relatorioSql";
 import {
   bandaEhDetalhe,
   obterParametrosSql,
@@ -532,7 +532,8 @@ export function montarPdf(
     dentroDaBanda(y, altura, () => {
       // Alternar background: o fundo do registro, na largura da banda, antes dos elementos.
       if (opcoes.fundo) preencherLinha(y, altura, opcoes.fundo);
-      for (const original of b.elementos) {
+      // Camada: de baixo para cima (o de menor Camada, ou de menor Sequência, por último = visível).
+      for (const original of elementosPorCamada(b.elementos)) {
         const el = opcoes.estiloPadrao ? semEstilo(original) : original;
         if (el.ie_tipo === "imagem") {
           desenharImagem(doc, el, margens.esquerda, yElementos, imagens.get(String(el.nr_seq_imagem ?? "")));
@@ -628,7 +629,7 @@ export function montarPdf(
       aplicarTopo();
       dentroDaBanda(y, altura, () => {
         if (fundoDosLabels) preencherLinha(y, altura, fundoDosLabels);
-        for (const el of b.elementos) {
+        for (const el of elementosPorCamada(b.elementos)) {
           if (el.ie_tipo === "imagem" || el.ie_tipo === "linha") continue;
           desenharElemento(doc, el, margens.esquerda, y - deslocamento, el.ds_label ?? "");
         }

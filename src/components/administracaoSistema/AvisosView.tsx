@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
-import ResizableTable from "@/components/ui/ResizableTable";
+import ResizableTable, { useOrdenacaoTabela } from "@/components/ui/ResizableTable";
 import CampoPesquisa from "@/components/ui/CampoPesquisa";
 import { filtrarPesquisa } from "@/lib/pesquisaUtils";
 import PaineisRedimensionaveis, { type ConfigPaineis } from "@/components/ui/PaineisRedimensionaveis";
@@ -58,6 +58,7 @@ export default function AvisosView({
 }: AvisosViewProps) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [pesquisa, setPesquisa] = useState("");
+  const { ordenados: avisosOrdenados, props: ordenacao } = useOrdenacaoTabela(filtrarPesquisa(AVISOS, pesquisa, (x) => [x.aviso]));
   const [selecionado, setSelecionado] = useState<CampoAviso | null>(null);
   const [rascunho, setRascunho] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -150,8 +151,9 @@ export default function AvisosView({
             <div className="overflow-auto flex-1 min-h-0">
               <ResizableTable
                 {...colunas}
+                {...ordenacao}
                 columns={[{ key: "aviso", label: "Aviso" }]}
-                rows={filtrarPesquisa(AVISOS, pesquisa, (x) => [x.aviso])}
+                rows={avisosOrdenados}
                 rowKey={(a) => a.id}
                 rowClassName={(a) => (a.id === selecionado ? "row-selected" : "")}
                 onRowClick={(a) => selecionar(a.id)}

@@ -9,7 +9,7 @@ import LoadingModal from "@/components/ui/LoadingModal";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
-import ResizableTable, { type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
+import ResizableTable, { useOrdenacaoTabela, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
 import { elementoVisivel } from "@/lib/visibilidade";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
@@ -190,7 +190,7 @@ function mascararPx(texto: string, minimo1: boolean): string {
   return minimo1 ? sem0.replace(/^0$/, "") : sem0;
 }
 
-/** Ordem da banda digitada: só dígitos (até 5), sem zeros à esquerda; vazio = sem Ordem. */
+/** Ordem da banda (e Camada do elemento) digitada: só dígitos (até 5), sem zeros à esquerda; vazio = sem Ordem. */
 function textoParaOrdem(texto: string): number | null {
   const digitos = texto.replace(/\D/g, "").slice(0, 5);
   return digitos === "" ? null : Number(digitos);
@@ -301,6 +301,17 @@ export default function RelatorioBuilder({
   const paginacaoBandas = usePagination(bandas.length);
   const paginacaoElementos = usePagination(elementos.length);
   const paginacaoParametros = usePagination(parametros.length);
+  // Clique no cabeçalho das listas: ordena pela coluna (o valor que a célula mostra).
+  const { ordenados: bandasOrdenadas, props: ordenacaoBandas } = useOrdenacaoTabela(bandas, (b, coluna) => {
+    if (coluna === "ie_tipo") return TIPOS_BANDA.find((t) => t.value === b.ie_tipo)?.label ?? "";
+    if (coluna === "nr_ordem") return bandaEhDetalhe(b) ? b.nr_ordem : null;
+    if (coluna === "nr_seq_banda_superior") return nomeDaBanda(b.nr_seq_banda_superior);
+    return (b as Record<string, unknown>)[coluna];
+  });
+  const { ordenados: elementosOrdenados, props: ordenacaoElementos } = useOrdenacaoTabela(elementos, (el, coluna) =>
+    coluna === "ie_tipo" ? TIPOS_ELEMENTO.find((t) => t.value === el.ie_tipo)?.label ?? "" : (el as Record<string, unknown>)[coluna],
+  );
+  const { ordenados: parametrosOrdenados, props: ordenacaoParametros } = useOrdenacaoTabela(parametros);
   // Saiu da lista da linha (Ver, Adicionar, outra aba, elementos da banda): a edição é descartada.
   const edicaoNaTela = !edicaoLinha || (!detalhe && (edicaoLinha.tipo === "banda" ? !bandaElementos && aba === "bandas" : !!bandaElementos));
   if (!edicaoNaTela) {
@@ -405,7 +416,7 @@ export default function RelatorioBuilder({
   const pdfDesabilitado = (campo: string) => !ehPdf || statusDe(campoRegras, campo) === "D";
 
   /* ── Elemento: campos habilitados pelo tipo da banda e do elemento ── */
-  const CAMPOS_ELEMENTO = ["ds_elemento", "ie_tipo", "nr_seq_imagem", "qt_esquerda", "qt_topo", "ie_estilo", "qt_largura", "qt_altura", "ie_alinhamento", "cd_background", "cd_cor", "ie_fonte", "qt_fonte", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais", "qt_padding_superior", "qt_padding_inferior", "qt_padding_esquerda", "qt_padding_direita"] as const;
+  const CAMPOS_ELEMENTO = ["ds_elemento", "nr_camada", "ie_tipo", "nr_seq_imagem", "qt_esquerda", "qt_topo", "ie_estilo", "qt_largura", "qt_altura", "ie_alinhamento", "cd_background", "cd_cor", "ie_fonte", "qt_fonte", "ds_label", "cd_alias", "ds_conteudo", "ie_mascara", "qt_casas_decimais", "qt_padding_superior", "qt_padding_inferior", "qt_padding_esquerda", "qt_padding_direita"] as const;
   type CampoElemento = (typeof CAMPOS_ELEMENTO)[number];
   function tipoDoElemento(el: ElementoBanda): TipoElemento {
     return TIPOS_ELEMENTO.some((t) => t.value === el.ie_tipo) ? (el.ie_tipo as TipoElemento) : "sql";
@@ -725,6 +736,15 @@ export default function RelatorioBuilder({
   });
   const colunasDeElemento: ResizableTableColumn<ElementoBanda>[] = [
     { key: "nr_sequencia", label: "#", render: (e) => String(e.nr_sequencia ?? "") },
+    {
+      key: "nr_camada",
+      label: "Camada",
+      render: (el) => {
+        const e = elementoEmEdicao(el);
+        if (e) return inputLinha("nr_camada", e.nr_camada, (t) => alterarLinha({ nr_camada: textoParaOrdem(t) }), elementoDesabilitado(e, "nr_camada"));
+        return el.nr_camada == null || el.nr_camada === "" ? "" : String(el.nr_camada);
+      },
+    },
     colunaElemento("ds_elemento", "Descrição", (e) => e.ds_elemento ?? ""),
     {
       key: "ie_tipo",
@@ -879,7 +899,8 @@ export default function RelatorioBuilder({
   async function salvarLinha(abaixo = false): Promise<boolean> {
     const atual = edicaoLinha;
     if (!atual || nrRelatorio == null || gravandoLinhaRef.current) return false;
-    const lista: { id?: string }[] = atual.tipo === "banda" ? bandas : elementos;
+    // Na ordem em que a lista aparece (Enter passa para a linha de baixo).
+    const lista: { id?: string }[] = atual.tipo === "banda" ? bandasOrdenadas : elementosOrdenados;
     const indice = lista.findIndex((x) => x.id === atual.item.id);
     const original = lista[indice];
     const proxima = abaixo && indice >= 0 ? lista[indice + 1] : undefined;
@@ -984,7 +1005,7 @@ export default function RelatorioBuilder({
         value={desabilitado && valor == null ? "" : String(valor ?? "")}
         onChange={(e) => onChange(e.target.value)}
         disabled={desabilitado}
-        inputMode={campo.startsWith("qt_") || campo === "nr_ordem" ? "numeric" : undefined}
+        inputMode={campo.startsWith("qt_") || campo === "nr_ordem" || campo === "nr_camada" ? "numeric" : undefined}
         aria-label={campo}
         className={classeCampoLinha(campo)}
       />,
@@ -1086,7 +1107,7 @@ export default function RelatorioBuilder({
    * Setas do formulário aberto (banda, elemento ou parâmetro): o registro anterior ou o
    * seguinte da lista, como as setas do "Ver" do relatório. O que não foi salvo é descartado.
    */
-  const listaDoDetalhe: { id?: string }[] = detalhe?.tipo === "banda" ? bandas : detalhe?.tipo === "elemento" ? elementos : detalhe?.tipo === "parametro" ? parametros : [];
+  const listaDoDetalhe: { id?: string }[] = detalhe?.tipo === "banda" ? bandasOrdenadas : detalhe?.tipo === "elemento" ? elementosOrdenados : detalhe?.tipo === "parametro" ? parametrosOrdenados : [];
   const idDoDetalhe = detalhe?.tipo === "banda" ? detalhe.banda.id : detalhe?.tipo === "elemento" ? detalhe.elemento.id : detalhe?.tipo === "parametro" ? detalhe.parametro.id : undefined;
   const indiceDoDetalhe = idDoDetalhe ? listaDoDetalhe.findIndex((x) => x.id === idDoDetalhe) : -1;
   function navegarDetalhe(passo: -1 | 1) {
@@ -1362,8 +1383,9 @@ export default function RelatorioBuilder({
                 <>
                 <div className="min-h-0 flex-1 overflow-auto">
                 <ResizableTable<ElementoBanda>
+                  {...ordenacaoElementos}
                   columns={colunasDeElemento}
-                  rows={paginacaoElementos.slice(elementos)}
+                  rows={paginacaoElementos.slice(elementosOrdenados)}
                   rowKey={(e) => String(e.id ?? e.nr_sequencia)}
                   onRowClick={(e) => setSelecionadoId(e.id ?? null)}
                   // Sem duplo clique: o elemento abre pelo "Ver" do menu de contexto (ou é editado pelo lápis).
@@ -1401,8 +1423,9 @@ export default function RelatorioBuilder({
                 <div className="min-h-0 flex-1 overflow-auto">
                 <ResizableTable<BandaSql>
                   {...colunasBandas}
+                  {...ordenacaoBandas}
                   columns={colunasDeBanda}
-                  rows={paginacaoBandas.slice(bandas)}
+                  rows={paginacaoBandas.slice(bandasOrdenadas)}
                   rowKey={(b) => String(b.id ?? b.nr_sequencia)}
                   onRowClick={(b) => setSelecionadoId(b.id ?? null)}
                   // PDF: o duplo clique abre os elementos da banda. XLS: a banda não tem
@@ -1425,8 +1448,9 @@ export default function RelatorioBuilder({
                 <div className="min-h-0 flex-1 overflow-auto">
                 <ResizableTable<ParametroSql>
                   {...colunasParametros}
+                  {...ordenacaoParametros}
                   columns={colunasDeParametro}
-                  rows={paginacaoParametros.slice(parametros)}
+                  rows={paginacaoParametros.slice(parametrosOrdenados)}
                   rowKey={(p) => String(p.id ?? p.nr_sequencia)}
                   onRowClick={(p) => setSelecionadoId(p.id ?? null)}
                   onRowDoubleClick={abrir}
@@ -1592,11 +1616,21 @@ export default function RelatorioBuilder({
               <section>
                 <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Elemento</h2>
                 <div className="space-y-[15px]">
-                  {/* Linha 1: Sequência, Descrição, Tipo e Imagem. */}
+                  {/* Linha 1: Sequência, Camada, Descrição, Tipo e Imagem. */}
                   <div className="grid gap-[15px] sm:grid-cols-12">
-                    <div className="sm:col-span-2">
+                    <div className="sm:col-span-1">
                       {r("Sequência", "nr_sequencia")}
                       <input disabled value={String(el.nr_sequencia ?? "")} className={INPUT} />
+                    </div>
+                    <div className="sm:col-span-1">
+                      {r("Camada", "nr_camada")}
+                      <input
+                        inputMode="numeric"
+                        value={String(el.nr_camada ?? "")}
+                        onChange={(e) => setEl({ nr_camada: textoParaOrdem(e.target.value) })}
+                        disabled={des("nr_camada")}
+                        className={comErro(errosDetalhe, "nr_camada")}
+                      />
                     </div>
                     <div className="sm:col-span-4">
                       {r("Descrição", "ds_elemento")}
