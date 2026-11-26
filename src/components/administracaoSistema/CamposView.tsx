@@ -21,12 +21,13 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import type { ConfigColunasTabela } from "@/components/ui/ResizableTable";
 import Select from "@/components/ui/Select";
 import { ADMIN_OPCOES_DROPDOWN } from "@/lib/permissoesUtils";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 /** Colunas ordenáveis do painel de perfis. */
 type PerfilSortKey = "nr_sequencia" | "ds_perfil";
 
 const FUNCAO_LABELS: Record<string, string> = {
-  pessoaFisica: "Cadastro de Pessoas",
+  pessoaFisica: "Pessoas e Relacionamentos",
   administracaoSistema: "Administração do Sistema",
   cadastrosGerais: "Cadastros Gerais",
   estruturaAcademica: "Estrutura Acadêmica",
@@ -142,12 +143,12 @@ export default function CamposView({
 
   // Ordenação em 3 estados (mesma lógica das tabelas de registro):
   // 1º clique = crescente, 2º = decrescente, 3º = padrão (null).
-  const [perfilSortKey, setPerfilSortKey] = useState<PerfilSortKey | null>(null);
-  const [perfilSortAsc, setPerfilSortAsc] = useState<boolean | null>(null);
-  const [funcaoSortKey, setFuncaoSortKey] = useState<string | null>(null);
-  const [funcaoSortAsc, setFuncaoSortAsc] = useState<boolean | null>(null);
-  const [campoSortKey, setCampoSortKey] = useState<string | null>(null);
-  const [campoSortAsc, setCampoSortAsc] = useState<boolean | null>(null);
+  const [perfilSortKey, setPerfilSortKey] = useOrdenacaoPersistida<PerfilSortKey | null>("campos.perfil.coluna", null);
+  const [perfilSortAsc, setPerfilSortAsc] = useOrdenacaoPersistida<boolean | null>("campos.perfil.asc", null);
+  const [funcaoSortKey, setFuncaoSortKey] = useOrdenacaoPersistida<string | null>("campos.funcao.coluna", null);
+  const [funcaoSortAsc, setFuncaoSortAsc] = useOrdenacaoPersistida<boolean | null>("campos.funcao.asc", null);
+  const [campoSortKey, setCampoSortKey] = useOrdenacaoPersistida<string | null>("campos.campo.coluna", null);
+  const [campoSortAsc, setCampoSortAsc] = useOrdenacaoPersistida<boolean | null>("campos.campo.asc", null);
 
   // Menu de contexto do campo (status: Normal/Obrigatório/Desabilitado).
   const [campoMenu, setCampoMenu] = useState<{
@@ -310,7 +311,7 @@ export default function CamposView({
           onChange={onManageSelectionChange}
           options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
       </div>
 

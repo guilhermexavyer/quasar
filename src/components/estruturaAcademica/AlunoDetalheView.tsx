@@ -18,6 +18,7 @@ import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 export type AlunoDetalheAba = 'responsaveis';
 type Aba = AlunoDetalheAba;
@@ -107,7 +108,7 @@ export default function AlunoDetalheView({
   /** Menu de contexto do responsável (`noVer`: aberto no "Ver" dele, sem a opção Ver). */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number; noVer?: boolean } | null>(null);
   // Ordenação (três cliques: crescente → decrescente → padrão pela sequência).
-  const [sortResp, setSortResp] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
+  const [sortResp, setSortResp] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>("aluno.responsaveis", { coluna: null, asc: true });
   /** Formulário aberto (null = lista de responsáveis). */
   const [form, setForm] = useState<FormResponsavel | null>(null);
   /** Campos com erro no último salvar. */
@@ -291,7 +292,7 @@ export default function AlunoDetalheView({
             options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           <div className="flex items-center gap-1">
             <button type="button" onClick={onPrevRecord} disabled={!hasPrevRecord} className={classeSeta(hasPrevRecord)} style={{ borderBottomColor: '#000' }} aria-label="Registro anterior">

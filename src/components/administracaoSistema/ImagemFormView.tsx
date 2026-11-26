@@ -167,7 +167,7 @@ export default function ImagemFormView({
             onChange={onManageSelectionChange}
             options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
             disabled
           />
           <div className="flex items-center gap-1">

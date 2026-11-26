@@ -84,7 +84,7 @@ export default function ImportacaoRelatorioView({
 
   // Mais recente primeiro; o clique no cabeçalho ordena pela coluna.
   const porSequencia = [...registros].sort((a, b) => Number(b.nr_sequencia ?? 0) - Number(a.nr_sequencia ?? 0));
-  const { ordenados, props: ordenacao } = useOrdenacaoTabela(porSequencia);
+  const { ordenados, props: ordenacao } = useOrdenacaoTabela("importacoes", porSequencia);
   const paginacao = usePagination(ordenados.length, "relatorio_importacao");
 
   useEffect(() => {
@@ -218,7 +218,7 @@ export default function ImportacaoRelatorioView({
       {/* ── Cabeçalho: dropdown Pai, setas (no Ver), breadcrumb e Adicionar ── */}
       <div className="flex items-center justify-between gap-3 min-h-[42px]">
         <div className="flex items-center gap-2 min-w-0">
-          <Select value={manageSelection} onChange={onManageSelectionChange} options={selectOptions} showPlaceholder={!manageSelection} className="!w-[180px]" disabled={!!aberto} />
+          <Select value={manageSelection} onChange={onManageSelectionChange} options={selectOptions} showPlaceholder={!manageSelection} className="!w-[220px]" disabled={!!aberto} />
           {registroAberto && (
             <div className="flex items-center gap-1">
               <button type="button" onClick={() => ver(ordenados[indiceAberto - 1])} disabled={indiceAberto <= 0} className={BOTAO_NAV} style={{ borderBottomColor: "#000" }} aria-label="Registro anterior">

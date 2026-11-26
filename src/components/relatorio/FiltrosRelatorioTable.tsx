@@ -12,6 +12,7 @@ import PaginationFooter, { usePagination } from "@/components/ui/PaginationFoote
 import type { RelatorioFiltro } from "@/types/relatorio";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { elementoVisivel } from "@/lib/visibilidade";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 interface FiltrosRelatorioTableProps {
   filtros: RelatorioFiltro[];
@@ -106,8 +107,8 @@ export default function FiltrosRelatorioTable({
   const raizRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortColumn, setSortColumn] = useOrdenacaoPersistida<string | null>("filtrosRelatorio.coluna", null);
+  const [sortAsc, setSortAsc] = useOrdenacaoPersistida<boolean>("filtrosRelatorio.asc", true);
 
   // Notificar o pai quando o estado de edição muda
   useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);

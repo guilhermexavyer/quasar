@@ -63,8 +63,6 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
 
     { key: "editar_pessoa_juridica", label: "Permite editar" },
     { key: "excluir_pessoa_juridica", label: "Permite excluir" },
-  ],
-  estruturaAcademica: [
     // Alunos
     { key: "acessar_aluno", label: "Permite acessar Alunos" },
     { key: "adicionar_aluno", label: "Permite adicionar" },
@@ -87,6 +85,30 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
     { key: "alterar_status_colaborador", label: "Permite alterar status" },
     { key: "assumir_ativos_colaborador", label: "Permite assumir ativos de outro colaborador" },
     { key: "excluir_colaborador", label: "Permite excluir" },
+    // Fornecedores
+    { key: "acessar_fornecedor", label: "Permite acessar Fornecedores" },
+    { key: "adicionar_fornecedor", label: "Permite adicionar" },
+    { key: "ver_fornecedor", label: "Permite ver" },
+
+    { key: "editar_fornecedor", label: "Permite editar" },
+    { key: "excluir_fornecedor", label: "Permite excluir" },
+    // Prestadores de Serviço
+    { key: "acessar_prestador_servico", label: "Permite acessar Prestadores de Serviço" },
+    { key: "adicionar_prestador_servico", label: "Permite adicionar" },
+    { key: "ver_prestador_servico", label: "Permite ver" },
+
+    { key: "editar_prestador_servico", label: "Permite editar" },
+    { key: "excluir_prestador_servico", label: "Permite excluir" },
+    // Equipes
+    { key: "acessar_equipe", label: "Permite acessar Equipes" },
+    { key: "adicionar_equipe", label: "Permite adicionar" },
+    { key: "ver_equipe", label: "Permite ver" },
+
+    { key: "editar_equipe", label: "Permite editar" },
+    { key: "membros_equipe", label: "Permite acessar membros da equipe" },
+    { key: "excluir_equipe", label: "Permite excluir" },
+  ],
+  estruturaAcademica: [
     // Cursos
     { key: "acessar_curso", label: "Permite acessar Cursos" },
     { key: "adicionar_curso", label: "Permite adicionar" },
@@ -352,8 +374,6 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Pessoas Jurídicas',
       chaves: ['acessar_pessoa_juridica', 'adicionar_pessoa_juridica', 'ver_pessoa_juridica', 'editar_pessoa_juridica', 'excluir_pessoa_juridica'],
     },
-  ],
-  estruturaAcademica: [
     {
       titulo: 'Alunos',
       chaves: ['acessar_aluno', 'adicionar_aluno', 'ver_aluno', 'editar_aluno', 'gerar_matricula_aluno', 'alterar_data_ingresso_aluno', 'alterar_status_aluno', 'detalhes_aluno', 'excluir_aluno'],
@@ -362,6 +382,20 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       titulo: 'Colaboradores',
       chaves: ['acessar_colaborador', 'adicionar_colaborador', 'ver_colaborador', 'editar_colaborador', 'gerar_matricula_colaborador', 'alterar_data_admissao_colaborador', 'alterar_status_colaborador', 'assumir_ativos_colaborador', 'excluir_colaborador'],
     },
+    {
+      titulo: 'Fornecedores',
+      chaves: ['acessar_fornecedor', 'adicionar_fornecedor', 'ver_fornecedor', 'editar_fornecedor', 'excluir_fornecedor'],
+    },
+    {
+      titulo: 'Prestadores de Serviço',
+      chaves: ['acessar_prestador_servico', 'adicionar_prestador_servico', 'ver_prestador_servico', 'editar_prestador_servico', 'excluir_prestador_servico'],
+    },
+    {
+      titulo: 'Equipes',
+      chaves: ['acessar_equipe', 'adicionar_equipe', 'ver_equipe', 'editar_equipe', 'membros_equipe', 'excluir_equipe'],
+    },
+  ],
+  estruturaAcademica: [
     {
       titulo: 'Cursos',
       chaves: ['acessar_curso', 'adicionar_curso', 'ver_curso', 'editar_curso', 'excluir_curso'],
@@ -512,12 +546,17 @@ export const ADMIN_OPCOES_DROPDOWN: { value: string; label: string }[] = [...ADM
   .map(({ value, label }) => ({ value, label }));
 
 /**
- * Submódulos da função Cadastro de Pessoas (dropdown PAI) e a permissão
+ * Submódulos da função Pessoas e Relacionamentos (dropdown PAI) e a permissão
  * que libera o acesso a cada um deles.
  */
 export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
   { value: 'pessoasFisicas', label: 'Pessoas Físicas', permissao: 'acessar_pessoa_fisica' },
   { value: 'pessoasJuridicas', label: 'Pessoas Jurídicas', permissao: 'acessar_pessoa_juridica' },
+  { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
+  { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
+  { value: 'fornecedores', label: 'Fornecedores', permissao: 'acessar_fornecedor' },
+  { value: 'prestadoresServico', label: 'Prestadores de Serviço', permissao: 'acessar_prestador_servico' },
+  { value: 'equipes', label: 'Equipes', permissao: 'acessar_equipe' },
 ];
 
 /**
@@ -525,8 +564,6 @@ export const PESSOA_SUBMODULOS: { value: string; label: string; permissao: strin
  * que libera o acesso a cada um deles.
  */
 export const EA_SUBMODULOS: { value: string; label: string; permissao: string }[] = [
-  { value: 'alunos', label: 'Alunos', permissao: 'acessar_aluno' },
-  { value: 'colaboradores', label: 'Colaboradores', permissao: 'acessar_colaborador' },
   { value: 'periodoLetivo', label: 'Período letivo', permissao: 'acessar_periodo_letivo' },
   { value: 'cursos', label: 'Cursos', permissao: 'acessar_curso' },
   { value: 'turmas', label: 'Turmas', permissao: 'acessar_turma' },
@@ -543,7 +580,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 30;
+export const PERMISSOES_CONFIG_VERSION = 31;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
@@ -552,6 +589,8 @@ export const PERMISSOES_CONFIG_VERSION = 30;
  * Versão 22: Campos foi dividido em Campos x Formulários e Campos x Modais
  * (quem tinha a permissão de Campos recebe a mesma nas duas opções).
  * Versão 24: Exclusões saiu de Administração do Sistema e foi para a nova função Logs.
+ * Versão 31: Alunos e Colaboradores saíram de Estrutura Acadêmica e foram para Pessoas e
+ * Relacionamentos (a migração 0045 já move nos perfis da versão 30).
  */
 const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
   { de: ["cadastrosGerais", "acessar_categoria_ativo"], para: ["patrimonio", "acessar_categoria"] },
@@ -563,6 +602,24 @@ const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
   { de: ["administracaoSistema", "alterar_status_campo"], para: ["administracaoSistema", "alterar_status_campo_formulario"] },
   { de: ["administracaoSistema", "alterar_status_campo"], para: ["administracaoSistema", "alterar_status_campo_modal"] },
   { de: ["administracaoSistema", "acessar_exclusoes"], para: ["logs", "acessar_exclusoes"] },
+  { de: ["estruturaAcademica", "acessar_aluno"], para: ["pessoaFisica", "acessar_aluno"] },
+  { de: ["estruturaAcademica", "adicionar_aluno"], para: ["pessoaFisica", "adicionar_aluno"] },
+  { de: ["estruturaAcademica", "ver_aluno"], para: ["pessoaFisica", "ver_aluno"] },
+  { de: ["estruturaAcademica", "editar_aluno"], para: ["pessoaFisica", "editar_aluno"] },
+  { de: ["estruturaAcademica", "gerar_matricula_aluno"], para: ["pessoaFisica", "gerar_matricula_aluno"] },
+  { de: ["estruturaAcademica", "alterar_data_ingresso_aluno"], para: ["pessoaFisica", "alterar_data_ingresso_aluno"] },
+  { de: ["estruturaAcademica", "alterar_status_aluno"], para: ["pessoaFisica", "alterar_status_aluno"] },
+  { de: ["estruturaAcademica", "detalhes_aluno"], para: ["pessoaFisica", "detalhes_aluno"] },
+  { de: ["estruturaAcademica", "excluir_aluno"], para: ["pessoaFisica", "excluir_aluno"] },
+  { de: ["estruturaAcademica", "acessar_colaborador"], para: ["pessoaFisica", "acessar_colaborador"] },
+  { de: ["estruturaAcademica", "adicionar_colaborador"], para: ["pessoaFisica", "adicionar_colaborador"] },
+  { de: ["estruturaAcademica", "ver_colaborador"], para: ["pessoaFisica", "ver_colaborador"] },
+  { de: ["estruturaAcademica", "editar_colaborador"], para: ["pessoaFisica", "editar_colaborador"] },
+  { de: ["estruturaAcademica", "gerar_matricula_colaborador"], para: ["pessoaFisica", "gerar_matricula_colaborador"] },
+  { de: ["estruturaAcademica", "alterar_data_admissao_colaborador"], para: ["pessoaFisica", "alterar_data_admissao_colaborador"] },
+  { de: ["estruturaAcademica", "alterar_status_colaborador"], para: ["pessoaFisica", "alterar_status_colaborador"] },
+  { de: ["estruturaAcademica", "assumir_ativos_colaborador"], para: ["pessoaFisica", "assumir_ativos_colaborador"] },
+  { de: ["estruturaAcademica", "excluir_colaborador"], para: ["pessoaFisica", "excluir_colaborador"] },
 ];
 
 /**
@@ -674,8 +731,7 @@ export function adminSubmodulosPermitidos(config: PermissoesConfig | undefined):
 }
 
 /**
- * Valores do dropdown PAI da função Cadastro de Pessoas (Pessoas Físicas /
- * Pessoas Jurídicas) liberados conforme as permissões salvas. Sem
+ * Valores do dropdown PAI da função Pessoas e Relacionamentos liberados conforme as permissões salvas. Sem
  * configuração (lista vazia) = tudo liberado (comportamento padrão).
  */
 export function pessoaSubmodulosPermitidos(config: PermissoesConfig | undefined): string[] {

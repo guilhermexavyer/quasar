@@ -9,6 +9,7 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import { elementoVisivel } from "@/lib/visibilidade";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 const inputClass = "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none";
 
@@ -40,8 +41,8 @@ export default function OrdenacaoRelatorioTable({
   const raizRef = useRef<HTMLDivElement>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortColumn, setSortColumn] = useOrdenacaoPersistida<string | null>("ordenacaoRelatorio.coluna", null);
+  const [sortAsc, setSortAsc] = useOrdenacaoPersistida<boolean>("ordenacaoRelatorio.asc", true);
 
   useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
 

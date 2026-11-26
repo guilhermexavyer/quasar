@@ -74,7 +74,7 @@ export default function RegrasView({
 }: RegrasViewProps) {
   const [regraDoc, setRegraDoc] = useState<Regra | null>(null);
   const [pesquisa, setPesquisa] = useState("");
-  const { ordenados: regrasOrdenadas, props: ordenacao } = useOrdenacaoTabela(filtrarPesquisa(REGRAS, pesquisa, (x) => [x.regra]));
+  const { ordenados: regrasOrdenadas, props: ordenacao } = useOrdenacaoTabela("regras", filtrarPesquisa(REGRAS, pesquisa, (x) => [x.regra]));
   const [selecionada, setSelecionada] = useState<IdRegra | null>(null);
   // Logs da regra selecionada (só aparecem depois que ela for salva pela primeira vez).
   const logsRegra = useLogsDoItem("regra", regraDoc?.id, selecionada, filtrarAuditoriaDaRegra, regraDoc?.dt_alteracao);
@@ -206,7 +206,7 @@ export default function RegrasView({
           onChange={onManageSelectionChange}
           options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
       </div>
 

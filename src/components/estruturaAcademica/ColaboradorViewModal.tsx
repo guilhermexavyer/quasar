@@ -133,20 +133,6 @@ export default function ColaboradorViewModal({
                         <span>Sim</span>
                       </label>
                     </div>
-                    <div>
-                      <RotuloCampo texto="Fornecedor" colecao="colaborador" campo="ie_fornecedor" />
-                      <label className="inline-flex items-center gap-2 text-sm opacity-50">
-                        <input type="checkbox" className="cg-checkbox" disabled checked={colaborador.ie_fornecedor === "S"} readOnly />
-                        <span>Sim</span>
-                      </label>
-                    </div>
-                    <div>
-                      <RotuloCampo texto="Prestador de serviço" colecao="colaborador" campo="ie_prestador_servico" />
-                      <label className="inline-flex items-center gap-2 text-sm opacity-50">
-                        <input type="checkbox" className="cg-checkbox" disabled checked={colaborador.ie_prestador_servico === "S"} readOnly />
-                        <span>Sim</span>
-                      </label>
-                    </div>
                   </div>
                 </div>
               </div>

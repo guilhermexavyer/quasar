@@ -154,7 +154,7 @@ export default function PeriodoLetivoFormView({
             options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           <div className="flex items-center gap-1">
             <button

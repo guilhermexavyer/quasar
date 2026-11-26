@@ -132,8 +132,8 @@ export const PARAMETROS_PATRIMONIO: ParametroDef[] = [
   },
 ];
 
-/** Parâmetros de configuração da função Estrutura Acadêmica. */
-export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
+/** Parâmetros de configuração da função Pessoas e Relacionamentos. */
+export const PARAMETROS_PESSOAS_RELACIONAMENTOS: ParametroDef[] = [
   {
     id: "geracao_matricula_aluno",
     dropdown: "Alunos",
@@ -148,6 +148,10 @@ export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
     colecao: COLECAO_PARAM_MATRICULA_COLABORADOR,
     tipo: "regra",
   },
+];
+
+/** Parâmetros de configuração da função Estrutura Acadêmica. */
+export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
   {
     id: "cor_status_periodo_letivo_andamento",
     dropdown: "Período letivo",
@@ -265,6 +269,7 @@ export const FUNCOES_COM_PARAMETROS: FuncaoComParametros[] = [
   { funcao: "controleCopias", label: "Controle de Cópias", parametros: PARAMETROS_CONTROLE_COPIAS },
   { funcao: "estruturaAcademica", label: "Estrutura Acadêmica", parametros: PARAMETROS_ESTRUTURA_ACADEMICA },
   { funcao: "patrimonio", label: "Patrimônio", parametros: PARAMETROS_PATRIMONIO },
+  { funcao: "pessoaFisica", label: "Pessoas e Relacionamentos", parametros: PARAMETROS_PESSOAS_RELACIONAMENTOS },
 ];
 
 /** Opções do parâmetro Sim/Não ("---" vale como Não). */
@@ -402,10 +407,12 @@ export default function ParametrosDaFuncaoView({
   const funcaoAtiva = funcoes.find((f) => f.funcao === funcaoSelecionada) ?? null;
   const parametros = funcaoAtiva?.parametros ?? [];
   const { ordenados: funcoesOrdenadas, props: ordenacaoFuncoes } = useOrdenacaoTabela(
+    "parametrosDaFuncao.funcoes",
     filtrarPesquisa(funcoes, pesquisaFuncao, (f) => [f.label]),
     (f) => f.label,
   );
   const { ordenados: parametrosOrdenados, props: ordenacaoParametros } = useOrdenacaoTabela(
+    "parametrosDaFuncao.parametros",
     filtrarPesquisa(parametros, pesquisa, (p) => [p.dropdown, p.parametro]),
   );
   const selectedParametro = parametros.find((p) => p.id === selectedParametroId) ?? null;
@@ -572,7 +579,7 @@ export default function ParametrosDaFuncaoView({
           onChange={onManageSelectionChange}
           options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
       </div>
 

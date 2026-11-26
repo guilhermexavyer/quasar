@@ -10,6 +10,7 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import { elementoVisivel } from "@/lib/visibilidade";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
@@ -203,8 +204,8 @@ export default function CamposRelatorioTable({
     return () => window.removeEventListener("click", close);
   }, [contextMenu]);
 
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState<boolean>(true);
+  const [sortColumn, setSortColumn] = useOrdenacaoPersistida<string | null>("camposRelatorio.coluna", null);
+  const [sortAsc, setSortAsc] = useOrdenacaoPersistida<boolean>("camposRelatorio.asc", true);
 
   // ── Coleções disponíveis (principal + FKs) ──
   const colecoesDisponiveis = useMemo(() => {

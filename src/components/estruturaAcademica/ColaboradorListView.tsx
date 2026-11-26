@@ -500,7 +500,7 @@ export default function ColaboradorListView({
               onChange={onManageSelectionChange}
               options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={!manageSelection}
-              className="!w-[180px]"
+              className="!w-[220px]"
             />
             {manageSelection && (
               <button
@@ -597,7 +597,7 @@ export default function ColaboradorListView({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(colaborador.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'estruturaAcademica', item: colaborador });
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'pessoaFisica', item: colaborador });
                         }}
                       >
                         <td

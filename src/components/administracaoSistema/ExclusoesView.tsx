@@ -20,6 +20,7 @@ import {
 import { getDataSource } from "@/lib/relatorioDataSources";
 import { obterExclusoes, type Exclusao } from "@/services/exclusaoService";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 /** Navegação por duplo clique: registros abertos (do mais externo ao atual) e a aba escolhida. */
 export interface NavegacaoExclusoes {
@@ -119,8 +120,8 @@ export default function ExclusoesView({
   const [cache, setCache] = useState<Record<string, Exclusao[]>>({});
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [ordemFuncao, setOrdemFuncao] = useState<Ordem>(null);
-  const [ordemDropdown, setOrdemDropdown] = useState<Ordem>(null);
+  const [ordemFuncao, setOrdemFuncao] = useOrdenacaoPersistida<Ordem>("exclusoes.funcao", null);
+  const [ordemDropdown, setOrdemDropdown] = useOrdenacaoPersistida<Ordem>("exclusoes.dropdown", null);
   const [pesquisaFuncao, setPesquisaFuncao] = useState("");
   const [pesquisaDropdown, setPesquisaDropdown] = useState("");
   const [pesquisaRegistro, setPesquisaRegistro] = useState("");
@@ -128,7 +129,7 @@ export default function ExclusoesView({
   const [funcaoNome, setFuncaoNome] = useState<string | null>(
     () => FUNCOES_EXCLUSAO.find((fx) => fx.colecao === colecaoSelecionada)?.funcao ?? null
   );
-  const [ordemRegistro, setOrdemRegistro] = useState<Ordem>(null);
+  const [ordemRegistro, setOrdemRegistro] = useOrdenacaoPersistida<Ordem>("exclusoes.registro", null);
 
   const { caminho } = navegacao;
   const pai = caminho.length > 0 ? caminho[caminho.length - 1] : null;
@@ -253,6 +254,7 @@ export default function ExclusoesView({
   );
 
   const { ordenados: linhasOrdenacaoOrdenadas, props: ordenacaoLinhasOrdenacao } = useOrdenacaoTabela(
+    "exclusoes.ordenacao",
     filtrarPesquisa(linhasOrdenacao, pesquisaRegistro, (o) => [o.nr_sequencia, o.campo, o.direcao]),
   );
   return (
@@ -263,7 +265,7 @@ export default function ExclusoesView({
           onChange={onManageSelectionChange}
           options={LOGS_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
       </div>
 

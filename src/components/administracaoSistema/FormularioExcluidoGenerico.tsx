@@ -7,6 +7,7 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
 import { formatarMedida } from "@/lib/cadastroGeralUtils";
 import { getDataSource } from "@/lib/relatorioDataSources";
+import { rotuloStatusRelacionamento } from "@/lib/relacionamentoUtils";
 
 type Dados = Record<string, unknown>;
 
@@ -76,6 +77,47 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
       { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 2 },
       { campo: "nr_seq_grau_parentesco", rotulo: "Grau de parentesco", span: 2 },
+    ],
+  }],
+  fornecedor: [{
+    titulo: "Identificação",
+    campos: [
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
+      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 5 },
+      { campo: "nr_seq_pessoa_juridica", rotulo: "Pessoa jurídica", span: 6 },
+      { campo: "ie_status", rotulo: "Status", span: 2, tipo: "dropdown", formatar: (v) => rotuloStatusRelacionamento(texto(v) || "A") },
+      { campo: "dt_status", rotulo: "Data do status", span: 2 },
+      { campo: "ds_motivo_status", rotulo: "Motivo do status", span: 12 },
+      { campo: "ds_observacao", rotulo: "Observação", span: 12 },
+    ],
+  }],
+  prestador_servico: [{
+    titulo: "Identificação",
+    campos: [
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
+      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 5 },
+      { campo: "nr_seq_pessoa_juridica", rotulo: "Pessoa jurídica", span: 6 },
+      { campo: "ie_status", rotulo: "Status", span: 2, tipo: "dropdown", formatar: (v) => rotuloStatusRelacionamento(texto(v) || "A") },
+      { campo: "dt_status", rotulo: "Data do status", span: 2 },
+      { campo: "ds_motivo_status", rotulo: "Motivo do status", span: 12 },
+      { campo: "ds_observacao", rotulo: "Observação", span: 12 },
+    ],
+  }],
+  equipe: [{
+    campos: [
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
+      { campo: "ds_equipe", rotulo: "Descrição", span: 9 },
+      { campo: "ie_status", rotulo: "Status", span: 2, tipo: "dropdown", formatar: (v) => rotuloStatusRelacionamento(texto(v) || "A") },
+      { campo: "ds_observacao", rotulo: "Observação", span: 12 },
+    ],
+  }],
+  equipe_membro: [{
+    campos: [
+      { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
+      { campo: "nr_seq_equipe", rotulo: "Equipe", span: 11 },
+      { campo: "nr_seq_colaborador", rotulo: "Colaborador", span: 4 },
+      { campo: "nr_seq_fornecedor", rotulo: "Fornecedor", span: 4 },
+      { campo: "nr_seq_prestador_servico", rotulo: "Prestador de serviço", span: 4 },
     ],
   }],
   pat_ativo_responsavel: [{

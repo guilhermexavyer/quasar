@@ -204,6 +204,11 @@ import ColaboradorViewModal from "@/components/estruturaAcademica/ColaboradorVie
 import PeriodoLetivoListView from "@/components/estruturaAcademica/PeriodoLetivoListView";
 import PeriodoLetivoFormView, { type PeriodoLetivoFormData } from "@/components/estruturaAcademica/PeriodoLetivoFormView";
 import PeriodoLetivoFeriadosView from "@/components/estruturaAcademica/PeriodoLetivoFeriadosView";
+import RelacionamentoView from "@/components/pessoasRelacionamentos/RelacionamentoView";
+import EquipeView, { type OpcaoMembro } from "@/components/pessoasRelacionamentos/EquipeView";
+import { observarEquipes, observarRelacionamentos } from "@/services/relacionamentoService";
+import type { Equipe, Relacionamento } from "@/types/relacionamento";
+import type { TipoRelacionamento } from "@/lib/relacionamentoUtils";
 import ExclusoesView, { type NavegacaoExclusoes } from "@/components/administracaoSistema/ExclusoesView";
 import AcessosView, { FILTRO_ACESSOS_VAZIO, LogsSemSelecaoView, normalizarFiltroAcessos, type FiltroAcessos } from "@/components/logs/AcessosView";
 import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
@@ -380,6 +385,7 @@ import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
 import type { ContextMenuState } from "@/types/contextMenu";
 import { SecaoPaginacaoContext, limparPaginacaoDaSecao } from "@/lib/paginacaoPersistida";
+import { useOrdenacaoPersistida, limparOrdenacaoDaSecao } from "@/lib/ordenacaoPersistida";
 import { useAtalhoSalvarModal } from "@/lib/atalhoSalvarModal";
 import { useAtalhoFiltrarModal } from "@/lib/atalhoFiltrarModal";
 import { PERFIL_COLUMNS, parseFuncoesConfig } from "@/lib/perfilUtils";
@@ -428,7 +434,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.97.0";
+const SYSTEM_VERSION = "0.98.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -524,8 +530,13 @@ const CG_SELECT_OPTIONS = [
 
 /* Opções do dropdown da função Pessoas Físicas / Pessoas Jurídicas */
 const PJ_SELECT_OPTIONS = [
-  { value: 'pessoasFisicas', label: 'Pessoas Físicas' },
-  { value: 'pessoasJuridicas', label: 'Pessoas Jurídicas' },
+  { value: 'pessoasFisicas', label: '1. Pessoas Físicas' },
+  { value: 'pessoasJuridicas', label: '2. Pessoas Jurídicas' },
+  { value: 'alunos', label: '3. Alunos' },
+  { value: 'colaboradores', label: '4. Colaboradores' },
+  { value: 'fornecedores', label: '5. Fornecedores' },
+  { value: 'prestadoresServico', label: '6. Prestadores de Serviço' },
+  { value: 'equipes', label: '7. Equipes' },
 ];
 
 /* Opções do dropdown da função Estrutura Acadêmica */
@@ -574,13 +585,11 @@ function opcoesDeReferencia<T extends { nr_sequencia: number; ie_status?: string
 }
 
 const EA_SELECT_OPTIONS = [
-  { value: 'alunos', label: '1. Alunos' },
-  { value: 'colaboradores', label: '2. Colaboradores' },
-  { value: 'periodoLetivo', label: '3. Período Letivo' },
-  { value: 'cursos', label: '4. Cursos' },
-  { value: 'turmas', label: '5. Turmas' },
-  { value: 'disciplinas', label: '6. Disciplinas' },
-  { value: 'turmasDisciplinas', label: '7. Turmas x Disciplinas' },
+  { value: 'periodoLetivo', label: '1. Período Letivo' },
+  { value: 'cursos', label: '2. Cursos' },
+  { value: 'turmas', label: '3. Turmas' },
+  { value: 'disciplinas', label: '4. Disciplinas' },
+  { value: 'turmasDisciplinas', label: '5. Turmas x Disciplinas' },
 ];
 
 /* Opções do dropdown da função Patrimônio */
@@ -663,8 +672,6 @@ const emptyColaboradorForm: ColaboradorFormData = {
   nr_seq_cargo: undefined,
   ie_coordenador: 'N',
   ie_professor: 'N',
-  ie_fornecedor: 'N',
-  ie_prestador_servico: 'N',
   nr_matricula: "",
   dt_admissao: "",
   dt_status: "",
@@ -848,7 +855,7 @@ const LARGURA_MENU_FIXA_ITEM = 85;
 
 const SECTION_DEFS: Record<SectionType, { label: string; icon: React.ReactNode }> = {
   pessoaFisica: {
-    label: "Cadastro de Pessoas",
+    label: "Pessoas e Relacionamentos",
     icon: (
       <svg
         width="14"
@@ -1107,7 +1114,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra' | 'fornecedor' | 'prestador_servico' | 'equipe' | 'equipe_membro'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   /** Tipos das colunas do banco (Detalhe da auditoria: datas sem hora exibidas como DD/MM/AAAA). */
@@ -1186,12 +1193,12 @@ export default function Home() {
   const [toastMounted, setToastMounted] = useState(false);
   // Status forçado do toast (quando a mensagem não permite inferência por texto).
   const [toastForced, setToastForced] = useState<{ msg: string; status: ToastStatus } | null>(null);
-  const [sortColumn, setSortColumn] = useState<number | null>(null);
-  const [sortAsc, setSortAsc] = useState<boolean | null>(null);
-  const [adminSortColumn, setAdminSortColumn] = useState<number | null>(null);
-  const [adminSortAsc, setAdminSortAsc] = useState<boolean | null>(null);
-  const [cgSortColumn, setCgSortColumn] = useState<number | null>(null);
-  const [cgSortAsc, setCgSortAsc] = useState<boolean | null>(null);
+  const [sortColumn, setSortColumn] = useOrdenacaoPersistida<number | null>("pessoaFisica.coluna", null, "pessoaFisica");
+  const [sortAsc, setSortAsc] = useOrdenacaoPersistida<boolean | null>("pessoaFisica.asc", null, "pessoaFisica");
+  const [adminSortColumn, setAdminSortColumn] = useOrdenacaoPersistida<number | null>("admin.coluna", null, "administracaoSistema");
+  const [adminSortAsc, setAdminSortAsc] = useOrdenacaoPersistida<boolean | null>("admin.asc", null, "administracaoSistema");
+  const [cgSortColumn, setCgSortColumn] = useOrdenacaoPersistida<number | null>("cg.coluna", null, "cadastrosGerais");
+  const [cgSortAsc, setCgSortAsc] = useOrdenacaoPersistida<boolean | null>("cg.asc", null, "cadastrosGerais");
   const [usuarios, setUsuarios] = useState<Usuario[]>([]);
   const [perfis, setPerfis] = useState<Perfil[]>([]);
   const [sexos, setSexos] = useState<Sexo[]>([]);
@@ -1235,8 +1242,8 @@ export default function Home() {
   const [perfilFilterForm, setPerfilFilterForm] = useState({ nr_sequencia: '', ds_perfil: '', ie_status: 'T' });
   const [appliedPerfilFilterForm, setAppliedPerfilFilterForm] = useState({ nr_sequencia: '', ds_perfil: '', ie_status: 'T' });
   const [perfilFilterModalOpen, setPerfilFilterModalOpen] = useState(false);
-  const [perfilSortColumn, setPerfilSortColumn] = useState<number | null>(null);
-  const [perfilSortAsc, setPerfilSortAsc] = useState<boolean | null>(null);
+  const [perfilSortColumn, setPerfilSortColumn] = useOrdenacaoPersistida<number | null>("perfil.coluna", null, "administracaoSistema");
+  const [perfilSortAsc, setPerfilSortAsc] = useOrdenacaoPersistida<boolean | null>("perfil.asc", null, "administracaoSistema");
   const [delegateFuncoesModalOpen, setDelegateFuncoesModalOpen] = useState(false);
   const [delegateFuncoesPerfil, setDelegateFuncoesPerfil] = useState<Perfil | null>(null);
   const [delegateFuncoes, setDelegateFuncoes] = useState<SectionType[]>([]);
@@ -1271,8 +1278,8 @@ export default function Home() {
   const [cursoAuditInfo, setCursoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditCursoIdRef = useRef<string | null>(null);
   const [cursoCampoErros, setCursoCampoErros] = useState<string[]>([]);
-  const [cursoSortColumn, setCursoSortColumn] = useState<number | null>(null);
-  const [cursoSortAsc, setCursoSortAsc] = useState<boolean | null>(null);
+  const [cursoSortColumn, setCursoSortColumn] = useOrdenacaoPersistida<number | null>("curso.coluna", null, "estruturaAcademica");
+  const [cursoSortAsc, setCursoSortAsc] = useOrdenacaoPersistida<boolean | null>("curso.asc", null, "estruturaAcademica");
   const [cursoFilterModalOpen, setCursoFilterModalOpen] = useState(false);
   const [cursoFilterForm, setCursoFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCursoFilterForm, setAppliedCursoFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1284,8 +1291,8 @@ export default function Home() {
   const [disciplinaAuditInfo, setDisciplinaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditDisciplinaIdRef = useRef<string | null>(null);
   const [disciplinaCampoErros, setDisciplinaCampoErros] = useState<string[]>([]);
-  const [disciplinaSortColumn, setDisciplinaSortColumn] = useState<number | null>(null);
-  const [disciplinaSortAsc, setDisciplinaSortAsc] = useState<boolean | null>(null);
+  const [disciplinaSortColumn, setDisciplinaSortColumn] = useOrdenacaoPersistida<number | null>("disciplina.coluna", null, "estruturaAcademica");
+  const [disciplinaSortAsc, setDisciplinaSortAsc] = useOrdenacaoPersistida<boolean | null>("disciplina.asc", null, "estruturaAcademica");
   const [disciplinaFilterModalOpen, setDisciplinaFilterModalOpen] = useState(false);
   const [disciplinaFilterForm, setDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedDisciplinaFilterForm, setAppliedDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1297,8 +1304,8 @@ export default function Home() {
   const [turmaAuditInfo, setTurmaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditTurmaIdRef = useRef<string | null>(null);
   const [turmaCampoErros, setTurmaCampoErros] = useState<string[]>([]);
-  const [turmaSortColumn, setTurmaSortColumn] = useState<number | null>(null);
-  const [turmaSortAsc, setTurmaSortAsc] = useState<boolean | null>(null);
+  const [turmaSortColumn, setTurmaSortColumn] = useOrdenacaoPersistida<number | null>("turma.coluna", null, "estruturaAcademica");
+  const [turmaSortAsc, setTurmaSortAsc] = useOrdenacaoPersistida<boolean | null>("turma.asc", null, "estruturaAcademica");
   const [turmaFilterModalOpen, setTurmaFilterModalOpen] = useState(false);
   const [turmaFilterForm, setTurmaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedTurmaFilterForm, setAppliedTurmaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1318,8 +1325,8 @@ export default function Home() {
   const [turmaDisciplinaAuditInfo, setTurmaDisciplinaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditTurmaDisciplinaIdRef = useRef<string | null>(null);
   const [turmaDisciplinaCampoErros, setTurmaDisciplinaCampoErros] = useState<string[]>([]);
-  const [turmaDisciplinaSortColumn, setTurmaDisciplinaSortColumn] = useState<number | null>(null);
-  const [turmaDisciplinaSortAsc, setTurmaDisciplinaSortAsc] = useState<boolean | null>(null);
+  const [turmaDisciplinaSortColumn, setTurmaDisciplinaSortColumn] = useOrdenacaoPersistida<number | null>("turmaDisciplina.coluna", null, "estruturaAcademica");
+  const [turmaDisciplinaSortAsc, setTurmaDisciplinaSortAsc] = useOrdenacaoPersistida<boolean | null>("turmaDisciplina.asc", null, "estruturaAcademica");
   const [turmaDisciplinaFilterModalOpen, setTurmaDisciplinaFilterModalOpen] = useState(false);
   const [turmaDisciplinaFilterForm, setTurmaDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedTurmaDisciplinaFilterForm, setAppliedTurmaDisciplinaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1339,8 +1346,8 @@ export default function Home() {
   const [copiaAuditInfo, setCopiaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditCopiaIdRef = useRef<string | null>(null);
   const [copiaCampoErros, setCopiaCampoErros] = useState<string[]>([]);
-  const [copiaSortColumn, setCopiaSortColumn] = useState<number | null>(null);
-  const [copiaSortAsc, setCopiaSortAsc] = useState<boolean | null>(null);
+  const [copiaSortColumn, setCopiaSortColumn] = useOrdenacaoPersistida<number | null>("copia.coluna", null, "controleCopias");
+  const [copiaSortAsc, setCopiaSortAsc] = useOrdenacaoPersistida<boolean | null>("copia.asc", null, "controleCopias");
   const [copiaFilterModalOpen, setCopiaFilterModalOpen] = useState(false);
   const [copiaFilterForm, setCopiaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCopiaFilterForm, setAppliedCopiaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1359,8 +1366,8 @@ export default function Home() {
   const [categoriaAuditInfo, setCategoriaAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditCategoriaIdRef = useRef<string | null>(null);
   const [categoriaCampoErros, setCategoriaCampoErros] = useState<string[]>([]);
-  const [categoriaSortColumn, setCategoriaSortColumn] = useState<number | null>(null);
-  const [categoriaSortAsc, setCategoriaSortAsc] = useState<boolean | null>(null);
+  const [categoriaSortColumn, setCategoriaSortColumn] = useOrdenacaoPersistida<number | null>("categoria.coluna", null, "patrimonio");
+  const [categoriaSortAsc, setCategoriaSortAsc] = useOrdenacaoPersistida<boolean | null>("categoria.asc", null, "patrimonio");
   const [categoriaFilterModalOpen, setCategoriaFilterModalOpen] = useState(false);
   const [categoriaFilterForm, setCategoriaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedCategoriaFilterForm, setAppliedCategoriaFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1411,8 +1418,8 @@ export default function Home() {
   const [pjAuditInfo, setPjAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditPjIdRef = useRef<string | null>(null);
   const [pjSubmitting, setPjSubmitting] = useState(false);
-  const [pjSortColumn, setPjSortColumn] = useState<number | null>(null);
-  const [pjSortAsc, setPjSortAsc] = useState<boolean | null>(null);
+  const [pjSortColumn, setPjSortColumn] = useOrdenacaoPersistida<number | null>("pj.coluna", null, "pessoaFisica");
+  const [pjSortAsc, setPjSortAsc] = useOrdenacaoPersistida<boolean | null>("pj.asc", null, "pessoaFisica");
   const [pjCidadeLookupOpen, setPjCidadeLookupOpen] = useState(false);
   const [pjCidadeLookupForm, setPjCidadeLookupForm] = useState({ codigo: '', nome: '', uf: '' });
   const [pjCidadeLookupApplied, setPjCidadeLookupApplied] = useState(false);
@@ -1431,8 +1438,8 @@ export default function Home() {
   const [alunoAuditInfo, setAlunoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditAlunoIdRef = useRef<string | null>(null);
   const [alunoSubmitting, setAlunoSubmitting] = useState(false);
-  const [alunoSortColumn, setAlunoSortColumn] = useState<number | null>(null);
-  const [alunoSortAsc, setAlunoSortAsc] = useState<boolean | null>(null);
+  const [alunoSortColumn, setAlunoSortColumn] = useOrdenacaoPersistida<number | null>("aluno.coluna", null, "pessoaFisica");
+  const [alunoSortAsc, setAlunoSortAsc] = useOrdenacaoPersistida<boolean | null>("aluno.asc", null, "pessoaFisica");
   const [alunoCampoErros, setAlunoCampoErros] = useState<string[]>([]);
   const [alunoFilterModalOpen, setAlunoFilterModalOpen] = useState(false);
   const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
@@ -1459,13 +1466,53 @@ export default function Home() {
 
   // Colaboradores (Estrutura Acadêmica > Colaboradores).
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
+  /* Pessoas e Relacionamentos > Fornecedores, Prestadores de Serviço e Equipes: listas observadas
+     (usadas também no Fornecedor do ativo, no Prestador da manutenção e nos Membros das equipes). */
+  const [fornecedores, setFornecedores] = useState<Relacionamento[]>([]);
+  const [prestadoresServico, setPrestadoresServico] = useState<Relacionamento[]>([]);
+  const [equipes, setEquipes] = useState<Equipe[]>([]);
+  const [fornecedoresCarregando, setFornecedoresCarregando] = useState(true);
+  const [prestadoresCarregando, setPrestadoresCarregando] = useState(true);
+  const [equipesCarregando, setEquipesCarregando] = useState(true);
+  const [relacionamentoSaving, setRelacionamentoSaving] = useState(false);
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const cancelar = [
+      observarRelacionamentos('fornecedor', (lista) => { setFornecedores(lista); setFornecedoresCarregando(false); }, () => setFornecedoresCarregando(false)),
+      observarRelacionamentos('prestador_servico', (lista) => { setPrestadoresServico(lista); setPrestadoresCarregando(false); }, () => setPrestadoresCarregando(false)),
+      observarEquipes((lista) => { setEquipes(lista); setEquipesCarregando(false); }, () => setEquipesCarregando(false)),
+    ];
+    return () => cancelar.forEach((c) => c());
+  }, [isAuthenticated]);
+  const nomePessoaFisicaPorSeq = useCallback(
+    (nr?: number) => (nr ? pessoasFisicas.find((p) => p.nr_sequencia === nr)?.ds_nome ?? '' : ''),
+    [pessoasFisicas]
+  );
+  const nomePessoaJuridicaPorSeq = useCallback(
+    (nr?: number) => (nr ? pessoasJuridicas.find((p) => p.nr_sequencia === nr)?.ds_razao_social ?? '' : ''),
+    [pessoasJuridicas]
+  );
+  /** Membros das equipes: colaboradores, fornecedores e prestadores de serviço, já com o nome. */
+  const opcoesMembroEquipe = useMemo(() => {
+    const opcoes = (lista: { nr_sequencia: number; nr_seq_pessoa_fisica?: number; nr_seq_pessoa_juridica?: number; ie_status?: string }[], inativo: string): OpcaoMembro[] =>
+      lista.map((r) => ({
+        nr_sequencia: r.nr_sequencia,
+        descricao: (r.nr_seq_pessoa_juridica ? nomePessoaJuridicaPorSeq(r.nr_seq_pessoa_juridica) : '') || nomePessoaFisicaPorSeq(r.nr_seq_pessoa_fisica),
+        inativo: r.ie_status === inativo,
+      }));
+    return {
+      nr_seq_colaborador: opcoes(colaboradores, 'D'),
+      nr_seq_fornecedor: opcoes(fornecedores, 'I'),
+      nr_seq_prestador_servico: opcoes(prestadoresServico, 'I'),
+    };
+  }, [colaboradores, fornecedores, prestadoresServico, nomePessoaFisicaPorSeq, nomePessoaJuridicaPorSeq]);
   const [colaboradorForm, setColaboradorForm] = useState<ColaboradorFormData>(emptyColaboradorForm);
   const [colaboradorEditingId, setColaboradorEditingId] = useState<string | null>(null);
   const [colaboradorAuditInfo, setColaboradorAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditColaboradorIdRef = useRef<string | null>(null);
   const [colaboradorSubmitting, setColaboradorSubmitting] = useState(false);
-  const [colaboradorSortColumn, setColaboradorSortColumn] = useState<number | null>(null);
-  const [colaboradorSortAsc, setColaboradorSortAsc] = useState<boolean | null>(null);
+  const [colaboradorSortColumn, setColaboradorSortColumn] = useOrdenacaoPersistida<number | null>("colaborador.coluna", null, "pessoaFisica");
+  const [colaboradorSortAsc, setColaboradorSortAsc] = useOrdenacaoPersistida<boolean | null>("colaborador.asc", null, "pessoaFisica");
   const [colaboradorCampoErros, setColaboradorCampoErros] = useState<string[]>([]);
   const [colaboradorFilterModalOpen, setColaboradorFilterModalOpen] = useState(false);
   const [colaboradorFilterForm, setColaboradorFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', nr_seq_pessoa_juridica: '', dt_admissao_inicio: '', dt_admissao_fim: '' });
@@ -1480,8 +1527,8 @@ export default function Home() {
   const [statusPeriodoModal, setStatusPeriodoModal] = useState<{ periodo: PeriodoLetivo; acao: 'encerrar' | 'reativar' } | null>(null);
   const [statusPeriodoData, setStatusPeriodoData] = useState('');
   const [statusPeriodoSaving, setStatusPeriodoSaving] = useState(false);
-  const [periodoLetivoSortColumn, setPeriodoLetivoSortColumn] = useState<number | null>(null);
-  const [periodoLetivoSortAsc, setPeriodoLetivoSortAsc] = useState<boolean | null>(null);
+  const [periodoLetivoSortColumn, setPeriodoLetivoSortColumn] = useOrdenacaoPersistida<number | null>("periodoLetivo.coluna", null, "estruturaAcademica");
+  const [periodoLetivoSortAsc, setPeriodoLetivoSortAsc] = useOrdenacaoPersistida<boolean | null>("periodoLetivo.asc", null, "estruturaAcademica");
   const [periodoLetivoCampoErros, setPeriodoLetivoCampoErros] = useState<string[]>([]);
   const [periodoLetivoFilterModalOpen, setPeriodoLetivoFilterModalOpen] = useState(false);
   const [periodoLetivoFilterForm, setPeriodoLetivoFilterForm] = useState({ nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '' });
@@ -1538,13 +1585,13 @@ export default function Home() {
   const [enviarManutLote, setEnviarManutLote] = useState<Ativo[]>([]);
   const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_prestador_servico: undefined as number | undefined, ds_motivo_manutencao: '' });
   const [enviarManutSaving, setEnviarManutSaving] = useState(false);
-  // Lookup de prestador de serviço (filtra colaboradores com ie_prestador_servico='S').
+  // Lookup de colaborador / fornecedor / prestador de serviço (ver enviarManutPrestadores).
   const [enviarManutPrestadorLookupOpen, setEnviarManutPrestadorLookupOpen] = useState(false);
   const [enviarManutPrestLookupForm, setEnviarManutPrestLookupForm] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
   const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
-  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante'>('modal');
-  /** O lookup lista só os colaboradores com "Fornecedor" marcado (Fornecedor do ativo). */
+  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' | 'manutencaoFilter'>('modal');
+  /** O lookup lista os fornecedores (Fornecedor do ativo). */
   const [lookupColaboradorFornecedor, setLookupColaboradorFornecedor] = useState(false);
   /** O lookup lista todos os colaboradores (Responsável do ativo), não só os prestadores de serviço. */
   const [lookupColaboradorTodos, setLookupColaboradorTodos] = useState(false);
@@ -1562,11 +1609,13 @@ export default function Home() {
   // Manutenções marcadas na coluna de seleção (checkbox) da lista de Manutenções, por id.
   const [manutencoesSelecionadas, setManutencoesSelecionadas] = useState<string[]>([]);
   const [cancelarManutSaving, setCancelarManutSaving] = useState(false);
-  const enviarManutPrestadores = useMemo(() => {
-    // Apenas colaboradores com ie_prestador_servico === 'S' (ou todos, no Responsável do ativo).
-    if (lookupColaboradorFornecedor) return colaboradores.filter((c) => c.ie_fornecedor === 'S');
-    return lookupColaboradorTodos ? colaboradores : colaboradores.filter((c) => c.ie_prestador_servico === 'S');
-  }, [colaboradores, lookupColaboradorTodos, lookupColaboradorFornecedor]);
+  const enviarManutPrestadores = useMemo((): Colaborador[] => {
+    // Fornecedor do ativo: os fornecedores ativos; Prestador da manutenção: os prestadores de serviço
+    // ativos (Pessoas e Relacionamentos); Responsável do ativo e demais: todos os colaboradores.
+    // Os três têm Pessoa física / Pessoa jurídica: a mesma janela de busca atende a todos.
+    if (lookupColaboradorFornecedor) return fornecedores.filter((f) => f.ie_status !== 'I') as unknown as Colaborador[];
+    return lookupColaboradorTodos ? colaboradores : prestadoresServico.filter((p) => p.ie_status !== 'I') as unknown as Colaborador[];
+  }, [colaboradores, fornecedores, prestadoresServico, lookupColaboradorTodos, lookupColaboradorFornecedor]);
   const enviarManutFilteredPrestadores = useMemo(() => {
     if (!enviarManutPrestLookupApplied) return [];
     return enviarManutPrestadores.filter((c) => {
@@ -1597,7 +1646,7 @@ export default function Home() {
   const enviarManutPrestadorName = useMemo(() => {
     if (!enviarManutForm.nr_seq_prestador_servico) return '';
     const seq = enviarManutForm.nr_seq_prestador_servico;
-    const col = colaboradores.find((c) => c.nr_sequencia === seq);
+    const col = prestadoresServico.find((c) => c.nr_sequencia === seq);
     if (col) {
       if (col.nr_seq_pessoa_juridica) {
         const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
@@ -1607,13 +1656,15 @@ export default function Home() {
       if (pf) return pf.ds_nome ?? '';
     }
     return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
-  }, [enviarManutForm.nr_seq_prestador_servico, pessoasFisicas, colaboradores, pessoasJuridicas]);
+  }, [enviarManutForm.nr_seq_prestador_servico, pessoasFisicas, prestadoresServico, pessoasJuridicas]);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
   const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
   const [colaboradorPjLookupFilter, setColaboradorPjLookupFilter] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
   const [colaboradorPjLookupApplied, setColaboradorPjLookupApplied] = useState(false);
-  const colaboradorPjLookupTargetRef = useRef<'form' | 'filter'>('form');
+  const colaboradorPjLookupTargetRef = useRef<'form' | 'filter' | 'callback'>('form');
+  /** Lookup de pessoa jurídica aberto por uma tela que recebe a escolha (target 'callback'). */
+  const pessoaJuridicaLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
 
   // Patrimônio > Ativos.
   const [ativoManageSelection, setAtivoManageSelection] = useState<string>('');
@@ -1690,8 +1741,8 @@ export default function Home() {
   const [manutencaoAuditInfo, setManutencaoAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
   const auditManutencaoIdRef = useRef<string | null>(null);
   const [manutencaoSubmitting, setManutencaoSubmitting] = useState(false);
-  const [manutencaoSortColumn, setManutencaoSortColumn] = useState<number | null>(null);
-  const [manutencaoSortAsc, setManutencaoSortAsc] = useState<boolean | null>(null);
+  const [manutencaoSortColumn, setManutencaoSortColumn] = useOrdenacaoPersistida<number | null>("manutencao.coluna", null, "patrimonio");
+  const [manutencaoSortAsc, setManutencaoSortAsc] = useOrdenacaoPersistida<boolean | null>("manutencao.asc", null, "patrimonio");
   const [manutencaoCampoErros, setManutencaoCampoErros] = useState<string[]>([]);
 
   // Filtro de Manutenções.
@@ -1749,8 +1800,8 @@ export default function Home() {
   const [relatorioAuditLogs, setRelatorioAuditLogs] = useState<AuditEntry[]>([]);
   const [relatorioAuditTipo, setRelatorioAuditTipo] = useState<'relatorio' | 'relatorio_banda' | 'relatorio_banda_elemento' | 'relatorio_parametro'>('relatorio');
   const [relatorioAuditItemId, setRelatorioAuditItemId] = useState<string | null>(null);
-  const [relatorioSortColumn, setRelatorioSortColumn] = useState<number | null>(null);
-  const [relatorioSortAsc, setRelatorioSortAsc] = useState<boolean | null>(null);
+  const [relatorioSortColumn, setRelatorioSortColumn] = useOrdenacaoPersistida<number | null>("relatorio.coluna", null, "relatorio");
+  const [relatorioSortAsc, setRelatorioSortAsc] = useOrdenacaoPersistida<boolean | null>("relatorio.asc", null, "relatorio");
   const [relatorioFilterModalOpen, setRelatorioFilterModalOpen] = useState(false);
   const [relatorioFilterForm, setRelatorioFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
   const [appliedRelatorioFilterForm, setAppliedRelatorioFilterForm] = useState<CadastroGeralFilterForm>({ nr_sequencia: '', descricao: '', ie_status: 'T' });
@@ -1767,8 +1818,8 @@ export default function Home() {
   const [imagemEditingId, setImagemEditingId] = useState<string | null>(null);
   const [imagemForm, setImagemForm] = useState<Partial<Imagem>>({});
   const [imagemSubmitting, setImagemSubmitting] = useState(false);
-  const [imagemSortColumn, setImagemSortColumn] = useState<number | null>(null);
-  const [imagemSortAsc, setImagemSortAsc] = useState<boolean | null>(null);
+  const [imagemSortColumn, setImagemSortColumn] = useOrdenacaoPersistida<number | null>("imagem.coluna", null, "administracaoSistema");
+  const [imagemSortAsc, setImagemSortAsc] = useOrdenacaoPersistida<boolean | null>("imagem.asc", null, "administracaoSistema");
   async function loadImagens() { try { const data = await obterImagens(); setImagens(data); } catch { /* */ } }
   function handleImagemSortChange(logicalIndex: number) { if (imagemSortColumn === logicalIndex) { if (imagemSortAsc === true) setImagemSortAsc(false); else if (imagemSortAsc === false) { setImagemSortColumn(null); setImagemSortAsc(null); } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } } else { setImagemSortColumn(logicalIndex); setImagemSortAsc(true); } }
   const filteredSortedImagens = useMemo(() => { const list = [...imagens].sort((a, b) => b.nr_sequencia - a.nr_sequencia); /* Ordem padrão: coluna # decrescente */ if (imagemSortColumn != null && imagemSortAsc != null) { const keys = ['preview', 'nr_sequencia', 'ds_imagem', 'ie_arquivo', 'dt_criacao', 'dt_alteracao', 'ds_usuario_criacao', 'ds_usuario_alteracao']; const key = keys[imagemSortColumn]; if (key) list.sort((a, b) => { const av = a[key as keyof Imagem] ?? ''; const bv = b[key as keyof Imagem] ?? ''; return imagemSortAsc ? String(av).localeCompare(String(bv), 'pt-BR', { numeric: true }) : String(bv).localeCompare(String(av), 'pt-BR', { numeric: true }); }); } return list; }, [imagens, imagemSortColumn, imagemSortAsc]);
@@ -1963,8 +2014,8 @@ export default function Home() {
   const manutencaoPrestadorName = useMemo(() => {
     if (!manutencaoForm.nr_seq_prestador_servico) return '';
     const seq = manutencaoForm.nr_seq_prestador_servico;
-    // Busca o colaborador que tem esse nr_sequencia (o campo armazena a sequência do colaborador).
-    const col = colaboradores.find((c) => c.nr_sequencia === seq);
+    // Busca o prestador de serviço (Pessoas e Relacionamentos > Prestadores de Serviço).
+    const col = prestadoresServico.find((c) => c.nr_sequencia === seq);
     if (col) {
       if (col.nr_seq_pessoa_juridica) {
         const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
@@ -1975,7 +2026,7 @@ export default function Home() {
     }
     // Fallback: busca direta na PF (para dados legados).
     return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
-  }, [manutencaoForm.nr_seq_prestador_servico, pessoasFisicas, colaboradores, pessoasJuridicas]);
+  }, [manutencaoForm.nr_seq_prestador_servico, pessoasFisicas, prestadoresServico, pessoasJuridicas]);
   const manutencaoFilteredAtivos = useMemo(() => {
     if (!manutencaoAtivoLookupApplied) return [];
     return ativos.filter((a) => {
@@ -1991,8 +2042,8 @@ export default function Home() {
       return true;
     });
   }, [ativos, manutencaoAtivoLookupFilter, manutencaoAtivoLookupApplied]);
-  const [ativoSortColumn, setAtivoSortColumn] = useState<number | null>(null);
-  const [ativoSortAsc, setAtivoSortAsc] = useState<boolean | null>(null);
+  const [ativoSortColumn, setAtivoSortColumn] = useOrdenacaoPersistida<number | null>("ativo.coluna", null, "patrimonio");
+  const [ativoSortAsc, setAtivoSortAsc] = useOrdenacaoPersistida<boolean | null>("ativo.asc", null, "patrimonio");
   const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
   const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
   const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
@@ -2209,7 +2260,7 @@ export default function Home() {
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
-  // Permissões da função Cadastro de Pessoas (Pessoas Físicas/Jurídicas) para
+  // Permissões da função Pessoas e Relacionamentos (Pessoas Físicas/Jurídicas, Fornecedores...) para
   // o usuário logado: o administrador tem tudo liberado; os demais seguem o
   // perfil ativo (sem configuração salva = tudo liberado).
   const permissoesPessoa = useMemo(() => {
@@ -2225,6 +2276,9 @@ export default function Home() {
       verPessoaJuridica: permitida('ver_pessoa_juridica'),
       editarPessoaJuridica: permitida('editar_pessoa_juridica'),
       excluirPessoaJuridica: permitida('excluir_pessoa_juridica'),
+      fornecedor: { adicionar: permitida('adicionar_fornecedor'), ver: permitida('ver_fornecedor'), editar: permitida('editar_fornecedor'), excluir: permitida('excluir_fornecedor') },
+      prestadorServico: { adicionar: permitida('adicionar_prestador_servico'), ver: permitida('ver_prestador_servico'), editar: permitida('editar_prestador_servico'), excluir: permitida('excluir_prestador_servico') },
+      equipe: { adicionar: permitida('adicionar_equipe'), ver: permitida('ver_equipe'), editar: permitida('editar_equipe'), membros: permitida('membros_equipe'), excluir: permitida('excluir_equipe') },
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2232,7 +2286,7 @@ export default function Home() {
   // liberados ao usuário logado conforme as permissões do perfil ativo.
   const allowedPessoaSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['pessoasFisicas', 'pessoasJuridicas'];
+    if (isAdminSemConfig) return PJ_SELECT_OPTIONS.map((o) => o.value);
     return pessoaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2290,7 +2344,7 @@ export default function Home() {
     }
   }, [allowedAdminSubmodulos, adminManageSelection, currentUser]);
 
-  // Se o submódulo ativo de Cadastro de Pessoas deixar de ser permitido,
+  // Se o submódulo ativo de Pessoas e Relacionamentos deixar de ser permitido,
   // volta para o primeiro submódulo permitido.
   useEffect(() => {
     if (!currentUser) return;
@@ -2312,7 +2366,7 @@ export default function Home() {
   // ao usuário logado conforme as permissões do perfil ativo.
   const allowedAlunoSubmodulos = useMemo(() => {
     // Administrador sem perfis vinculados: acesso total.
-    if (isAdminSemConfig) return ['alunos', 'colaboradores', 'periodoLetivo', 'cursos', 'turmas', 'disciplinas', 'turmasDisciplinas'];
+    if (isAdminSemConfig) return ['periodoLetivo', 'cursos', 'turmas', 'disciplinas', 'turmasDisciplinas'];
     return eaSubmodulosPermitidos(permissoesAtivas);
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2322,25 +2376,28 @@ export default function Home() {
   const permissoesEA = useMemo(() => {
     const permitida = (permissao: string) =>
       isAdminSemConfig || temPermissao(permissoesAtivas, 'estruturaAcademica', permissao);
+    // Alunos e Colaboradores: agora em Pessoas e Relacionamentos (mesmas chaves).
+    const permitidaPessoa = (permissao: string) =>
+      isAdminSemConfig || temPermissao(permissoesAtivas, 'pessoaFisica', permissao);
     return {
-      acessarAluno: permitida('acessar_aluno'),
-      adicionarAluno: permitida('adicionar_aluno'),
-      verAluno: permitida('ver_aluno'),
-      editarAluno: permitida('editar_aluno'),
-      gerarMatricula: permitida('gerar_matricula_aluno'),
-      alterarDataIngresso: permitida('alterar_data_ingresso_aluno'),
-      alterarStatusAluno: permitida('alterar_status_aluno'),
-      detalhesAluno: permitida('detalhes_aluno'),
-      excluirAluno: permitida('excluir_aluno'),
-      acessarColaborador: permitida('acessar_colaborador'),
-      adicionarColaborador: permitida('adicionar_colaborador'),
-      verColaborador: permitida('ver_colaborador'),
-      editarColaborador: permitida('editar_colaborador'),
-      gerarMatriculaColaborador: permitida('gerar_matricula_colaborador'),
-      alterarDataAdmissao: permitida('alterar_data_admissao_colaborador'),
-      alterarStatusColaborador: permitida('alterar_status_colaborador'),
-      assumirAtivosColaborador: permitida('assumir_ativos_colaborador'),
-      excluirColaborador: permitida('excluir_colaborador'),
+      acessarAluno: permitidaPessoa('acessar_aluno'),
+      adicionarAluno: permitidaPessoa('adicionar_aluno'),
+      verAluno: permitidaPessoa('ver_aluno'),
+      editarAluno: permitidaPessoa('editar_aluno'),
+      gerarMatricula: permitidaPessoa('gerar_matricula_aluno'),
+      alterarDataIngresso: permitidaPessoa('alterar_data_ingresso_aluno'),
+      alterarStatusAluno: permitidaPessoa('alterar_status_aluno'),
+      detalhesAluno: permitidaPessoa('detalhes_aluno'),
+      excluirAluno: permitidaPessoa('excluir_aluno'),
+      acessarColaborador: permitidaPessoa('acessar_colaborador'),
+      adicionarColaborador: permitidaPessoa('adicionar_colaborador'),
+      verColaborador: permitidaPessoa('ver_colaborador'),
+      editarColaborador: permitidaPessoa('editar_colaborador'),
+      gerarMatriculaColaborador: permitidaPessoa('gerar_matricula_colaborador'),
+      alterarDataAdmissao: permitidaPessoa('alterar_data_admissao_colaborador'),
+      alterarStatusColaborador: permitidaPessoa('alterar_status_colaborador'),
+      assumirAtivosColaborador: permitidaPessoa('assumir_ativos_colaborador'),
+      excluirColaborador: permitidaPessoa('excluir_colaborador'),
       adicionarPeriodoLetivo: permitida('adicionar_periodo_letivo'),
       verPeriodoLetivo: permitida('ver_periodo_letivo'),
       editarPeriodoLetivo: permitida('editar_periodo_letivo'),
@@ -3694,11 +3751,11 @@ export default function Home() {
           setCgManageSelection(session.cgManageSelection);
           setCgInteracted(true);
         }
-        if (typeof session.pjManageSelection === "string" && (session.pjManageSelection === 'pessoasFisicas' || session.pjManageSelection === 'pessoasJuridicas')) {
+        if (typeof session.pjManageSelection === "string" && PJ_SELECT_OPTIONS.some((o) => o.value === session.pjManageSelection)) {
           setPjManageSelection(session.pjManageSelection);
           setPjInteracted(true);
         }
-        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'alunos' || session.alunoManageSelection === 'colaboradores' || session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos' || session.alunoManageSelection === 'disciplinas' || session.alunoManageSelection === 'turmas' || session.alunoManageSelection === 'turmasDisciplinas')) {
+        if (typeof session.alunoManageSelection === "string" && (session.alunoManageSelection === 'periodoLetivo' || session.alunoManageSelection === 'cursos' || session.alunoManageSelection === 'disciplinas' || session.alunoManageSelection === 'turmas' || session.alunoManageSelection === 'turmasDisciplinas')) {
           setAlunoManageSelection(session.alunoManageSelection);
           setAlunoInteracted(true);
         }
@@ -3895,7 +3952,7 @@ export default function Home() {
     setMessage("");
     setAlunoCampoErros([]);
     setView("form");
-    setActiveSection("estruturaAcademica");
+    setActiveSection("pessoaFisica");
   }
 
   // Botão "Adicionar" de Alunos: sem a permissão, mostra aviso.
@@ -3920,7 +3977,7 @@ export default function Home() {
     setMessage("");
     setColaboradorCampoErros([]);
     setView("form");
-    setActiveSection("estruturaAcademica");
+    setActiveSection("pessoaFisica");
   }
 
   function openPeriodoLetivoNewForm() {
@@ -4215,24 +4272,27 @@ export default function Home() {
     }
     if (s === 'pessoaFisica') {
       if (pjManageSelection === 'pessoasJuridicas') return permissoesPessoa.verPessoaJuridica;
+      // "Ver" abre um único formulário: não aparece com vários registros selecionados.
+      if (pjManageSelection === 'colaboradores') {
+        if (contextMenu?.item && colaboradoresAlvoDoContexto(contextMenu.item as unknown as Colaborador).length > 1) return false;
+        return permissoesEA.verColaborador;
+      }
+      if (pjManageSelection === 'alunos') {
+        if (contextMenu?.item && alunosAlvoDoContexto(contextMenu.item as Aluno).length > 1) return false;
+        return permissoesEA.verAluno;
+      }
       return permissoesPessoa.verPessoaFisica;
     }
     if (s === 'cadastrosGerais') {
       return permissoesCg[cgKind]?.ver ?? true;
     }
     if (s === 'estruturaAcademica') {
-      // "Ver" abre um único formulário: não aparece com vários registros selecionados.
-      if (alunoManageSelection === 'colaboradores') {
-        if (contextMenu?.item && colaboradoresAlvoDoContexto(contextMenu.item as unknown as Colaborador).length > 1) return false;
-        return permissoesEA.verColaborador;
-      }
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.verPeriodoLetivo;
       if (alunoManageSelection === 'cursos') return permissoesEA.verCurso;
       if (alunoManageSelection === 'disciplinas') return permissoesEA.verDisciplina;
       if (alunoManageSelection === 'turmas') return permissoesEA.verTurma;
       if (alunoManageSelection === 'turmasDisciplinas') return permissoesEA.verTurmaDisciplina;
-      if (contextMenu?.item && alunosAlvoDoContexto(contextMenu.item as Aluno).length > 1) return false;
-      return permissoesEA.verAluno;
+      return true;
     }
     if (s === 'patrimonio') {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
@@ -4262,19 +4322,20 @@ export default function Home() {
     }
     if (s === 'pessoaFisica') {
       if (pjManageSelection === 'pessoasJuridicas') return permissoesPessoa.excluirPessoaJuridica;
+      if (pjManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
+      if (pjManageSelection === 'alunos') return permissoesEA.excluirAluno;
       return permissoesPessoa.excluirPessoaFisica;
     }
     if (s === 'cadastrosGerais') {
       return permissoesCg[cgKind]?.excluir ?? true;
     }
     if (s === 'estruturaAcademica') {
-      if (alunoManageSelection === 'colaboradores') return permissoesEA.excluirColaborador;
       if (alunoManageSelection === 'periodoLetivo') return permissoesEA.excluirPeriodoLetivo;
       if (alunoManageSelection === 'cursos') return permissoesEA.excluirCurso;
       if (alunoManageSelection === 'disciplinas') return permissoesEA.excluirDisciplina;
       if (alunoManageSelection === 'turmas') return permissoesEA.excluirTurma;
       if (alunoManageSelection === 'turmasDisciplinas') return permissoesEA.excluirTurmaDisciplina;
-      return permissoesEA.excluirAluno;
+      return true;
     }
     if (s === 'patrimonio') {
       if (ativoManageSelection === 'manutencoes') return false; // gerenciado via customItems
@@ -4361,7 +4422,16 @@ export default function Home() {
   function handlePjManageSelectionChange(value: string) {
     setPjInteracted(true);
     setPfDetalheId(null);
+    setAlunoDetalheId(null);
     setPjManageSelection(value);
+    setAlunoForm(emptyAlunoForm);
+    setAlunoEditingId(null);
+    setAlunoAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setAlunoFilterModalOpen(false);
+    setColaboradorForm(emptyColaboradorForm);
+    setColaboradorEditingId(null);
+    setColaboradorAuditInfo({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
+    setColaboradorFilterModalOpen(false);
     // Ao trocar entre Pessoas Físicas/Jurídicas, zera os formulários e
     // retorna à listagem para nunca salvar contra a coleção errada.
     setForm(emptyForm);
@@ -4549,6 +4619,20 @@ export default function Home() {
   }
 
   async function openPessoaFisicaAbaAuditModal(colecao: string, id: string) {
+    setAuditDocumentType(colecao as typeof auditDocumentType);
+    setAuditModalOpen(true);
+    setAuditLoading(true);
+    try {
+      setAuditLogs(await fetchAuditByDocumentId(colecao, id));
+    } catch {
+      setAuditLogs([]);
+    } finally {
+      setAuditLoading(false);
+    }
+  }
+
+  /** Histórico de auditoria de um registro das telas de Pessoas e Relacionamentos (Fornecedores, Equipes...). */
+  async function abrirAuditoriaDaColecao(colecao: string, id: string) {
     setAuditDocumentType(colecao as typeof auditDocumentType);
     setAuditModalOpen(true);
     setAuditLoading(true);
@@ -5492,7 +5576,7 @@ export default function Home() {
     setMessage("");
     setAlunoCampoErros([]);
     setView("form");
-    setActiveSection("estruturaAcademica");
+    setActiveSection("pessoaFisica");
     if (aluno.id) {
       carregarAutorAuditoriaAluno(aluno.id);
     }
@@ -5506,8 +5590,6 @@ export default function Home() {
       nr_seq_cargo: colaborador.nr_seq_cargo,
       ie_coordenador: colaborador.ie_coordenador ?? 'N',
       ie_professor: colaborador.ie_professor ?? 'N',
-      ie_fornecedor: colaborador.ie_fornecedor ?? 'N',
-      ie_prestador_servico: colaborador.ie_prestador_servico ?? 'N',
       nr_matricula: colaborador.nr_matricula ?? '',
       dt_admissao: colaborador.dt_admissao ?? '',
       dt_status: colaborador.dt_status ?? '',
@@ -5525,7 +5607,7 @@ export default function Home() {
     setMessage("");
     setColaboradorCampoErros([]);
     setView("form");
-    setActiveSection("estruturaAcademica");
+    setActiveSection("pessoaFisica");
   }
 
   function openAtivoEditForm(ativo: Ativo) {
@@ -5685,7 +5767,7 @@ export default function Home() {
     setAlunoEditingId(null);
     setMessage("");
     setView("list");
-    setActiveSection("estruturaAcademica");
+    setActiveSection("pessoaFisica");
   }
 
   function openPeriodoLetivoEditForm(periodo: PeriodoLetivo) {
@@ -5725,7 +5807,7 @@ export default function Home() {
     setColaboradorEditingId(null);
     setMessage("");
     setView("list");
-    setActiveSection("estruturaAcademica");
+    setActiveSection("pessoaFisica");
   }
 
   function goToAtivoList() {
@@ -8104,8 +8186,6 @@ export default function Home() {
           'nr_seq_cargo',
           'ie_coordenador',
           'ie_professor',
-          'ie_fornecedor',
-          'ie_prestador_servico',
           'nr_matricula',
           'dt_admissao',
         ];
@@ -8807,7 +8887,8 @@ export default function Home() {
 
   // Abre o lookup de Pessoa Física a partir do filtro de Manutenções (Prestador de serviço).
   function openManutencaoFilterPrestadorLookup() {
-    openAlunoPessoaFisicaLookup('manutencaoFilter');
+    // Prestadores de Serviço (Pessoas e Relacionamentos), como no formulário da manutenção.
+    openEnviarManutPrestadorLookup('manutencaoFilter');
   }
 
   function applyAlunoLookupFilter() {
@@ -8844,6 +8925,24 @@ export default function Home() {
 
   // Abre o modal de visualização de um colaborador pelo nr_sequencia.
   /** Nome do colaborador: razão social da pessoa jurídica ou nome da pessoa física. */
+  /** Nome (razão social ou nome da pessoa física) de um fornecedor / prestador de serviço / colaborador. */
+  function nomeDoRelacionamento(lista: { nr_sequencia: number; nr_seq_pessoa_fisica?: number; nr_seq_pessoa_juridica?: number }[], nrSequencia?: number): string {
+    if (!nrSequencia) return '';
+    const r = lista.find((c) => c.nr_sequencia === nrSequencia);
+    if (!r) return '';
+    const pj = r.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === r.nr_seq_pessoa_juridica) : undefined;
+    return pj ? pj.ds_razao_social ?? '' : pessoasFisicas.find((p) => p.nr_sequencia === r.nr_seq_pessoa_fisica)?.ds_nome ?? '';
+  }
+  const nomeFornecedorPorSeq = (nr?: number) => nomeDoRelacionamento(fornecedores, nr);
+  const nomePrestadorPorSeq = (nr?: number) => nomeDoRelacionamento(prestadoresServico, nr);
+  /** "Ver" do fornecedor / prestador de serviço: a pessoa (jurídica ou física) dele. */
+  function verPessoaDoRelacionamento(lista: Relacionamento[], nrSequencia?: number) {
+    const r = lista.find((c) => c.nr_sequencia === nrSequencia);
+    if (!r) return;
+    if (r.nr_seq_pessoa_juridica) openPessoaJuridicaView(r.nr_seq_pessoa_juridica);
+    else if (r.nr_seq_pessoa_fisica) openPessoaFisicaView(r.nr_seq_pessoa_fisica);
+  }
+
   function nomeColaboradorPorSeq(nrSequencia?: number): string {
     if (!nrSequencia) return '';
     const col = colaboradores.find((c) => c.nr_sequencia === nrSequencia);
@@ -8914,7 +9013,10 @@ export default function Home() {
   }
 
   function handleColaboradorPessoaJuridicaSelect(pessoa: PessoaJuridica) {
-    if (colaboradorPjLookupTargetRef.current === 'filter') {
+    if (colaboradorPjLookupTargetRef.current === 'callback') {
+      pessoaJuridicaLookupCallbackRef.current?.(pessoa.nr_sequencia);
+      pessoaJuridicaLookupCallbackRef.current = null;
+    } else if (colaboradorPjLookupTargetRef.current === 'filter') {
       setColaboradorFilterForm((prev) => ({ ...prev, nr_seq_pessoa_juridica: String(pessoa.nr_sequencia) }));
     } else {
       setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_juridica: pessoa.nr_sequencia });
@@ -9152,6 +9254,10 @@ export default function Home() {
     if (activeSection === 'pessoaFisica') {
       if (pjManageSelection === 'pessoasJuridicas') {
         item = pessoasJuridicas.find((p) => p.id === pjEditingId) ?? null;
+      } else if (pjManageSelection === 'colaboradores') {
+        item = colaboradores.find((c) => c.id === colaboradorEditingId) ?? null;
+      } else if (pjManageSelection === 'alunos') {
+        item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       } else {
         item = pessoasFisicas.find((p) => p.id === editingId) ?? null;
       }
@@ -9167,9 +9273,7 @@ export default function Home() {
         item = usuarios.find((u) => u.id === adminEditingId) ?? null;
       }
     } else if (activeSection === 'estruturaAcademica') {
-      if (alunoManageSelection === 'colaboradores') {
-        item = colaboradores.find((c) => c.id === colaboradorEditingId) ?? null;
-      } else if (alunoManageSelection === 'periodoLetivo') {
+      if (alunoManageSelection === 'periodoLetivo') {
         item = periodosLetivos.find((p) => p.id === periodoLetivoEditingId) ?? null;
       } else if (alunoManageSelection === 'cursos') {
         item = cursos.find((c) => c.id === cursoEditingId) ?? null;
@@ -9179,8 +9283,6 @@ export default function Home() {
         item = turmas.find((t) => t.id === turmaEditingId) ?? null;
       } else if (alunoManageSelection === 'turmasDisciplinas') {
         item = turmasDisciplinas.find((td) => td.id === turmaDisciplinaEditingId) ?? null;
-      } else {
-        item = alunos.find((a) => a.id === alunoEditingId) ?? null;
       }
     } else if (activeSection === 'controleCopias') {
       item = (copias.find((c) => c.id === copiaEditingId) ?? null) as unknown as ContextMenuState['item'] | null;
@@ -9846,7 +9948,7 @@ export default function Home() {
     }
   }
 
-  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' = 'modal') {
+  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' | 'manutencaoFilter' = 'modal') {
     enviarManutPrestadorLookupTargetRef.current = target;
     const fornecedor = target === 'ativoFornecedor' || target === 'ativoFilterFornecedor';
     const todos = target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos' || target === 'copiaSolicitante' || target === 'copiaFiltroSolicitante';
@@ -9889,6 +9991,8 @@ export default function Home() {
       ativoResponsavelLookupCallbackRef.current = null;
     } else if (target === 'ativoFilter') {
       setAtivoFilterForm((prev) => ({ ...prev, nr_seq_responsavel: String(colaborador.nr_sequencia) }));
+    } else if (target === 'manutencaoFilter') {
+      setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_prestador_servico: String(colaborador.nr_sequencia) }));
     } else if (target === 'ativoFornecedor') {
       setAtivoForm((prev) => ({ ...prev, nr_seq_fornecedor: colaborador.nr_sequencia }));
     } else if (target === 'ativoFilterFornecedor') {
@@ -10851,6 +10955,7 @@ export default function Home() {
           setLoginSaindo(false);
           // Ao entrar, nenhuma função vem selecionada (inclusive após a sessão ter sido encerrada).
           limparPaginacaoDaSecao();
+          limparOrdenacaoDaSecao();
           setActiveSection(null);
           setSecoesAbertas([]);
           setSectionViews({});
@@ -10911,6 +11016,7 @@ export default function Home() {
     setAlunosSelecionados([]);
     setColaboradoresSelecionados([]);
     limparPaginacaoDaSecao();
+    limparOrdenacaoDaSecao();
     setIsAuthenticated(false);
     setSessaoInicio(null);
     setIsLoginLoading(false);
@@ -10942,17 +11048,20 @@ export default function Home() {
   function fecharSecao(secao: SectionType) {
     // Rodapé de paginação (página e quantidade por página) volta ao padrão.
     limparPaginacaoDaSecao(secao);
+    // Ordenação das colunas também volta ao padrão.
+    limparOrdenacaoDaSecao(secao);
     setSecoesAbertas((prev) => prev.filter((s) => s !== secao));
     setSectionViews((prev) => Object.fromEntries(Object.entries(prev).filter(([chave]) => chave !== secao)) as typeof prev);
     if (secao === 'pessoaFisica') {
       setPjManageSelection(''); setPjInteracted(false); setEditingId(null); setPjEditingId(null);
+      setAlunosSelecionados([]); setColaboradoresSelecionados([]); setAlunoEditingId(null); setColaboradorEditingId(null); setAlunoDetalheId(null);
     } else if (secao === 'administracaoSistema') {
       setAdminManageSelection(''); setAdminInteracted(false); setAdminEditingId(null); setPerfilEditingId(null); setImagemEditingId(null);
       setCamposPerfilId(null); setCamposFuncao(null); setCamposFuncaoJaSelecionada(false);
     } else if (secao === 'cadastrosGerais') {
       setCgManageSelection(''); setCgInteracted(false); setCgEditingId(null);
     } else if (secao === 'estruturaAcademica') {
-      setAlunoManageSelection(''); setAlunosSelecionados([]); setColaboradoresSelecionados([]); setAlunoInteracted(false); setAlunoEditingId(null); setColaboradorEditingId(null); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
+      setAlunoManageSelection(''); setAlunoInteracted(false); setPeriodoLetivoEditingId(null); setCursoEditingId(null);
     } else if (secao === 'patrimonio') {
       setAtivoManageSelection(''); setAtivosSelecionados([]); setManutencoesSelecionadas([]); setAtivoInteracted(false); setAtivoEditingId(null); setManutencaoEditingId(null); setCategoriaEditingId(null);
     } else if (secao === 'relatorio') {
@@ -11023,8 +11132,9 @@ export default function Home() {
       nr_seq_pessoa_fisica: nomePf,
       nr_seq_colaborador: nomeColaborador,
       nr_seq_pessoa_juridica: nomePj,
-      nr_seq_prestador_servico: nomeColaborador,
-      nr_seq_fornecedor: nomeColaborador,
+      nr_seq_prestador_servico: Object.fromEntries(prestadoresServico.map((c) => [c.nr_sequencia, nomeDoRelacionamento(prestadoresServico, c.nr_sequencia)])),
+      nr_seq_fornecedor: Object.fromEntries(fornecedores.map((c) => [c.nr_sequencia, nomeDoRelacionamento(fornecedores, c.nr_sequencia)])),
+      nr_seq_equipe: Object.fromEntries(equipes.map((e) => [e.nr_sequencia, e.ds_equipe ?? ''])),
       nr_seq_vinculo_contratual: Object.fromEntries(vinculosContratuais.map((v) => [v.nr_sequencia, v.ds_vinculo_contratual ?? ''])),
       nr_seq_cargo: Object.fromEntries(cargos.map((c) => [c.nr_sequencia, c.ds_cargo ?? ''])),
       nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria ?? ''])),
@@ -11045,7 +11155,7 @@ export default function Home() {
       nr_seq_tipo_papel: Object.fromEntries(tiposPapel.map((t) => [t.nr_sequencia, t.ds_tipo_papel ?? ''])),
     } as Record<string, Record<number, string>>;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [turmasDisciplinas, formatosPapel, tiposPapel, turmas, disciplinas, cursos, periodosLetivos, modalidadesEnsino, pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
+  }, [turmasDisciplinas, formatosPapel, tiposPapel, turmas, disciplinas, cursos, periodosLetivos, modalidadesEnsino, pfCgLookups, pessoasFisicas, pessoasJuridicas, colaboradores, fornecedores, prestadoresServico, equipes, vinculosContratuais, cargos, categoriasAtivos, localizacoes, marcas, sistemasOperacionais, combustiveis, ativos, grausParentesco]);
 
   /** Colunas da lista de registros excluídos: uma configuração por função, salvas juntas no usuário. */
   function colunasExclusoesRegistro(colecao: string) {
@@ -11078,7 +11188,9 @@ export default function Home() {
     if (campo === 'nr_seq_formato_papel') return formatosPapel.find((p) => String(p.nr_sequencia) === nr)?.ds_formato_papel;
     if (campo === 'nr_seq_imagem') return imagens.find((i) => String(i.nr_sequencia) === nr)?.ds_imagem;
     if (campo === 'nr_seq_banda_superior') return bandasDaAuditoria.find((b) => String(b.nr_sequencia) === nr && (dados.nr_seq_relatorio == null || String(b.nr_seq_relatorio) === String(dados.nr_seq_relatorio)))?.ds_banda;
-    return undefined;
+    // Demais referências (pessoa, colaborador, fornecedor, equipe...): o nome, como na lista de Exclusões.
+    const nome = exclusoesLookups[campo]?.[Number(nr)];
+    return nome ? `${nr} - ${nome}` : undefined;
   }
 
   function renderFormularioExcluido(ex: Exclusao, cidadeNome: string = exclusaoCidadeNome) {
@@ -11246,6 +11358,42 @@ export default function Home() {
         paineis={paineisPorChave('config_paineis_exclusoes')}
       />
     );
+  }
+
+  /** Props da tela de Fornecedores / Prestadores de Serviço (Pessoas e Relacionamentos). */
+  function propsRelacionamento(colecao: TipoRelacionamento) {
+    const fornecedor = colecao === 'fornecedor';
+    return {
+      colecao,
+      registros: fornecedor ? fornecedores : prestadoresServico,
+      carregando: fornecedor ? fornecedoresCarregando : prestadoresCarregando,
+      selectOptions: PJ_SELECT_OPTIONS,
+      manageSelection: pjManageSelection,
+      onManageSelectionChange: handlePjManageSelectionChange,
+      allowedSubmodulos: allowedPessoaSubmodulos,
+      permissoes: fornecedor ? permissoesPessoa.fornecedor : permissoesPessoa.prestadorServico,
+      nomePessoaFisica: nomePessoaFisicaPorSeq,
+      nomePessoaJuridica: nomePessoaJuridicaPorSeq,
+      onOpenPessoaFisicaLookup: (aoSelecionar: (nr: number) => void) => {
+        alunoResponsavelLookupCallbackRef.current = aoSelecionar;
+        openAlunoPessoaFisicaLookup('responsavel');
+      },
+      onOpenPessoaJuridicaLookup: (aoSelecionar: (nr: number) => void) => {
+        pessoaJuridicaLookupCallbackRef.current = aoSelecionar;
+        colaboradorPjLookupTargetRef.current = 'callback';
+        abrirColaboradorPjLookup();
+      },
+      onViewPessoaFisica: (nr?: number) => openPessoaFisicaView(nr),
+      onViewPessoaJuridica: (nr?: number) => openPessoaJuridicaView(nr),
+      campoRegras: campoRegrasDaColecao(campoRegrasAtivas, colecao),
+      onOpenAudit: abrirAuditoriaDaColecao,
+      resolverNomeAutor: resolverNomeAutorExibicao,
+      onMessage: setMessage,
+      onAviso: (m: string) => mostrarToast(m, 'warning'),
+      confirmar: (titulo: string, mensagem: string, acao: () => void) => setConfirmAcao({ titulo, mensagem, acao }),
+      onSavingChange: setRelacionamentoSaving,
+      colunas: colunasPorChave(fornecedor ? 'config_colunas_fornecedor' : 'config_colunas_prestador_servico'),
+    };
   }
 
   function colunasPorIndice(chave: ChaveColunas) {
@@ -11754,7 +11902,7 @@ export default function Home() {
     { campo: 'nr_seq_localizacao', rotulo: 'Localização', exibir: descricaoDeLista(localizacoes, (l) => l.ds_localizacao) },
     { campo: 'nr_seq_marca', rotulo: 'Marca', exibir: descricaoDeLista(marcas, (m) => m.ds_marca) },
     { campo: 'nr_seq_responsavel', rotulo: 'Responsável', exibir: nomeColaboradorFiltro },
-    { campo: 'nr_seq_fornecedor', rotulo: 'Fornecedor', exibir: nomeColaboradorFiltro },
+    { campo: 'nr_seq_fornecedor', rotulo: 'Fornecedor', exibir: (v) => nomeFornecedorPorSeq(Number(v)) || v },
     { campo: 'ds_endereco_mac', rotulo: 'Endereço MAC' },
     { campo: 'ds_ip', rotulo: 'IPv4' },
     { campo: 'nr_seq_sistema_operacional', rotulo: 'Sistema operacional', exibir: descricaoDeLista(sistemasOperacionais, (s) => s.ds_sistema_operacional) },
@@ -11763,7 +11911,7 @@ export default function Home() {
   const cardsManutencao = cardsDeFiltro('pat_manutencao', appliedManutencaoFilterForm, [
     { campo: 'nr_sequencia', rotulo: 'Sequência' },
     { campo: 'nr_seq_ativo', rotulo: 'Ativo', exibir: descricaoDeLista(ativos, (a) => a.ds_ativo) },
-    { campo: 'nr_seq_prestador_servico', rotulo: 'Prestador de serviço', exibir: nomeColaboradorFiltro },
+    { campo: 'nr_seq_prestador_servico', rotulo: 'Prestador de serviço', exibir: (v) => nomePrestadorPorSeq(Number(v)) || v },
     { campo: 'dt_envio_inicio', rotulo: 'Data envio (início)' },
     { campo: 'dt_envio_fim', rotulo: 'Data envio (fim)' },
     { campo: 'dt_termino_inicio', rotulo: 'Data término (início)' },
@@ -11808,7 +11956,118 @@ export default function Home() {
     return (
       view === "list" ? (
               activeSection === "pessoaFisica" ? (
-                pjManageSelection === 'pessoasJuridicas' ? (
+                pjManageSelection === 'alunos' && alunoDetalhe ? (
+                  <AlunoDetalheView
+                    key={alunoDetalhe.id}
+                    abaInicial={alunoDetalheAba}
+                    onAbaChange={setAlunoDetalheAba}
+                    aluno={alunoDetalhe}
+                    nomeAluno={nomePessoaFisicaDoAluno(alunoDetalhe.nr_seq_pessoa_fisica)}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    onPrevRecord={() => navegarDetalheDoAluno(-1)}
+                    onNextRecord={() => navegarDetalheDoAluno(1)}
+                    hasPrevRecord={alunoDetalheIndex > 0}
+                    hasNextRecord={alunoDetalheIndex >= 0 && alunoDetalheIndex < filteredSortedAlunos.length - 1}
+                    onVoltar={() => { setMessage(""); setAlunoDetalheId(null); }}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno_responsavel')}
+                    onOpenAudit={openAlunoResponsavelAuditModal}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onMessage={setMessage}
+                    onSavingChange={setAlunoResponsavelSaving}
+                    confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
+                    pessoasFisicas={pessoasFisicas}
+                    nomePessoaFisica={nomePessoaFisicaDoAluno}
+                    onOpenPessoaFisicaLookup={(aoSelecionar) => {
+                      alunoResponsavelLookupCallbackRef.current = aoSelecionar;
+                      openAlunoPessoaFisicaLookup('responsavel');
+                    }}
+                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                    grauParentescoOptions={alunoGrauParentescoOptions}
+                    colunasResponsaveis={colunasPorChave('config_colunas_aluno_responsavel')}
+                    darkMode={darkMode}
+                  />
+                ) : pjManageSelection === 'alunos' ? (
+                  <AlunoListView
+                    filtrosAplicados={cardsAluno}
+                    onOpenDetalhe={abrirDetalheDoAluno}
+                    message={message}
+                    loading={loading}
+                    alunos={filteredSortedAlunos}
+                    selecionados={alunosSelecionados}
+                    onSelecionadosChange={setAlunosSelecionados}
+                    openNewForm={handleAlunoNewForm}
+                    openEditForm={openAlunoEditForm}
+                    openFilter={openAlunoFilterModal}
+                    handleDelete={handleAlunoDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    sortColumn={alunoSortColumn}
+                    sortAsc={alunoSortAsc}
+                    onSortChange={handleAlunoSortChange}
+                    initialColumns={alunoColunasConfig}
+                    onColumnsChange={handleAlunoColumnsChange}
+                    columnLookups={alunoPessoaFisicaLookups}
+                  />
+                ) : pjManageSelection === 'colaboradores' ? (
+                  <ColaboradorListView
+                    filtrosAplicados={cardsColaborador}
+                    message={message}
+                    loading={loading}
+                    colaboradores={filteredSortedColaboradores}
+                    selecionados={colaboradoresSelecionados}
+                    onSelecionadosChange={setColaboradoresSelecionados}
+                    openNewForm={handleColaboradorNewForm}
+                    openEditForm={openColaboradorEditForm}
+                    openFilter={openColaboradorFilterModal}
+                    handleDelete={handleColaboradorDelete}
+                    setContextMenu={setContextMenu}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    sortColumn={colaboradorSortColumn}
+                    sortAsc={colaboradorSortAsc}
+                    onSortChange={handleColaboradorSortChange}
+                    {...colunasPorIndice('config_colunas_colaborador')}
+                    columnLookups={{
+                      nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+                      nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
+                    }}
+                  />
+                ) : pjManageSelection === 'fornecedores' || pjManageSelection === 'prestadoresServico' ? (
+                  <RelacionamentoView
+                    key={pjManageSelection}
+                    {...propsRelacionamento(pjManageSelection === 'fornecedores' ? 'fornecedor' : 'prestador_servico')}
+                  />
+                ) : pjManageSelection === 'equipes' ? (
+                  <EquipeView
+                    registros={equipes}
+                    carregando={equipesCarregando}
+                    selectOptions={PJ_SELECT_OPTIONS}
+                    manageSelection={pjManageSelection}
+                    onManageSelectionChange={handlePjManageSelectionChange}
+                    allowedSubmodulos={allowedPessoaSubmodulos}
+                    permissoes={permissoesPessoa.equipe}
+                    opcoesMembro={opcoesMembroEquipe}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'equipe')}
+                    campoRegrasMembro={campoRegrasDaColecao(campoRegrasAtivas, 'equipe_membro')}
+                    onOpenAudit={abrirAuditoriaDaColecao}
+                    resolverNomeAutor={resolverNomeAutorExibicao}
+                    onMessage={setMessage}
+                    onAviso={(m) => mostrarToast(m, 'warning')}
+                    confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
+                    onSavingChange={setRelacionamentoSaving}
+                    colunas={colunasPorChave('config_colunas_equipe')}
+                    colunasMembros={colunasPorChave('config_colunas_equipe_membro')}
+                    filtroDoLookup={filtroDoReferenciaLookup}
+                  />
+                ) : pjManageSelection === 'pessoasJuridicas' ? (
                   <PessoaJuridicaListView
                     filtrosAplicados={cardsPj}
                     message={message}
@@ -12110,7 +12369,7 @@ export default function Home() {
                     colunas={colunasPorChave('config_colunas_periodo_letivo_feriado')}
                     darkMode={darkMode}
                   />
-                ) : alunoManageSelection === 'periodoLetivo' ? (
+                ) : (
                   <PeriodoLetivoListView
                     filtrosAplicados={cardsPeriodoLetivo}
                     onOpenFeriados={abrirFeriadosDoPeriodo}
@@ -12131,90 +12390,6 @@ export default function Home() {
                     onSortChange={handlePeriodoLetivoSortChange}
                     {...colunasPorIndice('config_colunas_periodo_letivo')}
                     coresStatus={coresStatusPeriodoLetivo}
-                  />
-                ) : alunoManageSelection === 'alunos' && alunoDetalhe ? (
-                  <AlunoDetalheView
-                    key={alunoDetalhe.id}
-                    abaInicial={alunoDetalheAba}
-                    onAbaChange={setAlunoDetalheAba}
-                    aluno={alunoDetalhe}
-                    nomeAluno={nomePessoaFisicaDoAluno(alunoDetalhe.nr_seq_pessoa_fisica)}
-                    selectOptions={EA_SELECT_OPTIONS}
-                    manageSelection={alunoManageSelection}
-                    onManageSelectionChange={handleAlunoManageSelectionChange}
-                    allowedSubmodulos={allowedAlunoSubmodulos}
-                    onPrevRecord={() => navegarDetalheDoAluno(-1)}
-                    onNextRecord={() => navegarDetalheDoAluno(1)}
-                    hasPrevRecord={alunoDetalheIndex > 0}
-                    hasNextRecord={alunoDetalheIndex >= 0 && alunoDetalheIndex < filteredSortedAlunos.length - 1}
-                    onVoltar={() => { setMessage(""); setAlunoDetalheId(null); }}
-                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno_responsavel')}
-                    onOpenAudit={openAlunoResponsavelAuditModal}
-                    resolverNomeAutor={resolverNomeAutorExibicao}
-                    onMessage={setMessage}
-                    onSavingChange={setAlunoResponsavelSaving}
-                    confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
-                    pessoasFisicas={pessoasFisicas}
-                    nomePessoaFisica={nomePessoaFisicaDoAluno}
-                    onOpenPessoaFisicaLookup={(aoSelecionar) => {
-                      alunoResponsavelLookupCallbackRef.current = aoSelecionar;
-                      openAlunoPessoaFisicaLookup('responsavel');
-                    }}
-                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                    grauParentescoOptions={alunoGrauParentescoOptions}
-                    colunasResponsaveis={colunasPorChave('config_colunas_aluno_responsavel')}
-                    darkMode={darkMode}
-                  />
-                ) : alunoManageSelection === 'alunos' ? (
-                  <AlunoListView
-                    filtrosAplicados={cardsAluno}
-                    onOpenDetalhe={abrirDetalheDoAluno}
-                    message={message}
-                    loading={loading}
-                    alunos={filteredSortedAlunos}
-                    selecionados={alunosSelecionados}
-                    onSelecionadosChange={setAlunosSelecionados}
-                    openNewForm={handleAlunoNewForm}
-                    openEditForm={openAlunoEditForm}
-                    openFilter={openAlunoFilterModal}
-                    handleDelete={handleAlunoDelete}
-                    setContextMenu={setContextMenu}
-                    selectOptions={EA_SELECT_OPTIONS}
-                    manageSelection={alunoManageSelection}
-                    onManageSelectionChange={handleAlunoManageSelectionChange}
-                    allowedSubmodulos={allowedAlunoSubmodulos}
-                    sortColumn={alunoSortColumn}
-                    sortAsc={alunoSortAsc}
-                    onSortChange={handleAlunoSortChange}
-                    initialColumns={alunoColunasConfig}
-                    onColumnsChange={handleAlunoColumnsChange}
-                    columnLookups={alunoPessoaFisicaLookups}
-                  />
-                ) : (
-                  <ColaboradorListView
-                    filtrosAplicados={cardsColaborador}
-                    message={message}
-                    loading={loading}
-                    colaboradores={filteredSortedColaboradores}
-                    selecionados={colaboradoresSelecionados}
-                    onSelecionadosChange={setColaboradoresSelecionados}
-                    openNewForm={handleColaboradorNewForm}
-                    openEditForm={openColaboradorEditForm}
-                    openFilter={openColaboradorFilterModal}
-                    handleDelete={handleColaboradorDelete}
-                    setContextMenu={setContextMenu}
-                    selectOptions={EA_SELECT_OPTIONS}
-                    manageSelection={alunoManageSelection}
-                    onManageSelectionChange={handleAlunoManageSelectionChange}
-                    allowedSubmodulos={allowedAlunoSubmodulos}
-                    sortColumn={colaboradorSortColumn}
-                    sortAsc={colaboradorSortAsc}
-                    onSortChange={handleColaboradorSortChange}
-                    {...colunasPorIndice('config_colunas_colaborador')}
-                    columnLookups={{
-                      nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
-                      nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
-                    }}
                   />
                 )
               ) : activeSection === "patrimonio" ? (
@@ -12266,7 +12441,7 @@ export default function Home() {
                       nr_seq_ativo: Object.fromEntries(ativos.map((a) => [a.nr_sequencia, a.ds_ativo ?? `#${a.nr_sequencia}`])),
                       ...Object.fromEntries([
                         ['nr_seq_prestador_servico', Object.fromEntries(
-                          colaboradores.map((c) => {
+                          prestadoresServico.map((c) => {
                             const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
                             const pj = c.nr_seq_pessoa_juridica ? pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica) : undefined;
                             const nome = c.nr_seq_pessoa_juridica && pj ? pj.ds_razao_social : (pf?.ds_nome ?? '');
@@ -12358,7 +12533,7 @@ export default function Home() {
                     nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria])),
                     nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
                     nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
-                    nr_seq_fornecedor: Object.fromEntries(colaboradores.map((c) => [c.nr_sequencia, nomeColaboradorPorSeq(c.nr_sequencia)])),
+                    nr_seq_fornecedor: Object.fromEntries(fornecedores.map((c) => [c.nr_sequencia, nomeFornecedorPorSeq(c.nr_sequencia)])),
                   }}
                   coresStatus={coresStatusAtivo}
                 />
@@ -12395,7 +12570,7 @@ export default function Home() {
                         onChange={handleCcManageSelectionChange}
                         options={CC_SELECT_OPTIONS.filter((o) => allowedCcSubmodulos.includes(o.value))}
                         showPlaceholder={!ccManageSelection}
-                        className="!w-[180px]"
+                        className="!w-[220px]"
                       />
                     </div>
                     <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -12551,7 +12726,72 @@ export default function Home() {
                 />
               )
             ) : activeSection === "pessoaFisica" ? (
-              pjManageSelection === 'pessoasJuridicas' ? (
+              pjManageSelection === 'alunos' ? (
+                <AlunoFormView
+                  message={message}
+                  editingId={alunoEditingId}
+                  sequence={alunoEditingId ? (alunos.find((a) => a.id === alunoEditingId)?.nr_sequencia ?? null) : null}
+                  form={alunoForm}
+                  setForm={setAlunoForm}
+                  submitting={alunoSubmitting}
+                  handleSubmit={handleAlunoSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleAlunoSubmit, handleAlunoNewForm); }}
+                  goToList={goToAlunoList}
+                  createdAt={alunoAuditInfo.createdAt}
+                  updatedAt={alunoAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(alunoAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(alunoAuditInfo.updatedBy)}
+                  onOpenAudit={openAlunoAuditModal}
+                  onPrevRecord={goToPrevAlunoRecord}
+                  onNextRecord={goToNextAlunoRecord}
+                  hasPrevRecord={hasPrevAlunoRecord}
+                  hasNextRecord={hasNextAlunoRecord}
+                  pessoaFisicaName={selectedAlunoPessoaFisicaName}
+                  onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
+                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                  selectOptions={PJ_SELECT_OPTIONS}
+                  manageSelection={pjManageSelection}
+                  onManageSelectionChange={handlePjManageSelectionChange}
+                  allowedSubmodulos={allowedPessoaSubmodulos}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno')}
+                  campoErros={alunoCampoErros}
+                />
+              ) : pjManageSelection === 'colaboradores' ? (
+                <ColaboradorFormView
+                  message={message}
+                  editingId={colaboradorEditingId}
+                  sequence={colaboradorEditingId ? (colaboradores.find((c) => c.id === colaboradorEditingId)?.nr_sequencia ?? null) : null}
+                  form={colaboradorForm}
+                  setForm={setColaboradorForm}
+                  submitting={colaboradorSubmitting}
+                  handleSubmit={handleColaboradorSubmit}
+                  onSalvarEAdicionar={() => { void salvarEAdicionar(handleColaboradorSubmit, handleColaboradorNewForm); }}
+                  goToList={goToColaboradorList}
+                  createdAt={colaboradorAuditInfo.createdAt}
+                  updatedAt={colaboradorAuditInfo.updatedAt}
+                  createdBy={resolverNomeAutorExibicao(colaboradorAuditInfo.createdBy)}
+                  updatedBy={resolverNomeAutorExibicao(colaboradorAuditInfo.updatedBy)}
+                  onOpenAudit={openColaboradorAuditModal}
+                  onPrevRecord={goToPrevColaboradorRecord}
+                  onNextRecord={goToNextColaboradorRecord}
+                  hasPrevRecord={hasPrevColaboradorRecord}
+                  hasNextRecord={hasNextColaboradorRecord}
+                  pessoaFisicaName={selectedColaboradorPessoaFisicaName}
+                  onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('colaborador')}
+                  onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
+                  pessoaJuridicaName={selectedColaboradorPessoaJuridicaName}
+                  onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
+                  onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
+                  vinculosContratuais={colaboradorVinculosOptions}
+                  cargos={colaboradorCargosOptions}
+                  selectOptions={PJ_SELECT_OPTIONS}
+                  manageSelection={pjManageSelection}
+                  onManageSelectionChange={handlePjManageSelectionChange}
+                  allowedSubmodulos={allowedPessoaSubmodulos}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
+                  campoErros={colaboradorCampoErros}
+                />
+              ) : pjManageSelection === 'pessoasJuridicas' ? (
                 <PessoaJuridicaFormView
                   message={message}
                   editingId={pjEditingId}
@@ -12994,72 +13234,7 @@ export default function Home() {
                     campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'periodo_letivo')}
                     campoErros={periodoLetivoCampoErros}
                   />
-                ) : alunoManageSelection === 'alunos' ? (
-                  <AlunoFormView
-                    message={message}
-                    editingId={alunoEditingId}
-                    sequence={alunoEditingId ? (alunos.find((a) => a.id === alunoEditingId)?.nr_sequencia ?? null) : null}
-                    form={alunoForm}
-                    setForm={setAlunoForm}
-                    submitting={alunoSubmitting}
-                    handleSubmit={handleAlunoSubmit}
-                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleAlunoSubmit, handleAlunoNewForm); }}
-                    goToList={goToAlunoList}
-                    createdAt={alunoAuditInfo.createdAt}
-                    updatedAt={alunoAuditInfo.updatedAt}
-                    createdBy={resolverNomeAutorExibicao(alunoAuditInfo.createdBy)}
-                    updatedBy={resolverNomeAutorExibicao(alunoAuditInfo.updatedBy)}
-                    onOpenAudit={openAlunoAuditModal}
-                    onPrevRecord={goToPrevAlunoRecord}
-                    onNextRecord={goToNextAlunoRecord}
-                    hasPrevRecord={hasPrevAlunoRecord}
-                    hasNextRecord={hasNextAlunoRecord}
-                    pessoaFisicaName={selectedAlunoPessoaFisicaName}
-                    onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('aluno')}
-                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                    selectOptions={EA_SELECT_OPTIONS}
-                    manageSelection={alunoManageSelection}
-                    onManageSelectionChange={handleAlunoManageSelectionChange}
-                    allowedSubmodulos={allowedAlunoSubmodulos}
-                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'aluno')}
-                    campoErros={alunoCampoErros}
-                  />
-                ) : (
-                  <ColaboradorFormView
-                    message={message}
-                    editingId={colaboradorEditingId}
-                    sequence={colaboradorEditingId ? (colaboradores.find((c) => c.id === colaboradorEditingId)?.nr_sequencia ?? null) : null}
-                    form={colaboradorForm}
-                    setForm={setColaboradorForm}
-                    submitting={colaboradorSubmitting}
-                    handleSubmit={handleColaboradorSubmit}
-                    onSalvarEAdicionar={() => { void salvarEAdicionar(handleColaboradorSubmit, handleColaboradorNewForm); }}
-                    goToList={goToColaboradorList}
-                    createdAt={colaboradorAuditInfo.createdAt}
-                    updatedAt={colaboradorAuditInfo.updatedAt}
-                    createdBy={resolverNomeAutorExibicao(colaboradorAuditInfo.createdBy)}
-                    updatedBy={resolverNomeAutorExibicao(colaboradorAuditInfo.updatedBy)}
-                    onOpenAudit={openColaboradorAuditModal}
-                    onPrevRecord={goToPrevColaboradorRecord}
-                    onNextRecord={goToNextColaboradorRecord}
-                    hasPrevRecord={hasPrevColaboradorRecord}
-                    hasNextRecord={hasNextColaboradorRecord}
-                    pessoaFisicaName={selectedColaboradorPessoaFisicaName}
-                    onOpenPessoaFisicaLookup={() => openAlunoPessoaFisicaLookup('colaborador')}
-                    onViewPessoaFisica={(seq) => openPessoaFisicaView(seq)}
-                    pessoaJuridicaName={selectedColaboradorPessoaJuridicaName}
-                    onOpenPessoaJuridicaLookup={openColaboradorPessoaJuridicaLookup}
-                    onViewPessoaJuridica={(seq) => openPessoaJuridicaView(seq)}
-                    vinculosContratuais={colaboradorVinculosOptions}
-                    cargos={colaboradorCargosOptions}
-                    selectOptions={EA_SELECT_OPTIONS}
-                    manageSelection={alunoManageSelection}
-                    onManageSelectionChange={handleAlunoManageSelectionChange}
-                    allowedSubmodulos={allowedAlunoSubmodulos}
-                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'colaborador')}
-                    campoErros={colaboradorCampoErros}
-                  />
-                )
+                ) : null
               ) : activeSection === "controleCopias" ? (
                 ccManageSelection === 'copias' ? (
                   <CadastroGeralFormView
@@ -13118,7 +13293,7 @@ export default function Home() {
                         onChange={handleCcManageSelectionChange}
                         options={CC_SELECT_OPTIONS.filter((o) => allowedCcSubmodulos.includes(o.value))}
                         showPlaceholder={!ccManageSelection}
-                        className="!w-[180px]"
+                        className="!w-[220px]"
                       />
                     </div>
                     <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -13209,7 +13384,7 @@ export default function Home() {
                   onViewAtivo={(seq) => { const a = ativos.find((at) => at.nr_sequencia === seq); if (a) setAtivoView(a); }}
                   prestadorName={manutencaoPrestadorName}
                   onOpenPrestadorLookup={() => openEnviarManutPrestadorLookup('form')}
-                  onViewPrestador={(seq) => openColaboradorView(seq)}
+                  onViewPrestador={(seq) => verPessoaDoRelacionamento(prestadoresServico, seq)}
                   selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
@@ -13250,9 +13425,9 @@ export default function Home() {
                   campoErros={ativoCampoErros}
                   ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
                   onViewManutencao={(seq) => openManutencaoView(seq)}
-                  fornecedorName={nomeColaboradorPorSeq(ativoForm.nr_seq_fornecedor)}
+                  fornecedorName={nomeFornecedorPorSeq(ativoForm.nr_seq_fornecedor)}
                   onOpenFornecedorLookup={() => openEnviarManutPrestadorLookup('ativoFornecedor')}
-                  onViewFornecedor={(seq) => openColaboradorView(seq)}
+                  onViewFornecedor={(seq) => verPessoaDoRelacionamento(fornecedores, seq)}
                 />
               ) : (
               <CadastroGeralFormView
@@ -13324,6 +13499,10 @@ export default function Home() {
             if (contextMenu.section === 'pessoaFisica') {
               if (pjManageSelection === 'pessoasJuridicas') {
                 openPjEditForm(contextMenu.item as PessoaJuridica);
+              } else if (pjManageSelection === 'colaboradores') {
+                openColaboradorEditForm(contextMenu.item as unknown as Colaborador);
+              } else if (pjManageSelection === 'alunos') {
+                openAlunoEditForm(contextMenu.item as Aluno);
               } else {
                 openEditForm(contextMenu.item as PessoaFisica);
               }
@@ -13336,9 +13515,7 @@ export default function Home() {
                 openAdminEditForm(contextMenu.item as Usuario);
               }
             } else if (contextMenu.section === 'estruturaAcademica') {
-              if (alunoManageSelection === 'colaboradores') {
-                openColaboradorEditForm(contextMenu.item as unknown as Colaborador);
-              } else if (alunoManageSelection === 'periodoLetivo') {
+              if (alunoManageSelection === 'periodoLetivo') {
                 openPeriodoLetivoEditForm(contextMenu.item as PeriodoLetivo);
               } else if (alunoManageSelection === 'cursos') {
                 openCursoEditForm(contextMenu.item as Curso);
@@ -13348,8 +13525,6 @@ export default function Home() {
                 openTurmaEditForm(contextMenu.item as unknown as Turma);
               } else if (alunoManageSelection === 'turmasDisciplinas') {
                 openTurmaDisciplinaEditForm(contextMenu.item as unknown as TurmaDisciplina);
-              } else {
-                openAlunoEditForm(contextMenu.item as Aluno);
               }
             } else if (contextMenu.section === 'patrimonio') {
               if (ativoManageSelection === 'categoria') {
@@ -13378,18 +13553,18 @@ export default function Home() {
             }
             setContextMenu(null);
           }}
-          showChangeIngresso={contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarDataIngresso}
+          showChangeIngresso={contextMenu.section === 'pessoaFisica' && pjManageSelection === 'alunos' && permissoesEA.alterarDataIngresso}
           onChangeIngresso={() => {
-            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
+            if (contextMenu.section === 'pessoaFisica' && pjManageSelection === 'alunos') {
               openAlterarIngressoModal(contextMenu.item as Aluno, alunosAlvoDoContexto(contextMenu.item as Aluno));
             }
             setContextMenu(null);
           }}
           showChangeStatus={
-            contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos' && permissoesEA.alterarStatusAluno
+            contextMenu.section === 'pessoaFisica' && pjManageSelection === 'alunos' && permissoesEA.alterarStatusAluno
           }
           onChangeStatus={() => {
-            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
+            if (contextMenu.section === 'pessoaFisica' && pjManageSelection === 'alunos') {
               openAlterarStatusModal(contextMenu.item as Aluno, alunosAlvoDoContexto(contextMenu.item as Aluno));
             }
             setContextMenu(null);
@@ -13471,7 +13646,7 @@ export default function Home() {
               }
               return items.length > 0 ? items : undefined;
             }
-            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'alunos') {
+            if (contextMenu.section === 'pessoaFisica' && pjManageSelection === 'alunos') {
               const items: { label: string; onClick: () => void }[] = [];
               // Com vários alunos marcados, "Gerar"/"Regerar" só aparece se valer para todos
               // (todos sem matrícula ou todos com matrícula).
@@ -13508,7 +13683,7 @@ export default function Home() {
               }
               return items.length > 0 ? items : undefined;
             }
-            if (contextMenu.section === 'estruturaAcademica' && alunoManageSelection === 'colaboradores') {
+            if (contextMenu.section === 'pessoaFisica' && pjManageSelection === 'colaboradores') {
               const items: { label: string; onClick: () => void }[] = [];
               // Com vários colaboradores marcados, cada opção só aparece se valer para todos.
               const colaboradorClicado = contextMenu.item as unknown as Colaborador;
@@ -13607,7 +13782,31 @@ export default function Home() {
           showDelete={podeExcluirNoContexto()}
           onDelete={() => {
             if (contextMenu.section === 'pessoaFisica') {
-              if (pjManageSelection === 'pessoasJuridicas') {
+              if (pjManageSelection === 'colaboradores') {
+                const colaborador = contextMenu.item as unknown as Colaborador;
+                const alvos = colaboradoresAlvoDoContexto(colaborador).filter((c) => c.id);
+                if (alvos.length > 1) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
+                  setConfirmDeleteAction(() => () => handleColaboradoresDeleteLote(alvos.map((c) => c.id as string)));
+                  setConfirmDeleteOpen(true);
+                } else if (colaborador.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${colaborador.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleColaboradorDelete(colaborador.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (pjManageSelection === 'alunos') {
+                const aluno = contextMenu.item as Aluno;
+                const alvos = alunosAlvoDoContexto(aluno).filter((a) => a.id);
+                if (alvos.length > 1) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
+                  setConfirmDeleteAction(() => () => handleAlunosDeleteLote(alvos.map((a) => a.id as string)));
+                  setConfirmDeleteOpen(true);
+                } else if (aluno.id) {
+                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${aluno.nr_sequencia}?`);
+                  setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
+                  setConfirmDeleteOpen(true);
+                }
+              } else if (pjManageSelection === 'pessoasJuridicas') {
                 const pj = contextMenu.item as PessoaJuridica;
                 if (pj.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${pj.nr_sequencia}?`);
@@ -13646,19 +13845,7 @@ export default function Home() {
                 }
               }
             } else if (contextMenu.section === 'estruturaAcademica') {
-              if (alunoManageSelection === 'colaboradores') {
-                const colaborador = contextMenu.item as unknown as Colaborador;
-                const alvos = colaboradoresAlvoDoContexto(colaborador).filter((c) => c.id);
-                if (alvos.length > 1) {
-                  setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
-                  setConfirmDeleteAction(() => () => handleColaboradoresDeleteLote(alvos.map((c) => c.id as string)));
-                  setConfirmDeleteOpen(true);
-                } else if (colaborador.id) {
-                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${colaborador.nr_sequencia}?`);
-                  setConfirmDeleteAction(() => () => handleColaboradorDelete(colaborador.id as string));
-                  setConfirmDeleteOpen(true);
-                }
-              } else if (alunoManageSelection === 'periodoLetivo') {
+              if (alunoManageSelection === 'periodoLetivo') {
                 const periodo = contextMenu.item as PeriodoLetivo;
                 if (periodo.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${periodo.nr_sequencia}?`);
@@ -13691,18 +13878,6 @@ export default function Home() {
                 if (td.id) {
                   setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${td.nr_sequencia}?`);
                   setConfirmDeleteAction(() => () => handleTurmaDisciplinaDelete(td.id as string));
-                  setConfirmDeleteOpen(true);
-                }
-              } else {
-                const aluno = contextMenu.item as Aluno;
-                const alvos = alunosAlvoDoContexto(aluno).filter((a) => a.id);
-                if (alvos.length > 1) {
-                  setConfirmDeleteMessage(`Deseja mesmo excluir os ${alvos.length} registros selecionados?`);
-                  setConfirmDeleteAction(() => () => handleAlunosDeleteLote(alvos.map((a) => a.id as string)));
-                  setConfirmDeleteOpen(true);
-                } else if (aluno.id) {
-                  setConfirmDeleteMessage(`Deseja mesmo excluir o registro ${aluno.nr_sequencia}?`);
-                  setConfirmDeleteAction(() => () => handleAlunoDelete(aluno.id as string));
                   setConfirmDeleteOpen(true);
                 }
               }
@@ -14337,7 +14512,7 @@ export default function Home() {
         </div>
       )}
 
-      {alunoFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && (
+      {alunoFilterModalOpen && view === "list" && activeSection === "pessoaFisica" && pjManageSelection === 'alunos' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeAlunoFilterModal} />
           <form onSubmit={handleAlunoFilterSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
@@ -14469,7 +14644,7 @@ export default function Home() {
         </div>
       )}
 
-      {colaboradorFilterModalOpen && view === "list" && activeSection === "estruturaAcademica" && alunoManageSelection === 'colaboradores' && (
+      {colaboradorFilterModalOpen && view === "list" && activeSection === "pessoaFisica" && pjManageSelection === 'colaboradores' && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
           <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorFilterModal} />
           <form onSubmit={handleColaboradorFilterSubmit} className="relative w-full max-w-[980px] bg-white modal-dark p-0 shadow-xl shadow-black/20">
@@ -15094,10 +15269,10 @@ export default function Home() {
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_fornecedor} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_fornecedor: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                     </div>
                     <div className="relative flex-1 min-w-0">
-                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={nomeColaboradorPorSeq(Number(ativoFilterForm.nr_seq_fornecedor) || undefined)} />
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={nomeFornecedorPorSeq(Number(ativoFilterForm.nr_seq_fornecedor) || undefined)} />
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                         {ativoFilterForm.nr_seq_fornecedor && (
-                          <button type="button" onClick={() => openColaboradorView(Number(ativoFilterForm.nr_seq_fornecedor))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar fornecedor">
+                          <button type="button" onClick={() => verPessoaDoRelacionamento(fornecedores, Number(ativoFilterForm.nr_seq_fornecedor))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar fornecedor">
                             <ViewIcon size={16} />
                           </button>
                         )}
@@ -15175,10 +15350,10 @@ export default function Home() {
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_prestador_servico} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_prestador_servico: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
                     </div>
                     <div className="relative flex-1 min-w-0">
-                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_prestador_servico ? (() => { const seq = Number(manutencaoFilterForm.nr_seq_prestador_servico); const col = colaboradores.find((c) => c.nr_sequencia === seq); if (col) { const pf = pessoasFisicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_fisica); return pf?.ds_nome ?? ''; } const pf = pessoasFisicas.find((p) => String(p.nr_sequencia) === manutencaoFilterForm.nr_seq_prestador_servico); return pf?.ds_nome ?? ''; })() : ''} />
+                      <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={nomePrestadorPorSeq(Number(manutencaoFilterForm.nr_seq_prestador_servico) || undefined)} />
                       <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                         {manutencaoFilterForm.nr_seq_prestador_servico && (
-                          <button type="button" onClick={() => openPessoaFisicaView(Number(manutencaoFilterForm.nr_seq_prestador_servico))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                          <button type="button" onClick={() => verPessoaDoRelacionamento(prestadoresServico, Number(manutencaoFilterForm.nr_seq_prestador_servico))} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
                             <ViewIcon size={16} />
                           </button>
                         )}
@@ -16890,7 +17065,7 @@ export default function Home() {
                     <input readOnly className="w-full rounded-[3px] border border-slate-300 bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestadorName} />
                     <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
                       {enviarManutForm.nr_seq_prestador_servico && (
-                        <button type="button" onClick={() => openColaboradorView(enviarManutForm.nr_seq_prestador_servico)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
+                        <button type="button" onClick={() => verPessoaDoRelacionamento(prestadoresServico, enviarManutForm.nr_seq_prestador_servico)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar prestador de serviço">
                           <ViewIcon size={16} />
                         </button>
                       )}
@@ -18301,8 +18476,8 @@ export default function Home() {
                           return aluno ? pessoasFisicas.find((p) => p.nr_sequencia === aluno.nr_seq_pessoa_fisica)?.ds_nome : undefined;
                         },
                         nr_seq_prestador_servico: () => {
-                          // O campo guarda a sequência do colaborador (prestador).
-                          const col = colaboradores.find((c) => c.nr_sequencia === seq);
+                          // O campo guarda a sequência do prestador de serviço.
+                          const col = prestadoresServico.find((c) => c.nr_sequencia === seq);
                           if (col?.nr_seq_pessoa_juridica) {
                             const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
                             if (pj) return pj.ds_razao_social;
@@ -18882,7 +19057,7 @@ export default function Home() {
         prestadorName={(() => {
           if (!manutencaoView?.nr_seq_prestador_servico) return '';
           const seq = manutencaoView.nr_seq_prestador_servico;
-          const col = colaboradores.find((c) => c.nr_sequencia === seq);
+          const col = prestadoresServico.find((c) => c.nr_sequencia === seq);
           if (col) {
             if (col.nr_seq_pessoa_juridica) {
               const pj = pessoasJuridicas.find((p) => p.nr_sequencia === col.nr_seq_pessoa_juridica);
@@ -19093,7 +19268,7 @@ export default function Home() {
         perfilSubmitting || imagemSubmitting || renomearSubmitting || categoriaSubmitting || cursoSubmitting || disciplinaSubmitting || turmaSubmitting || turmaDisciplinaSubmitting || copiaSubmitting || alterarStatusCopiaSaving ||
         alunoSubmitting || colaboradorSubmitting || periodoLetivoSubmitting || statusPeriodoSaving ||
         alterarStatusSaving || alterarIngressoSaving || alterarAdmissaoSaving || alterarStatusColaboradorSaving ||
-        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || pfDetalheSaving || ativoTransferirSaving || assumirAtivosSaving ||
+        ativoStatusSaving || enviarManutSaving || concluirManutSaving || cancelarManutSaving || periodoLetivoFeriadoSaving || ativoResponsavelSaving || alunoResponsavelSaving || relacionamentoSaving || pfDetalheSaving || ativoTransferirSaving || assumirAtivosSaving ||
         delegateFuncoesSaving || permissoesSaving || duplicatePerfilSaving || delegatePerfisSaving || camposStatusSaving || salvandoFiltro
       ) && <LoadingModal open message="Carregando..." />}
 

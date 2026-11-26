@@ -8,6 +8,7 @@ import ResizableTable from "@/components/ui/ResizableTable";
 import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import { elementoVisivel } from "@/lib/visibilidade";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 export interface Banda {
   id: string;
@@ -74,8 +75,8 @@ export default function BandasRelatorioTable({
   const [selectedId, setSelectedId] = useState<string | null>(selectedRecordId ?? null);
   useEffect(() => { if (selectedRecordId != null) setSelectedId(selectedRecordId); }, [selectedRecordId]);
   const [contextMenu, setContextMenu] = useState<{ id: string; x: number; y: number } | null>(null);
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortColumn, setSortColumn] = useOrdenacaoPersistida<string | null>("bandas.coluna", null);
+  const [sortAsc, setSortAsc] = useOrdenacaoPersistida<boolean>("bandas.asc", true);
 
   useEffect(() => { onEditingChange?.(editingId !== null); }, [editingId, onEditingChange]);
 

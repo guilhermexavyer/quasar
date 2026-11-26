@@ -141,7 +141,7 @@ export default function RelatorioListView({
             onChange={onManageSelectionChange}
             options={selectOptions}
             showPlaceholder={showPlaceholder}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           {manageSelection && openFilter && (
             <button

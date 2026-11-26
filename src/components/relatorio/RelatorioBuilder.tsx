@@ -302,16 +302,16 @@ export default function RelatorioBuilder({
   const paginacaoElementos = usePagination(elementos.length);
   const paginacaoParametros = usePagination(parametros.length);
   // Clique no cabeçalho das listas: ordena pela coluna (o valor que a célula mostra).
-  const { ordenados: bandasOrdenadas, props: ordenacaoBandas } = useOrdenacaoTabela(bandas, (b, coluna) => {
+  const { ordenados: bandasOrdenadas, props: ordenacaoBandas } = useOrdenacaoTabela("builder.bandas", bandas, (b, coluna) => {
     if (coluna === "ie_tipo") return TIPOS_BANDA.find((t) => t.value === b.ie_tipo)?.label ?? "";
     if (coluna === "nr_ordem") return bandaEhDetalhe(b) ? b.nr_ordem : null;
     if (coluna === "nr_seq_banda_superior") return nomeDaBanda(b.nr_seq_banda_superior);
     return (b as Record<string, unknown>)[coluna];
   });
-  const { ordenados: elementosOrdenados, props: ordenacaoElementos } = useOrdenacaoTabela(elementos, (el, coluna) =>
+  const { ordenados: elementosOrdenados, props: ordenacaoElementos } = useOrdenacaoTabela("builder.elementos", elementos, (el, coluna) =>
     coluna === "ie_tipo" ? TIPOS_ELEMENTO.find((t) => t.value === el.ie_tipo)?.label ?? "" : (el as Record<string, unknown>)[coluna],
   );
-  const { ordenados: parametrosOrdenados, props: ordenacaoParametros } = useOrdenacaoTabela(parametros);
+  const { ordenados: parametrosOrdenados, props: ordenacaoParametros } = useOrdenacaoTabela("builder.parametros", parametros);
   // Saiu da lista da linha (Ver, Adicionar, outra aba, elementos da banda): a edição é descartada.
   const edicaoNaTela = !edicaoLinha || (!detalhe && (edicaoLinha.tipo === "banda" ? !bandaElementos && aba === "bandas" : !!bandaElementos));
   if (!edicaoNaTela) {
@@ -1186,7 +1186,7 @@ export default function RelatorioBuilder({
             onChange={onManageSelectionChange ?? (() => {})}
             options={RELATORIO_SELECT_OPTIONS.filter((o) => allowedSubmodulos.includes(o.value))}
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
             disabled
           />
           {/* Setas: no "Ver" do relatório, entre os relatórios; no formulário da banda, do

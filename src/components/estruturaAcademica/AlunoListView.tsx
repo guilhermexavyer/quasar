@@ -503,7 +503,7 @@ export default function AlunoListView({
               onChange={onManageSelectionChange}
               options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={!manageSelection}
-              className="!w-[180px]"
+              className="!w-[220px]"
             />
             {manageSelection && (
               <button
@@ -602,7 +602,7 @@ export default function AlunoListView({
                         onContextMenu={(e) => {
                           e.preventDefault();
                           setSelectedId(aluno.id ?? null);
-                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'estruturaAcademica', item: aluno });
+                          setContextMenu({ x: e.clientX, y: e.clientY, section: 'pessoaFisica', item: aluno });
                         }}
                       >
                         <td

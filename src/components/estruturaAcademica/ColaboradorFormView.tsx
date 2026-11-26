@@ -194,7 +194,7 @@ export default function ColaboradorFormView({
             options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           <div className="flex items-center gap-1">
             <button
@@ -459,32 +459,6 @@ export default function ColaboradorFormView({
                         disabled={statusDe('ie_professor') === 'D'}
                         checked={form.ie_professor === 'S'}
                         onChange={() => setForm({ ...form, ie_professor: form.ie_professor === 'S' ? 'N' : 'S' })}
-                      />
-                      <span>Sim</span>
-                    </label>
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_fornecedor', 'Fornecedor')}
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="cg-checkbox"
-                        disabled={statusDe('ie_fornecedor') === 'D'}
-                        checked={form.ie_fornecedor === 'S'}
-                        onChange={() => setForm({ ...form, ie_fornecedor: form.ie_fornecedor === 'S' ? 'N' : 'S' })}
-                      />
-                      <span>Sim</span>
-                    </label>
-                  </div>
-                  <div className="group">
-                    {renderFieldLabel('ie_prestador_servico', 'Prestador de serviço')}
-                    <label className="inline-flex items-center gap-2 text-sm cursor-pointer">
-                      <input
-                        type="checkbox"
-                        className="cg-checkbox"
-                        disabled={statusDe('ie_prestador_servico') === 'D'}
-                        checked={form.ie_prestador_servico === 'S'}
-                        onChange={() => setForm({ ...form, ie_prestador_servico: form.ie_prestador_servico === 'S' ? 'N' : 'S' })}
                       />
                       <span>Sim</span>
                     </label>

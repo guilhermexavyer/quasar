@@ -55,7 +55,7 @@ export default function ExclusaoFormularioView({
             options={LOGS_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           <NavegacaoRegistros
             className="ml-2"

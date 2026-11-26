@@ -17,6 +17,7 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import { elementoVisivel } from "@/lib/visibilidade";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 /** Campos editáveis do feriado (os demais são preenchidos pelo sistema). */
 type CampoFeriado = 'dt_feriado' | 'ds_feriado' | 'ie_tipo_feriado';
@@ -97,8 +98,8 @@ export default function PeriodoLetivoFeriadosView({
   /** Menu de contexto do feriado (`noVer`: aberto no "Ver" dele, sem a opção Ver). */
   const [menu, setMenu] = useState<{ id: string; x: number; y: number; noVer?: boolean } | null>(null);
   // Três cliques: crescente → decrescente → padrão (coluna null = por data).
-  const [sortColumn, setSortColumn] = useState<string | null>(null);
-  const [sortAsc, setSortAsc] = useState(true);
+  const [sortColumn, setSortColumn] = useOrdenacaoPersistida<string | null>("feriados.coluna", null);
+  const [sortAsc, setSortAsc] = useOrdenacaoPersistida<boolean>("feriados.asc", true);
   /** Formulário aberto (null = lista de feriados). */
   const [form, setForm] = useState<FormFeriado | null>(null);
   const [erros, setErros] = useState<CampoFeriado[]>([]);
@@ -241,7 +242,7 @@ export default function PeriodoLetivoFeriadosView({
             options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           <div className="flex items-center gap-1">
             <button type="button" onClick={onPrevRecord} disabled={!hasPrevRecord} className={classeSeta(hasPrevRecord)} style={{ borderBottomColor: '#000' }} aria-label="Registro anterior">

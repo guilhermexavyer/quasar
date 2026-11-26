@@ -31,7 +31,12 @@ export interface Usuario {
   config_colunas_parametros_funcao_cc?: string;
   config_paineis_parametros_funcao_cc?: string;
   config_colunas_periodo_letivo_feriado?: string;
-  /* Estrutura Acadêmica > Alunos > duplo clique (Responsáveis) */
+  /* Pessoas e Relacionamentos > Fornecedores, Prestadores de Serviço, Equipes (e Membros) */
+  config_colunas_fornecedor?: string;
+  config_colunas_prestador_servico?: string;
+  config_colunas_equipe?: string;
+  config_colunas_equipe_membro?: string;
+  /* Pessoas e Relacionamentos > Alunos > duplo clique (Responsáveis) */
   config_colunas_aluno_responsavel?: string;
   /* Patrimônio > Ativos > duplo clique (Responsáveis / Manutenções) */
   config_colunas_ativo_responsavel?: string;

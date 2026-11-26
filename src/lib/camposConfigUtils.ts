@@ -202,6 +202,43 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "pessoa_juridica.ds_complemento", label: "Complemento", tipo: "Pessoas Jurídicas", colecao: "pessoa_juridica" },
     { key: "pessoa_juridica.sg_estado", label: "UF", tipo: "Pessoas Jurídicas", colecao: "pessoa_juridica" },
     { key: "pessoa_juridica.cd_ibge_cidade", label: "Cidade", tipo: "Pessoas Jurídicas", colecao: "pessoa_juridica" },
+    // Matrícula, Desligamento, Status e Motivo desligamento não são
+    // configuráveis (campos fixos: desabilitados no formulário).
+    { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos", colecao: "aluno" },
+    { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Alunos", colecao: "aluno" },
+    { key: "aluno_responsavel.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
+    { key: "aluno_responsavel.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
+    { key: "modal_aluno_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
+    { key: "modal_aluno_alterar_status.ds_status", label: "Alterar status > Motivo", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
+    { key: "modal_colaborador_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
+    { key: "modal_colaborador_alterar_status.ds_motivo_status", label: "Alterar status > Motivo", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
+    // Colaboradores: Matrícula, Status, Data do status e Motivo do status são
+    // campos fixos (alterados pelas ações do menu de contexto).
+    { key: "colaborador.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_vinculo_contratual", label: "Vínculo contratual", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.nr_seq_cargo", label: "Cargo", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.dt_admissao", label: "Data de admissão", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_coordenador", label: "Coordenador", tipo: "Colaboradores", colecao: "colaborador" },
+    { key: "colaborador.ie_professor", label: "Professor", tipo: "Colaboradores", colecao: "colaborador" },
+    // Fornecedores e Prestadores de Serviço (Data do status: preenchida ao mudar o status).
+    { key: "fornecedor.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Fornecedores", colecao: "fornecedor" },
+    { key: "fornecedor.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Fornecedores", colecao: "fornecedor" },
+    { key: "fornecedor.ie_status", label: "Status", tipo: "Fornecedores", colecao: "fornecedor" },
+    { key: "fornecedor.ds_motivo_status", label: "Motivo do status", tipo: "Fornecedores", colecao: "fornecedor" },
+    { key: "fornecedor.ds_observacao", label: "Observação", tipo: "Fornecedores", colecao: "fornecedor" },
+    { key: "prestador_servico.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Prestadores de Serviço", colecao: "prestador_servico" },
+    { key: "prestador_servico.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Prestadores de Serviço", colecao: "prestador_servico" },
+    { key: "prestador_servico.ie_status", label: "Status", tipo: "Prestadores de Serviço", colecao: "prestador_servico" },
+    { key: "prestador_servico.ds_motivo_status", label: "Motivo do status", tipo: "Prestadores de Serviço", colecao: "prestador_servico" },
+    { key: "prestador_servico.ds_observacao", label: "Observação", tipo: "Prestadores de Serviço", colecao: "prestador_servico" },
+    { key: "equipe.ds_equipe", label: "Descrição", tipo: "Equipes", colecao: "equipe" },
+    { key: "equipe.ie_status", label: "Status", tipo: "Equipes", colecao: "equipe" },
+    { key: "equipe.ds_observacao", label: "Observação", tipo: "Equipes", colecao: "equipe" },
+    // Membros: um dos três (os outros ficam desabilitados).
+    { key: "equipe_membro.nr_seq_colaborador", label: "Colaborador", tipo: "Equipes > Membros", colecao: "equipe_membro" },
+    { key: "equipe_membro.nr_seq_fornecedor", label: "Fornecedor", tipo: "Equipes > Membros", colecao: "equipe_membro" },
+    { key: "equipe_membro.nr_seq_prestador_servico", label: "Prestador de serviço", tipo: "Equipes > Membros", colecao: "equipe_membro" },
   ],
   administracaoSistema: [
     { key: "usuario.ds_usuario", label: "Usuário", tipo: "Usuários", colecao: "usuario" },
@@ -411,27 +448,6 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
     { key: "relatorio_parametro.ie_obrigatorio", label: "Obrigatório", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
   ],
   estruturaAcademica: [
-    // Matrícula, Desligamento, Status e Motivo desligamento não são
-    // configuráveis (campos fixos: desabilitados no formulário).
-    { key: "aluno.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos", colecao: "aluno" },
-    { key: "aluno.dt_ingresso", label: "Data de ingresso", tipo: "Alunos", colecao: "aluno" },
-    { key: "aluno_responsavel.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
-    { key: "aluno_responsavel.nr_seq_grau_parentesco", label: "Grau de parentesco", tipo: "Alunos > Responsáveis", colecao: "aluno_responsavel" },
-    { key: "modal_aluno_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
-    { key: "modal_aluno_alterar_status.ds_status", label: "Alterar status > Motivo", tipo: "Alunos", colecao: "modal_aluno_alterar_status" },
-    { key: "modal_colaborador_alterar_status.dt_status", label: "Alterar status > Data", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
-    { key: "modal_colaborador_alterar_status.ds_motivo_status", label: "Alterar status > Motivo", tipo: "Colaboradores", colecao: "modal_colaborador_alterar_status" },
-    // Colaboradores: Matrícula, Status, Data do status e Motivo do status são
-    // campos fixos (alterados pelas ações do menu de contexto).
-    { key: "colaborador.nr_seq_pessoa_fisica", label: "Pessoa física", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.nr_seq_pessoa_juridica", label: "Pessoa jurídica", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.nr_seq_vinculo_contratual", label: "Vínculo contratual", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.nr_seq_cargo", label: "Cargo", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.dt_admissao", label: "Data de admissão", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.ie_coordenador", label: "Coordenador", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.ie_professor", label: "Professor", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.ie_fornecedor", label: "Fornecedor", tipo: "Colaboradores", colecao: "colaborador" },
-    { key: "colaborador.ie_prestador_servico", label: "Prestador de serviço", tipo: "Colaboradores", colecao: "colaborador" },
     { key: "curso.ds_curso", label: "Descrição", tipo: "Cursos", colecao: "curso" },
     { key: "curso.ie_status", label: "Status", tipo: "Cursos", colecao: "curso" },
     { key: "curso.ds_observacao", label: "Observação", tipo: "Cursos", colecao: "curso" },

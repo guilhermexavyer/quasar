@@ -22,6 +22,7 @@ import SearchIcon from "@/components/ui/SearchIcon";
 import { elementoVisivel } from "@/lib/visibilidade";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 export type AtivoDetalheAba = 'responsaveis' | 'manutencoes' | 'transferencias';
 type Aba = AtivoDetalheAba;
@@ -191,9 +192,9 @@ export default function AtivoDetalheView({
   // Ordenação por aba (três cliques: crescente → decrescente → padrão).
   // Padrão (coluna null): responsáveis pela sequência; manutenções e
   // transferências da mais recente para a mais antiga.
-  const [sortResp, setSortResp] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
-  const [sortManut, setSortManut] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
-  const [sortTransf, setSortTransf] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
+  const [sortResp, setSortResp] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>("ativo.responsaveis", { coluna: null, asc: true });
+  const [sortManut, setSortManut] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>("ativo.manutencoes", { coluna: null, asc: true });
+  const [sortTransf, setSortTransf] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>("ativo.transferencias", { coluna: null, asc: true });
   /** Legenda da bolinha de status (ao passar o mouse), como em Patrimônio > Manutenções. */
   const [legendaStatus, setLegendaStatus] = useState<{ texto: string; x: number; y: number } | null>(null);
   /** Auditoria do ativo (null = ainda não carregada). Carrega ao abrir a aba. */
@@ -477,7 +478,7 @@ export default function AtivoDetalheView({
             options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
             disabled
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
           <div className="flex items-center gap-1">
             <button type="button" onClick={onPrevRecord} disabled={!hasPrevRecord} className={classeSeta(hasPrevRecord)} style={{ borderBottomColor: '#000' }} aria-label="Registro anterior">

@@ -465,7 +465,7 @@ export default function PerfilListView({
               onChange={onManageSelectionChange}
               options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={!manageSelection}
-              className="!w-[180px]"
+              className="!w-[220px]"
             />
             {manageSelection && (
               <button

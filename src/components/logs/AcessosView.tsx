@@ -12,6 +12,7 @@ import { applyDateMask, formatDate } from "@/lib/pessoaFisicaUtils";
 import { obterAcessos, rotuloTipoLogout, type LogAcesso } from "@/services/logAcessoService";
 import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 /**
  * Filtro de Logs > Acessos. Pessoa física pela sequência (lookup); datas em
@@ -120,7 +121,7 @@ export function LogsSemSelecaoView({
           onChange={onManageSelectionChange}
           options={LOGS_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
       </div>
       <div className="bg-white flex-1 flex flex-col min-h-0 overflow-hidden">
@@ -166,7 +167,7 @@ export default function AcessosView({
 }: AcessosViewProps) {
   const [acessos, setAcessos] = useState<LogAcesso[]>([]);
   const [carregando, setCarregando] = useState(true);
-  const [ordem, setOrdem] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
+  const [ordem, setOrdem] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>("acessos", { coluna: null, asc: true });
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [filtroAberto, setFiltroAberto] = useState(false);
   const [rascunho, setRascunho] = useState<FiltroAcessos>(() => normalizarFiltroAcessos(filtro));
@@ -288,7 +289,7 @@ export default function AcessosView({
           onChange={onManageSelectionChange}
           options={LOGS_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
         <button
           type="button"

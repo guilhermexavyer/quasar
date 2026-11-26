@@ -31,6 +31,7 @@ import { SEXO_COLUMNS } from "@/lib/sexoUtils";
 import { SISTEMA_OPERACIONAL_COLUMNS } from "@/lib/sistemaOperacionalUtils";
 import { VINCULO_CONTRATUAL_COLUMNS } from "@/lib/vinculoContratualUtils";
 import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
+import { rotuloStatusRelacionamento } from "@/lib/relacionamentoUtils";
 
 /** Coluna da tabela de registros excluídos. */
 export interface ColunaExclusao {
@@ -81,8 +82,8 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
     colecao: "imagem", funcao: "Administração do Sistema", dropdown: "Imagens",
     colunas: [SEQ, { key: "ds_imagem", label: "Descrição" }, { key: "ie_arquivo", label: "Arquivo" }],
   },
-  { colecao: "pessoa_fisica", funcao: "Cadastro de Pessoas", dropdown: "Pessoas Físicas", colunas: proprias(PF_COLUMNS), formatar: f(formatPf) },
-  { colecao: "pessoa_juridica", funcao: "Cadastro de Pessoas", dropdown: "Pessoas Jurídicas", colunas: proprias(PJ_COLUMNS), formatar: f(formatCellValuePj) },
+  { colecao: "pessoa_fisica", funcao: "Pessoas e Relacionamentos", dropdown: "Pessoas Físicas", colunas: proprias(PF_COLUMNS), formatar: f(formatPf) },
+  { colecao: "pessoa_juridica", funcao: "Pessoas e Relacionamentos", dropdown: "Pessoas Jurídicas", colunas: proprias(PJ_COLUMNS), formatar: f(formatCellValuePj) },
   CG("cg_cargo", "Cargo", CARGO_COLUMNS),
   CG("cg_combustivel", "Combustível", COMBUSTIVEL_COLUMNS),
   CG("cg_cor_raca", "Cor/Raça", COR_RACA_COLUMNS),
@@ -100,16 +101,35 @@ export const FUNCOES_EXCLUSAO: FuncaoExclusao[] = [
   CG("cg_tipo_papel", "Tipo de papel", TIPO_PAPEL_COLUMNS),
   CG("cg_vinculo_contratual", "Vínculo contratual", VINCULO_CONTRATUAL_COLUMNS),
   { colecao: "copia", funcao: "Controle de Cópias", dropdown: "Cópias", colunas: proprias(COPIA_COLUMNS.filter((c) => !c.clipe)), formatar: formatCopiaCellValue },
-  { colecao: "aluno", funcao: "Estrutura Acadêmica", dropdown: "Alunos", colunas: proprias(ALUNO_COLUMNS), formatar: f(formatAluno) },
+  { colecao: "aluno", funcao: "Pessoas e Relacionamentos", dropdown: "Alunos", colunas: proprias(ALUNO_COLUMNS), formatar: f(formatAluno) },
   {
-    colecao: "aluno_responsavel", funcao: "Estrutura Acadêmica", dropdown: "Alunos > Responsáveis",
+    colecao: "aluno_responsavel", funcao: "Pessoas e Relacionamentos", dropdown: "Alunos > Responsáveis",
     colunas: [SEQ, { key: "nr_seq_aluno", label: "Aluno", alinharDireita: true }, { key: "nr_seq_pessoa_fisica", label: "Pessoa física" }, { key: "nr_seq_grau_parentesco", label: "Grau de parentesco" }],
   },
   { colecao: "curso", funcao: "Estrutura Acadêmica", dropdown: "Cursos", colunas: proprias(CURSO_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "disciplina", funcao: "Estrutura Acadêmica", dropdown: "Disciplinas", colunas: proprias(DISCIPLINA_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "turma", funcao: "Estrutura Acadêmica", dropdown: "Turmas", colunas: proprias(TURMA_COLUMNS), formatar: formatCadastroGeralCellValue },
   { colecao: "turma_disciplina", funcao: "Estrutura Acadêmica", dropdown: "Turmas x Disciplinas", colunas: proprias(TURMA_DISCIPLINA_COLUMNS), formatar: formatCadastroGeralCellValue },
-  { colecao: "colaborador", funcao: "Estrutura Acadêmica", dropdown: "Colaboradores", colunas: proprias(COLABORADOR_COLUMNS), formatar: f(formatColaborador) },
+  { colecao: "colaborador", funcao: "Pessoas e Relacionamentos", dropdown: "Colaboradores", colunas: proprias(COLABORADOR_COLUMNS), formatar: f(formatColaborador) },
+  {
+    colecao: "fornecedor", funcao: "Pessoas e Relacionamentos", dropdown: "Fornecedores",
+    colunas: [SEQ, { key: "nr_seq_pessoa_fisica", label: "Pessoa física" }, { key: "nr_seq_pessoa_juridica", label: "Pessoa jurídica" }, { key: "ie_status", label: "Status" }],
+    formatar: (key, value) => (key === "ie_status" ? rotuloStatusRelacionamento(String(value ?? "")) : String(value ?? "")),
+  },
+  {
+    colecao: "prestador_servico", funcao: "Pessoas e Relacionamentos", dropdown: "Prestadores de Serviço",
+    colunas: [SEQ, { key: "nr_seq_pessoa_fisica", label: "Pessoa física" }, { key: "nr_seq_pessoa_juridica", label: "Pessoa jurídica" }, { key: "ie_status", label: "Status" }],
+    formatar: (key, value) => (key === "ie_status" ? rotuloStatusRelacionamento(String(value ?? "")) : String(value ?? "")),
+  },
+  {
+    colecao: "equipe", funcao: "Pessoas e Relacionamentos", dropdown: "Equipes",
+    colunas: [SEQ, { key: "ds_equipe", label: "Descrição" }, { key: "ie_status", label: "Status" }],
+    formatar: (key, value) => (key === "ie_status" ? rotuloStatusRelacionamento(String(value ?? "")) : String(value ?? "")),
+  },
+  {
+    colecao: "equipe_membro", funcao: "Pessoas e Relacionamentos", dropdown: "Equipes > Membros",
+    colunas: [SEQ, { key: "nr_seq_equipe", label: "Equipe", alinharDireita: true }, { key: "nr_seq_colaborador", label: "Colaborador" }, { key: "nr_seq_fornecedor", label: "Fornecedor" }, { key: "nr_seq_prestador_servico", label: "Prestador de serviço" }],
+  },
   { colecao: "periodo_letivo", funcao: "Estrutura Acadêmica", dropdown: "Período letivo", colunas: proprias(PERIODO_LETIVO_COLUMNS), formatar: f(formatPeriodoLetivo) },
   {
     colecao: "periodo_letivo_feriado", funcao: "Estrutura Acadêmica", dropdown: "Período letivo > Feriados",

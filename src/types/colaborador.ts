@@ -1,4 +1,4 @@
-/** Colaborador (Estrutura Acadêmica > Colaboradores). */
+/** Colaborador (Pessoas e Relacionamentos > Colaboradores). */
 export interface Colaborador {
   id?: string;
   nr_sequencia: number;
@@ -14,10 +14,6 @@ export interface Colaborador {
   ie_coordenador?: string;
   /** Indica se o colaborador é professor (S/N). */
   ie_professor?: string;
-  /** Indica se o colaborador é fornecedor (S/N). */
-  ie_fornecedor?: string;
-  /** Indica se o colaborador é prestador de serviço (S/N). */
-  ie_prestador_servico?: string;
   nr_matricula?: string;
   dt_admissao: string;
   ie_status?: string;

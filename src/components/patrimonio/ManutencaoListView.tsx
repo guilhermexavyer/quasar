@@ -528,7 +528,7 @@ export default function ManutencaoListView({
               onChange={onManageSelectionChange}
               options={selectOptions.filter((o) => allowedSubmodulos.includes(o.value))}
               showPlaceholder={!manageSelection}
-              className="!w-[180px]"
+              className="!w-[220px]"
             />
             {manageSelection && openFilter && (
               <button

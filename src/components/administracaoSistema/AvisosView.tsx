@@ -58,7 +58,7 @@ export default function AvisosView({
 }: AvisosViewProps) {
   const [aviso, setAviso] = useState<Aviso | null>(null);
   const [pesquisa, setPesquisa] = useState("");
-  const { ordenados: avisosOrdenados, props: ordenacao } = useOrdenacaoTabela(filtrarPesquisa(AVISOS, pesquisa, (x) => [x.aviso]));
+  const { ordenados: avisosOrdenados, props: ordenacao } = useOrdenacaoTabela("avisos", filtrarPesquisa(AVISOS, pesquisa, (x) => [x.aviso]));
   const [selecionado, setSelecionado] = useState<CampoAviso | null>(null);
   const [rascunho, setRascunho] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -139,7 +139,7 @@ export default function AvisosView({
           onChange={onManageSelectionChange}
           options={ADMIN_OPCOES_DROPDOWN.filter((o) => allowedSubmodulos.includes(o.value))}
           showPlaceholder={!manageSelection}
-          className="!w-[180px]"
+          className="!w-[220px]"
         />
       </div>
 

@@ -4,6 +4,7 @@ import { useLayoutEffect, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent, ReactNode } from "react";
 import { prepararStringColunasSalvas, CSS_CABECALHO_SEQUENCIA, larguraColunaSequencia } from "@/lib/colunasUtils";
 import { elementoVisivel, useVersaoVisivel } from "@/lib/visibilidade";
+import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 
 export interface ResizableTableColumn<T = unknown> {
   key: string;
@@ -51,12 +52,13 @@ export function compararValoresColuna(a: unknown, b: unknown): number {
 /**
  * Ordenação pelo clique no cabeçalho para as listas que não guardam a ordenação em outro
  * lugar: devolve as linhas ordenadas e as props sortColumn, sortAsc e onSortChange da
- * ResizableTable. Sem coluna escolhida, as linhas ficam na ordem recebida (a padrão).
+ * ResizableTable. `id` identifica a tabela na função: a ordenação fica guardada até fechar a
+ * função ou sair (ver useOrdenacaoPersistida). Sem coluna escolhida, as linhas ficam na ordem recebida (a padrão).
  * `valorDe` dá o valor de uma coluna (padrão: o campo de mesmo nome da linha); use-o
  * quando a célula mostra outra coisa (o nome em vez do código, por exemplo).
  */
-export function useOrdenacaoTabela<T>(rows: T[], valorDe?: (row: T, coluna: string) => unknown) {
-  const [ordem, setOrdem] = useState<{ coluna: string | null; asc: boolean }>({ coluna: null, asc: true });
+export function useOrdenacaoTabela<T>(id: string, rows: T[], valorDe?: (row: T, coluna: string) => unknown) {
+  const [ordem, setOrdem] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>(id, { coluna: null, asc: true });
   let ordenados = rows;
   const coluna = ordem.coluna;
   if (coluna) {

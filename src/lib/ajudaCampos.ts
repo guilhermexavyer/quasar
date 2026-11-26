@@ -163,11 +163,11 @@ const POR_TABELA: Record<string, Record<string, string>> = {
   },
   cg_tipo_papel: { ds_tipo_papel: "Informe o tipo de papel (ex.: Sulfite 75g, Couché)." },
 
-  /* ── Estrutura Acadêmica ── */
+  /* ── Pessoas e Relacionamentos (Alunos, Colaboradores, Fornecedores...) ── */
   aluno: {
     nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do aluno.",
     dt_ingresso: "Informe a data de ingresso do aluno na instituição (DD/MM/AAAA).",
-    nr_matricula: "Matrícula do aluno, gerada automaticamente pela regra dos parâmetros de Estrutura Acadêmica.",
+    nr_matricula: "Matrícula do aluno, gerada automaticamente pela regra dos parâmetros de Pessoas e Relacionamentos.",
     ie_status: "Situação do aluno. Alterada pelo \"Alterar status\".",
     ds_status: "Motivo informado na última alteração de status do aluno.",
   },
@@ -181,12 +181,36 @@ const POR_TABELA: Record<string, Record<string, string>> = {
     nr_seq_vinculo_contratual: "Selecione o tipo de vínculo do colaborador com a instituição.",
     nr_seq_cargo: "Selecione o cargo do colaborador.",
     dt_admissao: "Informe a data de admissão do colaborador (DD/MM/AAAA).",
-    nr_matricula: "Matrícula do colaborador, gerada automaticamente pela regra dos parâmetros de Estrutura Acadêmica.",
+    nr_matricula: "Matrícula do colaborador, gerada automaticamente pela regra dos parâmetros de Pessoas e Relacionamentos.",
     ie_coordenador: "Marque se o colaborador atua como coordenador.",
     ie_professor: "Marque se o colaborador atua como professor.",
-    ie_fornecedor: "Marque se o colaborador é fornecedor (aparece no campo Fornecedor dos ativos).",
-    ie_prestador_servico: "Marque se o colaborador é prestador de serviço (aparece nas manutenções de ativos).",
     ie_status: "Situação do colaborador. Alterada pelo \"Alterar status\".",
+  },
+  fornecedor: {
+    nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do fornecedor (ou a pessoa jurídica: só uma das duas).",
+    nr_seq_pessoa_juridica: "Informe a sequência ou localize a empresa do fornecedor (ou a pessoa física: só uma das duas).",
+    ie_status: "Situação do fornecedor. Fornecedor inativo não aparece na busca do Fornecedor dos ativos.",
+    dt_status: "Data da última mudança de status (preenchida ao mudar o status).",
+    ds_motivo_status: "Motivo da situação atual do fornecedor.",
+    ds_observacao: "Informações complementares sobre o fornecedor.",
+  },
+  prestador_servico: {
+    nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do prestador de serviço (ou a pessoa jurídica: só uma das duas).",
+    nr_seq_pessoa_juridica: "Informe a sequência ou localize a empresa do prestador de serviço (ou a pessoa física: só uma das duas).",
+    ie_status: "Situação do prestador de serviço. Prestador inativo não aparece na busca das manutenções.",
+    dt_status: "Data da última mudança de status (preenchida ao mudar o status).",
+    ds_motivo_status: "Motivo da situação atual do prestador de serviço.",
+    ds_observacao: "Informações complementares sobre o prestador de serviço.",
+  },
+  equipe: {
+    ds_equipe: "Informe o nome da equipe.",
+    ie_status: "Situação da equipe.",
+    ds_observacao: "Informações complementares sobre a equipe.",
+  },
+  equipe_membro: {
+    nr_seq_colaborador: "Colaborador membro da equipe. Preenchido, Fornecedor e Prestador de serviço ficam desabilitados.",
+    nr_seq_fornecedor: "Fornecedor membro da equipe. Preenchido, Colaborador e Prestador de serviço ficam desabilitados.",
+    nr_seq_prestador_servico: "Prestador de serviço membro da equipe. Preenchido, Colaborador e Fornecedor ficam desabilitados.",
   },
   curso: {
     ds_curso: "Informe o nome do curso.",
@@ -236,7 +260,7 @@ const POR_TABELA: Record<string, Record<string, string>> = {
     nr_seq_categoria: "Selecione a categoria do ativo.",
     nr_seq_localizacao: "Selecione o local onde o ativo está.",
     nr_seq_marca: "Selecione a marca/fabricante do ativo.",
-    nr_seq_fornecedor: "Informe a sequência ou localize o colaborador fornecedor do ativo.",
+    nr_seq_fornecedor: "Informe a sequência ou localize o fornecedor do ativo (Pessoas e Relacionamentos > Fornecedores).",
     ds_modelo: "Informe o modelo do ativo.",
     nr_serie: "Informe o número de série do fabricante.",
     ds_qr_code: "Conteúdo do QR Code de identificação do ativo.",
@@ -403,8 +427,8 @@ function ajudaSegmentosRegra(quem: string): Record<string, string> {
 
 /** Parâmetros das funções (tabelas *_param_*): texto pela coluna do valor. */
 const PARAMETROS: Record<string, Record<string, string>> = {
-  ea_param_matricula_aluno: ajudaSegmentosRegra("alunos"),
-  ea_param_matricula_colaborador: ajudaSegmentosRegra("colaboradores"),
+  pr_param_matricula_aluno: ajudaSegmentosRegra("alunos"),
+  pr_param_matricula_colaborador: ajudaSegmentosRegra("colaboradores"),
   ea_param_encerramento_automatico_periodo_letivo: { ie_regra: "Sim: o período letivo é encerrado automaticamente na data da previsão de término." },
   as_param_redefinir_senha_primeiro_login: { ie_regra: "Sim: o usuário precisa criar uma nova senha no primeiro login após ter a senha alterada." },
   cc_param_tipos_arquivo_copia: { ds_regra: "Marque os tipos de arquivo que podem ser anexados em Cópias." },

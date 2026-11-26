@@ -111,7 +111,7 @@ export default function ImagemListView({
             onChange={onManageSelectionChange}
             options={IMAGEM_SELECT_OPTIONS}
             showPlaceholder={false}
-            className="!w-[180px]"
+            className="!w-[220px]"
           />
         </div>
         <button
