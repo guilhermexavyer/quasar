@@ -18,10 +18,10 @@ export const SEXO_COLUMNS: ColDef[] = [
 ];
 
 export const SEXO_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_sexo' },
-  ds_sexo: { type: 'string', field: 'ds_sexo', collection: 'cg_sexo' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_sexo' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_sexo' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_sexo' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'sexo' },
+  ds_sexo: { type: 'string', field: 'ds_sexo', collection: 'sexo' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'sexo' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'sexo' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'sexo' },
 } as const;
 

@@ -11,7 +11,7 @@ export function notificarMudanca(assunto: string) {
   ouvintes.get(assunto)?.forEach((atualizar) => atualizar());
 }
 
-/** Avisa os observadores de todos os assuntos que começam com o prefixo (ex.: "pat_ativo_responsavel:"). */
+/** Avisa os observadores de todos os assuntos que começam com o prefixo (ex.: "ativo_responsavel:"). */
 export function notificarPrefixo(prefixo: string) {
   for (const [assunto, lista] of ouvintes) {
     if (assunto.startsWith(prefixo)) lista.forEach((atualizar) => atualizar());

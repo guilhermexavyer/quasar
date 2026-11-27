@@ -133,7 +133,7 @@ export default function ExclusoesView({
 
   const { caminho } = navegacao;
   const pai = caminho.length > 0 ? caminho[caminho.length - 1] : null;
-  const filhosDoPai = pai ? FILHOS_EXCLUSAO[pai.ds_colecao] : undefined;
+  const filhosDoPai = pai ? FILHOS_EXCLUSAO[pai.ds_tabela] : undefined;
   const abasDoPai = (filhosDoPai?.abas ?? []).filter((a) => !a.mostrar || a.mostrar(pai?.dados ?? {}));
   const abaAtual: AbaFilhosExclusao | undefined = pai ? abasDoPai.find((a) => a.aba === navegacao.aba) ?? abasDoPai[0] : undefined;
 
@@ -189,7 +189,7 @@ export default function ExclusoesView({
   }
 
   function abrirFilhos(ex: Exclusao) {
-    if (!FILHOS_EXCLUSAO[ex.ds_colecao]) return;
+    if (!FILHOS_EXCLUSAO[ex.ds_tabela]) return;
     irPara({ caminho: [...caminho, ex], aba: null });
   }
 
@@ -322,7 +322,7 @@ export default function ExclusoesView({
                   itens={[
                     { chave: "raiz", texto: funcaoRaiz.dropdown, onClick: () => irPara({ caminho: [], aba: null }) },
                     ...caminho.map((ex, i) => {
-                      const def = FILHOS_EXCLUSAO[ex.ds_colecao];
+                      const def = FILHOS_EXCLUSAO[ex.ds_tabela];
                       const ultimo = i === caminho.length - 1;
                       return {
                         chave: ex.id,
@@ -393,7 +393,7 @@ export default function ExclusoesView({
                     rowClassName={(ex) => (ex.id === selecionadoId ? "row-selected" : "")}
                     onRowClick={(ex) => setSelecionadoId((atual) => (atual === ex.id ? null : ex.id))}
                     onRowDoubleClick={abrirFilhos}
-                    rowPointer={(ex) => !!FILHOS_EXCLUSAO[ex.ds_colecao]}
+                    rowPointer={(ex) => !!FILHOS_EXCLUSAO[ex.ds_tabela]}
                     onRowContextMenu={(ex, e) => {
                       e.preventDefault();
                       setSelecionadoId(ex.id);

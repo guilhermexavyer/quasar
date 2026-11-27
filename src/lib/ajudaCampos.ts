@@ -126,42 +126,42 @@ const POR_TABELA: Record<string, Record<string, string>> = {
     ds_esqueceu_senha: "Conteúdo exibido ao usuário na tela \"Esqueceu a senha?\" do login.",
     ds_politica_privacidade: "Conteúdo exibido como Política de Privacidade do sistema.",
   },
-  regra: {
+  regra_sistema: {
     ie_logout_dia: "Selecione o dia da semana em que todos os usuários são desconectados automaticamente.",
     hr_logout: "Informe o horário (HH:MM) do logout automático dos usuários.",
     ie_badge_teste: "Marque para exibir a identificação de ambiente de teste no sistema.",
   },
 
   /* ── Cadastros Gerais ── */
-  cg_sexo: { ds_sexo: "Informe a descrição do sexo (ex.: Feminino, Masculino)." },
-  cg_estado_civil: { ds_estado_civil: "Informe a descrição do estado civil (ex.: Solteiro(a), Casado(a))." },
-  cg_cor_raca: { ds_cor_raca: "Informe a descrição da cor/raça (ex.: Branca, Parda, Preta)." },
-  cg_profissao: {
+  sexo: { ds_sexo: "Informe a descrição do sexo (ex.: Feminino, Masculino)." },
+  estado_civil: { ds_estado_civil: "Informe a descrição do estado civil (ex.: Solteiro(a), Casado(a))." },
+  cor_raca: { ds_cor_raca: "Informe a descrição da cor/raça (ex.: Branca, Parda, Preta)." },
+  profissao: {
     ds_profissao: "Informe o nome da profissão.",
     nr_cbo: "Informe o código da profissão na Classificação Brasileira de Ocupações (CBO), com até 7 dígitos.",
   },
-  cg_orgao_emissor: {
+  orgao_emissor: {
     ds_orgao_emissor: "Informe o nome do órgão emissor de documentos (ex.: Secretaria de Segurança Pública).",
     sg_orgao_emissor: "Informe a sigla do órgão emissor (ex.: SSP).",
   },
-  cg_logradouro: {
+  logradouro: {
     ds_logradouro: "Informe o tipo de logradouro (ex.: Rua, Avenida).",
     sg_logradouro: "Informe a abreviação do logradouro (ex.: R., Av.).",
   },
-  cg_grau_parentesco: { ds_grau_parentesco: "Informe o grau de parentesco (ex.: Pai, Mãe, Avó)." },
-  cg_cargo: { ds_cargo: "Informe o nome do cargo (ex.: Professor, Secretário)." },
-  cg_vinculo_contratual: { ds_vinculo_contratual: "Informe o tipo de vínculo contratual (ex.: CLT, Estágio, Prestador)." },
-  cg_localizacao: { ds_localizacao: "Informe o nome do local (ex.: Sala 101, Laboratório de Informática)." },
-  cg_marca: { ds_marca: "Informe o nome da marca/fabricante." },
-  cg_sistema_operacional: { ds_sistema_operacional: "Informe o nome e a versão do sistema operacional (ex.: Windows 11)." },
-  cg_combustivel: { ds_combustivel: "Informe o tipo de combustível (ex.: Gasolina, Etanol, Diesel)." },
-  cg_modalidade_ensino: { ds_modalidade_ensino: "Informe a modalidade de ensino (ex.: Presencial, EAD)." },
-  cg_formato_papel: {
+  grau_parentesco: { ds_grau_parentesco: "Informe o grau de parentesco (ex.: Pai, Mãe, Avó)." },
+  cargo: { ds_cargo: "Informe o nome do cargo (ex.: Professor, Secretário)." },
+  vinculo_contratual: { ds_vinculo_contratual: "Informe o tipo de vínculo contratual (ex.: CLT, Estágio, Prestador)." },
+  localizacao: { ds_localizacao: "Informe o nome do local (ex.: Sala 101, Laboratório de Informática)." },
+  marca: { ds_marca: "Informe o nome da marca/fabricante." },
+  sistema_operacional: { ds_sistema_operacional: "Informe o nome e a versão do sistema operacional (ex.: Windows 11)." },
+  combustivel: { ds_combustivel: "Informe o tipo de combustível (ex.: Gasolina, Etanol, Diesel)." },
+  modalidade_ensino: { ds_modalidade_ensino: "Informe a modalidade de ensino (ex.: Presencial, EAD)." },
+  formato_papel: {
     ds_formato_papel: "Informe o nome do formato do papel (ex.: A4, Carta, Ofício).",
     qt_largura: "Preencha a largura do formato de papel em milímetros (mm). Ex.: A4 = 210.",
     qt_altura: "Preencha a altura do formato de papel em milímetros (mm). Ex.: A4 = 297.",
   },
-  cg_tipo_papel: { ds_tipo_papel: "Informe o tipo de papel (ex.: Sulfite 75g, Couché)." },
+  tipo_papel: { ds_tipo_papel: "Informe o tipo de papel (ex.: Sulfite 75g, Couché)." },
 
   /* ── Pessoas e Relacionamentos (Alunos, Colaboradores, Fornecedores...) ── */
   aluno: {
@@ -189,17 +189,13 @@ const POR_TABELA: Record<string, Record<string, string>> = {
   fornecedor: {
     nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do fornecedor (ou a pessoa jurídica: só uma das duas).",
     nr_seq_pessoa_juridica: "Informe a sequência ou localize a empresa do fornecedor (ou a pessoa física: só uma das duas).",
-    ie_status: "Situação do fornecedor. Fornecedor inativo não aparece na busca do Fornecedor dos ativos.",
-    dt_status: "Data da última mudança de status (preenchida ao mudar o status).",
-    ds_motivo_status: "Motivo da situação atual do fornecedor.",
+    ie_status: "Situação do fornecedor (também pelo menu de contexto: Ativar/Inativar). Fornecedor inativo não aparece na busca do Fornecedor dos ativos.",
     ds_observacao: "Informações complementares sobre o fornecedor.",
   },
   prestador_servico: {
     nr_seq_pessoa_fisica: "Informe a sequência ou localize a pessoa física do prestador de serviço (ou a pessoa jurídica: só uma das duas).",
     nr_seq_pessoa_juridica: "Informe a sequência ou localize a empresa do prestador de serviço (ou a pessoa física: só uma das duas).",
-    ie_status: "Situação do prestador de serviço. Prestador inativo não aparece na busca das manutenções.",
-    dt_status: "Data da última mudança de status (preenchida ao mudar o status).",
-    ds_motivo_status: "Motivo da situação atual do prestador de serviço.",
+    ie_status: "Situação do prestador de serviço (também pelo menu de contexto: Ativar/Inativar). Prestador inativo não aparece na busca das manutenções.",
     ds_observacao: "Informações complementares sobre o prestador de serviço.",
   },
   equipe: {
@@ -250,11 +246,11 @@ const POR_TABELA: Record<string, Record<string, string>> = {
   },
 
   /* ── Patrimônio ── */
-  pat_categoria: {
+  categoria: {
     ds_categoria: "Informe o nome da categoria de ativos (ex.: Computador, Veículo, Mobiliário).",
     ds_observacao: "Informações complementares sobre a categoria.",
   },
-  pat_ativo: {
+  ativo: {
     cd_externo: "Informe o código do ativo em outro sistema ou a plaqueta de patrimônio, se houver.",
     ds_ativo: "Informe a descrição do ativo (ex.: Notebook Dell Latitude).",
     nr_seq_categoria: "Selecione a categoria do ativo.",
@@ -288,13 +284,13 @@ const POR_TABELA: Record<string, Record<string, string>> = {
     ds_observacao: "Informações complementares sobre o ativo.",
     nr_seq_ultima_manutencao: "Última manutenção registrada para o ativo.",
     dt_ultima_manutencao: "Data da última manutenção registrada para o ativo.",
-    responsaveis: "Colaboradores responsáveis pelo ativo.",
+    responsaveis: "Colaboradores e equipes responsáveis pelo ativo.",
   },
-  pat_ativo_responsavel: {
-    nr_seq_colaborador: "Informe a sequência ou localize o colaborador responsável pelo ativo.",
-    ie_modo: "Adicionar inclui o colaborador entre os responsáveis; Substituir troca os responsáveis atuais por ele.",
+  ativo_responsavel: {
+    nr_seq_colaborador: "Informe a sequência ou localize o colaborador responsável pelo ativo (ou a equipe: só um dos dois; preenchido um, o outro fica desabilitado).",
+    nr_seq_equipe: "Informe a sequência ou localize a equipe responsável pelo ativo (ou o colaborador: só um dos dois; preenchido um, o outro fica desabilitado).",
   },
-  pat_manutencao: {
+  manutencao: {
     nr_seq_ativo: "Informe a sequência ou localize o ativo enviado para manutenção.",
     nr_seq_prestador_servico: "Informe a sequência ou localize o prestador de serviço responsável pela manutenção.",
     dt_envio: "Informe a data em que o ativo foi enviado para manutenção (DD/MM/AAAA).",
@@ -425,23 +421,23 @@ function ajudaSegmentosRegra(quem: string): Record<string, string> {
   return ajuda;
 }
 
-/** Parâmetros das funções (tabelas *_param_*): texto pela coluna do valor. */
+/** Parâmetros das funções (tabelas <tabela>_param_*): texto pela coluna do valor. */
 const PARAMETROS: Record<string, Record<string, string>> = {
-  pr_param_matricula_aluno: ajudaSegmentosRegra("alunos"),
-  pr_param_matricula_colaborador: ajudaSegmentosRegra("colaboradores"),
-  ea_param_encerramento_automatico_periodo_letivo: { ie_regra: "Sim: o período letivo é encerrado automaticamente na data da previsão de término." },
-  as_param_redefinir_senha_primeiro_login: { ie_regra: "Sim: o usuário precisa criar uma nova senha no primeiro login após ter a senha alterada." },
-  cc_param_tipos_arquivo_copia: { ds_regra: "Marque os tipos de arquivo que podem ser anexados em Cópias." },
-  cc_param_data_recebimento_automatica: { ie_regra: "Sim: a Data do recebimento de uma cópia nova já vem com a data atual." },
-  cc_param_formato_papel_padrao: { nr_seq_formato_papel: "Formato do papel que já vem selecionado em uma cópia nova." },
-  cc_param_tipo_papel_padrao: { nr_seq_tipo_papel: "Tipo de papel que já vem selecionado em uma cópia nova." },
+  aluno_param_matricula: ajudaSegmentosRegra("alunos"),
+  colaborador_param_matricula: ajudaSegmentosRegra("colaboradores"),
+  periodo_letivo_param_encerramento_automatico: { ie_regra: "Sim: o período letivo é encerrado automaticamente na data da previsão de término." },
+  usuario_param_redefinir_senha_primeiro_login: { ie_regra: "Sim: o usuário precisa criar uma nova senha no primeiro login após ter a senha alterada." },
+  copia_param_tipos_arquivo: { ds_regra: "Marque os tipos de arquivo que podem ser anexados em Cópias." },
+  copia_param_data_recebimento_automatica: { ie_regra: "Sim: a Data do recebimento de uma cópia nova já vem com a data atual." },
+  copia_param_formato_papel_padrao: { nr_seq_formato_papel: "Formato do papel que já vem selecionado em uma cópia nova." },
+  copia_param_tipo_papel_padrao: { nr_seq_tipo_papel: "Tipo de papel que já vem selecionado em uma cópia nova." },
 };
 
 /** Texto de ajuda do campo, ou null quando não há. */
 export function ajudaDoCampo(colecao: string, campo: string): string | null {
   const daTabela = POR_TABELA[colecao]?.[campo] ?? PARAMETROS[colecao]?.[campo];
   if (daTabela) return daTabela;
-  // Parâmetros de cor (ex.: pat_param_cor_ativo_estoque): a cor do status nas listas.
+  // Parâmetros de cor (ex.: ativo_param_cor_estoque): a cor do status nas listas.
   if (/_param_cor_/.test(colecao) && campo === "cd_cor") {
     return "Escolha a cor usada para destacar este status nas listas.";
   }

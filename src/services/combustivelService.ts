@@ -2,8 +2,8 @@ import { createCadastroGeralService } from "@/services/cadastroGeralService";
 import type { Combustivel } from "@/types/combustivel";
 
 const service = createCadastroGeralService<Combustivel>(
-  "cg_combustivel",
-  "cg_combustivel_sequence"
+  "combustivel",
+  "combustivel_sequence"
 );
 
 export const obterCombustiveis = service.obterTodos;

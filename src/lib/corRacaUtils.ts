@@ -18,9 +18,9 @@ export const COR_RACA_COLUMNS: ColDef[] = [
 ];
 
 export const COR_RACA_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_cor_raca' },
-  ds_cor_raca: { type: 'string', field: 'ds_cor_raca', collection: 'cg_cor_raca' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_cor_raca' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_cor_raca' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_cor_raca' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cor_raca' },
+  ds_cor_raca: { type: 'string', field: 'ds_cor_raca', collection: 'cor_raca' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'cor_raca' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cor_raca' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cor_raca' },
 } as const;

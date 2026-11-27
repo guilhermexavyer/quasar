@@ -67,7 +67,7 @@ export interface Ativo {
   /** Veículo: combustível (Cadastros Gerais > Combustível). */
   nr_seq_combustivel?: number;
   /**
-   * @deprecated Os responsáveis ficam em pat_ativo_responsavel (duplo clique no ativo).
+   * @deprecated Os responsáveis ficam em ativo_responsavel (duplo clique no ativo).
    * Mantido só para ler documentos antigos ainda não migrados
    * (scripts/migrar-responsaveis-ativo.mjs).
    */

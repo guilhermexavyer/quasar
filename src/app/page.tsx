@@ -156,7 +156,7 @@ import {
   obterParametro,
 } from "@/services/parametroFuncaoService";
 import { gerarCodigoPorRegra, segmentosDoParametro, OPCOES_SEGMENTO_REGRA, QTD_SEGMENTOS_REGRA } from "@/lib/regraCodigoUtils";
-import { EVENTO_SESSAO_EXPIRADA, atualizarPropriaSenha } from "@/lib/apiCliente";
+import { EVENTO_SESSAO_EXPIRADA, atualizarPropriaSenha, ouvirCriacoes } from "@/lib/apiCliente";
 import { fetchAuditByPessoaId, fetchAuditByUsuarioId, fetchAuditByDocumentId, AuditEntry } from "@/services/auditService";
 import type { PessoaFisica, ToastStatus } from "@/types/pessoaFisica";
 import type { PessoaJuridica } from "@/types/pessoaJuridica";
@@ -173,7 +173,7 @@ import {
   COLUMNS,
   formatCellValue,
 } from "@/lib/pessoaFisicaUtils";
-import { PJ_COLUMNS, applyCnpjMask } from "@/lib/pessoaJuridicaUtils";
+import { PJ_COLUMNS, formatCellValuePj } from "@/lib/pessoaJuridicaUtils";
 import { ALUNO_COLUMNS, formatCellValue as formatAlunoCellValue } from "@/lib/alunoUtils";
 import { COLABORADOR_COLUMNS, STATUS_OPTIONS, formatCellValue as formatColaboradorCellValue } from "@/lib/colaboradorUtils";
 import { ADMIN_COLUMNS, formatAdminCellValue } from "@/lib/usuarioUtils";
@@ -208,7 +208,7 @@ import RelacionamentoView from "@/components/pessoasRelacionamentos/Relacionamen
 import EquipeView, { type OpcaoMembro } from "@/components/pessoasRelacionamentos/EquipeView";
 import { observarEquipes, observarRelacionamentos } from "@/services/relacionamentoService";
 import type { Equipe, Relacionamento } from "@/types/relacionamento";
-import type { TipoRelacionamento } from "@/lib/relacionamentoUtils";
+import { COLUNAS_EQUIPE, COLUNAS_RELACIONAMENTO, FILTRO_EQUIPE_VAZIO, FILTRO_RELACIONAMENTO_VAZIO, STATUS_RELACIONAMENTO_OPTIONS, celulaEquipe, celulaRelacionamento, passaFiltroEquipe, passaFiltroRelacionamento, type TipoRelacionamento } from "@/lib/relacionamentoUtils";
 import ExclusoesView, { type NavegacaoExclusoes } from "@/components/administracaoSistema/ExclusoesView";
 import AcessosView, { FILTRO_ACESSOS_VAZIO, LogsSemSelecaoView, normalizarFiltroAcessos, type FiltroAcessos } from "@/components/logs/AcessosView";
 import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
@@ -225,19 +225,16 @@ import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERI
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import AtivoDetalheView, { type AtivoDetalheAba } from "@/components/patrimonio/AtivoDetalheView";
-import { assumirAtivosDoColaborador, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
+import { definirAtivosDoResponsavel, excluirResponsaveisDoAtivo, obterResponsaveisAtivos } from "@/services/ativoResponsavelService";
 import { excluirResponsaveisDoAluno } from "@/services/alunoResponsavelService";
 import type { AtivoResponsavel } from "@/types/ativoResponsavel";
 import ParametrosDaFuncaoView from "@/components/parametros/ParametrosDaFuncaoView";
 import ManutencaoListView from "@/components/patrimonio/ManutencaoListView";
 import ManutencaoFormView, { type ManutencaoFormData } from "@/components/patrimonio/ManutencaoFormView";
-import PrestadorLookupTable from "@/components/patrimonio/PrestadorLookupTable";
-import AtivoLookupTable from "@/components/patrimonio/AtivoLookupTable";
 import ManutencaoViewModal from "@/components/patrimonio/ManutencaoViewModal";
 import type { Manutencao } from "@/types/manutencao";
 import { obterManutencoes, criarManutencao, atualizarManutencao, excluirManutencao } from "@/services/manutencaoService";
 import { CORES_STATUS_MANUTENCAO_PADRAO, MANUTENCAO_COLUMNS, MANUTENCAO_STATUS_OPTIONS, FIELD_INFOS as MANUTENCAO_FIELD_INFOS } from "@/lib/manutencaoUtils";
-import PessoaJuridicaLookupTable from "@/components/pessoaJuridica/PessoaJuridicaLookupTable";
 import AdministracaoSistemaListView from "@/components/administracaoSistema/AdministracaoSistemaListView";
 import AdministracaoSistemaFormView from "@/components/administracaoSistema/AdministracaoSistemaFormView";
 import PerfilListView from "@/components/administracaoSistema/PerfilListView";
@@ -304,7 +301,6 @@ import {
   temPermissao,
 } from "@/lib/permissoesUtils";
 import type { PermissaoDef } from "@/lib/permissoesUtils";
-import PessoaFisicaLookupTable from "@/components/pessoaFisica/PessoaFisicaLookupTable";
 import CidadeLookupTable from "@/components/pessoaFisica/CidadeLookupTable";
 import SearchIcon from "@/components/ui/SearchIcon";
 import ViewIcon from "@/components/ui/ViewIcon";
@@ -320,7 +316,8 @@ import Select from "@/components/ui/Select";
 import { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import RotuloCampo from "@/components/ui/RotuloCampo";
-import ReferenciaLookupModal from "@/components/ui/ReferenciaLookupModal";
+import LookupModal, { type ConfigLookup } from "@/components/ui/LookupModal";
+import type { LookupColumn } from "@/components/ui/LookupTabela";
 import CampoLookupReferencia from "@/components/ui/CampoLookupReferencia";
 import type { Sexo } from "@/types/sexo";
 import type { EstadoCivil } from "@/types/estadoCivil";
@@ -379,7 +376,7 @@ import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import type { Curso } from "@/types/curso";
 import { SISTEMA_OPERACIONAL_COLUMNS, SISTEMA_OPERACIONAL_FIELD_INFOS } from "@/lib/sistemaOperacionalUtils";
 import { COMBUSTIVEL_COLUMNS, COMBUSTIVEL_FIELD_INFOS } from "@/lib/combustivelUtils";
-import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, lerColunasAtivo, serializarColunasAtivo, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask } from "@/lib/ativoUtils";
+import { ATIVO_COLUMNS, CORES_STATUS_ATIVO_PADRAO, lerColunasAtivo, serializarColunasAtivo, STATUS_OPTIONS as ATIVO_STATUS_OPTIONS, applyIPv4Mask, formatCellValue as formatAtivoCellValue } from "@/lib/ativoUtils";
 import { formatCadastroGeralCellValue, formatarMedida, medidaParaBanco } from "@/lib/cadastroGeralUtils";
 import type { Usuario } from "@/types/usuario";
 import type { Perfil } from "@/types/perfil";
@@ -434,7 +431,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.98.0";
+const SYSTEM_VERSION = "0.99.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -454,6 +451,52 @@ function getActivePerfilKey(userId?: string | null): string {
 
 type ViewType = "list" | "form";
 type SectionType = "pessoaFisica" | "administracaoSistema" | "cadastrosGerais" | "estruturaAcademica" | "patrimonio" | "relatorio" | "logs" | "controleCopias";
+
+/**
+ * "Adicionar" dos lookups: onde cada tipo de registro é cadastrado (função, opção do dropdown
+ * Pai e tabela). Ao salvar o registro novo, o lookup de origem volta com ele selecionado.
+ */
+type DestinoCadastro =
+  | "pessoa_fisica" | "pessoa_juridica" | "colaborador" | "fornecedor" | "prestador_servico" | "ativo"
+  | "curso" | "disciplina" | "turma" | "turma_disciplina" | "periodo_letivo" | "localizacao" | "equipe";
+const DESTINOS_CADASTRO: Record<DestinoCadastro, { secao: SectionType; selecao: string; colecao: string }> = {
+  pessoa_fisica: { secao: "pessoaFisica", selecao: "pessoasFisicas", colecao: "pessoa_fisica" },
+  pessoa_juridica: { secao: "pessoaFisica", selecao: "pessoasJuridicas", colecao: "pessoa_juridica" },
+  colaborador: { secao: "pessoaFisica", selecao: "colaboradores", colecao: "colaborador" },
+  fornecedor: { secao: "pessoaFisica", selecao: "fornecedores", colecao: "fornecedor" },
+  prestador_servico: { secao: "pessoaFisica", selecao: "prestadoresServico", colecao: "prestador_servico" },
+  ativo: { secao: "patrimonio", selecao: "ativos", colecao: "ativo" },
+  curso: { secao: "estruturaAcademica", selecao: "cursos", colecao: "curso" },
+  disciplina: { secao: "estruturaAcademica", selecao: "disciplinas", colecao: "disciplina" },
+  turma: { secao: "estruturaAcademica", selecao: "turmas", colecao: "turma" },
+  turma_disciplina: { secao: "estruturaAcademica", selecao: "turmasDisciplinas", colecao: "turma_disciplina" },
+  periodo_letivo: { secao: "estruturaAcademica", selecao: "periodoLetivo", colecao: "periodo_letivo" },
+  localizacao: { secao: "cadastrosGerais", selecao: "localizacao", colecao: "localizacao" },
+  equipe: { secao: "pessoaFisica", selecao: "equipes", colecao: "equipe" },
+};
+
+/**
+ * Desvio do "Adicionar" de um lookup: a tela de origem (função, tela e opção do dropdown Pai)
+ * e o cadastro aberto na função de destino, até ele ser salvo ou fechado.
+ */
+interface DesvioCadastro {
+  destino: DestinoCadastro;
+  /** Identifica o pedido (o formulário novo de Fornecedores/Prestadores abre a cada valor). */
+  vez: number;
+  destinoJaAberto: boolean;
+  origemSecao: SectionType;
+  origemView: ViewType;
+  origemSelecao: string;
+  /** Origem com o formulário dentro do componente (Fornecedores, Equipes...): fica montada, escondida. */
+  origemInterna: boolean;
+  /** Sequência do registro criado no destino (o último, com "Salvar e adicionar"). */
+  criado: number | null;
+  /** Formulário de Fornecedores/Prestadores/Equipes fechado (eles não usam a tela da função). */
+  fechado: boolean;
+}
+
+/** Tipos de registro com lookup (os do "Adicionar" e o Usuário). */
+type EntidadeLookup = DestinoCadastro | "usuario";
 
 const SECOES: readonly SectionType[] = ["pessoaFisica", "administracaoSistema", "cadastrosGerais", "estruturaAcademica", "patrimonio", "relatorio", "logs", "controleCopias"];
 
@@ -624,7 +667,7 @@ const COPIA_FILTRO_VAZIO = { ie_status: '', nr_seq_solicitante: '', nr_seq_turma
 /** Coleções com formulário próprio reaproveitado no "Ver" de Exclusões e no Detalhe da auditoria. */
 const COLECOES_COM_FORMULARIO = new Set([
   'pessoa_fisica', 'pessoa_juridica', 'usuario', 'perfil', 'imagem', 'periodo_letivo', 'aluno', 'colaborador',
-  'pat_categoria', 'disciplina', 'turma', 'turma_disciplina', 'copia', 'curso', 'pat_manutencao', 'pat_ativo',
+  'categoria', 'disciplina', 'turma', 'turma_disciplina', 'copia', 'curso', 'manutencao', 'ativo',
 ]);
 
 /** Evento para chamar um handler de submit fora do formulário ("Salvar filtro", "Salvar e adicionar"). */
@@ -1096,9 +1139,6 @@ export default function Home() {
   const [appliedAdminFilterForm, setAppliedAdminFilterForm] = useState<AdminFilterFormData>(emptyAdminFilterForm);
   const [adminFilterModalOpen, setAdminFilterModalOpen] = useState(false);
   const [adminPessoaFisicaLookupOpen, setAdminPessoaFisicaLookupOpen] = useState(false);
-  const [adminPessoaFisicaLookupForm, setAdminPessoaFisicaLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-  const [adminPessoaFisicaLookupFilter, setAdminPessoaFisicaLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-  const [adminPessoaFisicaLookupApplied, setAdminPessoaFisicaLookupApplied] = useState(false);
   const [pessoasFisicas, setPessoasFisicas] = useState<PessoaFisica[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [auditInfo, setAuditInfo] = useState({ createdAt: '', updatedAt: '', createdBy: '', updatedBy: '' });
@@ -1114,7 +1154,7 @@ export default function Home() {
   const [auditModalOpen, setAuditModalOpen] = useState(false);
   const [auditLoading, setAuditLoading] = useState(false);
   const [auditLogs, setAuditLogs] = useState<AuditEntry[]>([]);
-  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'pat_ativo' | 'pat_ativo_responsavel' | 'aluno_responsavel' | 'pat_manutencao' | 'parametro' | 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra' | 'fornecedor' | 'prestador_servico' | 'equipe' | 'equipe_membro'>('pessoa_fisica');
+  const [auditDocumentType, setAuditDocumentType] = useState<'pessoa_fisica' | 'pessoa_fisica_residencial' | 'pessoa_fisica_comercial' | 'pessoa_fisica_saude' | 'pessoa_juridica' | 'usuario' | 'perfil' | 'aluno' | 'colaborador' | 'curso' | 'periodo_letivo' | 'periodo_letivo_feriado' | 'ativo' | 'ativo_responsavel' | 'aluno_responsavel' | 'manutencao' | 'parametro' | 'sexo' | 'estado_civil' | 'cor_raca' | 'profissao' | 'orgao_emissor' | 'logradouro' | 'grau_parentesco' | 'cargo' | 'vinculo_contratual' | 'localizacao' | 'marca' | 'categoria' | 'sistema_operacional' | 'combustivel' | 'modalidade_ensino' | 'formato_papel' | 'tipo_papel' | 'copia' | 'campo' | 'disciplina' | 'turma' | 'turma_disciplina' | 'relatorio' | 'imagem' | 'aviso' | 'regra_sistema' | 'fornecedor' | 'prestador_servico' | 'equipe' | 'equipe_membro'>('pessoa_fisica');
   const [detailModalOpen, setDetailModalOpen] = useState(false);
   const [selectedAuditIndex, setSelectedAuditIndex] = useState<number | null>(null);
   /** Tipos das colunas do banco (Detalhe da auditoria: datas sem hora exibidas como DD/MM/AAAA). */
@@ -1166,6 +1206,10 @@ export default function Home() {
   const [secoesAbertas, setSecoesAbertas] = useState<SectionType[]>([]);
   /** Função cujo fechamento aguarda confirmação no modal. */
   const [secaoParaFechar, setSecaoParaFechar] = useState<SectionType | null>(null);
+  /** "Adicionar" de um lookup em andamento (ver adicionarPeloLookup). */
+  const [desvio, setDesvio] = useState<DesvioCadastro | null>(null);
+  /** Seleciona o registro novo no lookup de origem (o mesmo caminho do duplo clique na lista). */
+  const aoCriarDoDesvioRef = useRef<((nr: number) => void) | null>(null);
   /** Regras do sistema (Administração do Sistema > Sistema), ex.: logout automático. */
   const [regraSistema, setRegraSistema] = useState<Regra | null>(null);
   /** Início da sessão (ms): o logout automático encerra sessões iniciadas antes do horário programado. */
@@ -1266,7 +1310,7 @@ export default function Home() {
   const [adminCampoErros, setAdminCampoErros] = useState<string[]>([]);
   const [perfilCampoErros, setPerfilCampoErros] = useState<string[]>([]);
   const [cgCampoErros, setCgCampoErros] = useState<string[]>([]);
-  /* Patrimônio > Categoria (coleção pat_categoria): usa os componentes genéricos
+  /* Patrimônio > Categoria (coleção categoria): usa os componentes genéricos
      de Cadastros Gerais, mas com estado próprio — as duas funções podem estar
      abertas ao mesmo tempo sem uma interferir na edição da outra. */
   const [categoriaForm, setCategoriaForm] = useState<CadastroGeralFormData>(emptyCgForm);
@@ -1396,9 +1440,6 @@ export default function Home() {
   const [pessoaJuridicaView, setPessoaJuridicaView] = useState<PessoaJuridica | null>(null);
   const [pessoaJuridicaViewCidade, setPessoaJuridicaViewCidade] = useState('');
   const pessoaJuridicaViewCodeRef = useRef<string>('');
-  const [lookupForm, setLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-  const [lookupFilter, setLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-  const [lookupApplied, setLookupApplied] = useState(false);
   const [naturalidadeLookupOpen, setNaturalidadeLookupOpen] = useState(false);
   const [cidadeLookupForm, setCidadeLookupForm] = useState({ codigo: '', nome: '', uf: '' });
   const [cidadeLookupApplied, setCidadeLookupApplied] = useState(false);
@@ -1445,11 +1486,14 @@ export default function Home() {
   const [alunoFilterForm, setAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [appliedAlunoFilterForm, setAppliedAlunoFilterForm] = useState({ nr_sequencia: '', nr_matricula: '', nr_seq_pessoa_fisica: '', dt_ingresso_inicio: '', dt_ingresso_fim: '' });
   const [alunoPessoaFisicaLookupOpen, setAlunoPessoaFisicaLookupOpen] = useState(false);
-  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter'>('aluno');
+  const alunoPessoaFisicaLookupTargetRef = useRef<'aluno' | 'responsavel' | 'responsavelFiltro' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter'>('aluno');
   /** Responsáveis do aluno (aba Responsáveis): recebe a pessoa física escolhida no lookup. */
   const alunoResponsavelLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
   /** Quem recebe o colaborador escolhido no lookup aberto pelos responsáveis do ativo. */
   const ativoResponsavelLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
+  /** Lookup de Equipe (responsável do ativo): aberto e quem recebe a equipe escolhida. */
+  const [equipeLookupAberto, setEquipeLookupAberto] = useState(false);
+  const equipeLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
   // Modal "Alterar status" do aluno (menu de contexto de Estrutura Acadêmica).
   const [alterarStatusModalOpen, setAlterarStatusModalOpen] = useState(false);
   const [alterarStatusAluno, setAlterarStatusAluno] = useState<Aluno | null>(null);
@@ -1548,14 +1592,11 @@ export default function Home() {
   // com o botão direito está entre os marcados (como em Patrimônio > Ativos).
   const [alunosSelecionados, setAlunosSelecionados] = useState<string[]>([]);
   const [colaboradoresSelecionados, setColaboradoresSelecionados] = useState<string[]>([]);
-  // Modal "Assumir ativos de" (menu de contexto de Colaboradores): o colaborador
-  // clicado (destino) assume os ativos do colaborador escolhido no lookup (origem).
-  const [assumirAtivosDestino, setAssumirAtivosDestino] = useState<Colaborador | null>(null);
-  const [assumirAtivosOrigem, setAssumirAtivosOrigem] = useState('');
-  /** Modo (obrigatório): começa vazio. */
-  const [assumirAtivosModo, setAssumirAtivosModo] = useState<'' | 'adicionar' | 'substituir'>('');
-  const [assumirAtivosModoErro, setAssumirAtivosModoErro] = useState(false);
-  const [assumirAtivosErro, setAssumirAtivosErro] = useState(false);
+  // "Assumir ativos" (menu de contexto de Colaboradores e de Equipes): o lookup de ativos com
+  // seleção múltipla; o colaborador (ou a equipe) clicado vira mais um responsável dos marcados.
+  const [assumirAtivosDestino, setAssumirAtivosDestino] = useState<{ nr_sequencia: number } | null>(null);
+  /** Quem assume: um colaborador (menu de Colaboradores) ou uma equipe (menu de Equipes). */
+  const [assumirAtivosTipo, setAssumirAtivosTipo] = useState<'colaborador' | 'equipe'>('colaborador');
   const [assumirAtivosSaving, setAssumirAtivosSaving] = useState(false);
   const [alterarStatusColaboradorForm, setAlterarStatusColaboradorForm] = useState({ dt_status: '', ie_status: '', ds_motivo_status: '' });
   const [alterarStatusColaboradorSaving, setAlterarStatusColaboradorSaving] = useState(false);
@@ -1585,12 +1626,9 @@ export default function Home() {
   const [enviarManutLote, setEnviarManutLote] = useState<Ativo[]>([]);
   const [enviarManutForm, setEnviarManutForm] = useState({ dt_data: '', nr_seq_prestador_servico: undefined as number | undefined, ds_motivo_manutencao: '' });
   const [enviarManutSaving, setEnviarManutSaving] = useState(false);
-  // Lookup de colaborador / fornecedor / prestador de serviço (ver enviarManutPrestadores).
+  // Lookup de colaborador / fornecedor / prestador de serviço (configLookup; os dois últimos, só os ativos).
   const [enviarManutPrestadorLookupOpen, setEnviarManutPrestadorLookupOpen] = useState(false);
-  const [enviarManutPrestLookupForm, setEnviarManutPrestLookupForm] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
-  const [enviarManutPrestLookupFilter, setEnviarManutPrestLookupFilter] = useState({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
-  const [enviarManutPrestLookupApplied, setEnviarManutPrestLookupApplied] = useState(false);
-  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' | 'manutencaoFilter'>('modal');
+  const enviarManutPrestadorLookupTargetRef = useRef<'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' | 'manutencaoFilter'>('modal');
   /** O lookup lista os fornecedores (Fornecedor do ativo). */
   const [lookupColaboradorFornecedor, setLookupColaboradorFornecedor] = useState(false);
   /** O lookup lista todos os colaboradores (Responsável do ativo), não só os prestadores de serviço. */
@@ -1609,39 +1647,6 @@ export default function Home() {
   // Manutenções marcadas na coluna de seleção (checkbox) da lista de Manutenções, por id.
   const [manutencoesSelecionadas, setManutencoesSelecionadas] = useState<string[]>([]);
   const [cancelarManutSaving, setCancelarManutSaving] = useState(false);
-  const enviarManutPrestadores = useMemo((): Colaborador[] => {
-    // Fornecedor do ativo: os fornecedores ativos; Prestador da manutenção: os prestadores de serviço
-    // ativos (Pessoas e Relacionamentos); Responsável do ativo e demais: todos os colaboradores.
-    // Os três têm Pessoa física / Pessoa jurídica: a mesma janela de busca atende a todos.
-    if (lookupColaboradorFornecedor) return fornecedores.filter((f) => f.ie_status !== 'I') as unknown as Colaborador[];
-    return lookupColaboradorTodos ? colaboradores : prestadoresServico.filter((p) => p.ie_status !== 'I') as unknown as Colaborador[];
-  }, [colaboradores, fornecedores, prestadoresServico, lookupColaboradorTodos, lookupColaboradorFornecedor]);
-  const enviarManutFilteredPrestadores = useMemo(() => {
-    if (!enviarManutPrestLookupApplied) return [];
-    return enviarManutPrestadores.filter((c) => {
-      const pf = pessoasFisicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_fisica);
-      if (enviarManutPrestLookupFilter.nr_sequencia && String(c.nr_sequencia ?? '') !== enviarManutPrestLookupFilter.nr_sequencia.trim()) return false;
-      if (enviarManutPrestLookupFilter.ds_nome && pf && !pf.ds_nome.toLowerCase().includes(enviarManutPrestLookupFilter.ds_nome.toLowerCase())) return false;
-      if (enviarManutPrestLookupFilter.nr_cpf && pf) {
-        const queryCpf = enviarManutPrestLookupFilter.nr_cpf.replace(/\D/g, '');
-        const pessoaCpf = (pf.nr_cpf ?? '').replace(/\D/g, '');
-        if (!pessoaCpf.includes(queryCpf)) return false;
-      }
-      if (enviarManutPrestLookupFilter.nr_cnpj && c.nr_seq_pessoa_juridica) {
-        const pj = pessoasJuridicas.find((p) => p.nr_sequencia === c.nr_seq_pessoa_juridica);
-        if (pj) {
-          const queryCnpj = enviarManutPrestLookupFilter.nr_cnpj.replace(/\D/g, '');
-          const pessoaCnpj = (pj.nr_cnpj ?? '').replace(/\D/g, '');
-          if (!pessoaCnpj.includes(queryCnpj)) return false;
-        } else {
-          return false;
-        }
-      } else if (enviarManutPrestLookupFilter.nr_cnpj) {
-        return false;
-      }
-      return true;
-    });
-  }, [enviarManutPrestadores, enviarManutPrestLookupFilter, enviarManutPrestLookupApplied, pessoasFisicas]);
   // Nome do prestador derivado do nr_seq_prestador_servico selecionado.
   const enviarManutPrestadorName = useMemo(() => {
     if (!enviarManutForm.nr_seq_prestador_servico) return '';
@@ -1659,9 +1664,6 @@ export default function Home() {
   }, [enviarManutForm.nr_seq_prestador_servico, pessoasFisicas, prestadoresServico, pessoasJuridicas]);
   const [colaboradorPessoaFisicaLookupOpen, setColaboradorPessoaFisicaLookupOpen] = useState(false);
   const [colaboradorPessoaJuridicaLookupOpen, setColaboradorPessoaJuridicaLookupOpen] = useState(false);
-  const [colaboradorPjLookupForm, setColaboradorPjLookupForm] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
-  const [colaboradorPjLookupFilter, setColaboradorPjLookupFilter] = useState({ nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
-  const [colaboradorPjLookupApplied, setColaboradorPjLookupApplied] = useState(false);
   const colaboradorPjLookupTargetRef = useRef<'form' | 'filter' | 'callback'>('form');
   /** Lookup de pessoa jurídica aberto por uma tela que recebe a escolha (target 'callback'). */
   const pessoaJuridicaLookupCallbackRef = useRef<((nrSequencia: number) => void) | null>(null);
@@ -1773,6 +1775,8 @@ export default function Home() {
   const [relatorios, setRelatorios] = useState<Relatorio[]>([]);
   const [relatorioView, setRelatorioView] = useState<'list' | 'builder'>('list');
   const [relatorioEditingId, setRelatorioEditingId] = useState<string | null>(null);
+  /** Conta os formulários de relatório novo abertos: um novo depois de outro ("Salvar e adicionar") começa limpo. */
+  const [relatorioNovoVez, setRelatorioNovoVez] = useState(0);
   const lastRelatorioEditingIdRef = useRef<string | null>(null);
   useEffect(() => { if (relatorioEditingId) lastRelatorioEditingIdRef.current = relatorioEditingId; }, [relatorioEditingId]);
   const [relatorioBandasMode, setRelatorioBandasMode] = useState(false);
@@ -2004,9 +2008,6 @@ export default function Home() {
   // Lookup de ativo no formulário de manutenção.
   const [manutencaoAtivoLookupOpen, setManutencaoAtivoLookupOpen] = useState(false);
   const manutencaoAtivoLookupTargetRef = useRef<'manutencao' | 'manutencaoFilter'>('manutencao');
-  const [manutencaoAtivoLookupForm, setManutencaoAtivoLookupForm] = useState({ nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' });
-  const [manutencaoAtivoLookupFilter, setManutencaoAtivoLookupFilter] = useState({ nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' });
-  const [manutencaoAtivoLookupApplied, setManutencaoAtivoLookupApplied] = useState(false);
   const manutencaoAtivoName = useMemo(() => {
     if (!manutencaoForm.nr_seq_ativo) return '';
     return ativos.find((a) => a.nr_sequencia === manutencaoForm.nr_seq_ativo)?.ds_ativo ?? '';
@@ -2027,27 +2028,9 @@ export default function Home() {
     // Fallback: busca direta na PF (para dados legados).
     return pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '';
   }, [manutencaoForm.nr_seq_prestador_servico, pessoasFisicas, prestadoresServico, pessoasJuridicas]);
-  const manutencaoFilteredAtivos = useMemo(() => {
-    if (!manutencaoAtivoLookupApplied) return [];
-    return ativos.filter((a) => {
-      if (manutencaoAtivoLookupFilter.nr_sequencia && String(a.nr_sequencia) !== manutencaoAtivoLookupFilter.nr_sequencia.trim()) return false;
-      if (manutencaoAtivoLookupFilter.ds_ativo && !a.ds_ativo?.toLowerCase().includes(manutencaoAtivoLookupFilter.ds_ativo.toLowerCase())) return false;
-      if (manutencaoAtivoLookupFilter.ds_modelo && !a.ds_modelo?.toLowerCase().includes(manutencaoAtivoLookupFilter.ds_modelo.toLowerCase())) return false;
-      if (manutencaoAtivoLookupFilter.ie_status) {
-        if (a.ie_status !== manutencaoAtivoLookupFilter.ie_status) return false;
-      } else {
-        // Por padrão, exibir apenas ativos Operacionais e em Estoque.
-        if (a.ie_status !== 'O' && a.ie_status !== 'E') return false;
-      }
-      return true;
-    });
-  }, [ativos, manutencaoAtivoLookupFilter, manutencaoAtivoLookupApplied]);
   const [ativoSortColumn, setAtivoSortColumn] = useOrdenacaoPersistida<number | null>("ativo.coluna", null, "patrimonio");
   const [ativoSortAsc, setAtivoSortAsc] = useOrdenacaoPersistida<boolean | null>("ativo.asc", null, "patrimonio");
   const [ativoCampoErros, setAtivoCampoErros] = useState<string[]>([]);
-  const [alunoLookupForm, setAlunoLookupForm] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-  const [alunoLookupFilter, setAlunoLookupFilter] = useState({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-  const [alunoLookupApplied, setAlunoLookupApplied] = useState(false);
   const [passwordChangeValue, setPasswordChangeValue] = useState("");
   const [passwordChangeConfirmValue, setPasswordChangeConfirmValue] = useState("");
   const [passwordChangeUserId, setPasswordChangeUserId] = useState<string | null>(null);
@@ -2278,7 +2261,7 @@ export default function Home() {
       excluirPessoaJuridica: permitida('excluir_pessoa_juridica'),
       fornecedor: { adicionar: permitida('adicionar_fornecedor'), ver: permitida('ver_fornecedor'), editar: permitida('editar_fornecedor'), excluir: permitida('excluir_fornecedor') },
       prestadorServico: { adicionar: permitida('adicionar_prestador_servico'), ver: permitida('ver_prestador_servico'), editar: permitida('editar_prestador_servico'), excluir: permitida('excluir_prestador_servico') },
-      equipe: { adicionar: permitida('adicionar_equipe'), ver: permitida('ver_equipe'), editar: permitida('editar_equipe'), membros: permitida('membros_equipe'), excluir: permitida('excluir_equipe') },
+      equipe: { adicionar: permitida('adicionar_equipe'), ver: permitida('ver_equipe'), editar: permitida('editar_equipe'), membros: permitida('membros_equipe'), assumirAtivos: permitida('assumir_ativos_equipe'), excluir: permitida('excluir_equipe') },
     };
   }, [isAdminSemConfig, permissoesAtivas]);
 
@@ -2516,6 +2499,9 @@ export default function Home() {
     const atualizados: Perfil[] = [];
     for (const perfil of perfis) {
       if (!perfil.id) continue;
+      // O perfil Administrador não é alterado por ninguém (o servidor recusa): fica com a
+      // configuração migrada só em memória (parsePermissoesConfigMigrada), sem o PATCH com 403.
+      if (String(perfil.ds_perfil ?? '').trim().toLowerCase() === 'administrador') continue;
       const versao = Number(perfil.config_permissoes_v ?? 0);
       if (versao >= PERMISSOES_CONFIG_VERSION) continue;
       const config = parsePermissoesConfig(perfil.config_permissoes);
@@ -2573,12 +2559,12 @@ export default function Home() {
     [currentUser?.config_colunas_aluno]
   );
   const ativoColunasConfig = useMemo(
-    () => lerColunasAtivo(currentUser?.config_colunas_pat_ativo),
-    [currentUser?.config_colunas_pat_ativo]
+    () => lerColunasAtivo(currentUser?.config_colunas_ativo),
+    [currentUser?.config_colunas_ativo]
   );
   const manutencaoColunasConfig = useMemo(
-    () => parseColunasConfig(currentUser?.config_colunas_pat_manutencao),
-    [currentUser?.config_colunas_pat_manutencao]
+    () => parseColunasConfig(currentUser?.config_colunas_manutencao),
+    [currentUser?.config_colunas_manutencao]
   );
   const adminColunasConfig = useMemo(
     () => parseColunasConfig(currentUser?.config_colunas_as_usuario),
@@ -2619,8 +2605,8 @@ export default function Home() {
   const CG_DEFS = {
     sexo: {
       descKey: 'ds_sexo',
-      collection: 'cg_sexo',
-      configKey: 'config_colunas_cg_sexo',
+      collection: 'sexo',
+      configKey: 'config_colunas_sexo',
       columns: SEXO_COLUMNS,
       fieldInfos: SEXO_FIELD_INFOS,
       items: (): CgItem[] => sexos,
@@ -2628,8 +2614,8 @@ export default function Home() {
     },
     estadoCivil: {
       descKey: 'ds_estado_civil',
-      collection: 'cg_estado_civil',
-      configKey: 'config_colunas_cg_estado_civil',
+      collection: 'estado_civil',
+      configKey: 'config_colunas_estado_civil',
       columns: ESTADO_CIVIL_COLUMNS,
       fieldInfos: ESTADO_CIVIL_FIELD_INFOS,
       items: (): CgItem[] => estadoCivis,
@@ -2637,8 +2623,8 @@ export default function Home() {
     },
     corRaca: {
       descKey: 'ds_cor_raca',
-      collection: 'cg_cor_raca',
-      configKey: 'config_colunas_cg_cor_raca',
+      collection: 'cor_raca',
+      configKey: 'config_colunas_cor_raca',
       columns: COR_RACA_COLUMNS,
       fieldInfos: COR_RACA_FIELD_INFOS,
       items: (): CgItem[] => coresRacas,
@@ -2646,8 +2632,8 @@ export default function Home() {
     },
     profissao: {
       descKey: 'ds_profissao',
-      collection: 'cg_profissao',
-      configKey: 'config_colunas_cg_profissao',
+      collection: 'profissao',
+      configKey: 'config_colunas_profissao',
       columns: PROFISSAO_COLUMNS,
       fieldInfos: PROFISSAO_FIELD_INFOS,
       items: (): CgItem[] => profissoes,
@@ -2655,8 +2641,8 @@ export default function Home() {
     },
     orgaoEmissor: {
       descKey: 'ds_orgao_emissor',
-      collection: 'cg_orgao_emissor',
-      configKey: 'config_colunas_cg_orgao_emissor',
+      collection: 'orgao_emissor',
+      configKey: 'config_colunas_orgao_emissor',
       columns: ORGAO_EMISSOR_COLUMNS,
       fieldInfos: ORGAO_EMISSOR_FIELD_INFOS,
       items: (): CgItem[] => orgaosEmissores,
@@ -2664,8 +2650,8 @@ export default function Home() {
     },
     logradouro: {
       descKey: 'ds_logradouro',
-      collection: 'cg_logradouro',
-      configKey: 'config_colunas_cg_logradouro',
+      collection: 'logradouro',
+      configKey: 'config_colunas_logradouro',
       columns: LOGRADOURO_COLUMNS,
       fieldInfos: LOGRADOURO_FIELD_INFOS,
       items: (): CgItem[] => logradouros,
@@ -2673,8 +2659,8 @@ export default function Home() {
     },
     grauParentesco: {
       descKey: 'ds_grau_parentesco',
-      collection: 'cg_grau_parentesco',
-      configKey: 'config_colunas_cg_grau_parentesco',
+      collection: 'grau_parentesco',
+      configKey: 'config_colunas_grau_parentesco',
       columns: GRAU_PARENTESCO_COLUMNS,
       fieldInfos: GRAU_PARENTESCO_FIELD_INFOS,
       items: (): CgItem[] => grausParentesco,
@@ -2682,8 +2668,8 @@ export default function Home() {
     },
     localizacao: {
       descKey: 'ds_localizacao',
-      collection: 'cg_localizacao',
-      configKey: 'config_colunas_cg_localizacao',
+      collection: 'localizacao',
+      configKey: 'config_colunas_localizacao',
       columns: LOCALIZACAO_COLUMNS,
       fieldInfos: LOCALIZACAO_FIELD_INFOS,
       items: (): CgItem[] => localizacoes,
@@ -2691,8 +2677,8 @@ export default function Home() {
     },
     marca: {
       descKey: 'ds_marca',
-      collection: 'cg_marca',
-      configKey: 'config_colunas_cg_marca',
+      collection: 'marca',
+      configKey: 'config_colunas_marca',
       columns: MARCA_COLUMNS,
       fieldInfos: MARCA_FIELD_INFOS,
       items: (): CgItem[] => marcas,
@@ -2700,8 +2686,8 @@ export default function Home() {
     },
     cargo: {
       descKey: 'ds_cargo',
-      collection: 'cg_cargo',
-      configKey: 'config_colunas_cg_cargo',
+      collection: 'cargo',
+      configKey: 'config_colunas_cargo',
       columns: CARGO_COLUMNS,
       fieldInfos: CARGO_FIELD_INFOS,
       items: (): CgItem[] => cargos,
@@ -2709,8 +2695,8 @@ export default function Home() {
     },
     vinculoContratual: {
       descKey: 'ds_vinculo_contratual',
-      collection: 'cg_vinculo_contratual',
-      configKey: 'config_colunas_cg_vinculo_contratual',
+      collection: 'vinculo_contratual',
+      configKey: 'config_colunas_vinculo_contratual',
       columns: VINCULO_CONTRATUAL_COLUMNS,
       fieldInfos: VINCULO_CONTRATUAL_FIELD_INFOS,
       items: (): CgItem[] => vinculosContratuais,
@@ -2718,8 +2704,8 @@ export default function Home() {
     },
     sistemaOperacional: {
       descKey: 'ds_sistema_operacional',
-      collection: 'cg_sistema_operacional',
-      configKey: 'config_colunas_cg_sistema_operacional',
+      collection: 'sistema_operacional',
+      configKey: 'config_colunas_sistema_operacional',
       columns: SISTEMA_OPERACIONAL_COLUMNS,
       fieldInfos: SISTEMA_OPERACIONAL_FIELD_INFOS,
       items: (): CgItem[] => sistemasOperacionais,
@@ -2727,8 +2713,8 @@ export default function Home() {
     },
     combustivel: {
       descKey: 'ds_combustivel',
-      collection: 'cg_combustivel',
-      configKey: 'config_colunas_cg_combustivel',
+      collection: 'combustivel',
+      configKey: 'config_colunas_combustivel',
       columns: COMBUSTIVEL_COLUMNS,
       fieldInfos: COMBUSTIVEL_FIELD_INFOS,
       items: (): CgItem[] => combustiveis,
@@ -2736,8 +2722,8 @@ export default function Home() {
     },
     modalidadeEnsino: {
       descKey: 'ds_modalidade_ensino',
-      collection: 'cg_modalidade_ensino',
-      configKey: 'config_colunas_cg_modalidade_ensino',
+      collection: 'modalidade_ensino',
+      configKey: 'config_colunas_modalidade_ensino',
       columns: MODALIDADE_ENSINO_COLUMNS,
       fieldInfos: MODALIDADE_ENSINO_FIELD_INFOS,
       items: (): CgItem[] => modalidadesEnsino,
@@ -2745,8 +2731,8 @@ export default function Home() {
     },
     formatoPapel: {
       descKey: 'ds_formato_papel',
-      collection: 'cg_formato_papel',
-      configKey: 'config_colunas_cg_formato_papel',
+      collection: 'formato_papel',
+      configKey: 'config_colunas_formato_papel',
       columns: FORMATO_PAPEL_COLUMNS,
       fieldInfos: FORMATO_PAPEL_FIELD_INFOS,
       items: (): CgItem[] => formatosPapel,
@@ -2754,8 +2740,8 @@ export default function Home() {
     },
     tipoPapel: {
       descKey: 'ds_tipo_papel',
-      collection: 'cg_tipo_papel',
-      configKey: 'config_colunas_cg_tipo_papel',
+      collection: 'tipo_papel',
+      configKey: 'config_colunas_tipo_papel',
       columns: TIPO_PAPEL_COLUMNS,
       fieldInfos: TIPO_PAPEL_FIELD_INFOS,
       items: (): CgItem[] => tiposPapel,
@@ -4039,6 +4025,7 @@ export default function Home() {
   // ── Relatórios ──
   function openRelatorioNewForm() {
     setRelatorioEditingId(null);
+    setRelatorioNovoVez((v) => v + 1);
     setRelatorioForm(null);
     setRelatorioView('builder');
     setMessage('');
@@ -4107,6 +4094,7 @@ export default function Home() {
       }
       await loadRelatorios();
       closeRelatorioBuilder();
+      abrirNovoAposSalvar();
     } catch (err) {
       // Ex.: Código repetido ("Já existe um registro com este valor.").
       setMessage(err instanceof Error && err.message ? `Erro ao salvar relatório: ${err.message}` : 'Erro ao salvar relatório.');
@@ -4410,6 +4398,7 @@ export default function Home() {
   }
 
   function handleCgManageSelectionChange(value: string) {
+    abandonarDesvio();
     setCgInteracted(true);
     setCgManageSelection(value);
     // Ao trocar a seleção no meio da edição, zera o registro em edição
@@ -4420,6 +4409,7 @@ export default function Home() {
   }
 
   function handlePjManageSelectionChange(value: string) {
+    abandonarDesvio();
     setPjInteracted(true);
     setPfDetalheId(null);
     setAlunoDetalheId(null);
@@ -4447,6 +4437,7 @@ export default function Home() {
   }
 
   function handleAlunoManageSelectionChange(value: string) {
+    abandonarDesvio();
     setAlunoInteracted(true);
     setPeriodoLetivoFeriadosId(null);
     setAlunoDetalheId(null);
@@ -4483,6 +4474,7 @@ export default function Home() {
   }
 
   function handlePatrimonioManageSelectionChange(value: string) {
+    abandonarDesvio();
     setAtivoInteracted(true);
     setAtivoDetalheId(null);
     setAtivoManageSelection(value);
@@ -4575,7 +4567,7 @@ export default function Home() {
 
   async function openCgAuditModal(cgId?: string | null) {
     if (!cgId) return;
-    setAuditDocumentType(cgCollection as 'cg_sexo' | 'cg_estado_civil' | 'cg_cor_raca' | 'cg_profissao' | 'cg_orgao_emissor' | 'cg_logradouro' | 'cg_grau_parentesco' | 'cg_cargo' | 'cg_vinculo_contratual' | 'cg_localizacao' | 'cg_marca' | 'pat_categoria' | 'cg_sistema_operacional' | 'cg_combustivel' | 'cg_modalidade_ensino' | 'cg_formato_papel' | 'cg_tipo_papel');
+    setAuditDocumentType(cgCollection as 'sexo' | 'estado_civil' | 'cor_raca' | 'profissao' | 'orgao_emissor' | 'logradouro' | 'grau_parentesco' | 'cargo' | 'vinculo_contratual' | 'localizacao' | 'marca' | 'categoria' | 'sistema_operacional' | 'combustivel' | 'modalidade_ensino' | 'formato_papel' | 'tipo_papel');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
@@ -4675,11 +4667,11 @@ export default function Home() {
 
   async function openAtivoAuditModal(ativoId?: string | null) {
     if (!ativoId) return;
-    setAuditDocumentType('pat_ativo');
+    setAuditDocumentType('ativo');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const logs = await fetchAuditByDocumentId('pat_ativo', ativoId);
+      const logs = await fetchAuditByDocumentId('ativo', ativoId);
       setAuditLogs(logs);
     } catch (e) {
       setAuditLogs([]);
@@ -4702,11 +4694,11 @@ export default function Home() {
   }
 
   async function openAtivoResponsavelAuditModal(responsavelId: string) {
-    setAuditDocumentType('pat_ativo_responsavel');
+    setAuditDocumentType('ativo_responsavel');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      setAuditLogs(await fetchAuditByDocumentId('pat_ativo_responsavel', responsavelId));
+      setAuditLogs(await fetchAuditByDocumentId('ativo_responsavel', responsavelId));
     } catch {
       setAuditLogs([]);
     } finally {
@@ -4767,12 +4759,12 @@ export default function Home() {
   /** Regra cujo histórico está aberto: o Detalhe da auditoria mostra só os campos dela. */
   const [regraAuditId, setRegraAuditId] = useState<IdRegra>('logout_automatico');
   async function openRegraAuditModal(regraDocId: string, regra: IdRegra) {
-    setAuditDocumentType('regra');
+    setAuditDocumentType('regra_sistema');
     setRegraAuditId(regra);
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      setAuditLogs(filtrarAuditoriaDaRegra(await fetchAuditByDocumentId('regra', regraDocId), regra));
+      setAuditLogs(filtrarAuditoriaDaRegra(await fetchAuditByDocumentId('regra_sistema', regraDocId), regra));
     } catch {
       setAuditLogs([]);
     } finally {
@@ -4984,10 +4976,6 @@ export default function Home() {
   }
 
   function openAdminPessoaFisicaLookup() {
-    const salvo = filtroSalvoDoLookup('pessoa_fisica', { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupForm(salvo ?? { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupFilter(salvo ?? { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupApplied(!!salvo);
     setAdminPessoaFisicaLookupOpen(true);
   }
 
@@ -4995,16 +4983,7 @@ export default function Home() {
     setAdminPessoaFisicaLookupOpen(false);
   }
 
-  function applyAdminPessoaFisicaLookupFilter() {
-    setAdminPessoaFisicaLookupFilter(adminPessoaFisicaLookupForm);
-    setAdminPessoaFisicaLookupApplied(true);
-  }
 
-  function clearAdminPessoaFisicaLookupFilter() {
-    setAdminPessoaFisicaLookupForm({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupFilter({ ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAdminPessoaFisicaLookupApplied(false);
-  }
 
   function handleAdminPessoaFisicaSelect(pessoa: PessoaFisica) {
     setAdminFilterForm({ ...adminFilterForm, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) });
@@ -5091,7 +5070,11 @@ export default function Home() {
   }
   /** Todos os campos (texto) do filtro salvo do lookup; null se não houver. */
   function camposDoFiltroSalvoDoLookup(lookup: string): Record<string, string> | null {
-    const texto = currentUser?.[`config_filtro_lookup_${lookup}` as const];
+    return camposDoFiltroSalvo(`lookup_${lookup}`);
+  }
+  /** Todos os campos (texto) do filtro salvo da tela (config_filtro_<tela>); null se não houver. */
+  function camposDoFiltroSalvo(tela: string): Record<string, string> | null {
+    const texto = currentUser?.[`config_filtro_${tela}` as const];
     if (!texto) return null;
     try {
       const form = (JSON.parse(texto) as { form?: unknown } | null)?.form;
@@ -5105,11 +5088,21 @@ export default function Home() {
   function salvarFiltroDoLookup(lookup: string, form: Record<string, string>, aplicar: () => void) {
     void salvarFiltroDaTela(`lookup_${lookup}`, { form }, aplicar);
   }
-  /** Props de "Salvar filtro" do ReferenciaLookupModal (lookup_<colecao>). */
+  /** Props de "Salvar filtro" dos lookups (filtro salvo em lookup_<colecao>). */
   function filtroDoReferenciaLookup(lookup: string) {
     return {
       filtroSalvo: camposDoFiltroSalvoDoLookup(lookup),
       onSalvarFiltro: (form: Record<string, string>, aplicar: () => void) => salvarFiltroDoLookup(lookup, form, aplicar),
+    };
+  }
+  /**
+   * Props de "Salvar filtro" das telas que guardam o filtro no próprio componente (Fornecedores,
+   * Prestadores de Serviço, Equipes): o filtro salvo (config_filtro_<tela>) vira o filtro inicial.
+   */
+  function filtroSalvoDaTela(tela: string) {
+    return {
+      filtroSalvo: camposDoFiltroSalvo(tela),
+      onSalvarFiltro: (form: Record<string, string>, aplicar: () => void) => { void salvarFiltroDaTela(tela, { form }, aplicar); },
     };
   }
 
@@ -5148,9 +5141,9 @@ export default function Home() {
     restaurar(salvo('as_usuario')?.form, setAppliedAdminFilterForm, setAdminFilterForm);
     restaurar(salvo('as_perfil')?.form, setAppliedPerfilFilterForm, setPerfilFilterForm);
     restaurar(salvo('cadastros_gerais')?.form, setAppliedCgFilterForm, setCgFilterForm);
-    restaurar(salvo('pat_categoria')?.form, setAppliedCategoriaFilterForm, setCategoriaFilterForm);
-    restaurar(salvo('pat_ativo')?.form, setAppliedAtivoFilterForm, setAtivoFilterForm);
-    restaurar(salvo('pat_manutencao')?.form, setAppliedManutencaoFilterForm, setManutencaoFilterForm);
+    restaurar(salvo('categoria')?.form, setAppliedCategoriaFilterForm, setCategoriaFilterForm);
+    restaurar(salvo('ativo')?.form, setAppliedAtivoFilterForm, setAtivoFilterForm);
+    restaurar(salvo('manutencao')?.form, setAppliedManutencaoFilterForm, setManutencaoFilterForm);
     restaurar(salvo('curso')?.form, setAppliedCursoFilterForm, setCursoFilterForm);
     restaurar(salvo('disciplina')?.form, setAppliedDisciplinaFilterForm, setDisciplinaFilterForm);
     restaurar(salvo('turma')?.form, setAppliedTurmaFilterForm, setTurmaFilterForm);
@@ -5426,7 +5419,7 @@ export default function Home() {
 
   async function carregarAutorAuditoriaAtivo(id: string) {
     try {
-      const logs = await fetchAuditByDocumentId('pat_ativo', id);
+      const logs = await fetchAuditByDocumentId('ativo', id);
       if (auditAtivoIdRef.current !== id) return;
       const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
       const lastChangeLog = logs.find((l) => {
@@ -5842,74 +5835,80 @@ export default function Home() {
     setActiveSection("cadastrosGerais");
   }
 
+  /** Regra do filtro de Pessoas Físicas: a lista e o lookup usam a mesma. */
+  function passaFiltroPessoaFisica(pessoa: PessoaFisica, filtro: typeof appliedFilterForm): boolean {
+    if (filtro.ds_nome && !pessoa.ds_nome.toLowerCase().includes(filtro.ds_nome.toLowerCase())) {
+      return false;
+    }
+    if (filtro.nr_sequencia) {
+      if (String(pessoa.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    }
+    if (filtro.nr_cpf) {
+      const queryCpf = filtro.nr_cpf.replace(/\D/g, '');
+      const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
+      if (!pessoaCpf.includes(queryCpf)) return false;
+    }
+    if (filtro.dt_nascimento_inicio) {
+      const startDate = parseDateInput(filtro.dt_nascimento_inicio);
+      const pessoaDate = parsePersonDateValue(pessoa.dt_nascimento);
+      if (!startDate || pessoaDate === null || pessoaDate < startDate) return false;
+    }
+    if (filtro.dt_nascimento_fim) {
+      const endDate = parseDateInput(filtro.dt_nascimento_fim);
+      const pessoaDate = parsePersonDateValue(pessoa.dt_nascimento);
+      if (!endDate || pessoaDate === null || pessoaDate > endDate) return false;
+    }
+    if (filtro.ds_email && !pessoa.ds_email.toLowerCase().includes(filtro.ds_email.toLowerCase())) {
+      return false;
+    }
+    if (filtro.nr_telefone) {
+      const queryPhone = filtro.nr_telefone.replace(/\D/g, '');
+      const pessoaPhone = pessoa.nr_telefone.replace(/\D/g, '');
+      if (!pessoaPhone.includes(queryPhone)) return false;
+    }
+    if (filtro.nr_seq_sexo && String(pessoa.nr_seq_sexo ?? '') !== filtro.nr_seq_sexo) {
+      return false;
+    }
+    if (filtro.nr_seq_estado_civil && String(pessoa.nr_seq_estado_civil ?? '') !== filtro.nr_seq_estado_civil) {
+      return false;
+    }
+    if (filtro.nr_seq_cor_raca && String(pessoa.nr_seq_cor_raca ?? '') !== filtro.nr_seq_cor_raca) {
+      return false;
+    }
+    if (filtro.nr_seq_profissao && String(pessoa.nr_seq_profissao ?? '') !== filtro.nr_seq_profissao) {
+      return false;
+    }
+    return true;
+  }
+
   const filteredPessoasFisicas = useMemo(() => {
-    return pessoasFisicas.filter((pessoa) => {
-      if (appliedFilterForm.ds_nome && !pessoa.ds_nome.toLowerCase().includes(appliedFilterForm.ds_nome.toLowerCase())) {
-        return false;
-      }
-      if (appliedFilterForm.nr_sequencia) {
-        if (String(pessoa.nr_sequencia) !== appliedFilterForm.nr_sequencia.trim()) return false;
-      }
-      if (appliedFilterForm.nr_cpf) {
-        const queryCpf = appliedFilterForm.nr_cpf.replace(/\D/g, '');
-        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
-        if (!pessoaCpf.includes(queryCpf)) return false;
-      }
-      if (appliedFilterForm.dt_nascimento_inicio) {
-        const startDate = parseDateInput(appliedFilterForm.dt_nascimento_inicio);
-        const pessoaDate = parsePersonDateValue(pessoa.dt_nascimento);
-        if (!startDate || pessoaDate === null || pessoaDate < startDate) return false;
-      }
-      if (appliedFilterForm.dt_nascimento_fim) {
-        const endDate = parseDateInput(appliedFilterForm.dt_nascimento_fim);
-        const pessoaDate = parsePersonDateValue(pessoa.dt_nascimento);
-        if (!endDate || pessoaDate === null || pessoaDate > endDate) return false;
-      }
-      if (appliedFilterForm.ds_email && !pessoa.ds_email.toLowerCase().includes(appliedFilterForm.ds_email.toLowerCase())) {
-        return false;
-      }
-      if (appliedFilterForm.nr_telefone) {
-        const queryPhone = appliedFilterForm.nr_telefone.replace(/\D/g, '');
-        const pessoaPhone = pessoa.nr_telefone.replace(/\D/g, '');
-        if (!pessoaPhone.includes(queryPhone)) return false;
-      }
-      if (appliedFilterForm.nr_seq_sexo && String(pessoa.nr_seq_sexo ?? '') !== appliedFilterForm.nr_seq_sexo) {
-        return false;
-      }
-      if (appliedFilterForm.nr_seq_estado_civil && String(pessoa.nr_seq_estado_civil ?? '') !== appliedFilterForm.nr_seq_estado_civil) {
-        return false;
-      }
-      if (appliedFilterForm.nr_seq_cor_raca && String(pessoa.nr_seq_cor_raca ?? '') !== appliedFilterForm.nr_seq_cor_raca) {
-        return false;
-      }
-      if (appliedFilterForm.nr_seq_profissao && String(pessoa.nr_seq_profissao ?? '') !== appliedFilterForm.nr_seq_profissao) {
-        return false;
-      }
-      return true;
-    });
+    return pessoasFisicas.filter((pessoa) => passaFiltroPessoaFisica(pessoa, appliedFilterForm));
   }, [pessoasFisicas, appliedFilterForm]);
 
+  /** Regra do filtro de Usuários: a lista e o lookup usam a mesma. */
+  function passaFiltroUsuario(usuario: Usuario, filtro: typeof appliedAdminFilterForm): boolean {
+    if (filtro.nr_sequencia) {
+      const q = filtro.nr_sequencia.replace(/\D/g, '');
+      if (!q) return false;
+      const seq = Number(q);
+      if (usuario.nr_sequencia !== seq) return false;
+    }
+    if (filtro.ds_usuario && !usuario.ds_usuario.toLowerCase().includes(filtro.ds_usuario.toLowerCase())) return false;
+    if (filtro.ds_usuario_alternativo && !usuario.ds_usuario_alternativo.toLowerCase().includes(filtro.ds_usuario_alternativo.toLowerCase())) return false;
+    if (filtro.nr_seq_pessoa_fisica) {
+      const q = filtro.nr_seq_pessoa_fisica.replace(/\D/g, '');
+      if (!q) return false;
+      const seq = Number(q);
+      if ((usuario.nr_seq_pessoa_fisica ?? null) !== seq) return false;
+    }
+    if (filtro.ie_status && filtro.ie_status.toUpperCase() !== 'T') {
+      if (String(usuario.ie_status ?? '').toUpperCase() !== filtro.ie_status.toUpperCase()) return false;
+    }
+    return true;
+  }
+
   const filteredUsuarios = useMemo(() => {
-    return usuarios.filter((usuario) => {
-      if (appliedAdminFilterForm.nr_sequencia) {
-        const q = appliedAdminFilterForm.nr_sequencia.replace(/\D/g, '');
-        if (!q) return false;
-        const seq = Number(q);
-        if (usuario.nr_sequencia !== seq) return false;
-      }
-      if (appliedAdminFilterForm.ds_usuario && !usuario.ds_usuario.toLowerCase().includes(appliedAdminFilterForm.ds_usuario.toLowerCase())) return false;
-      if (appliedAdminFilterForm.ds_usuario_alternativo && !usuario.ds_usuario_alternativo.toLowerCase().includes(appliedAdminFilterForm.ds_usuario_alternativo.toLowerCase())) return false;
-      if (appliedAdminFilterForm.nr_seq_pessoa_fisica) {
-        const q = appliedAdminFilterForm.nr_seq_pessoa_fisica.replace(/\D/g, '');
-        if (!q) return false;
-        const seq = Number(q);
-        if ((usuario.nr_seq_pessoa_fisica ?? null) !== seq) return false;
-      }
-      if (appliedAdminFilterForm.ie_status && appliedAdminFilterForm.ie_status.toUpperCase() !== 'T') {
-        if (String(usuario.ie_status ?? '').toUpperCase() !== appliedAdminFilterForm.ie_status.toUpperCase()) return false;
-      }
-      return true;
-    });
+    return usuarios.filter((usuario) => passaFiltroUsuario(usuario, appliedAdminFilterForm));
   }, [usuarios, appliedAdminFilterForm]);
 
   const filteredSortedPessoasFisicas = useMemo(() => {
@@ -5981,32 +5980,35 @@ export default function Home() {
     });
   }, [filteredAlunos, alunoSortColumn, alunoSortAsc]);
 
+  /** Regra do filtro de Colaboradores: a lista e o lookup usam a mesma. */
+  function passaFiltroColaborador(colaborador: Colaborador, filtro: typeof appliedColaboradorFilterForm): boolean {
+    if (filtro.nr_sequencia) {
+      if (String(colaborador.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    }
+    if (filtro.nr_matricula && !(colaborador.nr_matricula ?? '').toLowerCase().includes(filtro.nr_matricula.toLowerCase())) {
+      return false;
+    }
+    if (filtro.nr_seq_pessoa_fisica) {
+      if (String(colaborador.nr_seq_pessoa_fisica ?? '') !== filtro.nr_seq_pessoa_fisica.trim()) return false;
+    }
+    if (filtro.nr_seq_pessoa_juridica) {
+      if (String(colaborador.nr_seq_pessoa_juridica ?? '') !== filtro.nr_seq_pessoa_juridica.trim()) return false;
+    }
+    if (filtro.dt_admissao_inicio) {
+      const startDate = parseDateInput(filtro.dt_admissao_inicio);
+      const colaboradorDate = parsePersonDateValue(colaborador.dt_admissao);
+      if (!startDate || colaboradorDate === null || colaboradorDate < startDate) return false;
+    }
+    if (filtro.dt_admissao_fim) {
+      const endDate = parseDateInput(filtro.dt_admissao_fim);
+      const colaboradorDate = parsePersonDateValue(colaborador.dt_admissao);
+      if (!endDate || colaboradorDate === null || colaboradorDate > endDate) return false;
+    }
+    return true;
+  }
+
   const filteredColaboradores = useMemo(() => {
-    return colaboradores.filter((colaborador) => {
-      if (appliedColaboradorFilterForm.nr_sequencia) {
-        if (String(colaborador.nr_sequencia) !== appliedColaboradorFilterForm.nr_sequencia.trim()) return false;
-      }
-      if (appliedColaboradorFilterForm.nr_matricula && !(colaborador.nr_matricula ?? '').toLowerCase().includes(appliedColaboradorFilterForm.nr_matricula.toLowerCase())) {
-        return false;
-      }
-      if (appliedColaboradorFilterForm.nr_seq_pessoa_fisica) {
-        if (String(colaborador.nr_seq_pessoa_fisica ?? '') !== appliedColaboradorFilterForm.nr_seq_pessoa_fisica.trim()) return false;
-      }
-      if (appliedColaboradorFilterForm.nr_seq_pessoa_juridica) {
-        if (String(colaborador.nr_seq_pessoa_juridica ?? '') !== appliedColaboradorFilterForm.nr_seq_pessoa_juridica.trim()) return false;
-      }
-      if (appliedColaboradorFilterForm.dt_admissao_inicio) {
-        const startDate = parseDateInput(appliedColaboradorFilterForm.dt_admissao_inicio);
-        const colaboradorDate = parsePersonDateValue(colaborador.dt_admissao);
-        if (!startDate || colaboradorDate === null || colaboradorDate < startDate) return false;
-      }
-      if (appliedColaboradorFilterForm.dt_admissao_fim) {
-        const endDate = parseDateInput(appliedColaboradorFilterForm.dt_admissao_fim);
-        const colaboradorDate = parsePersonDateValue(colaborador.dt_admissao);
-        if (!endDate || colaboradorDate === null || colaboradorDate > endDate) return false;
-      }
-      return true;
-    });
+    return colaboradores.filter((colaborador) => passaFiltroColaborador(colaborador, appliedColaboradorFilterForm));
   }, [colaboradores, appliedColaboradorFilterForm]);
 
   const filteredSortedColaboradores = useMemo(() => {
@@ -6031,15 +6033,18 @@ export default function Home() {
     });
   }, [filteredColaboradores, colaboradorSortColumn, colaboradorSortAsc]);
 
+  /** Regra do filtro de Período Letivo: a lista e o lookup usam a mesma. */
+  function passaFiltroPeriodoLetivo(p: PeriodoLetivo, f: typeof appliedPeriodoLetivoFilterForm): boolean {
+    if (f.nr_sequencia && String(p.nr_sequencia) !== f.nr_sequencia.trim()) return false;
+    if (f.nr_ano && String(p.nr_ano ?? '') !== f.nr_ano.trim()) return false;
+    if (f.ds_periodo_letivo && !(p.ds_periodo_letivo ?? '').toLowerCase().includes(f.ds_periodo_letivo.trim().toLowerCase())) return false;
+    if (f.ie_status && (p.ie_status ?? '') !== f.ie_status) return false;
+    return true;
+  }
+
   const filteredSortedPeriodosLetivos = useMemo(() => {
     const f = appliedPeriodoLetivoFilterForm;
-    const filtrados = periodosLetivos.filter((p) => {
-      if (f.nr_sequencia && String(p.nr_sequencia) !== f.nr_sequencia.trim()) return false;
-      if (f.nr_ano && String(p.nr_ano ?? '') !== f.nr_ano.trim()) return false;
-      if (f.ds_periodo_letivo && !(p.ds_periodo_letivo ?? '').toLowerCase().includes(f.ds_periodo_letivo.trim().toLowerCase())) return false;
-      if (f.ie_status && (p.ie_status ?? '') !== f.ie_status) return false;
-      return true;
-    });
+    const filtrados = periodosLetivos.filter((p) => passaFiltroPeriodoLetivo(p, f));
     if (periodoLetivoSortColumn === null || periodoLetivoSortAsc === null) {
       // Ordem padrão: coluna # decrescente (mais recente primeiro).
       return filtrados.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
@@ -6097,54 +6102,57 @@ export default function Home() {
   const hasPrevPeriodoLetivoRecord = currentPeriodoLetivoEditIndex > 0;
   const hasNextPeriodoLetivoRecord = currentPeriodoLetivoEditIndex >= 0 && currentPeriodoLetivoEditIndex < filteredSortedPeriodosLetivos.length - 1;
 
+  /** Regra do filtro de Ativos: a lista e o lookup usam a mesma. */
+  function passaFiltroAtivo(a: Ativo, filtro: typeof appliedAtivoFilterForm): boolean {
+    // Identificação
+    if (filtro.nr_sequencia) {
+      const q = filtro.nr_sequencia.replace(/\D/g, '');
+      if (q && String(a.nr_sequencia) !== q) return false;
+    }
+    if (filtro.ds_ativo && !(a.ds_ativo ?? '').toLowerCase().includes(filtro.ds_ativo.toLowerCase())) return false;
+    if (filtro.cd_externo && !(a.cd_externo ?? '').toLowerCase().includes(filtro.cd_externo.toLowerCase())) return false;
+    if (filtro.ds_modelo && !(a.ds_modelo ?? '').toLowerCase().includes(filtro.ds_modelo.toLowerCase())) return false;
+    if (filtro.nr_serie && !(a.nr_serie ?? '').toLowerCase().includes(filtro.nr_serie.toLowerCase())) return false;
+    if (filtro.ds_qr_code && !(a.ds_qr_code ?? '').toLowerCase().includes(filtro.ds_qr_code.toLowerCase())) return false;
+    if (filtro.ds_codigo_barras && !(a.ds_codigo_barras ?? '').toLowerCase().includes(filtro.ds_codigo_barras.toLowerCase())) return false;
+    if (filtro.dt_aquisicao_inicio && a.dt_aquisicao && a.dt_aquisicao < filtro.dt_aquisicao_inicio) return false;
+    if (filtro.dt_aquisicao_fim && a.dt_aquisicao && a.dt_aquisicao > filtro.dt_aquisicao_fim) return false;
+    if (filtro.dt_garantia_inicio && a.dt_garantia && a.dt_garantia < filtro.dt_garantia_inicio) return false;
+    if (filtro.dt_garantia_fim && a.dt_garantia && a.dt_garantia > filtro.dt_garantia_fim) return false;
+    if (filtro.ie_status !== 'T' && a.ie_status !== filtro.ie_status) return false;
+    // Classificação
+    if (filtro.nr_seq_categoria) {
+      const q = filtro.nr_seq_categoria.replace(/\D/g, '');
+      if (q && String(a.nr_seq_categoria ?? '') !== q) return false;
+    }
+    if (filtro.nr_seq_localizacao) {
+      const q = filtro.nr_seq_localizacao.replace(/\D/g, '');
+      if (q && String(a.nr_seq_localizacao ?? '') !== q) return false;
+    }
+    if (filtro.nr_seq_marca) {
+      const q = filtro.nr_seq_marca.replace(/\D/g, '');
+      if (q && String(a.nr_seq_marca ?? '') !== q) return false;
+    }
+    if (filtro.nr_seq_responsavel) {
+      const q = filtro.nr_seq_responsavel.replace(/\D/g, '');
+      if (q && !responsaveisAtivos.some((r) => r.nr_seq_ativo === a.nr_sequencia && String(r.nr_seq_colaborador ?? '') === q)) return false;
+    }
+    if (filtro.nr_seq_fornecedor) {
+      const q = filtro.nr_seq_fornecedor.replace(/\D/g, '');
+      if (q && String(a.nr_seq_fornecedor ?? '') !== q) return false;
+    }
+    // Dispositivo
+    if (filtro.ds_endereco_mac && !(a.ds_endereco_mac ?? '').toLowerCase().includes(filtro.ds_endereco_mac.toLowerCase())) return false;
+    if (filtro.ds_ip && !(a.ds_ip ?? '').toLowerCase().includes(filtro.ds_ip.toLowerCase())) return false;
+    if (filtro.nr_seq_sistema_operacional) {
+      const q = filtro.nr_seq_sistema_operacional.replace(/\D/g, '');
+      if (q && String(a.nr_seq_sistema_operacional ?? '') !== q) return false;
+    }
+    return true;
+  }
+
   const filteredSortedAtivos = useMemo(() => {
-    let sorted = [...ativos].filter((a) => {
-      // Identificação
-      if (appliedAtivoFilterForm.nr_sequencia) {
-        const q = appliedAtivoFilterForm.nr_sequencia.replace(/\D/g, '');
-        if (q && String(a.nr_sequencia) !== q) return false;
-      }
-      if (appliedAtivoFilterForm.ds_ativo && !(a.ds_ativo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ativo.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.cd_externo && !(a.cd_externo ?? '').toLowerCase().includes(appliedAtivoFilterForm.cd_externo.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.ds_modelo && !(a.ds_modelo ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_modelo.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.nr_serie && !(a.nr_serie ?? '').toLowerCase().includes(appliedAtivoFilterForm.nr_serie.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.ds_qr_code && !(a.ds_qr_code ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_qr_code.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.ds_codigo_barras && !(a.ds_codigo_barras ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_codigo_barras.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.dt_aquisicao_inicio && a.dt_aquisicao && a.dt_aquisicao < appliedAtivoFilterForm.dt_aquisicao_inicio) return false;
-      if (appliedAtivoFilterForm.dt_aquisicao_fim && a.dt_aquisicao && a.dt_aquisicao > appliedAtivoFilterForm.dt_aquisicao_fim) return false;
-      if (appliedAtivoFilterForm.dt_garantia_inicio && a.dt_garantia && a.dt_garantia < appliedAtivoFilterForm.dt_garantia_inicio) return false;
-      if (appliedAtivoFilterForm.dt_garantia_fim && a.dt_garantia && a.dt_garantia > appliedAtivoFilterForm.dt_garantia_fim) return false;
-      if (appliedAtivoFilterForm.ie_status !== 'T' && a.ie_status !== appliedAtivoFilterForm.ie_status) return false;
-      // Classificação
-      if (appliedAtivoFilterForm.nr_seq_categoria) {
-        const q = appliedAtivoFilterForm.nr_seq_categoria.replace(/\D/g, '');
-        if (q && String(a.nr_seq_categoria ?? '') !== q) return false;
-      }
-      if (appliedAtivoFilterForm.nr_seq_localizacao) {
-        const q = appliedAtivoFilterForm.nr_seq_localizacao.replace(/\D/g, '');
-        if (q && String(a.nr_seq_localizacao ?? '') !== q) return false;
-      }
-      if (appliedAtivoFilterForm.nr_seq_marca) {
-        const q = appliedAtivoFilterForm.nr_seq_marca.replace(/\D/g, '');
-        if (q && String(a.nr_seq_marca ?? '') !== q) return false;
-      }
-      if (appliedAtivoFilterForm.nr_seq_responsavel) {
-        const q = appliedAtivoFilterForm.nr_seq_responsavel.replace(/\D/g, '');
-        if (q && !responsaveisAtivos.some((r) => r.nr_seq_ativo === a.nr_sequencia && String(r.nr_seq_colaborador ?? '') === q)) return false;
-      }
-      if (appliedAtivoFilterForm.nr_seq_fornecedor) {
-        const q = appliedAtivoFilterForm.nr_seq_fornecedor.replace(/\D/g, '');
-        if (q && String(a.nr_seq_fornecedor ?? '') !== q) return false;
-      }
-      // Dispositivo
-      if (appliedAtivoFilterForm.ds_endereco_mac && !(a.ds_endereco_mac ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_endereco_mac.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.ds_ip && !(a.ds_ip ?? '').toLowerCase().includes(appliedAtivoFilterForm.ds_ip.toLowerCase())) return false;
-      if (appliedAtivoFilterForm.nr_seq_sistema_operacional) {
-        const q = appliedAtivoFilterForm.nr_seq_sistema_operacional.replace(/\D/g, '');
-        if (q && String(a.nr_seq_sistema_operacional ?? '') !== q) return false;
-      }
-      return true;
-    });
+    const sorted = [...ativos].filter((a) => passaFiltroAtivo(a, appliedAtivoFilterForm));
     if (ativoSortColumn === null || ativoSortAsc === null) {
       // Ordem padrão: coluna # decrescente (mais recente primeiro).
       return sorted.sort((a, b) => b.nr_sequencia - a.nr_sequencia);
@@ -6206,54 +6214,57 @@ export default function Home() {
     obterResponsaveisAtivos().then(setResponsaveisAtivos).catch(() => {});
   }
 
+  /** Regra do filtro de Pessoas Jurídicas: a lista e o lookup usam a mesma. */
+  function passaFiltroPessoaJuridica(pessoa: PessoaJuridica, filtro: typeof appliedPjFilterForm): boolean {
+    if (filtro.nr_sequencia) {
+      if (String(pessoa.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    }
+    if (filtro.ds_razao_social && !pessoa.ds_razao_social.toLowerCase().includes(filtro.ds_razao_social.toLowerCase())) {
+      return false;
+    }
+    if (filtro.ds_nome_fantasia && !pessoa.ds_nome_fantasia.toLowerCase().includes(filtro.ds_nome_fantasia.toLowerCase())) {
+      return false;
+    }
+    if (filtro.nr_cnpj) {
+      const queryCnpj = filtro.nr_cnpj.replace(/\D/g, '');
+      const pessoaCnpj = pessoa.nr_cnpj.replace(/\D/g, '');
+      if (!pessoaCnpj.includes(queryCnpj)) return false;
+    }
+    if (filtro.nr_inscricao_estadual && !pessoa.nr_inscricao_estadual.toLowerCase().includes(filtro.nr_inscricao_estadual.toLowerCase())) {
+      return false;
+    }
+    if (filtro.nr_inscricao_municipal && !pessoa.nr_inscricao_municipal.toLowerCase().includes(filtro.nr_inscricao_municipal.toLowerCase())) {
+      return false;
+    }
+    if (filtro.dt_abertura_inicio) {
+      const startDate = parseDateInput(filtro.dt_abertura_inicio);
+      const pessoaDate = parsePersonDateValue(pessoa.dt_abertura);
+      if (!startDate || pessoaDate === null || pessoaDate < startDate) return false;
+    }
+    if (filtro.dt_abertura_fim) {
+      const endDate = parseDateInput(filtro.dt_abertura_fim);
+      const pessoaDate = parsePersonDateValue(pessoa.dt_abertura);
+      if (!endDate || pessoaDate === null || pessoaDate > endDate) return false;
+    }
+    if (filtro.ds_email && !pessoa.ds_email.toLowerCase().includes(filtro.ds_email.toLowerCase())) {
+      return false;
+    }
+    if (filtro.nr_telefone) {
+      const queryPhone = filtro.nr_telefone.replace(/\D/g, '');
+      const pessoaPhone = pessoa.nr_telefone.replace(/\D/g, '');
+      if (!pessoaPhone.includes(queryPhone)) return false;
+    }
+    if (filtro.sg_estado && String(pessoa.sg_estado ?? '') !== filtro.sg_estado) {
+      return false;
+    }
+    if (filtro.cd_ibge_cidade && String(pessoa.cd_ibge_cidade ?? '') !== filtro.cd_ibge_cidade.trim()) {
+      return false;
+    }
+    return true;
+  }
+
   const filteredPessoasJuridicas = useMemo(() => {
-    return pessoasJuridicas.filter((pessoa) => {
-      if (appliedPjFilterForm.nr_sequencia) {
-        if (String(pessoa.nr_sequencia) !== appliedPjFilterForm.nr_sequencia.trim()) return false;
-      }
-      if (appliedPjFilterForm.ds_razao_social && !pessoa.ds_razao_social.toLowerCase().includes(appliedPjFilterForm.ds_razao_social.toLowerCase())) {
-        return false;
-      }
-      if (appliedPjFilterForm.ds_nome_fantasia && !pessoa.ds_nome_fantasia.toLowerCase().includes(appliedPjFilterForm.ds_nome_fantasia.toLowerCase())) {
-        return false;
-      }
-      if (appliedPjFilterForm.nr_cnpj) {
-        const queryCnpj = appliedPjFilterForm.nr_cnpj.replace(/\D/g, '');
-        const pessoaCnpj = pessoa.nr_cnpj.replace(/\D/g, '');
-        if (!pessoaCnpj.includes(queryCnpj)) return false;
-      }
-      if (appliedPjFilterForm.nr_inscricao_estadual && !pessoa.nr_inscricao_estadual.toLowerCase().includes(appliedPjFilterForm.nr_inscricao_estadual.toLowerCase())) {
-        return false;
-      }
-      if (appliedPjFilterForm.nr_inscricao_municipal && !pessoa.nr_inscricao_municipal.toLowerCase().includes(appliedPjFilterForm.nr_inscricao_municipal.toLowerCase())) {
-        return false;
-      }
-      if (appliedPjFilterForm.dt_abertura_inicio) {
-        const startDate = parseDateInput(appliedPjFilterForm.dt_abertura_inicio);
-        const pessoaDate = parsePersonDateValue(pessoa.dt_abertura);
-        if (!startDate || pessoaDate === null || pessoaDate < startDate) return false;
-      }
-      if (appliedPjFilterForm.dt_abertura_fim) {
-        const endDate = parseDateInput(appliedPjFilterForm.dt_abertura_fim);
-        const pessoaDate = parsePersonDateValue(pessoa.dt_abertura);
-        if (!endDate || pessoaDate === null || pessoaDate > endDate) return false;
-      }
-      if (appliedPjFilterForm.ds_email && !pessoa.ds_email.toLowerCase().includes(appliedPjFilterForm.ds_email.toLowerCase())) {
-        return false;
-      }
-      if (appliedPjFilterForm.nr_telefone) {
-        const queryPhone = appliedPjFilterForm.nr_telefone.replace(/\D/g, '');
-        const pessoaPhone = pessoa.nr_telefone.replace(/\D/g, '');
-        if (!pessoaPhone.includes(queryPhone)) return false;
-      }
-      if (appliedPjFilterForm.sg_estado && String(pessoa.sg_estado ?? '') !== appliedPjFilterForm.sg_estado) {
-        return false;
-      }
-      if (appliedPjFilterForm.cd_ibge_cidade && String(pessoa.cd_ibge_cidade ?? '') !== appliedPjFilterForm.cd_ibge_cidade.trim()) {
-        return false;
-      }
-      return true;
-    });
+    return pessoasJuridicas.filter((pessoa) => passaFiltroPessoaJuridica(pessoa, appliedPjFilterForm));
   }, [pessoasJuridicas, appliedPjFilterForm]);
 
   const filteredSortedPessoasJuridicas = useMemo(() => {
@@ -6338,18 +6349,21 @@ export default function Home() {
     });
   }, [filteredPerfis, perfilSortColumn, perfilSortAsc]);
 
+  /** Regra do filtro de Cadastros Gerais (pela descrição do item: descKey): a lista e o lookup usam a mesma. */
+  function passaFiltroCadastroGeral(item: CgItem, filtro: typeof appliedCgFilterForm, descKey: string): boolean {
+    const rec = item as unknown as Record<string, unknown>;
+    if (filtro.nr_sequencia) {
+      if (String(rec.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    }
+    if (filtro.descricao && !String(rec[descKey] ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+    if (filtro.ie_status && filtro.ie_status.toUpperCase() !== 'T') {
+      if (String(rec.ie_status ?? '').toUpperCase() !== filtro.ie_status.toUpperCase()) return false;
+    }
+    return true;
+  }
+
   const filteredCgItems = useMemo(() => {
-    return cgItems.filter((item) => {
-      const rec = item as unknown as Record<string, unknown>;
-      if (appliedCgFilterForm.nr_sequencia) {
-        if (String(rec.nr_sequencia) !== appliedCgFilterForm.nr_sequencia.trim()) return false;
-      }
-      if (appliedCgFilterForm.descricao && !String(rec[cgDescKey] ?? '').toLowerCase().includes(appliedCgFilterForm.descricao.toLowerCase())) return false;
-      if (appliedCgFilterForm.ie_status && appliedCgFilterForm.ie_status.toUpperCase() !== 'T') {
-        if (String(rec.ie_status ?? '').toUpperCase() !== appliedCgFilterForm.ie_status.toUpperCase()) return false;
-      }
-      return true;
-    });
+    return cgItems.filter((item) => passaFiltroCadastroGeral(item, appliedCgFilterForm, cgDescKey));
   }, [cgItems, appliedCgFilterForm, cgDescKey]);
 
   const filteredSortedCgItems = useMemo(() => {
@@ -6540,7 +6554,7 @@ export default function Home() {
 
   async function carregarAutorAuditoriaCategoria(id: string) {
     try {
-      const logs = await fetchAuditByDocumentId('pat_categoria', id);
+      const logs = await fetchAuditByDocumentId('categoria', id);
       if (auditCategoriaIdRef.current !== id) return;
       const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
       const lastChangeLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'update');
@@ -6597,11 +6611,11 @@ export default function Home() {
 
   async function openCategoriaAuditModal(categoriaId?: string | null) {
     if (!categoriaId) return;
-    setAuditDocumentType('pat_categoria');
+    setAuditDocumentType('categoria');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      setAuditLogs(await fetchAuditByDocumentId('pat_categoria', categoriaId));
+      setAuditLogs(await fetchAuditByDocumentId('categoria', categoriaId));
     } catch {
       setAuditLogs([]);
     } finally {
@@ -6635,7 +6649,7 @@ export default function Home() {
       ds_observacao: categoriaForm.ds_observacao ?? '',
     };
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
-    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'pat_categoria'));
+    const faltantes = camposObrigatoriosVazios(payload, campoRegrasDaColecao(campoRegrasAtivas, 'categoria'));
     if (faltantes.length > 0) {
       setCategoriaCampoErros(faltantes);
       setMessage("Preencha os campos obrigatórios.");
@@ -6682,14 +6696,17 @@ export default function Home() {
   }
 
   /* ── Estrutura Acadêmica > Cursos ── */
+  /** Regra do filtro de Cursos: a lista e o lookup usam a mesma. */
+  function passaFiltroCurso(c: Curso, filtro: typeof appliedCursoFilterForm): boolean {
+    if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    if (filtro.descricao && !String(c.ds_curso ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+    if (filtro.ie_status && filtro.ie_status.toUpperCase() !== 'T' && String(c.ie_status ?? '').toUpperCase() !== filtro.ie_status.toUpperCase()) return false;
+    return true;
+  }
+
   const filteredSortedCursos = useMemo(() => {
     const filtro = appliedCursoFilterForm;
-    const lista = cursos.filter((c) => {
-      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
-      if (filtro.descricao && !String(c.ds_curso ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
-      if (filtro.ie_status && filtro.ie_status.toUpperCase() !== 'T' && String(c.ie_status ?? '').toUpperCase() !== filtro.ie_status.toUpperCase()) return false;
-      return true;
-    });
+    const lista = cursos.filter((c) => passaFiltroCurso(c, filtro));
     if (cursoSortColumn === null || cursoSortAsc === null) {
       // Ordem padrão: coluna # decrescente (mais recente primeiro).
       return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
@@ -6884,13 +6901,16 @@ export default function Home() {
   }
 
   /* ── Estrutura Acadêmica > Disciplinas ── */
+  /** Regra do filtro de Disciplinas: a lista e o lookup usam a mesma. */
+  function passaFiltroDisciplina(c: Disciplina, filtro: typeof appliedDisciplinaFilterForm): boolean {
+    if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    if (filtro.descricao && !String(c.ds_disciplina ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+    return true;
+  }
+
   const filteredSortedDisciplinas = useMemo(() => {
     const filtro = appliedDisciplinaFilterForm;
-    const lista = disciplinas.filter((c) => {
-      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
-      if (filtro.descricao && !String(c.ds_disciplina ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
-      return true;
-    });
+    const lista = disciplinas.filter((c) => passaFiltroDisciplina(c, filtro));
     if (disciplinaSortColumn === null || disciplinaSortAsc === null) {
       // Ordem padrão: coluna # decrescente (mais recente primeiro).
       return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
@@ -7101,15 +7121,18 @@ export default function Home() {
   }
 
   /* ── Estrutura Acadêmica > Turmas ── */
+  /** Regra do filtro de Turmas (com Curso e Período letivo): a lista e o lookup usam a mesma. */
+  function passaFiltroTurma(c: Turma, filtro: typeof appliedTurmaFilterForm, extra: typeof turmaFiltroExtraAplicado): boolean {
+    if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    if (filtro.descricao && !String(c.ds_turma ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
+    if (extra.nr_seq_curso && String(c.nr_seq_curso ?? '') !== extra.nr_seq_curso) return false;
+    if (extra.nr_seq_periodo_letivo && String(c.nr_seq_periodo_letivo ?? '') !== extra.nr_seq_periodo_letivo) return false;
+    return true;
+  }
+
   const filteredSortedTurmas = useMemo(() => {
     const filtro = appliedTurmaFilterForm;
-    const lista = turmas.filter((c) => {
-      if (filtro.nr_sequencia && String(c.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
-      if (filtro.descricao && !String(c.ds_turma ?? '').toLowerCase().includes(filtro.descricao.toLowerCase())) return false;
-      if (turmaFiltroExtraAplicado.nr_seq_curso && String(c.nr_seq_curso ?? '') !== turmaFiltroExtraAplicado.nr_seq_curso) return false;
-      if (turmaFiltroExtraAplicado.nr_seq_periodo_letivo && String(c.nr_seq_periodo_letivo ?? '') !== turmaFiltroExtraAplicado.nr_seq_periodo_letivo) return false;
-      return true;
-    });
+    const lista = turmas.filter((c) => passaFiltroTurma(c, filtro, turmaFiltroExtraAplicado));
     if (turmaSortColumn === null || turmaSortAsc === null) {
       // Ordem padrão: coluna # decrescente (mais recente primeiro).
       return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
@@ -7351,18 +7374,21 @@ export default function Home() {
     return formatCadastroGeralCellValue(key, value);
   }
 
+  /** Regra do filtro de Turmas x Disciplinas (com Período letivo, Curso e Modalidade da turma): a lista e o lookup usam a mesma. */
+  function passaFiltroTurmaDisciplina(td: TurmaDisciplina & ReturnType<typeof camposDaTurmaDisciplina>, filtro: typeof appliedTurmaDisciplinaFilterForm, extra: typeof turmaDisciplinaFiltroExtraAplicado): boolean {
+    if (filtro.nr_sequencia && String(td.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
+    if (filtro.ie_status && filtro.ie_status !== 'T' && (td.ie_status ?? 'A') !== filtro.ie_status) return false;
+    if (extra.nr_seq_turma && String(td.nr_seq_turma ?? '') !== extra.nr_seq_turma) return false;
+    if (extra.nr_seq_disciplina && String(td.nr_seq_disciplina ?? '') !== extra.nr_seq_disciplina) return false;
+    if (extra.nr_seq_periodo_letivo && String(td.nr_seq_periodo_letivo ?? '') !== extra.nr_seq_periodo_letivo) return false;
+    return true;
+  }
+
   const filteredSortedTurmasDisciplinas = useMemo(() => {
     const filtro = appliedTurmaDisciplinaFilterForm;
     const extra = turmaDisciplinaFiltroExtraAplicado;
     // Período letivo, Curso e Modalidade de ensino vêm da turma de cada registro.
-    const lista = turmasDisciplinas.map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) })).filter((td) => {
-      if (filtro.nr_sequencia && String(td.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
-      if (filtro.ie_status && filtro.ie_status !== 'T' && (td.ie_status ?? 'A') !== filtro.ie_status) return false;
-      if (extra.nr_seq_turma && String(td.nr_seq_turma ?? '') !== extra.nr_seq_turma) return false;
-      if (extra.nr_seq_disciplina && String(td.nr_seq_disciplina ?? '') !== extra.nr_seq_disciplina) return false;
-      if (extra.nr_seq_periodo_letivo && String(td.nr_seq_periodo_letivo ?? '') !== extra.nr_seq_periodo_letivo) return false;
-      return true;
-    });
+    const lista = turmasDisciplinas.map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) })).filter((td) => passaFiltroTurmaDisciplina(td, filtro, extra));
     if (turmaDisciplinaSortColumn === null || turmaDisciplinaSortAsc === null) {
       // Ordem padrão: coluna # decrescente (mais recente primeiro).
       return lista.sort((a, b) => Number(b.nr_sequencia) - Number(a.nr_sequencia));
@@ -8028,6 +8054,16 @@ export default function Home() {
       setMessage("Preencha os campos obrigatórios.");
       return;
     }
+    // CPF já usado por outra pessoa física: avisa e não grava (compara só os dígitos).
+    const cpfDigitos = String(form.nr_cpf ?? '').replace(/\D/g, '');
+    if (cpfDigitos) {
+      const mesmoCpf = pessoasFisicas.find((p) => p.id !== editingId && String(p.nr_cpf ?? '').replace(/\D/g, '') === cpfDigitos);
+      if (mesmoCpf) {
+        setPfCampoErros(['nr_cpf']);
+        mostrarToast('Este CPF já está cadastrado.', 'warning');
+        return;
+      }
+    }
     setPfCampoErros([]);
     setSubmitting(true);
 
@@ -8290,8 +8326,8 @@ export default function Home() {
     if (ativoEditingId && bloquearEdicaoSemPermissao(permissoesPatrimonio.editarAtivo)) return;
     setMessage("");
     // Campos obrigatórios (perfil ativo) precisam estar preenchidos.
-    const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo');
-    // nr_seq_responsavel ficou em pat_ativo_responsavel; regra antiga salva no perfil não vale aqui.
+    const ativoRegras = campoRegrasDaColecao(campoRegrasAtivas, 'ativo');
+    // nr_seq_responsavel ficou em ativo_responsavel; regra antiga salva no perfil não vale aqui.
     const { nr_seq_responsavel: _regraResponsavelLegada, ...ativoRegrasPlanas } = ativoRegras;
     void _regraResponsavelLegada;
     const ativoFaltantes = camposObrigatoriosVazios(ativoForm as unknown as Record<string, unknown>, ativoRegrasPlanas);
@@ -8778,10 +8814,6 @@ export default function Home() {
   }
 
   function openPessoaFisicaLookup() {
-    const salvo = filtroSalvoDoLookup('pessoa_fisica', { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setLookupForm(salvo ?? lookupFilter);
-    if (salvo) setLookupFilter(salvo);
-    setLookupApplied(!!salvo);
     setPessoaFisicaLookupOpen(true);
   }
 
@@ -8790,51 +8822,21 @@ export default function Home() {
   }
 
   function handlePessoaFisicaSelect(pessoa: PessoaFisica) {
-    setAdminForm({ ...adminForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
+    setAdminForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: pessoa.nr_sequencia }));
     closePessoaFisicaLookup();
   }
 
-  function applyLookupFilter() {
-    setLookupFilter(lookupForm);
-    setLookupApplied(true);
-  }
 
-  function clearLookupFilter() {
-    const empty = { ds_nome: '', nr_sequencia: '', nr_cpf: '' };
-    setLookupForm(empty);
-    setLookupFilter(empty);
-    setLookupApplied(false);
-  }
 
   const selectedPessoaFisicaName = useMemo(() => {
     if (!adminForm.nr_seq_pessoa_fisica) return "";
     return pessoasFisicas.find((p) => p.nr_sequencia === adminForm.nr_seq_pessoa_fisica)?.ds_nome ?? "";
   }, [adminForm.nr_seq_pessoa_fisica, pessoasFisicas]);
 
-  const filteredLookupPessoasFisicas = useMemo(() => {
-    return pessoasFisicas.filter((pessoa) => {
-      if (lookupFilter.nr_sequencia) {
-        if (String(pessoa.nr_sequencia) !== lookupFilter.nr_sequencia.trim()) return false;
-      }
-      if (lookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(lookupFilter.ds_nome.toLowerCase())) {
-        return false;
-      }
-      if (lookupFilter.nr_cpf) {
-        const queryCpf = lookupFilter.nr_cpf.replace(/\D/g, '');
-        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
-        if (!pessoaCpf.includes(queryCpf)) return false;
-      }
-      return true;
-    });
-  }, [pessoasFisicas, lookupFilter]);
 
   /* ── Lookup de Pessoa Física para Alunos (aluno / responsável) ── */
-  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter') {
+  function openAlunoPessoaFisicaLookup(target: 'aluno' | 'responsavel' | 'responsavelFiltro' | 'colaborador' | 'alunoFilter' | 'colaboradorFilter' | 'manutencaoFilter') {
     alunoPessoaFisicaLookupTargetRef.current = target;
-    const salvo = filtroSalvoDoLookup('pessoa_fisica', { ds_nome: '', nr_sequencia: '', nr_cpf: '' });
-    setAlunoLookupForm(salvo ?? alunoLookupFilter);
-    if (salvo) setAlunoLookupFilter(salvo);
-    setAlunoLookupApplied(!!salvo);
     setAlunoPessoaFisicaLookupOpen(true);
   }
 
@@ -8849,14 +8851,14 @@ export default function Home() {
     } else if (target === 'colaboradorFilter') {
       setColaboradorFilterForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: String(pessoa.nr_sequencia) }));
     } else if (target === 'colaborador') {
-      setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
-    } else if (target === 'responsavel') {
+      setColaboradorForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: pessoa.nr_sequencia }));
+    } else if (target === 'responsavel' || target === 'responsavelFiltro') {
       alunoResponsavelLookupCallbackRef.current?.(pessoa.nr_sequencia);
       alunoResponsavelLookupCallbackRef.current = null;
     } else if (target === 'manutencaoFilter') {
       setManutencaoFilterForm((prev) => ({ ...prev, nr_seq_prestador_servico: String(pessoa.nr_sequencia) }));
     } else {
-      setAlunoForm({ ...alunoForm, nr_seq_pessoa_fisica: pessoa.nr_sequencia });
+      setAlunoForm((prev) => ({ ...prev, nr_seq_pessoa_fisica: pessoa.nr_sequencia }));
     }
     closeAlunoPessoaFisicaLookup();
   }
@@ -8891,17 +8893,7 @@ export default function Home() {
     openEnviarManutPrestadorLookup('manutencaoFilter');
   }
 
-  function applyAlunoLookupFilter() {
-    setAlunoLookupFilter(alunoLookupForm);
-    setAlunoLookupApplied(true);
-  }
 
-  function clearAlunoLookupFilter() {
-    const empty = { ds_nome: '', nr_sequencia: '', nr_cpf: '' };
-    setAlunoLookupForm(empty);
-    setAlunoLookupFilter(empty);
-    setAlunoLookupApplied(false);
-  }
 
   // Nome exibido no campo "Pessoa física" do formulário de Aluno (Identificação).
   const selectedAlunoPessoaFisicaName = useMemo(() => {
@@ -9001,10 +8993,6 @@ export default function Home() {
   }
 
   function abrirColaboradorPjLookup() {
-    const salvo = filtroSalvoDoLookup('pessoa_juridica', { nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' });
-    setColaboradorPjLookupForm(salvo ?? colaboradorPjLookupFilter);
-    if (salvo) setColaboradorPjLookupFilter(salvo);
-    setColaboradorPjLookupApplied(!!salvo);
     setColaboradorPessoaJuridicaLookupOpen(true);
   }
 
@@ -9019,39 +9007,13 @@ export default function Home() {
     } else if (colaboradorPjLookupTargetRef.current === 'filter') {
       setColaboradorFilterForm((prev) => ({ ...prev, nr_seq_pessoa_juridica: String(pessoa.nr_sequencia) }));
     } else {
-      setColaboradorForm({ ...colaboradorForm, nr_seq_pessoa_juridica: pessoa.nr_sequencia });
+      setColaboradorForm((prev) => ({ ...prev, nr_seq_pessoa_juridica: pessoa.nr_sequencia }));
     }
     closeColaboradorPessoaJuridicaLookup();
   }
 
-  function applyColaboradorPjLookupFilter() {
-    setColaboradorPjLookupFilter(colaboradorPjLookupForm);
-    setColaboradorPjLookupApplied(true);
-  }
 
-  function clearColaboradorPjLookupFilter() {
-    const empty = { nr_sequencia: '', ds_razao_social: '', nr_cnpj: '' };
-    setColaboradorPjLookupForm(empty);
-    setColaboradorPjLookupFilter(empty);
-    setColaboradorPjLookupApplied(false);
-  }
 
-  const filteredColaboradorPjLookupPessoasJuridicas = useMemo(() => {
-    return pessoasJuridicas.filter((pessoa) => {
-      if (colaboradorPjLookupFilter.nr_sequencia) {
-        if (String(pessoa.nr_sequencia) !== colaboradorPjLookupFilter.nr_sequencia.trim()) return false;
-      }
-      if (colaboradorPjLookupFilter.ds_razao_social && !pessoa.ds_razao_social.toLowerCase().includes(colaboradorPjLookupFilter.ds_razao_social.toLowerCase())) {
-        return false;
-      }
-      if (colaboradorPjLookupFilter.nr_cnpj) {
-        const queryCnpj = colaboradorPjLookupFilter.nr_cnpj.replace(/\D/g, '');
-        const pessoaCnpj = pessoa.nr_cnpj.replace(/\D/g, '');
-        if (!pessoaCnpj.includes(queryCnpj)) return false;
-      }
-      return true;
-    });
-  }, [pessoasJuridicas, colaboradorPjLookupFilter]);
 
   // Opções do dropdown "Grau de parentesco" (Responsáveis) — apenas os ativos,
   // em ordem alfabética (pt-BR).
@@ -9064,22 +9026,6 @@ export default function Home() {
     [grausParentesco]
   );
 
-  const filteredAlunoLookupPessoasFisicas = useMemo(() => {
-    return pessoasFisicas.filter((pessoa) => {
-      if (alunoLookupFilter.nr_sequencia) {
-        if (String(pessoa.nr_sequencia) !== alunoLookupFilter.nr_sequencia.trim()) return false;
-      }
-      if (alunoLookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(alunoLookupFilter.ds_nome.toLowerCase())) {
-        return false;
-      }
-      if (alunoLookupFilter.nr_cpf) {
-        const queryCpf = alunoLookupFilter.nr_cpf.replace(/\D/g, '');
-        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
-        if (!pessoaCpf.includes(queryCpf)) return false;
-      }
-      return true;
-    });
-  }, [pessoasFisicas, alunoLookupFilter]);
 
   /* ── Lookup de cidades (Naturalidade — API IBGE) ── */
   async function openNaturalidadeLookup() {
@@ -9782,9 +9728,6 @@ export default function Home() {
     const hoje = new Date();
     const pad = (n: number) => String(n).padStart(2, '0');
     setEnviarManutForm({ dt_data: `${pad(hoje.getDate())}/${pad(hoje.getMonth() + 1)}/${hoje.getFullYear()}`, nr_seq_prestador_servico: undefined, ds_motivo_manutencao: '' });
-    setEnviarManutPrestLookupForm({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
-    setEnviarManutPrestLookupFilter({ nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
-    setEnviarManutPrestLookupApplied(false);
     setMessage('');
     setEnviarManutModalOpen(true);
   }
@@ -9948,39 +9891,21 @@ export default function Home() {
     }
   }
 
-  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'assumirAtivos' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' | 'manutencaoFilter' = 'modal') {
+  function openEnviarManutPrestadorLookup(target: 'modal' | 'form' | 'ativoResponsavel' | 'ativoFilter' | 'ativoFornecedor' | 'ativoFilterFornecedor' | 'copiaSolicitante' | 'copiaFiltroSolicitante' | 'manutencaoFilter' = 'modal') {
     enviarManutPrestadorLookupTargetRef.current = target;
     const fornecedor = target === 'ativoFornecedor' || target === 'ativoFilterFornecedor';
-    const todos = target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'assumirAtivos' || target === 'copiaSolicitante' || target === 'copiaFiltroSolicitante';
+    const todos = target === 'ativoResponsavel' || target === 'ativoFilter' || target === 'copiaSolicitante' || target === 'copiaFiltroSolicitante';
     setLookupColaboradorFornecedor(fornecedor);
     setLookupColaboradorTodos(todos);
-    const salvo = filtroSalvoDoLookup(idLookupColaborador(fornecedor, todos), { nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' });
-    setEnviarManutPrestLookupForm(salvo ?? enviarManutPrestLookupFilter);
-    if (salvo) setEnviarManutPrestLookupFilter(salvo);
-    setEnviarManutPrestLookupApplied(!!salvo);
     setEnviarManutPrestadorLookupOpen(true);
   }
 
-  /** Filtro salvo do lookup de colaboradores: um por janela (fornecedor, colaborador, prestador de serviço). */
-  function idLookupColaborador(fornecedor: boolean, todos: boolean) {
-    return fornecedor ? 'fornecedor' : todos ? 'colaborador' : 'prestador_servico';
-  }
 
   function closeEnviarManutPrestadorLookup() {
     setEnviarManutPrestadorLookupOpen(false);
   }
 
-  function applyEnviarManutPrestadorLookup() {
-    setEnviarManutPrestLookupFilter(enviarManutPrestLookupForm);
-    setEnviarManutPrestLookupApplied(true);
-  }
 
-  function clearEnviarManutPrestadorLookup() {
-    const empty = { nr_sequencia: '', ds_nome: '', nr_cpf: '', nr_cnpj: '' };
-    setEnviarManutPrestLookupForm(empty);
-    setEnviarManutPrestLookupFilter(empty);
-    setEnviarManutPrestLookupApplied(false);
-  }
 
   function handleEnviarManutPrestadorSelect(colaborador: Colaborador) {
     const target = enviarManutPrestadorLookupTargetRef.current;
@@ -10001,9 +9926,6 @@ export default function Home() {
       setCopiaExtra((prev) => ({ ...prev, nr_seq_solicitante: String(colaborador.nr_sequencia) }));
     } else if (target === 'copiaFiltroSolicitante') {
       setCopiaFiltroExtra((prev) => ({ ...prev, nr_seq_solicitante: String(colaborador.nr_sequencia) }));
-    } else if (target === 'assumirAtivos') {
-      setAssumirAtivosOrigem(String(colaborador.nr_sequencia));
-      setAssumirAtivosErro(false);
     } else {
       setEnviarManutForm((prev) => ({ ...prev, nr_seq_prestador_servico: colaborador.nr_sequencia }));
     }
@@ -10101,24 +10023,10 @@ export default function Home() {
     abrirManutencaoAtivoLookup();
   }
   function abrirManutencaoAtivoLookup() {
-    const salvo = filtroSalvoDoLookup('ativo', { nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' });
-    setManutencaoAtivoLookupForm(salvo ?? manutencaoAtivoLookupFilter);
-    if (salvo) setManutencaoAtivoLookupFilter(salvo);
-    setManutencaoAtivoLookupApplied(!!salvo);
     setManutencaoAtivoLookupOpen(true);
   }
   function closeManutencaoAtivoLookup() {
     setManutencaoAtivoLookupOpen(false);
-  }
-  function applyManutencaoAtivoLookup() {
-    setManutencaoAtivoLookupFilter(manutencaoAtivoLookupForm);
-    setManutencaoAtivoLookupApplied(true);
-  }
-  function clearManutencaoAtivoLookup() {
-    const empty = { nr_sequencia: '', ds_ativo: '', ds_modelo: '', ie_status: '' };
-    setManutencaoAtivoLookupForm(empty);
-    setManutencaoAtivoLookupFilter(empty);
-    setManutencaoAtivoLookupApplied(false);
   }
   function handleManutencaoAtivoSelect(ativo: Ativo) {
     const target = manutencaoAtivoLookupTargetRef.current;
@@ -10250,7 +10158,7 @@ export default function Home() {
     if (manutencaoEditingId && bloquearEdicaoSemPermissao(permissoesPatrimonio.editarManutencao)) return;
     setMessage('');
     setManutencaoCampoErros([]);
-    const obrigatorios = camposObrigatoriosVazios(manutencaoForm as unknown as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao'));
+    const obrigatorios = camposObrigatoriosVazios(manutencaoForm as unknown as Record<string, unknown>, campoRegrasDaColecao(campoRegrasAtivas, 'manutencao'));
     if (obrigatorios.length > 0) {
       setManutencaoCampoErros(obrigatorios);
       setMessage('Preencha os campos obrigatórios.');
@@ -10299,7 +10207,7 @@ export default function Home() {
 
   async function carregarAutorAuditoriaManutencao(id: string) {
     try {
-      const logs = await fetchAuditByDocumentId('pat_manutencao', id);
+      const logs = await fetchAuditByDocumentId('manutencao', id);
       if (auditManutencaoIdRef.current !== id) return;
       const createLog = logs.find((l) => String(l.acao ?? '').toLowerCase() === 'create');
       const lastChangeLog = logs.find((l) => {
@@ -10318,11 +10226,11 @@ export default function Home() {
 
   async function openManutencaoAuditModal(manutencaoId?: string | null) {
     if (!manutencaoId) return;
-    setAuditDocumentType('pat_manutencao');
+    setAuditDocumentType('manutencao');
     setAuditModalOpen(true);
     setAuditLoading(true);
     try {
-      const logs = await fetchAuditByDocumentId('pat_manutencao', manutencaoId);
+      const logs = await fetchAuditByDocumentId('manutencao', manutencaoId);
       setAuditLogs(logs);
     } catch {
       setAuditLogs([]);
@@ -10451,61 +10359,47 @@ export default function Home() {
     setAlterarStatusColaboradorLote([]);
   }
 
-  function openAssumirAtivosModal(colaborador: Colaborador) {
+  async function openAssumirAtivosModal(destino: { nr_sequencia: number }, tipo: 'colaborador' | 'equipe' = 'colaborador') {
     setMessage("");
-    setAssumirAtivosDestino(colaborador);
-    setAssumirAtivosOrigem('');
-    setAssumirAtivosModo('');
-    setAssumirAtivosErro(false);
-    setAssumirAtivosModoErro(false);
+    // Os ativos dele abrem marcados: recarrega os responsáveis antes (podem ter mudado em outra tela).
+    try {
+      setResponsaveisAtivos(await obterResponsaveisAtivos());
+    } catch {
+      setMessage("Erro ao carregar os responsáveis dos ativos.");
+      return;
+    }
+    setAssumirAtivosTipo(tipo);
+    setAssumirAtivosDestino(destino);
   }
 
   function closeAssumirAtivosModal() {
     setAssumirAtivosDestino(null);
-    setAssumirAtivosOrigem('');
-    setAssumirAtivosModo('');
-    setAssumirAtivosErro(false);
-    setAssumirAtivosModoErro(false);
   }
 
-  async function handleAssumirAtivosSubmit(event: React.FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  /**
+   * Grava os ativos do colaborador (ou da equipe): entra nos marcados que ainda não eram dele e
+   * sai dos desmarcados (a exclusão guarda a cópia em Logs > Exclusões).
+   */
+  async function handleAssumirAtivosConfirmar(selecionados: Ativo[]) {
     if (!assumirAtivosDestino || assumirAtivosSaving) return;
+    const equipe = assumirAtivosTipo === 'equipe';
     setMessage("");
-    const origem = Number(assumirAtivosOrigem);
-    const modo = assumirAtivosModo;
-    // Colaborador e Modo são obrigatórios: marca os dois de uma vez.
-    setAssumirAtivosErro(!origem);
-    setAssumirAtivosModoErro(!modo);
-    if (!origem || !modo) {
-      setMessage("Preencha os campos obrigatórios.");
-      return;
-    }
-    if (!colaboradores.some((c) => c.nr_sequencia === origem)) {
-      setAssumirAtivosErro(true);
-      setMessage("Colaborador não encontrado.");
-      return;
-    }
-    if (origem === assumirAtivosDestino.nr_sequencia) {
-      setAssumirAtivosErro(true);
-      setMessage("Selecione um colaborador diferente do que vai assumir os ativos.");
-      return;
-    }
-    setAssumirAtivosErro(false);
     setAssumirAtivosSaving(true);
     try {
-      const { assumidos, jaResponsavel } = await assumirAtivosDoColaborador(origem, assumirAtivosDestino.nr_sequencia, modo, auditAutor);
-      if (assumidos === 0 && jaResponsavel === 0) {
-        setMessage("O colaborador selecionado não é responsável por nenhum ativo.");
-        return;
-      }
-      const partes = [`${assumidos} ativo(s) assumido(s) com sucesso!`];
-      if (jaResponsavel > 0) partes.push(`${jaResponsavel} já era(m) do colaborador.`);
-      setMessage(partes.join(' '));
+      const { adicionados, removidos } = await definirAtivosDoResponsavel(
+        equipe ? 'nr_seq_equipe' : 'nr_seq_colaborador',
+        assumirAtivosDestino.nr_sequencia,
+        selecionados.map((a) => a.nr_sequencia),
+        auditAutor,
+      );
+      const partes: string[] = [];
+      if (adicionados > 0) partes.push(`${adicionados} ativo(s) adicionado(s)`);
+      if (removidos > 0) partes.push(`${removidos} ativo(s) removido(s)`);
+      setMessage(partes.length > 0 ? `${partes.join(' e ')} com sucesso!` : 'Nenhuma alteração detectada.');
       closeAssumirAtivosModal();
       setResponsaveisAtivos(await obterResponsaveisAtivos());
     } catch {
-      setMessage("Erro ao assumir os ativos.");
+      setMessage("Erro ao salvar os ativos.");
       obterResponsaveisAtivos().then(setResponsaveisAtivos).catch(() => {});
     } finally {
       setAssumirAtivosSaving(false);
@@ -11036,6 +10930,7 @@ export default function Home() {
     // Ao sair, todas as funções voltam ao estado de quem acabou de entrar: o mesmo que
     // fechar cada uma pelo X (dropdown PAI em "---", nada em edição). Assim nenhuma
     // função reabre com a opção do dropdown PAI já selecionada.
+    abandonarDesvio();
     SECOES.forEach((secao) => fecharSecao(secao));
     setRelatorioParamValues({});
   }
@@ -11222,8 +11117,8 @@ export default function Home() {
       campoErros: [] as string[],
     };
     const nomePf = (seq?: number) => (seq ? pessoasFisicas.find((p) => p.nr_sequencia === seq)?.ds_nome ?? '' : '');
-    const cg = Object.values(CG_DEFS).find((d) => d.collection === ex.ds_colecao);
-    switch (ex.ds_colecao) {
+    const cg = Object.values(CG_DEFS).find((d) => d.collection === ex.ds_tabela);
+    switch (ex.ds_tabela) {
       case 'pessoa_fisica':
         return <PessoaFisicaFormView {...comuns} sexos={pfCgOptions.sexos} estadoCivis={pfCgOptions.estadoCivis} coresRacas={pfCgOptions.coresRacas} profissoes={pfCgOptions.profissoes} orgaosEmissores={pfCgOptions.orgaosEmissores} logradouros={pfCgOptions.logradouros} estados={estados} naturalidadeNome={cidadeNome} onOpenNaturalidadeLookup={nada} onNaturalidadeCodeChange={nada} selectOptions={[]} />;
       case 'pessoa_juridica':
@@ -11240,8 +11135,8 @@ export default function Home() {
         return <AlunoFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} selectOptions={[]} />;
       case 'colaborador':
         return <ColaboradorFormView {...comuns} pessoaFisicaName={nomePf(dados.nr_seq_pessoa_fisica)} onOpenPessoaFisicaLookup={nada} onViewPessoaFisica={nada} pessoaJuridicaName={exclusoesLookups.nr_seq_pessoa_juridica[dados.nr_seq_pessoa_juridica] ?? ''} onOpenPessoaJuridicaLookup={nada} onViewPessoaJuridica={nada} vinculosContratuais={colaboradorVinculosOptions} cargos={colaboradorCargosOptions} selectOptions={[]} />;
-      case 'pat_categoria':
-        return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS} descFieldKey="ds_categoria" collectionName="pat_categoria" showObservacao />;
+      case 'categoria':
+        return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS} descFieldKey="ds_categoria" collectionName="categoria" showObservacao />;
       case 'disciplina':
         return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_disciplina ?? '', ie_status: 'A', nr_cbo: '', sg_sigla: '', ds_observacao: dados.ds_observacao ?? '' }} selectOptions={[]} fieldInfos={DISCIPLINA_FIELD_INFOS} descFieldKey="ds_disciplina" collectionName="disciplina" showObservacao hideStatus />;
       case 'turma':
@@ -11307,21 +11202,21 @@ export default function Home() {
       }
       case 'curso':
         return <CadastroGeralFormView {...comuns} form={{ descricao: dados.ds_curso ?? '', ie_status: dados.ie_status ?? 'A', nr_cbo: '', sg_sigla: '', ds_observacao: dados.ds_observacao ?? '' }} selectOptions={[]} fieldInfos={CURSO_FIELD_INFOS} descFieldKey="ds_curso" collectionName="curso" showObservacao />;
-      case 'pat_manutencao':
+      case 'manutencao':
         return <ManutencaoFormView {...comuns} ativos={ativos.map((a) => ({ nr_sequencia: a.nr_sequencia, ds_ativo: a.ds_ativo ?? `#${a.nr_sequencia}` }))} ativoName={exclusoesLookups.nr_seq_ativo[dados.nr_seq_ativo] ?? ''} onOpenAtivoLookup={nada} onViewAtivo={nada} prestadorName={exclusoesLookups.nr_seq_prestador_servico[dados.nr_seq_prestador_servico] ?? nomePf(dados.nr_seq_prestador_servico)} onOpenPrestadorLookup={nada} onViewPrestador={nada} selectOptions={[]} />;
-      case 'pat_ativo':
+      case 'ativo':
         return <AtivoFormView {...comuns} categoriasAtivos={categoriasAtivos.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_categoria, ie_status: c.ie_status }))} localizacoes={localizacoes.map((l) => ({ nr_sequencia: l.nr_sequencia, descricao: l.ds_localizacao, ie_status: l.ie_status }))} marcas={marcas.map((m) => ({ nr_sequencia: m.nr_sequencia, descricao: m.ds_marca, ie_status: m.ie_status }))} sistemasOperacionais={sistemasOperacionais.map((s) => ({ nr_sequencia: s.nr_sequencia, descricao: s.ds_sistema_operacional }))} combustiveis={combustiveis.map((c) => ({ nr_sequencia: c.nr_sequencia, descricao: c.ds_combustivel, ie_status: c.ie_status }))} selectOptions={[]} ultimaManutencaoSeq={dados.nr_seq_ultima_manutencao ?? null} onViewManutencao={nada} fornecedorName={exclusoesLookups.nr_seq_fornecedor[dados.nr_seq_fornecedor] ?? ''} onOpenFornecedorLookup={nada} onViewFornecedor={nada} />;
       default:
         if (cg) {
-          return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'cg_profissao'} showDimensoes={cg.collection === 'cg_formato_papel'} showSigla={cg.collection === 'cg_orgao_emissor' || cg.collection === 'cg_logradouro'} siglaFieldKey={cg.collection === 'cg_orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'cg_logradouro' ? 'sg_logradouro' : undefined} />;
+          return <CadastroGeralFormView {...comuns} selectOptions={[]} fieldInfos={cg.fieldInfos} descFieldKey={cg.descKey} collectionName={cg.collection} showCbo={cg.collection === 'profissao'} showDimensoes={cg.collection === 'formato_papel'} showSigla={cg.collection === 'orgao_emissor' || cg.collection === 'logradouro'} siglaFieldKey={cg.collection === 'orgao_emissor' ? 'sg_orgao_emissor' : cg.collection === 'logradouro' ? 'sg_logradouro' : undefined} />;
         }
-        return <FormularioExcluidoGenerico colecao={ex.ds_colecao} dados={ex.dados} resolverNomeAutor={resolverNomeAutorExibicao} resolverReferencia={descricaoReferenciaGenerica} />;
+        return <FormularioExcluidoGenerico colecao={ex.ds_tabela} dados={ex.dados} resolverNomeAutor={resolverNomeAutorExibicao} resolverReferencia={descricaoReferenciaGenerica} />;
     }
   }
 
   /** Administração do Sistema > Exclusões (lista ou "Ver" do registro excluído). */
   function renderExclusoes() {
-    const funcaoVer = exclusaoVer ? FUNCOES_EXCLUSAO.find((fx) => fx.colecao === exclusaoVer.ds_colecao) : undefined;
+    const funcaoVer = exclusaoVer ? FUNCOES_EXCLUSAO.find((fx) => fx.colecao === exclusaoVer.ds_tabela) : undefined;
     if (exclusaoVer && funcaoVer) {
       return (
         <ExclusaoFormularioView
@@ -11332,7 +11227,7 @@ export default function Home() {
           onFechar={() => setExclusaoVer(null)}
           resolverNomeAutor={resolverNomeAutorExibicao}
           darkMode={darkMode}
-          generico={!!FORMULARIOS_GENERICOS[exclusaoVer.ds_colecao]}
+          generico={!!FORMULARIOS_GENERICOS[exclusaoVer.ds_tabela]}
         >
           {renderFormularioExcluido(exclusaoVer)}
         </ExclusaoFormularioView>
@@ -11393,6 +11288,10 @@ export default function Home() {
       confirmar: (titulo: string, mensagem: string, acao: () => void) => setConfirmAcao({ titulo, mensagem, acao }),
       onSavingChange: setRelacionamentoSaving,
       colunas: colunasPorChave(fornecedor ? 'config_colunas_fornecedor' : 'config_colunas_prestador_servico'),
+      ...filtroSalvoDaTela(colecao),
+      // "Adicionar" de um lookup: abre o cadastro e avisa quando o formulário fecha (volta à origem).
+      novoAoAbrir: desvio?.destino === colecao ? desvio.vez : undefined,
+      onFormularioFechado: () => setDesvio((d) => (d && d.destino === colecao ? { ...d, fechado: true } : d)),
     };
   }
 
@@ -11450,9 +11349,9 @@ export default function Home() {
   function handleAtivoColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializarColunasAtivo(config.order, config.widths);
-    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_ativo: serialized })
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_ativo: serialized })
       .then(() => {
-        setCurrentUser((u) => (u ? { ...u, config_colunas_pat_ativo: serialized } : u));
+        setCurrentUser((u) => (u ? { ...u, config_colunas_ativo: serialized } : u));
       })
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Ativos)', err);
@@ -11462,9 +11361,9 @@ export default function Home() {
   function handleManutencaoColumnsChange(config: ColunasConfig) {
     if (!currentUser?.id) return;
     const serialized = serializeColunasConfig(config.order, config.widths);
-    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_pat_manutencao: serialized })
+    atualizarPreferenciasUsuario(currentUser.id, { config_colunas_manutencao: serialized })
       .then(() => {
-        setCurrentUser((u) => (u ? { ...u, config_colunas_pat_manutencao: serialized } : u));
+        setCurrentUser((u) => (u ? { ...u, config_colunas_manutencao: serialized } : u));
       })
       .catch((err) => {
         console.error('Erro ao salvar configuração de colunas (Manutenções)', err);
@@ -11733,6 +11632,26 @@ export default function Home() {
   /*  Render principal                                                */
   /* ================================================================ */
 
+  /* "Adicionar" dos lookups (ver adicionarPeloLookup): hooks antes dos retornos abaixo. */
+  // Registro criado no destino: guarda a sequência para selecionar na volta.
+  useEffect(() => ouvirCriacoes((colecao, registro) => {
+    const nr = Number(registro.nr_sequencia ?? registro.id);
+    if (!Number.isFinite(nr) || nr <= 0) return;
+    setDesvio((d) => (d && DESTINOS_CADASTRO[d.destino].colecao === colecao ? { ...d, criado: nr } : d));
+  }), []);
+
+  // Formulário do destino fechado (Salvar, Cancelar, Fechar): volta para a origem. (Se o usuário
+  // for para outra função ou trocar a opção do dropdown Pai, o desvio é abandonado: abandonarDesvio.)
+  useEffect(() => {
+    if (!desvio) return;
+    const def = DESTINOS_CADASTRO[desvio.destino];
+    if (activeSection !== def.secao || selecaoDaSecao(def.secao)[0] !== def.selecao) return;
+    const interno = desvio.destino === 'fornecedor' || desvio.destino === 'prestador_servico' || desvio.destino === 'equipe';
+    if (interno ? desvio.fechado : view !== 'form') voltarDoDesvio(desvio);
+    // voltarDoDesvio e selecaoDaSecao leem o estado desta renderização.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [desvio, activeSection, view, pjManageSelection, alunoManageSelection, ativoManageSelection, cgManageSelection]);
+
   if (sessionRestoring) {
     return (
       <div className={`relative min-h-screen overflow-hidden ${darkMode ? "dark bg-[#18181b]" : "bg-white"}`}>
@@ -11842,7 +11761,7 @@ export default function Home() {
   ], removedorDeFiltro(setAppliedPerfilFilterForm, setPerfilFilterForm));
 
   const cardsCg = cardsDeFiltro('cg', appliedCgFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCgFilterForm, setCgFilterForm));
-  const cardsCategoria = cardsDeFiltro('pat_categoria', appliedCategoriaFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCategoriaFilterForm, setCategoriaFilterForm));
+  const cardsCategoria = cardsDeFiltro('categoria', appliedCategoriaFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCategoriaFilterForm, setCategoriaFilterForm));
   const cardsCurso = cardsDeFiltro('curso', appliedCursoFilterForm, camposCg(true, true), removedorDeFiltro(setAppliedCursoFilterForm, setCursoFilterForm));
   const cardsDisciplina = cardsDeFiltro('disciplina', appliedDisciplinaFilterForm, camposCg(true, false), removedorDeFiltro(setAppliedDisciplinaFilterForm, setDisciplinaFilterForm));
   const cardsTurma = [
@@ -11885,7 +11804,7 @@ export default function Home() {
     { campo: 'dt_admissao_fim', rotulo: 'Data de admissão (fim)' },
   ], removedorDeFiltro(setAppliedColaboradorFilterForm, setColaboradorFilterForm));
 
-  const cardsAtivo = cardsDeFiltro('pat_ativo', appliedAtivoFilterForm, [
+  const cardsAtivo = cardsDeFiltro('ativo', appliedAtivoFilterForm, [
     { campo: 'nr_sequencia', rotulo: 'Sequência' },
     { campo: 'cd_externo', rotulo: 'Código externo' },
     { campo: 'ds_ativo', rotulo: 'Descrição' },
@@ -11908,7 +11827,7 @@ export default function Home() {
     { campo: 'nr_seq_sistema_operacional', rotulo: 'Sistema operacional', exibir: descricaoDeLista(sistemasOperacionais, (s) => s.ds_sistema_operacional) },
   ], removedorDeFiltro(setAppliedAtivoFilterForm, setAtivoFilterForm));
 
-  const cardsManutencao = cardsDeFiltro('pat_manutencao', appliedManutencaoFilterForm, [
+  const cardsManutencao = cardsDeFiltro('manutencao', appliedManutencaoFilterForm, [
     { campo: 'nr_sequencia', rotulo: 'Sequência' },
     { campo: 'nr_seq_ativo', rotulo: 'Ativo', exibir: descricaoDeLista(ativos, (a) => a.ds_ativo) },
     { campo: 'nr_seq_prestador_servico', rotulo: 'Prestador de serviço', exibir: (v) => nomePrestadorPorSeq(Number(v)) || v },
@@ -11952,7 +11871,489 @@ export default function Home() {
    * Conteúdo (lista ou formulário) de uma função do menu. Recebe a seção e a tela
    * como parâmetros para que cada função aberta mantenha a sua própria tela.
    */
-  function renderConteudoSecao(activeSection: SectionType, view: ViewType) {
+  /* ── "Adicionar" dos lookups: cadastrar o registro na função dele e voltar ──
+     Ida: guarda a tela de origem, fecha o lookup e abre o formulário de cadastro na função
+     de destino (com a opção do dropdown Pai do registro). Volta (ao salvar ou fechar o
+     formulário): a função de destino fecha — ou, se já estava aberta, fica na lista do item —
+     e a origem reaparece como estava, com o registro novo selecionado no lookup. */
+
+  /** Opção do dropdown Pai de cada função (e quem a troca sem limpar os formulários). */
+  function selecaoDaSecao(secao: SectionType): [string, (valor: string) => void] {
+    switch (secao) {
+      case 'pessoaFisica': return [pjManageSelection, setPjManageSelection];
+      case 'estruturaAcademica': return [alunoManageSelection, setAlunoManageSelection];
+      case 'patrimonio': return [ativoManageSelection, setAtivoManageSelection];
+      case 'cadastrosGerais': return [cgManageSelection, setCgManageSelection];
+      case 'administracaoSistema': return [adminManageSelection, setAdminManageSelection];
+      case 'controleCopias': return [ccManageSelection, setCcManageSelection];
+      case 'relatorio': return [relatorioManageSelection, setRelatorioManageSelection];
+      case 'logs': return [logsManageSelection, setLogsManageSelection];
+    }
+  }
+
+  /** O usuário pode cadastrar o registro: acessa a função, o item e tem a permissão de adicionar. */
+  function podeAdicionarPeloLookup(destino: DestinoCadastro): boolean {
+    const def = DESTINOS_CADASTRO[destino];
+    if (!allowedSections.includes(def.secao)) return false;
+    switch (destino) {
+      case 'pessoa_fisica': return allowedPessoaSubmodulos.includes(def.selecao) && permissoesPessoa.adicionarPessoaFisica;
+      case 'pessoa_juridica': return allowedPessoaSubmodulos.includes(def.selecao) && permissoesPessoa.adicionarPessoaJuridica;
+      case 'colaborador': return allowedPessoaSubmodulos.includes(def.selecao) && permissoesEA.adicionarColaborador;
+      case 'fornecedor': return allowedPessoaSubmodulos.includes(def.selecao) && permissoesPessoa.fornecedor.adicionar;
+      case 'prestador_servico': return allowedPessoaSubmodulos.includes(def.selecao) && permissoesPessoa.prestadorServico.adicionar;
+      case 'ativo': return allowedPatrimonioSubmodulos.includes(def.selecao) && permissoesPatrimonio.adicionarAtivo;
+      case 'curso': return allowedAlunoSubmodulos.includes(def.selecao) && permissoesEA.adicionarCurso;
+      case 'disciplina': return allowedAlunoSubmodulos.includes(def.selecao) && permissoesEA.adicionarDisciplina;
+      case 'turma': return allowedAlunoSubmodulos.includes(def.selecao) && permissoesEA.adicionarTurma;
+      case 'turma_disciplina': return allowedAlunoSubmodulos.includes(def.selecao) && permissoesEA.adicionarTurmaDisciplina;
+      case 'periodo_letivo': return allowedAlunoSubmodulos.includes(def.selecao) && permissoesEA.adicionarPeriodoLetivo;
+      case 'localizacao': return allowedCgSubmodulos.includes(def.selecao) && !!permissoesCg.localizacao?.adicionar;
+      case 'equipe': return allowedPessoaSubmodulos.includes(def.selecao) && permissoesPessoa.equipe.adicionar;
+    }
+  }
+
+  /** Ida: guarda a origem, fecha o lookup, vai para a função de destino e abre o formulário de cadastro. */
+  function adicionarPeloLookup(destino: DestinoCadastro, fecharLookup: () => void, aoCriar: (nr: number) => void) {
+    if (!activeSection || desvio) return;
+    const def = DESTINOS_CADASTRO[destino];
+    const [origemSelecao] = selecaoDaSecao(activeSection);
+    aoCriarDoDesvioRef.current = aoCriar;
+    setDesvio({
+      destino,
+      vez: Date.now(),
+      destinoJaAberto: secoesAbertas.includes(def.secao),
+      origemSecao: activeSection,
+      origemView: view,
+      origemSelecao,
+      origemInterna: activeSection === 'pessoaFisica'
+        && (['fornecedores', 'prestadoresServico', 'equipes'].includes(pjManageSelection) || (pjManageSelection === 'alunos' && !!alunoDetalheId)),
+      criado: null,
+      fechado: false,
+    });
+    fecharLookup();
+    setContextMenu(null);
+    setMessage('');
+    // A lista do item, não um detalhe que estivesse aberto nele.
+    if (destino === 'pessoa_fisica') setPfDetalheId(null);
+    if (destino === 'ativo') setAtivoDetalheId(null);
+    if (destino === 'periodo_letivo') setPeriodoLetivoFeriadosId(null);
+    selecaoDaSecao(def.secao)[1](def.selecao);
+    setActiveSection(def.secao);
+    setView('list');
+    abrirCadastroDoDestino(destino);
+  }
+
+  /** O usuário saiu do cadastro por conta própria (outra função ou outra opção do dropdown Pai): sem volta. */
+  function abandonarDesvio() {
+    if (!desvio) return;
+    aoCriarDoDesvioRef.current = null;
+    setDesvio(null);
+  }
+
+  /** Handler do botão "Adicionar" de um lookup, ou undefined (sem permissão ou já num desvio). */
+  function botaoAdicionarDoLookup(destino: DestinoCadastro | null, fecharLookup: () => void, aoCriar: (nr: number) => void) {
+    if (!destino || desvio || !podeAdicionarPeloLookup(destino)) return undefined;
+    return () => adicionarPeloLookup(destino, fecharLookup, aoCriar);
+  }
+
+  /** Abre o formulário de cadastro do destino (os "novo" de cada tela; nenhum depende da opção do dropdown Pai). */
+  function abrirCadastroDoDestino(destino: DestinoCadastro) {
+    switch (destino) {
+      case 'pessoa_fisica': openNewForm(); break;
+      case 'pessoa_juridica': openPjNewForm(); break;
+      case 'colaborador': openColaboradorNewForm(); break;
+      case 'fornecedor': case 'prestador_servico': case 'equipe': break; // RelacionamentoView / EquipeView abrem pelo novoAoAbrir
+      case 'ativo': openAtivoNewForm(); break;
+      case 'curso': handleCursoNewForm(); break;
+      case 'disciplina': handleDisciplinaNewForm(); break;
+      case 'turma': handleTurmaNewForm(); break;
+      case 'turma_disciplina': handleTurmaDisciplinaNewForm(); break;
+      case 'periodo_letivo': openPeriodoLetivoNewForm(); break;
+      case 'localizacao': openCgNewForm(); break;
+    }
+  }
+
+  /** Volta: fecha (ou deixa na lista do item) a função de destino e reabre a origem como estava. */
+  function voltarDoDesvio(d: DesvioCadastro) {
+    const aoCriar = aoCriarDoDesvioRef.current;
+    aoCriarDoDesvioRef.current = null;
+    setDesvio(null);
+    const secaoDestino = DESTINOS_CADASTRO[d.destino].secao;
+    if (secaoDestino !== d.origemSecao && !d.destinoJaAberto) fecharSecao(secaoDestino);
+    selecaoDaSecao(d.origemSecao)[1](d.origemSelecao);
+    setActiveSection(d.origemSecao);
+    setView(d.origemView);
+    if (d.criado != null && aoCriar) aoCriar(d.criado);
+  }
+
+  /* "Adicionar" de cada lookup (só quando ele foi aberto por um formulário de cadastro). */
+  function adicionarNoLookupColaborador() {
+    const alvo = enviarManutPrestadorLookupTargetRef.current;
+    const destino: DestinoCadastro | null = alvo === 'ativoFornecedor' ? 'fornecedor'
+      : alvo === 'form' ? 'prestador_servico'
+      : alvo === 'ativoResponsavel' || alvo === 'copiaSolicitante' ? 'colaborador'
+      : null;
+    // Alvo e callback do clique: outro lookup aberto no cadastro de destino pode trocá-los.
+    const callback = ativoResponsavelLookupCallbackRef.current;
+    return botaoAdicionarDoLookup(destino, closeEnviarManutPrestadorLookup, (nr) => {
+      enviarManutPrestadorLookupTargetRef.current = alvo;
+      ativoResponsavelLookupCallbackRef.current = callback;
+      handleEnviarManutPrestadorSelect({ nr_sequencia: nr } as Colaborador);
+    });
+  }
+  function adicionarNoLookupAtivo() {
+    if (manutencaoAtivoLookupTargetRef.current !== 'manutencao') return undefined;
+    return botaoAdicionarDoLookup('ativo', closeManutencaoAtivoLookup, (nr) => {
+      manutencaoAtivoLookupTargetRef.current = 'manutencao';
+      handleManutencaoAtivoSelect({ nr_sequencia: nr } as Ativo);
+    });
+  }
+  function adicionarNoLookupPessoaFisicaUsuario() {
+    return botaoAdicionarDoLookup('pessoa_fisica', closePessoaFisicaLookup, (nr) => handlePessoaFisicaSelect({ nr_sequencia: nr } as PessoaFisica));
+  }
+  function adicionarNoLookupPessoaFisica() {
+    const alvo = alunoPessoaFisicaLookupTargetRef.current;
+    if (alvo !== 'aluno' && alvo !== 'colaborador' && alvo !== 'responsavel') return undefined;
+    const callback = alunoResponsavelLookupCallbackRef.current;
+    return botaoAdicionarDoLookup('pessoa_fisica', closeAlunoPessoaFisicaLookup, (nr) => {
+      alunoPessoaFisicaLookupTargetRef.current = alvo;
+      alunoResponsavelLookupCallbackRef.current = callback;
+      handleAlunoPessoaFisicaSelect({ nr_sequencia: nr } as PessoaFisica);
+    });
+  }
+  function adicionarNoLookupPessoaJuridica() {
+    const alvo = colaboradorPjLookupTargetRef.current;
+    if (alvo === 'filter') return undefined;
+    const callback = pessoaJuridicaLookupCallbackRef.current;
+    return botaoAdicionarDoLookup('pessoa_juridica', closeColaboradorPessoaJuridicaLookup, (nr) => {
+      colaboradorPjLookupTargetRef.current = alvo;
+      pessoaJuridicaLookupCallbackRef.current = callback;
+      handleColaboradorPessoaJuridicaSelect({ nr_sequencia: nr } as PessoaJuridica);
+    });
+  }
+
+  /* ── Lookups de registros: o filtro e as colunas da tela de registros de cada função ──
+     Cada lookup usa os mesmos campos do filtro da função (com a mesma regra de filtragem,
+     passaFiltro...) e as mesmas colunas da lista (com o mesmo texto em cada célula). */
+
+  /** Colunas da lista para o lookup (a do status, sem título na lista, vira "Status"). */
+  function colunasDaLista(colunas: readonly { key: string | number | symbol; label: string; headerLabel?: string; dataClass?: string }[]): LookupColumn[] {
+    return colunas.map((c) => ({ key: String(c.key), label: c.label || c.headerLabel || (String(c.key) === 'ie_status' ? 'Status' : ''), dataClass: c.dataClass }));
+  }
+  /** Texto de cada coluna como na lista: referência pela descrição, demais pelo formatador da tela. */
+  function linhaDaLista<T extends object>(
+    colunas: readonly { key: string | number | symbol }[],
+    formatar: (chave: string, valor: unknown) => string,
+    referencias?: Record<string, Record<number, string>>,
+  ) {
+    return (registro: T): Record<string, unknown> => Object.fromEntries(colunas.map((c) => {
+      const chave = String(c.key);
+      const valor = (registro as Record<string, unknown>)[chave];
+      const referencia = referencias?.[chave];
+      if (referencia) return [chave, valor !== null && valor !== undefined && valor !== '' ? (referencia[Number(valor)] ?? '') : ''];
+      return [chave, formatar(chave, valor)];
+    }));
+  }
+  /** Status dos filtros de Cadastros Gerais, Cursos e Turmas x Disciplinas (Todos/Ativo/Inativo). */
+  const STATUS_FILTRO_CG = [{ value: 'T', label: 'Todos' }, { value: 'A', label: 'Ativo' }, { value: 'I', label: 'Inativo' }];
+  const opcoesPf = (lista: { nr_sequencia: number; descricao: string }[]) =>
+    [...lista].sort((a, b) => a.descricao.localeCompare(b.descricao, 'pt-BR', { sensitivity: 'base' })).map((o) => ({ value: String(o.nr_sequencia), label: o.descricao }));
+  const nomePfDoFiltro = (v: string) => nomePessoaFisicaPorSeq(Number(v)) || '';
+  const nomePjDoFiltro = (v: string) => nomePessoaJuridicaPorSeq(Number(v)) || '';
+  const vazioDe = (chaves: string[], valores: Record<string, string> = {}) => Object.fromEntries(chaves.map((k) => [k, valores[k] ?? '']));
+
+  /**
+   * Configuração do lookup de um tipo de registro. `apenasAtivos`: só os registros que podem
+   * ser escolhidos (ex.: a Turma x Disciplina da cópia), como já era no lookup.
+   */
+  function configLookup(entidade: EntidadeLookup, apenasAtivos = false): ConfigLookup<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+    const soAtivos = <T extends { ie_status?: string | null }>(lista: T[]) => (apenasAtivos ? lista.filter((r) => (r.ie_status ?? 'A') !== 'I') : lista);
+    switch (entidade) {
+      case 'pessoa_fisica': {
+        const vazio = vazioDe(['nr_sequencia', 'ds_nome', 'nr_cpf', 'dt_nascimento_inicio', 'dt_nascimento_fim', 'ds_email', 'nr_telefone', 'nr_seq_sexo', 'nr_seq_estado_civil', 'nr_seq_cor_raca', 'nr_seq_profissao']);
+        return {
+          titulo: 'Pessoa Física', colecao: 'pessoa_fisica', vazio,
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero' },
+            { key: 'ds_nome', rotulo: 'Nome completo', campo: 'ds_nome' },
+            { key: 'nr_cpf', rotulo: 'CPF', campo: 'nr_cpf', tipo: 'cpf' },
+            { key: 'dt_nascimento_inicio', rotulo: 'Nascimento (início)', campo: 'dt_nascimento', tipo: 'data', meia: true },
+            { key: 'dt_nascimento_fim', rotulo: 'Nascimento (fim)', campo: 'dt_nascimento', tipo: 'data', meia: true },
+            { key: 'ds_email', rotulo: 'E-mail', campo: 'ds_email' },
+            { key: 'nr_telefone', rotulo: 'Telefone', campo: 'nr_telefone', tipo: 'telefone' },
+            { key: 'nr_seq_sexo', rotulo: 'Sexo', campo: 'nr_seq_sexo', tipo: 'opcoes', opcoes: opcoesPf(pfCgOptions.sexos), meia: true },
+            { key: 'nr_seq_estado_civil', rotulo: 'Estado civil', campo: 'nr_seq_estado_civil', tipo: 'opcoes', opcoes: opcoesPf(pfCgOptions.estadoCivis), meia: true },
+            { key: 'nr_seq_cor_raca', rotulo: 'Cor/Raça', campo: 'nr_seq_cor_raca', tipo: 'opcoes', opcoes: opcoesPf(pfCgOptions.coresRacas), meia: true },
+            { key: 'nr_seq_profissao', rotulo: 'Profissão', campo: 'nr_seq_profissao', tipo: 'opcoes', opcoes: opcoesPf(pfCgOptions.profissoes), meia: true },
+          ],
+          filtrar: (p: PessoaFisica, f) => passaFiltroPessoaFisica(p, { ...emptyFilterForm, ...f } as typeof appliedFilterForm),
+          registros: pessoasFisicas,
+          colunas: colunasDaLista(COLUMNS),
+          linha: linhaDaLista<PessoaFisica>(COLUMNS, (k, v) => formatCellValue(k as keyof PessoaFisica, v), pfCgLookups as Record<string, Record<number, string>>),
+          ...colunasPorIndice('config_colunas_lookup_pessoa_fisica'),
+          ...filtroDoReferenciaLookup('pessoa_fisica'),
+        };
+      }
+      case 'pessoa_juridica': {
+        const vazio = vazioDe(Object.keys(emptyPjFilterForm));
+        return {
+          titulo: 'Pessoa Jurídica', colecao: 'pessoa_juridica', vazio,
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'nr_cnpj', rotulo: 'CNPJ', campo: 'nr_cnpj', tipo: 'cnpj', meia: true },
+            { key: 'dt_abertura_inicio', rotulo: 'Data de abertura (início)', campo: 'dt_abertura', tipo: 'data', meia: true },
+            { key: 'dt_abertura_fim', rotulo: 'Data de abertura (fim)', campo: 'dt_abertura', tipo: 'data', meia: true },
+            { key: 'ds_razao_social', rotulo: 'Razão social', campo: 'ds_razao_social' },
+            { key: 'ds_nome_fantasia', rotulo: 'Nome fantasia', campo: 'ds_nome_fantasia' },
+            { key: 'nr_inscricao_estadual', rotulo: 'Inscrição estadual', campo: 'nr_inscricao_estadual', meia: true },
+            { key: 'nr_inscricao_municipal', rotulo: 'Inscrição municipal', campo: 'nr_inscricao_municipal', meia: true },
+            { key: 'nr_telefone', rotulo: 'Telefone', campo: 'nr_telefone', tipo: 'telefone', meia: true },
+            { key: 'ds_email', rotulo: 'E-mail', campo: 'ds_email', meia: true },
+            { key: 'sg_estado', rotulo: 'UF', campo: 'sg_estado', tipo: 'opcoes', opcoes: estados, meia: true },
+            { key: 'cd_ibge_cidade', rotulo: 'Cidade', campo: 'cd_ibge_cidade', tipo: 'numero', maxLength: 7, meia: true },
+          ],
+          filtrar: (p: PessoaJuridica, f) => passaFiltroPessoaJuridica(p, { ...emptyPjFilterForm, ...f } as typeof appliedPjFilterForm),
+          registros: pessoasJuridicas,
+          colunas: colunasDaLista(PJ_COLUMNS),
+          linha: linhaDaLista<PessoaJuridica>(PJ_COLUMNS, (k, v) => formatCellValuePj(k as keyof PessoaJuridica, v), pjCgLookups as Record<string, Record<number, string>>),
+          ...colunasPorIndice('config_colunas_lookup_pessoa_juridica'),
+          ...filtroDoReferenciaLookup('pessoa_juridica'),
+        };
+      }
+      case 'colaborador': {
+        const vazio = vazioDe(['nr_sequencia', 'nr_matricula', 'nr_seq_pessoa_fisica', 'nr_seq_pessoa_juridica', 'dt_admissao_inicio', 'dt_admissao_fim']);
+        return {
+          titulo: 'Colaborador', colecao: 'colaborador', vazio,
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'nr_matricula', rotulo: 'Matrícula', campo: 'nr_matricula', meia: true },
+            { key: 'nr_seq_pessoa_fisica', rotulo: 'Pessoa física', campo: 'nr_seq_pessoa_fisica', tipo: 'referencia', descricao: nomePfDoFiltro },
+            { key: 'nr_seq_pessoa_juridica', rotulo: 'Pessoa jurídica', campo: 'nr_seq_pessoa_juridica', tipo: 'referencia', descricao: nomePjDoFiltro },
+            { key: 'dt_admissao_inicio', rotulo: 'Data de admissão (início)', campo: 'dt_admissao', tipo: 'data', meia: true },
+            { key: 'dt_admissao_fim', rotulo: 'Data de admissão (fim)', campo: 'dt_admissao', tipo: 'data', meia: true },
+          ],
+          filtrar: (c: Colaborador, f) => passaFiltroColaborador(c, { ...vazio, ...f } as typeof appliedColaboradorFilterForm),
+          // Só os que podem ser escolhidos: sem os Desligados.
+          registros: apenasAtivos ? colaboradores.filter((c) => c.ie_status !== 'D') : colaboradores,
+          colunas: colunasDaLista(COLABORADOR_COLUMNS),
+          linha: linhaDaLista<Colaborador>(COLABORADOR_COLUMNS, (k, v) => formatColaboradorCellValue(k as keyof Colaborador, v), {
+            nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+            nr_seq_pessoa_juridica: Object.fromEntries(pessoasJuridicas.map((p) => [p.nr_sequencia, p.ds_razao_social])),
+          }),
+          ...colunasPorIndice('config_colunas_lookup_colaborador'),
+          ...filtroDoReferenciaLookup('colaborador'),
+        };
+      }
+      case 'fornecedor':
+      case 'prestador_servico': {
+        const fornecedor = entidade === 'fornecedor';
+        const nome = (r: Relacionamento) => (r.nr_seq_pessoa_juridica ? nomePessoaJuridicaPorSeq(r.nr_seq_pessoa_juridica) : nomePessoaFisicaPorSeq(r.nr_seq_pessoa_fisica)) || '';
+        return {
+          titulo: fornecedor ? 'Fornecedor' : 'Prestador de Serviço', colecao: entidade, vazio: { ...FILTRO_RELACIONAMENTO_VAZIO },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'opcoes', opcoes: STATUS_RELACIONAMENTO_OPTIONS, meia: true },
+            { key: 'ds_nome', rotulo: 'Nome / Razão social', campo: 'ds_nome', colecao: 'pessoa_fisica' },
+            { key: 'nr_seq_pessoa_fisica', rotulo: 'Pessoa física', campo: 'nr_seq_pessoa_fisica', tipo: 'referencia', descricao: nomePfDoFiltro },
+            { key: 'nr_seq_pessoa_juridica', rotulo: 'Pessoa jurídica', campo: 'nr_seq_pessoa_juridica', tipo: 'referencia', descricao: nomePjDoFiltro },
+          ],
+          filtrar: (r: Relacionamento, f) => passaFiltroRelacionamento(r, { ...FILTRO_RELACIONAMENTO_VAZIO, ...f }, nome(r)),
+          registros: soAtivos(fornecedor ? fornecedores : prestadoresServico),
+          colunas: COLUNAS_RELACIONAMENTO,
+          linha: (r: Relacionamento) => Object.fromEntries(COLUNAS_RELACIONAMENTO.map((c) => [
+            c.key, celulaRelacionamento(r as unknown as Record<string, unknown> & { nr_sequencia: number }, c.key, nomePessoaFisicaPorSeq, nomePessoaJuridicaPorSeq),
+          ])),
+          ...colunasPorIndice(fornecedor ? 'config_colunas_lookup_fornecedor' : 'config_colunas_lookup_prestador_servico'),
+          ...filtroDoReferenciaLookup(entidade),
+        };
+      }
+      case 'ativo': {
+        const vazio = vazioDe(Object.keys(emptyAtivoFilterForm), emptyAtivoFilterForm as unknown as Record<string, string>);
+        const opcoesCg = <T extends { nr_sequencia: number; ie_status?: string }>(lista: T[], rotulo: (item: T) => string) => cgFilterOptions(lista, rotulo);
+        return {
+          titulo: 'Ativo', colecao: 'ativo', vazio,
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'cd_externo', rotulo: 'Código externo', campo: 'cd_externo', meia: true },
+            { key: 'ds_ativo', rotulo: 'Descrição', campo: 'ds_ativo' },
+            { key: 'ds_modelo', rotulo: 'Modelo', campo: 'ds_modelo', meia: true },
+            { key: 'nr_serie', rotulo: 'Nº de série', campo: 'nr_serie', meia: true },
+            { key: 'ds_qr_code', rotulo: 'QR Code', campo: 'ds_qr_code', meia: true },
+            { key: 'ds_codigo_barras', rotulo: 'Código de barras', campo: 'ds_codigo_barras', meia: true },
+            { key: 'dt_aquisicao_inicio', rotulo: 'Data aquisição (início)', campo: 'dt_aquisicao', tipo: 'data', meia: true },
+            { key: 'dt_aquisicao_fim', rotulo: 'Data aquisição (fim)', campo: 'dt_aquisicao', tipo: 'data', meia: true },
+            { key: 'dt_garantia_inicio', rotulo: 'Data garantia (início)', campo: 'dt_garantia', tipo: 'data', meia: true },
+            { key: 'dt_garantia_fim', rotulo: 'Data garantia (fim)', campo: 'dt_garantia', tipo: 'data', meia: true },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'opcoes', opcoes: [{ value: 'T', label: '---' }, ...ATIVO_STATUS_OPTIONS], meia: true },
+            { key: 'nr_seq_categoria', rotulo: 'Categoria', campo: 'nr_seq_categoria', tipo: 'opcoes', opcoes: opcoesCg(categoriasAtivos, (op) => op.ds_categoria), meia: true },
+            { key: 'nr_seq_localizacao', rotulo: 'Localização', campo: 'nr_seq_localizacao', tipo: 'opcoes', opcoes: opcoesCg(localizacoes, (op) => op.ds_localizacao), meia: true },
+            { key: 'nr_seq_marca', rotulo: 'Marca', campo: 'nr_seq_marca', tipo: 'opcoes', opcoes: opcoesCg(marcas, (op) => op.ds_marca), meia: true },
+            { key: 'nr_seq_responsavel', rotulo: 'Responsável', campo: 'responsaveis', tipo: 'referencia', descricao: (v) => nomeColaboradorPorSeq(Number(v)) },
+            { key: 'nr_seq_fornecedor', rotulo: 'Fornecedor', campo: 'nr_seq_fornecedor', tipo: 'referencia', descricao: (v) => nomeFornecedorPorSeq(Number(v)) },
+            { key: 'ds_endereco_mac', rotulo: 'Endereço MAC', campo: 'ds_endereco_mac', maxLength: 12, meia: true },
+            { key: 'ds_ip', rotulo: 'IPv4', campo: 'ds_ip', meia: true },
+            { key: 'nr_seq_sistema_operacional', rotulo: 'Sistema operacional', campo: 'nr_seq_sistema_operacional', tipo: 'opcoes', opcoes: opcoesCg(sistemasOperacionais, (op) => op.ds_sistema_operacional) },
+          ],
+          filtrar: (a: Ativo, f) => passaFiltroAtivo(a, { ...emptyAtivoFilterForm, ...f } as typeof appliedAtivoFilterForm),
+          // Manutenção: só os ativos que podem ir para manutenção (Operacionais e em Estoque).
+          registros: apenasAtivos ? ativos.filter((a) => a.ie_status === 'O' || a.ie_status === 'E') : ativos,
+          colunas: colunasDaLista(ATIVO_COLUMNS),
+          linha: linhaDaLista<Ativo>(ATIVO_COLUMNS, (k, v) => formatAtivoCellValue(k as keyof Ativo, v), {
+            nr_seq_categoria: Object.fromEntries(categoriasAtivos.map((c) => [c.nr_sequencia, c.ds_categoria])),
+            nr_seq_localizacao: Object.fromEntries(localizacoes.map((l) => [l.nr_sequencia, l.ds_localizacao])),
+            nr_seq_marca: Object.fromEntries(marcas.map((m) => [m.nr_sequencia, m.ds_marca])),
+            nr_seq_fornecedor: Object.fromEntries(fornecedores.map((c) => [c.nr_sequencia, nomeFornecedorPorSeq(c.nr_sequencia)])),
+          }),
+          ...colunasPorIndice('config_colunas_lookup_ativo'),
+          ...filtroDoReferenciaLookup('ativo'),
+        };
+      }
+      case 'curso':
+        return {
+          titulo: 'Curso', colecao: 'curso', vazio: { nr_sequencia: '', descricao: '', ie_status: 'T' },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero' },
+            { key: 'descricao', rotulo: 'Descrição', campo: 'ds_curso' },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'radio', opcoes: STATUS_FILTRO_CG },
+          ],
+          filtrar: (c: Curso, f) => passaFiltroCurso(c, { nr_sequencia: '', descricao: '', ie_status: 'T', ...f } as typeof appliedCursoFilterForm),
+          registros: soAtivos(cursos),
+          colunas: colunasDaLista(CURSO_COLUMNS),
+          linha: linhaDaLista<Curso>(CURSO_COLUMNS, formatCadastroGeralCellValue),
+          ...colunasPorIndice('config_colunas_lookup_curso'),
+          ...filtroDoReferenciaLookup('curso'),
+        };
+      case 'disciplina':
+        return {
+          titulo: 'Disciplina', colecao: 'disciplina', vazio: { nr_sequencia: '', descricao: '' },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero' },
+            { key: 'descricao', rotulo: 'Descrição', campo: 'ds_disciplina' },
+          ],
+          filtrar: (d: Disciplina, f) => passaFiltroDisciplina(d, { nr_sequencia: '', descricao: '', ie_status: 'T', ...f } as typeof appliedDisciplinaFilterForm),
+          registros: disciplinas,
+          colunas: colunasDaLista(DISCIPLINA_COLUMNS),
+          linha: linhaDaLista<Disciplina>(DISCIPLINA_COLUMNS, formatCadastroGeralCellValue),
+          ...colunasPorIndice('config_colunas_lookup_disciplina'),
+          ...filtroDoReferenciaLookup('disciplina'),
+        };
+      case 'turma':
+        return {
+          titulo: 'Turma', colecao: 'turma', vazio: { nr_sequencia: '', descricao: '', nr_seq_curso: '', nr_seq_periodo_letivo: '' },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero' },
+            { key: 'descricao', rotulo: 'Descrição', campo: 'ds_turma' },
+            { key: 'nr_seq_curso', rotulo: 'Curso', campo: 'nr_seq_curso', tipo: 'opcoes', opcoes: opcoesDeReferencia(cursos, (c) => c.ds_curso, '') },
+            { key: 'nr_seq_periodo_letivo', rotulo: 'Período letivo', campo: 'nr_seq_periodo_letivo', tipo: 'opcoes', opcoes: opcoesDeReferencia(periodosLetivos, (p) => p.ds_periodo_letivo, '') },
+          ],
+          filtrar: (t: Turma, f) => passaFiltroTurma(
+            t,
+            { nr_sequencia: f.nr_sequencia ?? '', descricao: f.descricao ?? '', ie_status: 'T' } as typeof appliedTurmaFilterForm,
+            { nr_seq_curso: f.nr_seq_curso ?? '', nr_seq_periodo_letivo: f.nr_seq_periodo_letivo ?? '' } as typeof turmaFiltroExtraAplicado,
+          ),
+          registros: turmas,
+          colunas: colunasDaLista(TURMA_COLUMNS),
+          linha: linhaDaLista<Turma>(TURMA_COLUMNS, formatTurmaCellValue),
+          ...colunasPorIndice('config_colunas_lookup_turma'),
+          ...filtroDoReferenciaLookup('turma'),
+        };
+      case 'turma_disciplina':
+        return {
+          titulo: 'Turma x Disciplina', colecao: 'turma_disciplina', vazio: { nr_sequencia: '', ie_status: 'T', nr_seq_turma: '', nr_seq_disciplina: '', nr_seq_periodo_letivo: '' },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero' },
+            { key: 'nr_seq_turma', rotulo: 'Turma', campo: 'nr_seq_turma', tipo: 'opcoes', opcoes: opcoesDeReferencia(turmas, (t) => t.ds_turma, '') },
+            { key: 'nr_seq_disciplina', rotulo: 'Disciplina', campo: 'nr_seq_disciplina', tipo: 'opcoes', opcoes: opcoesDeReferencia(disciplinas, (d) => d.ds_disciplina, '') },
+            { key: 'nr_seq_periodo_letivo', rotulo: 'Período letivo', campo: 'nr_seq_periodo_letivo', colecao: 'turma', tipo: 'opcoes', opcoes: opcoesDeReferencia(periodosLetivos, (p) => p.ds_periodo_letivo, '') },
+            ...(apenasAtivos ? [] : [{ key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'radio' as const, opcoes: STATUS_FILTRO_CG }]),
+          ],
+          filtrar: (td: TurmaDisciplina & ReturnType<typeof camposDaTurmaDisciplina>, f) => passaFiltroTurmaDisciplina(
+            td,
+            { nr_sequencia: f.nr_sequencia ?? '', descricao: '', ie_status: f.ie_status || 'T' } as typeof appliedTurmaDisciplinaFilterForm,
+            { nr_seq_turma: f.nr_seq_turma ?? '', nr_seq_disciplina: f.nr_seq_disciplina ?? '', nr_seq_periodo_letivo: f.nr_seq_periodo_letivo ?? '' } as typeof turmaDisciplinaFiltroExtraAplicado,
+          ),
+          // Período letivo, Curso e Modalidade de ensino vêm da turma (como na lista).
+          registros: soAtivos(turmasDisciplinas).map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) })),
+          colunas: colunasDaLista(TURMA_DISCIPLINA_COLUMNS),
+          linha: linhaDaLista<TurmaDisciplina>(TURMA_DISCIPLINA_COLUMNS, formatTurmaDisciplinaCellValue),
+          ...colunasPorIndice('config_colunas_lookup_turma_disciplina'),
+          ...filtroDoReferenciaLookup('turma_disciplina'),
+        };
+      case 'periodo_letivo':
+        return {
+          titulo: 'Período Letivo', colecao: 'periodo_letivo', vazio: { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '' },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'nr_ano', rotulo: 'Ano', campo: 'nr_ano', tipo: 'numero', maxLength: 4, meia: true },
+            { key: 'ds_periodo_letivo', rotulo: 'Descrição', campo: 'ds_periodo_letivo' },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'opcoes', opcoes: STATUS_PERIODO_LETIVO_OPTIONS },
+          ],
+          filtrar: (p: PeriodoLetivo, f) => passaFiltroPeriodoLetivo(p, { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '', ...f } as typeof appliedPeriodoLetivoFilterForm),
+          registros: soAtivos(periodosLetivos),
+          colunas: colunasDaLista(PERIODO_LETIVO_COLUMNS),
+          linha: linhaDaLista<PeriodoLetivo>(PERIODO_LETIVO_COLUMNS, (k, v) => formatPeriodoLetivoCellValue(k as keyof PeriodoLetivo, v)),
+          ...colunasPorIndice('config_colunas_lookup_periodo_letivo'),
+          ...filtroDoReferenciaLookup('periodo_letivo'),
+        };
+      case 'localizacao':
+        return {
+          titulo: 'Localização', colecao: 'localizacao', vazio: { nr_sequencia: '', descricao: '', ie_status: 'T' },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero' },
+            { key: 'descricao', rotulo: 'Descrição', campo: 'ds_localizacao' },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'radio', opcoes: STATUS_FILTRO_CG },
+          ],
+          filtrar: (l: Localizacao, f) => passaFiltroCadastroGeral(l, { nr_sequencia: '', descricao: '', ie_status: 'T', ...f } as typeof appliedCgFilterForm, 'ds_localizacao'),
+          registros: soAtivos(localizacoes),
+          colunas: colunasDaLista(LOCALIZACAO_COLUMNS),
+          linha: linhaDaLista<Localizacao>(LOCALIZACAO_COLUMNS, formatCadastroGeralCellValue),
+          ...colunasPorIndice('config_colunas_lookup_localizacao'),
+          ...filtroDoReferenciaLookup('localizacao'),
+        };
+      case 'equipe':
+        return {
+          titulo: 'Equipe', colecao: 'equipe', vazio: { ...FILTRO_EQUIPE_VAZIO },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'opcoes', opcoes: STATUS_RELACIONAMENTO_OPTIONS, meia: true },
+            { key: 'ds_equipe', rotulo: 'Descrição', campo: 'ds_equipe' },
+          ],
+          filtrar: (e: Equipe, f) => passaFiltroEquipe(e, { ...FILTRO_EQUIPE_VAZIO, ...f }),
+          registros: soAtivos(equipes),
+          colunas: COLUNAS_EQUIPE,
+          linha: (e: Equipe) => Object.fromEntries(COLUNAS_EQUIPE.map((c) => [c.key, celulaEquipe(e as unknown as Record<string, unknown> & { nr_sequencia: number }, c.key)])),
+          ...colunasPorIndice('config_colunas_lookup_equipe'),
+          ...filtroDoReferenciaLookup('equipe'),
+        };
+      case 'usuario':
+        return {
+          titulo: 'Usuário', colecao: 'usuario', vazio: { ...emptyAdminFilterForm },
+          campos: [
+            { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
+            { key: 'ds_usuario', rotulo: 'Usuário', campo: 'ds_usuario', meia: true },
+            { key: 'ds_usuario_alternativo', rotulo: 'Usuário alternativo', campo: 'ds_usuario_alternativo' },
+            { key: 'nr_seq_pessoa_fisica', rotulo: 'Pessoa física', campo: 'nr_seq_pessoa_fisica', tipo: 'referencia', descricao: nomePfDoFiltro },
+            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'radio', opcoes: [{ value: 'T', label: 'Todos' }, { value: 'A', label: 'Ativo' }, { value: 'B', label: 'Bloqueado' }, { value: 'I', label: 'Inativo' }] },
+          ],
+          filtrar: (u: Usuario, f) => passaFiltroUsuario(u, { ...emptyAdminFilterForm, ...f } as typeof appliedAdminFilterForm),
+          registros: usuarios,
+          colunas: colunasDaLista(ADMIN_COLUMNS),
+          linha: linhaDaLista<Usuario>(ADMIN_COLUMNS, (k, v) => formatAdminCellValue(k as keyof Usuario, v), {
+            nr_seq_pessoa_fisica: Object.fromEntries(pessoasFisicas.map((p) => [p.nr_sequencia, p.ds_nome])),
+          }),
+          ...colunasPorIndice('config_colunas_lookup_usuario'),
+          ...filtroDoReferenciaLookup('usuario'),
+        };
+    }
+  }
+
+  /** Opção do dropdown Pai de Pessoas e Relacionamentos (renderConteudoSecao pode receber outra). */
+  const pjManageSelectionAtual = pjManageSelection;
+  /**
+   * Conteúdo de uma função. `pjManageSelection`: a opção de Pessoas e Relacionamentos a mostrar
+   * (padrão: a atual) — no desvio do "Adicionar" a origem fica montada, escondida, com a dela.
+   */
+  function renderConteudoSecao(activeSection: SectionType, view: ViewType, pjManageSelection: string = pjManageSelectionAtual) {
     return (
       view === "list" ? (
               activeSection === "pessoaFisica" ? (
@@ -12042,11 +12443,16 @@ export default function Home() {
                   />
                 ) : pjManageSelection === 'fornecedores' || pjManageSelection === 'prestadoresServico' ? (
                   <RelacionamentoView
-                    key={pjManageSelection}
+                    // "Adicionar" de um lookup: monta de novo, já com o formulário de um registro novo.
+                    key={`${pjManageSelection}-${desvio?.destino === (pjManageSelection === 'fornecedores' ? 'fornecedor' : 'prestador_servico') ? desvio.vez : ''}`}
                     {...propsRelacionamento(pjManageSelection === 'fornecedores' ? 'fornecedor' : 'prestador_servico')}
                   />
                 ) : pjManageSelection === 'equipes' ? (
                   <EquipeView
+                    // "Adicionar" de um lookup: monta de novo, já com o formulário de uma equipe nova.
+                    key={`equipes-${desvio?.destino === 'equipe' ? desvio.vez : ''}`}
+                    novoAoAbrir={desvio?.destino === 'equipe' ? desvio.vez : undefined}
+                    onFormularioFechado={() => setDesvio((d) => (d && d.destino === 'equipe' ? { ...d, fechado: true } : d))}
                     registros={equipes}
                     carregando={equipesCarregando}
                     selectOptions={PJ_SELECT_OPTIONS}
@@ -12065,7 +12471,10 @@ export default function Home() {
                     onSavingChange={setRelacionamentoSaving}
                     colunas={colunasPorChave('config_colunas_equipe')}
                     colunasMembros={colunasPorChave('config_colunas_equipe_membro')}
-                    filtroDoLookup={filtroDoReferenciaLookup}
+                    configLookup={(colecao) => configLookup(colecao as EntidadeLookup, true)}
+                    adicionarPeloLookup={(colecao, fecharLookup, aoCriar) => botaoAdicionarDoLookup(colecao as DestinoCadastro, fecharLookup, aoCriar)}
+                    onAssumirAtivos={(equipe) => { void openAssumirAtivosModal(equipe, 'equipe'); }}
+                    {...filtroSalvoDaTela('equipe')}
                   />
                 ) : pjManageSelection === 'pessoasJuridicas' ? (
                   <PessoaJuridicaListView
@@ -12413,7 +12822,7 @@ export default function Home() {
                     sortColumn={categoriaSortColumn}
                     sortAsc={categoriaSortAsc}
                     onSortChange={handleCategoriaSortChange}
-                    {...colunasPorIndice('config_colunas_pat_categoria')}
+                    {...colunasPorIndice('config_colunas_categoria')}
                   />
                 ) : ativoManageSelection === 'manutencoes' ? (
                   <ManutencaoListView
@@ -12476,7 +12885,7 @@ export default function Home() {
                     hasNextRecord={ativoDetalheIndex >= 0 && ativoDetalheIndex < filteredSortedAtivos.length - 1}
                     onVoltar={fecharDetalheDoAtivo}
                     auditAutor={auditAutor}
-                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo_responsavel')}
+                    campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'ativo_responsavel')}
                     onOpenAudit={openAtivoResponsavelAuditModal}
                     onOpenAuditAtivo={() => openAtivoAuditModal(ativoDetalhe.id)}
                     resolverNomeAutor={resolverNomeAutorExibicao}
@@ -12490,6 +12899,12 @@ export default function Home() {
                       openEnviarManutPrestadorLookup('ativoResponsavel');
                     }}
                     onViewColaborador={(seq) => openColaboradorView(seq)}
+                    equipes={equipes}
+                    nomeEquipe={(seq) => (seq ? equipes.find((e) => e.nr_sequencia === seq)?.ds_equipe ?? '' : '')}
+                    onOpenEquipeLookup={(aoSelecionar) => {
+                      equipeLookupCallbackRef.current = aoSelecionar;
+                      setEquipeLookupAberto(true);
+                    }}
                     manutencoes={manutencoes}
                     nomePrestador={(seq) => {
                       if (!seq) return '';
@@ -12595,7 +13010,7 @@ export default function Home() {
                     onOpenPessoaFisicaLookup={(aoSelecionar) => {
                       // Mesmo lookup da aba Responsáveis: devolve a sequência pelo retorno.
                       alunoResponsavelLookupCallbackRef.current = aoSelecionar;
-                      openAlunoPessoaFisicaLookup('responsavel');
+                      openAlunoPessoaFisicaLookup('responsavelFiltro');
                     }}
                   />
                 ) : (
@@ -12629,10 +13044,11 @@ export default function Home() {
                 ) : relatorioView === 'builder' ? (
                   <div className="flex flex-col h-full">
                     <RelatorioBuilder
-                      key={`rel-${relatorioEditingId ?? 'new'}-${relatorioBandasMode ? 'bandas' : 'form'}`}
+                      key={`rel-${relatorioEditingId ?? `new${relatorioNovoVez}`}-${relatorioBandasMode ? 'bandas' : 'form'}`}
                       relatorio={relatorioForm}
                       viewMode={relatorioBandasMode ? 'bandas' : 'form'}
                       onSave={handleRelatorioSave}
+                      onSaveAndAdd={permissoesRelatorio.adicionar ? (dados) => { void salvarEAdicionar(() => handleRelatorioSave(dados), handleRelatorioNewForm); } : undefined}
                       onCancel={closeRelatorioBuilder}
                       saving={relatorioSubmitting}
                       manageSelection={relatorioManageSelection}
@@ -13318,7 +13734,7 @@ export default function Home() {
                     onOpenPessoaFisicaLookup={(aoSelecionar) => {
                       // Mesmo lookup da aba Responsáveis: devolve a sequência pelo retorno.
                       alunoResponsavelLookupCallbackRef.current = aoSelecionar;
-                      openAlunoPessoaFisicaLookup('responsavel');
+                      openAlunoPessoaFisicaLookup('responsavelFiltro');
                     }}
                   />
                 ) : (
@@ -13353,9 +13769,9 @@ export default function Home() {
                   selectOptions={PATRIMONIO_SELECT_OPTIONS.filter((o) => (o.value !== 'manutencoes' || permissoesPatrimonio.acessarManutencao))}
                   fieldInfos={CATEGORIA_ATIVO_FIELD_INFOS}
                   descFieldKey="ds_categoria"
-                  collectionName="pat_categoria"
+                  collectionName="categoria"
                   showObservacao
-                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_categoria')}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'categoria')}
                   campoErros={categoriaCampoErros}
                 />
               ) : activeSection === "patrimonio" && ativoManageSelection === 'manutencoes' ? (
@@ -13389,7 +13805,7 @@ export default function Home() {
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
-                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_manutencao')}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'manutencao')}
                   campoErros={manutencaoCampoErros}
                 />
               ) : activeSection === "patrimonio" ? (
@@ -13421,7 +13837,7 @@ export default function Home() {
                   manageSelection={ativoManageSelection}
                   onManageSelectionChange={handlePatrimonioManageSelectionChange}
                   allowedSubmodulos={allowedPatrimonioSubmodulos}
-                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'pat_ativo')}
+                  campoRegras={campoRegrasDaColecao(campoRegrasAtivas, 'ativo')}
                   campoErros={ativoCampoErros}
                   ultimaManutencaoSeq={ativos.find((a) => a.id === ativoEditingId)?.nr_seq_ultima_manutencao ?? null}
                   onViewManutencao={(seq) => openManutencaoView(seq)}
@@ -13714,7 +14130,7 @@ export default function Home() {
               }
               // Um colaborador assume os ativos de outro: só com um selecionado e não desligado.
               if (permissoesEA.assumirAtivosColaborador && alvosColab.length === 1 && colaboradorClicado.ie_status !== 'D') {
-                items.push({ label: 'Assumir ativos de', onClick: () => { openAssumirAtivosModal(colaboradorClicado); setContextMenu(null); } });
+                items.push({ label: 'Ativos', onClick: () => { void openAssumirAtivosModal(colaboradorClicado); setContextMenu(null); } });
               }
               return items.length > 0 ? items : undefined;
             }
@@ -14010,6 +14426,7 @@ export default function Home() {
                     setView('list');
                     return;
                   }
+                  abandonarDesvio();
                   setActiveSection(section);
                   // Ao voltar para uma função, restaura a tela em que o usuário
                   // estava (formulário aberto, se houver) em vez de sempre cair
@@ -14345,13 +14762,26 @@ export default function Home() {
               )}
               {/* Cada função aberta fica montada (só a ativa aparece): ao voltar para ela,
                   o usuário continua exatamente de onde parou. Fechar (x no menu) desmonta. */}
-              {secoesAbertas.filter((secao) => allowedSections.includes(secao)).map((secao) => (
-                <div key={secao} className={secao === activeSection ? "flex-1 flex flex-col min-h-0" : "hidden"}>
-                  <SecaoPaginacaoContext.Provider value={secao}>
-                    {renderConteudoSecao(secao, secao === activeSection ? view : (sectionViews[secao] ?? 'list'))}
-                  </SecaoPaginacaoContext.Provider>
-                </div>
-              ))}
+              {secoesAbertas.filter((secao) => allowedSections.includes(secao)).map((secao) => {
+                const viewDaSecao = secao === activeSection ? view : (sectionViews[secao] ?? 'list');
+                // "Adicionar" de um lookup para outro item da mesma função, saindo de uma tela que
+                // guarda o formulário no componente: ela continua montada (escondida) e o
+                // cadastro aparece ao lado; na volta, ela reaparece como estava.
+                const origemEscondida = !!desvio && desvio.origemInterna && desvio.origemSecao === secao
+                  && DESTINOS_CADASTRO[desvio.destino].secao === secao;
+                return (
+                  <div key={secao} className={secao === activeSection ? "flex-1 flex flex-col min-h-0" : "hidden"}>
+                    <SecaoPaginacaoContext.Provider value={secao}>
+                      <div className={origemEscondida ? "hidden" : "contents"}>
+                        {origemEscondida
+                          ? renderConteudoSecao(secao, desvio.origemView, desvio.origemSelecao)
+                          : renderConteudoSecao(secao, viewDaSecao)}
+                      </div>
+                      {origemEscondida && <div className="contents">{renderConteudoSecao(secao, viewDaSecao)}</div>}
+                    </SecaoPaginacaoContext.Provider>
+                  </div>
+                );
+              })}
             </>
           )}
         </div>
@@ -15182,67 +15612,67 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
+                  <RotuloCampo texto="Sequência" colecao="ativo" campo="nr_sequencia" />
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_sequencia} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_externo" />
+                  <RotuloCampo texto="Código externo" colecao="ativo" campo="cd_externo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.cd_externo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, cd_externo: e.target.value })} />
                 </div>
                 <div className="sm:col-span-6">
-                  <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
+                  <RotuloCampo texto="Descrição" colecao="ativo" campo="ds_ativo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ativo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ativo: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Modelo" colecao="pat_ativo" campo="ds_modelo" />
+                  <RotuloCampo texto="Modelo" colecao="ativo" campo="ds_modelo" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_modelo} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_modelo: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Nº de série" colecao="pat_ativo" campo="nr_serie" />
+                  <RotuloCampo texto="Nº de série" colecao="ativo" campo="nr_serie" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_serie} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_serie: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="QR Code" colecao="pat_ativo" campo="ds_qr_code" />
+                  <RotuloCampo texto="QR Code" colecao="ativo" campo="ds_qr_code" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_qr_code} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_qr_code: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Código de barras" colecao="pat_ativo" campo="ds_codigo_barras" />
+                  <RotuloCampo texto="Código de barras" colecao="ativo" campo="ds_codigo_barras" />
                   <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_codigo_barras} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_codigo_barras: e.target.value })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Data aquisição (início)" colecao="pat_ativo" campo="dt_aquisicao" />
+                  <RotuloCampo texto="Data aquisição (início)" colecao="ativo" campo="dt_aquisicao" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_aquisicao_inicio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_aquisicao_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Data aquisição (fim)" colecao="pat_ativo" campo="dt_aquisicao" />
+                  <RotuloCampo texto="Data aquisição (fim)" colecao="ativo" campo="dt_aquisicao" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_aquisicao_fim} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_aquisicao_fim: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Data garantia (início)" colecao="pat_ativo" campo="dt_garantia" />
+                  <RotuloCampo texto="Data garantia (início)" colecao="ativo" campo="dt_garantia" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_garantia_inicio} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_garantia_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Data garantia (fim)" colecao="pat_ativo" campo="dt_garantia" />
+                  <RotuloCampo texto="Data garantia (fim)" colecao="ativo" campo="dt_garantia" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.dt_garantia_fim} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, dt_garantia_fim: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
+                  <RotuloCampo texto="Status" colecao="ativo" campo="ie_status" />
                   <Select value={ativoFilterForm.ie_status} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, ie_status: v })} options={[{ value: 'T', label: '---' }, ...ATIVO_STATUS_OPTIONS]} showPlaceholder={false} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Categoria" colecao="pat_ativo" campo="nr_seq_categoria" />
+                  <RotuloCampo texto="Categoria" colecao="ativo" campo="nr_seq_categoria" />
                   <Select value={ativoFilterForm.nr_seq_categoria} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_categoria: v })} options={cgFilterOptions(categoriasAtivos, (op) => op.ds_categoria)} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Localização" colecao="pat_ativo" campo="nr_seq_localizacao" />
+                  <RotuloCampo texto="Localização" colecao="ativo" campo="nr_seq_localizacao" />
                   <Select value={ativoFilterForm.nr_seq_localizacao} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_localizacao: v })} options={cgFilterOptions(localizacoes, (op) => op.ds_localizacao)} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Marca" colecao="pat_ativo" campo="nr_seq_marca" />
+                  <RotuloCampo texto="Marca" colecao="ativo" campo="nr_seq_marca" />
                   <Select value={ativoFilterForm.nr_seq_marca} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_marca: v })} options={cgFilterOptions(marcas, (op) => op.ds_marca)} visibleOptions={6} forceOpenUp />
                 </div>
                 <div className="sm:col-span-12">
-                  <RotuloCampo texto="Responsável" colecao="pat_ativo" campo="responsaveis" />
+                  <RotuloCampo texto="Responsável" colecao="ativo" campo="responsaveis" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_responsavel} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_responsavel: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -15263,7 +15693,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-12">
-                  <RotuloCampo texto="Fornecedor" colecao="pat_ativo" campo="nr_seq_fornecedor" />
+                  <RotuloCampo texto="Fornecedor" colecao="ativo" campo="nr_seq_fornecedor" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.nr_seq_fornecedor} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_fornecedor: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -15284,20 +15714,20 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Endereço MAC" colecao="pat_ativo" campo="ds_endereco_mac" />
+                  <RotuloCampo texto="Endereço MAC" colecao="ativo" campo="ds_endereco_mac" />
                   <input maxLength={12} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_endereco_mac} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_endereco_mac: e.target.value.replace(/[^a-zA-Z0-9]/g, '').toUpperCase() })} />
                 </div>
-                <div className="sm:col-span-4"><RotuloCampo texto="IPv4" colecao="pat_ativo" campo="ds_ip" />
+                <div className="sm:col-span-4"><RotuloCampo texto="IPv4" colecao="ativo" campo="ds_ip" />
                    <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={ativoFilterForm.ds_ip} onChange={(e) => setAtivoFilterForm({ ...ativoFilterForm, ds_ip: applyIPv4Mask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-4">
-                  <RotuloCampo texto="Sistema operacional" colecao="pat_ativo" campo="nr_seq_sistema_operacional" />
+                  <RotuloCampo texto="Sistema operacional" colecao="ativo" campo="nr_seq_sistema_operacional" />
                   <Select value={ativoFilterForm.nr_seq_sistema_operacional} onChange={(v) => setAtivoFilterForm({ ...ativoFilterForm, nr_seq_sistema_operacional: v })} options={sistemasOperacionais.filter((s) => s.ie_status === 'A').sort((a, b) => (a.ds_sistema_operacional ?? '').localeCompare(b.ds_sistema_operacional ?? '', 'pt-BR')).map((s) => ({ value: String(s.nr_sequencia), label: s.ds_sistema_operacional ?? '' }))} visibleOptions={6} forceOpenUp />
                 </div>
               </div>
             </div>
             <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pat_ativo', { form: ativoFilterForm }, applyAtivoFilter); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('ativo', { form: ativoFilterForm }, applyAtivoFilter); }} />
               <button type="button" onClick={clearAtivoFilter} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Limpar</button>
               <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
@@ -15319,11 +15749,11 @@ export default function Home() {
             <div className="flex-1 overflow-y-auto">
               <div className="grid gap-[15px] sm:grid-cols-12 p-[15px]">
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Sequência" colecao="pat_manutencao" campo="nr_sequencia" />
+                  <RotuloCampo texto="Sequência" colecao="manutencao" campo="nr_sequencia" />
                   <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_sequencia} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_sequencia: e.target.value })} />
                 </div>
                 <div className="sm:col-span-9">
-                  <RotuloCampo texto="Ativo" colecao="pat_manutencao" campo="nr_seq_ativo" />
+                  <RotuloCampo texto="Ativo" colecao="manutencao" campo="nr_seq_ativo" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_ativo} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_ativo: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -15344,7 +15774,7 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-12">
-                  <RotuloCampo texto="Prestador de serviço" colecao="pat_manutencao" campo="nr_seq_prestador_servico" />
+                  <RotuloCampo texto="Prestador de serviço" colecao="manutencao" campo="nr_seq_prestador_servico" />
                   <div className="flex items-center gap-2 flex-nowrap">
                     <div style={{ width: 110 }}>
                       <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.nr_seq_prestador_servico} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, nr_seq_prestador_servico: e.target.value.replace(/\D/g, '').slice(0, 10) })} />
@@ -15365,34 +15795,34 @@ export default function Home() {
                   </div>
                 </div>
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Data envio (início)" colecao="pat_manutencao" campo="dt_envio" />
+                  <RotuloCampo texto="Data envio (início)" colecao="manutencao" campo="dt_envio" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_envio_inicio} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_envio_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Data envio (fim)" colecao="pat_manutencao" campo="dt_envio" />
+                  <RotuloCampo texto="Data envio (fim)" colecao="manutencao" campo="dt_envio" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_envio_fim} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_envio_fim: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Data término (início)" colecao="pat_manutencao" campo="dt_termino" />
+                  <RotuloCampo texto="Data término (início)" colecao="manutencao" campo="dt_termino" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_termino_inicio} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_termino_inicio: applyDateMask(e.target.value) })} />
                 </div>
                 <div className="sm:col-span-3">
-                  <RotuloCampo texto="Data término (fim)" colecao="pat_manutencao" campo="dt_termino" />
+                  <RotuloCampo texto="Data término (fim)" colecao="manutencao" campo="dt_termino" />
                   <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.dt_termino_fim} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, dt_termino_fim: applyDateMask(e.target.value) })} />
                 </div><div className="sm:col-span-4">
-                   <RotuloCampo texto="Valor total (menor)" colecao="pat_manutencao" campo="vl_total" />
+                   <RotuloCampo texto="Valor total (menor)" colecao="manutencao" campo="vl_total" />
                    <input inputMode="decimal" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.vl_total_menor} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, vl_total_menor: e.target.value.replace(/[^\d.,]/g, '') })} />
                 </div><div className="sm:col-span-4">
-                   <RotuloCampo texto="Valor total (maior)" colecao="pat_manutencao" campo="vl_total" />
+                   <RotuloCampo texto="Valor total (maior)" colecao="manutencao" campo="vl_total" />
                    <input inputMode="decimal" className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoFilterForm.vl_total_maior} onChange={(e) => setManutencaoFilterForm({ ...manutencaoFilterForm, vl_total_maior: e.target.value.replace(/[^\d.,]/g, '') })} />
                 </div><div className="sm:col-span-4">
-                   <RotuloCampo texto="Status" colecao="pat_manutencao" campo="ie_status_manutencao" />
+                   <RotuloCampo texto="Status" colecao="manutencao" campo="ie_status_manutencao" />
                    <Select value={manutencaoFilterForm.ie_status_manutencao} onChange={(v) => setManutencaoFilterForm({ ...manutencaoFilterForm, ie_status_manutencao: v })} options={[{ value: 'T', label: '---' }, ...MANUTENCAO_STATUS_OPTIONS]} showPlaceholder={false} visibleOptions={6} forceOpenUp />
                 </div>
               </div>
             </div>
             <div className="flex-shrink-0 flex justify-end gap-2 px-[15px] pb-[15px] pt-[15px]">
-              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('pat_manutencao', { form: manutencaoFilterForm }, applyManutencaoFilter); }} />
+              <BotaoSalvarFiltro onClick={() => { void salvarFiltroDaTela('manutencao', { form: manutencaoFilterForm }, applyManutencaoFilter); }} />
               <button type="button" onClick={clearManutencaoFilter} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>Limpar</button>
               <button type="submit" className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' }}>Filtrar</button>
             </div>
@@ -15873,14 +16303,8 @@ export default function Home() {
 
       {/* ── Lookup: Usuário (filtro de Relatórios: Usuário criação / Usuário alteração) ── */}
       {relatorioUsuarioLookup && (
-        <ReferenciaLookupModal
-          titulo="Usuário"
-          colecao="usuario"
-          campoDescricao="ds_usuario"
-          registros={usuarios.map((u) => ({ nr_sequencia: u.nr_sequencia, descricao: u.ds_usuario || `#${u.nr_sequencia}`, ie_status: u.ie_status === 'I' ? 'Inativo' : 'Ativo' }))}
-          colunas={[{ key: 'nr_sequencia', label: '#', dataClass: 'text-right' }, { key: 'descricao', label: 'Usuário' }, { key: 'ie_status', label: 'Status' }]}
-          filtros={[{ key: 'descricao', rotulo: 'Usuário', campo: 'ds_usuario' }]}
-          {...filtroDoReferenciaLookup('usuario')}
+        <LookupModal
+          {...configLookup('usuario')}
           onClose={() => setRelatorioUsuarioLookup(null)}
           onSelect={(item) => {
             setRelatorioFiltroExtra((f) => ({ ...f, [relatorioUsuarioLookup]: String(item.nr_sequencia) }));
@@ -15896,9 +16320,9 @@ export default function Home() {
           filterForm={categoriaFilterForm}
           setFilterForm={setCategoriaFilterForm}
           onSubmit={handleCategoriaFilterSubmit}
-          onSalvarFiltro={() => { void salvarFiltroDaTela('pat_categoria', { form: categoriaFilterForm }, () => handleCategoriaFilterSubmit(EVENTO_SUBMIT)); }}
+          onSalvarFiltro={() => { void salvarFiltroDaTela('categoria', { form: categoriaFilterForm }, () => handleCategoriaFilterSubmit(EVENTO_SUBMIT)); }}
           onClear={clearCategoriaFilter}
-          colecao="pat_categoria"
+          colecao="categoria"
           campoDescricao="ds_categoria"
         />
       )}
@@ -16649,94 +17073,32 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Modal: Assumir ativos de (Colaboradores) ── */}
+      {/* ── Ativos (Colaboradores e Equipes): lookup de ativos com seleção múltipla; os dele já marcados ── */}
       {assumirAtivosDestino && (() => {
-        const nrOrigem = Number(assumirAtivosOrigem) || undefined;
-        const nomeOrigem = nomeColaboradorPorSeq(nrOrigem);
+        const equipe = assumirAtivosTipo === 'equipe';
+        const campo = equipe ? 'nr_seq_equipe' : 'nr_seq_colaborador';
+        const nr = assumirAtivosDestino.nr_sequencia;
+        const nome = equipe ? equipes.find((e) => e.nr_sequencia === nr)?.ds_equipe ?? '' : nomeColaboradorPorSeq(nr);
+        const base = configLookup('ativo');
         return (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-            <div className="absolute inset-0 bg-black/40" onClick={closeAssumirAtivosModal} />
-            <form
-              onSubmit={handleAssumirAtivosSubmit}
-              className="relative w-full max-w-[560px] bg-white modal-dark p-0 shadow-xl shadow-black/20"
-            >
-              <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
-                <h2 className="text-base font-semibold" style={{ color: '#000' }}>Assumir ativos de</h2>
-                <button
-                  type="button"
-                  onClick={closeAssumirAtivosModal}
-                  className="inline-flex h-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0 focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2"
-                  aria-label="Fechar"
-                >
-                  <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                    <path d="M18 6 6 18" />
-                    <path d="M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-
-              <div className="grid gap-[15px] p-[15px]">
-                <div>
-                  <RotuloCampo texto="Colaborador" colecao="pat_ativo_responsavel" campo="nr_seq_colaborador" prefixo={<RequiredAsterisk />} />
-                  <div className="flex items-center gap-2 flex-nowrap">
-                    <div style={{ width: 110 }}>
-                      <input
-                        inputMode="numeric"
-                        maxLength={10}
-                        className={`w-full rounded-[3px] border ${assumirAtivosErro ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none`}
-                        value={assumirAtivosOrigem}
-                        onChange={(e) => { setAssumirAtivosOrigem(e.target.value.replace(/\D/g, '').slice(0, 10)); setAssumirAtivosErro(false); }}
-                      />
-                    </div>
-                    <div className="relative flex-1 min-w-0">
-                      <input readOnly className={`w-full rounded-[3px] border ${assumirAtivosErro ? 'border-red-500' : 'border-slate-300'} bg-slate-100 px-2 pr-[62px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none`} value={nomeOrigem} />
-                      <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
-                        {nrOrigem && nomeOrigem && (
-                          <button type="button" onClick={() => openColaboradorView(nrOrigem)} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Visualizar colaborador">
-                            <ViewIcon size={16} />
-                          </button>
-                        )}
-                        <button type="button" onClick={() => openEnviarManutPrestadorLookup('assumirAtivos')} className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup" aria-label="Localizar colaborador">
-                          <SearchIcon size={16} />
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-                <div>
-                  <RotuloCampo texto="Modo" colecao="pat_ativo_responsavel" campo="ie_modo" tipo="string" prefixo={<RequiredAsterisk />} />
-                  <Select
-                    value={assumirAtivosModo}
-                    onChange={(v) => { setAssumirAtivosModo(v as '' | 'adicionar' | 'substituir'); setAssumirAtivosModoErro(false); }}
-                    options={[
-                      { value: 'adicionar', label: 'Adicionar' },
-                      { value: 'substituir', label: 'Substituir' },
-                    ]}
-                    error={assumirAtivosModoErro}
-                  />
-                </div>
-              </div>
-
-              <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
-                <button
-                  type="button"
-                  onClick={closeAssumirAtivosModal}
-                  className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                  style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}
-                >
-                  Cancelar
-                </button>
-                <button
-                  type="submit"
-                  disabled={assumirAtivosSaving}
-                  className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center disabled:cursor-default disabled:opacity-60"
-                  style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-                >
-                  Salvar
-                </button>
-              </div>
-            </form>
-          </div>
+          <LookupModal
+            {...base}
+            titulo={`Assumir ativos: ${nome || nr}`}
+            // O filtro de Ativos e, no fim, Responsável: --- todos, Sim os marcados, Não os desmarcados
+            // (as caixas como estavam ao clicar em Filtrar).
+            campos={[...base.campos, { key: 'ie_responsavel', rotulo: 'Responsável', campo, colecao: 'ativo_responsavel', tipo: 'opcoes', opcoes: [{ value: 'S', label: 'Sim' }, { value: 'N', label: 'Não' }] }]}
+            vazio={{ ...base.vazio, ie_responsavel: '' }}
+            filtrar={(a: Ativo, f, marcados) => base.filtrar(a, f, marcados)
+              && (f.ie_responsavel === 'S' ? marcados.has(a.nr_sequencia) : f.ie_responsavel === 'N' ? !marcados.has(a.nr_sequencia) : true)}
+            {...filtroDoReferenciaLookup('assumir_ativos')}
+            // Abre com os ativos de que ele já é responsável marcados; desmarcar = deixar de ser.
+            multipla={{
+              iniciais: responsaveisAtivos.filter((r) => r[campo] === nr).map((r) => r.nr_seq_ativo),
+              onConfirmar: (selecionados) => { void handleAssumirAtivosConfirmar(selecionados as Ativo[]); },
+              salvando: assumirAtivosSaving,
+            }}
+            onClose={closeAssumirAtivosModal}
+          />
         );
       })()}
 
@@ -16923,7 +17285,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <RotuloCampo texto="Data" colecao="pat_ativo" campo="dt_status" prefixo={asteriscoModal(modalAtivoStatus, 'dt_status')} />
+                <RotuloCampo texto="Data" colecao="ativo" campo="dt_status" prefixo={asteriscoModal(modalAtivoStatus, 'dt_status')} />
                 <input
                   type="text"
                   inputMode="numeric"
@@ -16936,7 +17298,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                  <RotuloCampo texto="Motivo" colecao="pat_ativo" campo="ds_motivo_status" prefixo={asteriscoModal(modalAtivoStatus, 'ds_motivo_status')} />
+                  <RotuloCampo texto="Motivo" colecao="ativo" campo="ds_motivo_status" prefixo={asteriscoModal(modalAtivoStatus, 'ds_motivo_status')} />
                   <textarea
                     rows={3}
                     disabled={regraModal(modalAtivoStatus, 'ds_motivo_status') === 'D'}
@@ -16996,7 +17358,7 @@ export default function Home() {
 
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <RotuloCampo texto="Localização" colecao="pat_ativo" campo="nr_seq_localizacao" prefixo={<RequiredAsterisk />} />
+                <RotuloCampo texto="Localização" colecao="ativo" campo="nr_seq_localizacao" prefixo={<RequiredAsterisk />} />
                 <Select
                   value={ativoTransferirLocal}
                   onChange={(v) => { setAtivoTransferirLocal(v); setAtivoTransferirErro(false); }}
@@ -17006,7 +17368,7 @@ export default function Home() {
                 />
               </div>
               <div>
-                <RotuloCampo texto="Motivo" colecao="pat_ativo" campo="ds_motivo_transferencia" prefixo={asteriscoModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia')} />
+                <RotuloCampo texto="Motivo" colecao="ativo" campo="ds_motivo_transferencia" prefixo={asteriscoModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia')} />
                 <textarea
                   disabled={regraModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia') === 'D'}
                   className={classeCampoModal(MODAL_ATIVO_TRANSFERIR, 'ds_motivo_transferencia', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
@@ -17052,11 +17414,11 @@ export default function Home() {
             </div>
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <RotuloCampo texto="Data" colecao="pat_manutencao" campo="dt_envio" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio')} />
+                <RotuloCampo texto="Data" colecao="manutencao" campo="dt_envio" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio')} />
                 <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio') === 'D'} className={classeCampoModal(MODAL_ENVIAR_MANUTENCAO, 'dt_envio', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} value={enviarManutForm.dt_data} onChange={(e) => setEnviarManutForm({ ...enviarManutForm, dt_data: applyDateMask(e.target.value) })} />
               </div>
               <div>
-                <RotuloCampo texto="Prestador de serviço" colecao="pat_manutencao" campo="nr_seq_prestador_servico" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico')} />
+                <RotuloCampo texto="Prestador de serviço" colecao="manutencao" campo="nr_seq_prestador_servico" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico')} />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <input inputMode="numeric" maxLength={10} disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico') === 'D'} className={classeCampoModal(MODAL_ENVIAR_MANUTENCAO, 'nr_seq_prestador_servico', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none")} value={enviarManutForm.nr_seq_prestador_servico ? String(enviarManutForm.nr_seq_prestador_servico) : ''} onChange={(e) => { const raw = e.target.value.replace(/\D/g, '').slice(0, 10); setEnviarManutForm({ ...enviarManutForm, nr_seq_prestador_servico: raw ? Number(raw) : undefined }); }} />
@@ -17077,7 +17439,7 @@ export default function Home() {
                 </div>
               </div>
               <div>
-                <RotuloCampo texto="Motivo" colecao="pat_manutencao" campo="ds_motivo_manutencao" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao')} />
+                <RotuloCampo texto="Motivo" colecao="manutencao" campo="ds_motivo_manutencao" prefixo={asteriscoModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao')} />
                 <textarea
                   disabled={regraModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao') === 'D'}
                   className={classeCampoModal(MODAL_ENVIAR_MANUTENCAO, 'ds_motivo_manutencao', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}
@@ -17095,100 +17457,62 @@ export default function Home() {
         </div>
       )}
 
-      {/* ── Lookup: Localizar prestador de serviço ── */}
+      {/* ── Lookup: Colaborador / Fornecedor / Prestador de Serviço (os dois últimos, só os ativos) ── */}
       {enviarManutPrestadorLookupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={closeEnviarManutPrestadorLookup} />
-          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
-            <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
-                <div className="p-[15px] overflow-auto flex-1 min-h-0">
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>{lookupColaboradorFornecedor ? 'Fornecedor' : lookupColaboradorTodos ? 'Colaborador' : 'Prestador de Serviço'}</h2>
-                    <button type="button" onClick={closeEnviarManutPrestadorLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar prestador">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <RotuloCampo texto="Sequência" colecao="colaborador" campo="nr_sequencia" />
-                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_sequencia} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_sequencia: e.target.value })} />
-                    </div>
-                    <div>
-                      <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
-                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.ds_nome} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, ds_nome: e.target.value })} />
-                    </div>
-                    <div>
-                      <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
-                      <input inputMode="numeric" maxLength={14} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_cpf} onChange={(e) => setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_cpf: applyCpfMask(e.target.value) })} />
-                    </div>
-                    <div>
-                      <RotuloCampo texto="CNPJ" colecao="pessoa_juridica" campo="nr_cnpj" />
-                      <input inputMode="numeric" maxLength={18} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={enviarManutPrestLookupForm.nr_cnpj} onChange={(e) => {
-                        const digits = e.target.value.replace(/\D/g, '').slice(0, 14);
-                        let masked = digits;
-                        if (digits.length > 2) masked = `${digits.slice(0, 2)}.${digits.slice(2)}`;
-                        if (digits.length > 5) masked = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5)}`;
-                        if (digits.length > 8) masked = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8)}`;
-                        if (digits.length > 12) masked = `${digits.slice(0, 2)}.${digits.slice(2, 5)}.${digits.slice(5, 8)}/${digits.slice(8, 12)}-${digits.slice(12)}`;
-                        setEnviarManutPrestLookupForm({ ...enviarManutPrestLookupForm, nr_cnpj: masked });
-                      }} />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup(idLookupColaborador(lookupColaboradorFornecedor, lookupColaboradorTodos), enviarManutPrestLookupForm, applyEnviarManutPrestadorLookup)} />
-                  <button type="button" onClick={clearEnviarManutPrestadorLookup} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}>Limpar</button>
-                  <button type="button" onClick={applyEnviarManutPrestadorLookup} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Filtrar</button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
-                {!enviarManutPrestLookupApplied || enviarManutFilteredPrestadores.length === 0 ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
-                ) : (                   <PrestadorLookupTable {...colunasPorIndice('config_colunas_lookup_prestador')}
-                     prestadores={enviarManutFilteredPrestadores}
-                     pessoasFisicas={pessoasFisicas}
-                     pessoasJuridicas={pessoasJuridicas}
-                     onSelect={handleEnviarManutPrestadorSelect}
-                   />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <LookupModal
+          key={lookupColaboradorFornecedor ? 'fornecedor' : lookupColaboradorTodos ? 'colaborador' : 'prestador_servico'}
+          {...configLookup(lookupColaboradorFornecedor ? 'fornecedor' : lookupColaboradorTodos ? 'colaborador' : 'prestador_servico', !lookupColaboradorTodos)}
+          onAdicionar={adicionarNoLookupColaborador()}
+          onSelect={(registro) => handleEnviarManutPrestadorSelect(registro as Colaborador)}
+          onClose={closeEnviarManutPrestadorLookup}
+        />
+      )}
+
+      {/* ── Lookup: Equipe (responsável do ativo; só as ativas) ── */}
+      {equipeLookupAberto && (
+        <LookupModal
+          {...configLookup('equipe', true)}
+          onAdicionar={(() => {
+            const callback = equipeLookupCallbackRef.current;
+            return botaoAdicionarDoLookup('equipe', () => setEquipeLookupAberto(false), (nr) => callback?.(nr));
+          })()}
+          onSelect={(registro) => {
+            equipeLookupCallbackRef.current?.(registro.nr_sequencia);
+            equipeLookupCallbackRef.current = null;
+            setEquipeLookupAberto(false);
+          }}
+          onClose={() => setEquipeLookupAberto(false)}
+        />
       )}
 
       {/* ── Lookup: Curso / Período letivo / Localização (formulário de Turmas) ── */}
-      {turmaLookupCampo && (() => {
-        const ativos = <T extends { nr_sequencia: number; ie_status?: string }>(lista: T[], descricao: (item: T) => string | undefined) =>
-          lista
-            .filter((item) => String(item.ie_status ?? 'A').toUpperCase() !== 'I')
-            .map((item) => ({ nr_sequencia: item.nr_sequencia, descricao: descricao(item) || `#${item.nr_sequencia}` }));
-        const config = {
-          nr_seq_curso: { titulo: 'Curso', colecao: 'curso', campoDescricao: 'ds_curso', registros: ativos(cursos, (c) => c.ds_curso) },
-          nr_seq_periodo_letivo: { titulo: 'Período Letivo', colecao: 'periodo_letivo', campoDescricao: 'ds_periodo_letivo', registros: ativos(periodosLetivos, (p) => p.ds_periodo_letivo) },
-          nr_seq_localizacao: { titulo: 'Localização', colecao: 'cg_localizacao', campoDescricao: 'ds_localizacao', registros: ativos(localizacoes, (l) => l.ds_localizacao) },
-        }[turmaLookupCampo];
-        return (
-          <ReferenciaLookupModal
-            {...config}
-            {...filtroDoReferenciaLookup(config.colecao)}
-            onClose={() => setTurmaLookupCampo(null)}
-            onSelect={(item) => {
-              setTurmaExtra((t) => ({ ...t, [turmaLookupCampo]: String(item.nr_sequencia) }));
-              setTurmaLookupCampo(null);
-            }}
-          />
-        );
-      })()}
+      {turmaLookupCampo && (
+        <LookupModal
+          key={turmaLookupCampo}
+          {...configLookup(turmaLookupCampo === 'nr_seq_curso' ? 'curso' : turmaLookupCampo === 'nr_seq_periodo_letivo' ? 'periodo_letivo' : 'localizacao', true)}
+          onAdicionar={botaoAdicionarDoLookup(
+            turmaLookupCampo === 'nr_seq_curso' ? 'curso' : turmaLookupCampo === 'nr_seq_periodo_letivo' ? 'periodo_letivo' : 'localizacao',
+            () => setTurmaLookupCampo(null),
+            (nr) => { const campo = turmaLookupCampo; setTurmaExtra((t) => ({ ...t, [campo]: String(nr) })); },
+          )}
+          onClose={() => setTurmaLookupCampo(null)}
+          onSelect={(item) => {
+            setTurmaExtra((t) => ({ ...t, [turmaLookupCampo]: String(item.nr_sequencia) }));
+            setTurmaLookupCampo(null);
+          }}
+        />
+      )}
 
       {/* ── Lookup: Turma / Disciplina (formulário de Turmas x Disciplinas) ── */}
       {turmaDisciplinaLookupCampo && (
-        <ReferenciaLookupModal
-          {...(turmaDisciplinaLookupCampo === 'nr_seq_turma'
-            ? { titulo: 'Turma', colecao: 'turma', campoDescricao: 'ds_turma', registros: turmas.map((t) => ({ nr_sequencia: t.nr_sequencia, descricao: t.ds_turma || `#${t.nr_sequencia}` })) }
-            : { titulo: 'Disciplina', colecao: 'disciplina', campoDescricao: 'ds_disciplina', registros: disciplinas.map((d) => ({ nr_sequencia: d.nr_sequencia, descricao: d.ds_disciplina || `#${d.nr_sequencia}` })) })}
-          {...filtroDoReferenciaLookup(turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina')}
+        <LookupModal
+          key={turmaDisciplinaLookupCampo}
+          {...configLookup(turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina')}
+          onAdicionar={botaoAdicionarDoLookup(
+            turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina',
+            () => setTurmaDisciplinaLookupCampo(null),
+            (nr) => { const campo = turmaDisciplinaLookupCampo; setTurmaDisciplinaExtra((t) => ({ ...t, [campo]: String(nr) })); },
+          )}
           onClose={() => setTurmaDisciplinaLookupCampo(null)}
           onSelect={(item) => {
             setTurmaDisciplinaExtra((t) => ({ ...t, [turmaDisciplinaLookupCampo]: String(item.nr_sequencia) }));
@@ -17199,35 +17523,11 @@ export default function Home() {
 
       {/* ── Lookup: Turma x Disciplina (formulário e filtro de Cópias) ── */}
       {copiaTurmaDisciplinaLookup && (
-        <ReferenciaLookupModal
-          titulo="Turma x Disciplina"
-          colecao="turma_disciplina"
-          campoDescricao="nr_seq_turma"
-          // Mesmas colunas de Estrutura Acadêmica > Turmas x Disciplinas (só as ativas podem ser escolhidas).
-          colunas={TURMA_DISCIPLINA_COLUMNS.map((c) => ({ key: String(c.key), label: c.label, dataClass: c.dataClass }))}
-          filtros={[
-            // Período letivo da turma: ajuda a achar as turmas x disciplinas do período certo.
-            { key: '_nr_seq_periodo_letivo', rotulo: 'Período letivo', campo: 'nr_seq_periodo_letivo', colecao: 'turma', opcoes: opcoesDeReferencia(periodosLetivos, (p) => p.ds_periodo_letivo, '') },
-            { key: 'nr_seq_turma', rotulo: 'Turma', campo: 'nr_seq_turma' },
-            { key: 'nr_seq_disciplina', rotulo: 'Disciplina', campo: 'nr_seq_disciplina' },
-          ]}
-          {...colunasPorIndice('config_colunas_lookup_turma_disciplina')}
-          {...filtroDoReferenciaLookup('turma_disciplina')}
-          registros={turmasDisciplinas
-            .filter((td) => (td.ie_status ?? 'A') !== 'I')
-            // Período letivo, Curso e Modalidade de ensino vêm da turma.
-            .map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) }))
-            .map((td) => ({
-              ...Object.fromEntries(TURMA_DISCIPLINA_COLUMNS.map((c) => [
-                c.key,
-                // Datas são formatadas pela própria tabela do lookup.
-                String(c.key).startsWith('dt_') ? td[c.key] : formatTurmaDisciplinaCellValue(String(c.key), td[c.key]),
-              ])),
-              id: td.id,
-              nr_sequencia: td.nr_sequencia,
-              descricao: descricaoTurmaDisciplinaPorSeq(td.nr_sequencia),
-              _nr_seq_periodo_letivo: String(turmas.find((t) => t.nr_sequencia === td.nr_seq_turma)?.nr_seq_periodo_letivo ?? ''),
-            }))}
+        <LookupModal
+          {...configLookup('turma_disciplina', true)}
+          onAdicionar={copiaTurmaDisciplinaLookup === 'form'
+            ? botaoAdicionarDoLookup('turma_disciplina', () => setCopiaTurmaDisciplinaLookup(null), (nr) => setCopiaExtra((c) => ({ ...c, nr_seq_turma_disciplina: String(nr) })))
+            : undefined}
           onClose={() => setCopiaTurmaDisciplinaLookup(null)}
           onSelect={(item) => {
             if (copiaTurmaDisciplinaLookup === 'filtro') {
@@ -17242,444 +17542,47 @@ export default function Home() {
 
       {/* ── Lookup: Localizar ativo (manutenções) ── */}
       {manutencaoAtivoLookupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={closeManutencaoAtivoLookup} />
-          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
-            <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
-                <div className="p-[15px] overflow-auto flex-1 min-h-0">
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <h2 className="text-base font-semibold" style={{ color: '#000' }}>Ativo</h2>
-                    <button type="button" onClick={closeManutencaoAtivoLookup} className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0" aria-label="Fechar localizar ativo">
-                      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M18 6 6 18" /><path d="M6 6l12 12" /></svg>
-                    </button>
-                  </div>
-                  <div className="space-y-4">
-                    <div>
-                      <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
-                      <input inputMode="numeric" maxLength={10} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.nr_sequencia} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, nr_sequencia: e.target.value })} />
-                    </div>
-                    <div>
-                      <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
-                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_ativo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_ativo: e.target.value })} />
-                    </div>
-                    <div>
-                      <RotuloCampo texto="Modelo" colecao="pat_ativo" campo="ds_modelo" />
-                      <input className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none" value={manutencaoAtivoLookupForm.ds_modelo} onChange={(e) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ds_modelo: e.target.value })} />
-                    </div>
-                    <div>
-                      <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
-                      <Select
-                        value={manutencaoAtivoLookupForm.ie_status}
-                        onChange={(v) => setManutencaoAtivoLookupForm({ ...manutencaoAtivoLookupForm, ie_status: v })}
-                        options={[
-                          { value: '', label: '---' },
-                          { value: 'E', label: 'Estoque' },
-                          { value: 'O', label: 'Operacional' },
-                        ]}
-                        showPlaceholder={false}
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('ativo', manutencaoAtivoLookupForm, applyManutencaoAtivoLookup)} />
-                  <button type="button" onClick={clearManutencaoAtivoLookup} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}>Limpar</button>
-                  <button type="button" onClick={applyManutencaoAtivoLookup} className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}>Filtrar</button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
-                {!manutencaoAtivoLookupApplied || manutencaoFilteredAtivos.length === 0 ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">Nenhum registro encontrado.</div>
-                ) : (                   <AtivoLookupTable {...colunasPorIndice('config_colunas_lookup_ativo')}
-                     ativos={manutencaoFilteredAtivos}
-                     onSelect={handleManutencaoAtivoSelect}
-                     categoriasAtivos={categoriasAtivos}
-                     marcas={marcas}
-                   />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <LookupModal
+          {...configLookup('ativo', true)}
+          onAdicionar={adicionarNoLookupAtivo()}
+          onSelect={(registro) => handleManutencaoAtivoSelect(registro as Ativo)}
+          onClose={closeManutencaoAtivoLookup}
+        />
       )}
 
       {pessoaFisicaLookupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={closePessoaFisicaLookup} />
-          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
-            <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
-                <div className="p-[15px] overflow-auto flex-1 min-h-0">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Física</h2>
-                  <button
-                    type="button"
-                    onClick={closePessoaFisicaLookup}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
-                    aria-label="Fechar localizar pessoa física"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={10}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={lookupForm.nr_sequencia}
-                      onChange={(e) => setLookupForm({ ...lookupForm, nr_sequencia: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
-                    <input
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={lookupForm.ds_nome}
-                      onChange={(e) => setLookupForm({ ...lookupForm, ds_nome: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={14}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={lookupForm.nr_cpf}
-                      onChange={(e) => setLookupForm({ ...lookupForm, nr_cpf: applyCpfMask(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_fisica', lookupForm, applyLookupFilter)} />
-                  <button
-                    type="button"
-                    onClick={clearLookupFilter}
-                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyLookupFilter}
-                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Filtrar
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
-                {!lookupApplied || filteredLookupPessoasFisicas.length === 0 ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Nenhum registro encontrado.
-                  </div>
-                ) : (
-                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')} columnLookups={pfCgLookups}
-                    pessoasFisicas={filteredLookupPessoasFisicas}
-                    onSelect={handlePessoaFisicaSelect}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <LookupModal
+          {...configLookup('pessoa_fisica')}
+          onAdicionar={adicionarNoLookupPessoaFisicaUsuario()}
+          onSelect={(registro) => handlePessoaFisicaSelect(registro as PessoaFisica)}
+          onClose={closePessoaFisicaLookup}
+        />
       )}
 
       {alunoPessoaFisicaLookupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={closeAlunoPessoaFisicaLookup} />
-          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
-            <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
-                <div className="p-[15px] overflow-auto flex-1 min-h-0">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Física</h2>
-                  <button
-                    type="button"
-                    onClick={closeAlunoPessoaFisicaLookup}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
-                    aria-label="Fechar localizar pessoa física"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={10}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={alunoLookupForm.nr_sequencia}
-                      onChange={(e) => setAlunoLookupForm({ ...alunoLookupForm, nr_sequencia: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
-                    <input
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={alunoLookupForm.ds_nome}
-                      onChange={(e) => setAlunoLookupForm({ ...alunoLookupForm, ds_nome: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={14}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={alunoLookupForm.nr_cpf}
-                      onChange={(e) => setAlunoLookupForm({ ...alunoLookupForm, nr_cpf: applyCpfMask(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_fisica', alunoLookupForm, applyAlunoLookupFilter)} />
-                  <button
-                    type="button"
-                    onClick={clearAlunoLookupFilter}
-                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyAlunoLookupFilter}
-                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Filtrar
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
-                {!alunoLookupApplied || filteredAlunoLookupPessoasFisicas.length === 0 ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Nenhum registro encontrado.
-                  </div>
-                ) : (
-                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')} columnLookups={pfCgLookups}
-                    pessoasFisicas={filteredAlunoLookupPessoasFisicas}
-                    onSelect={handleAlunoPessoaFisicaSelect}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <LookupModal
+          {...configLookup('pessoa_fisica')}
+          onAdicionar={adicionarNoLookupPessoaFisica()}
+          onSelect={(registro) => handleAlunoPessoaFisicaSelect(registro as PessoaFisica)}
+          onClose={closeAlunoPessoaFisicaLookup}
+        />
       )}
 
       {colaboradorPessoaJuridicaLookupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={closeColaboradorPessoaJuridicaLookup} />
-          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
-            <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
-                <div className="p-[15px] overflow-auto flex-1 min-h-0">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Jurídica</h2>
-                  <button
-                    type="button"
-                    onClick={closeColaboradorPessoaJuridicaLookup}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
-                    aria-label="Fechar localizar pessoa jurídica"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <RotuloCampo texto="Sequência" colecao="pessoa_juridica" campo="nr_sequencia" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={10}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={colaboradorPjLookupForm.nr_sequencia}
-                      onChange={(e) => setColaboradorPjLookupForm({ ...colaboradorPjLookupForm, nr_sequencia: e.target.value.replace(/\D/g, '') })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="Razão social" colecao="pessoa_juridica" campo="ds_razao_social" />
-                    <input
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={colaboradorPjLookupForm.ds_razao_social}
-                      onChange={(e) => setColaboradorPjLookupForm({ ...colaboradorPjLookupForm, ds_razao_social: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="CNPJ" colecao="pessoa_juridica" campo="nr_cnpj" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={18}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={colaboradorPjLookupForm.nr_cnpj}
-                      onChange={(e) => setColaboradorPjLookupForm({ ...colaboradorPjLookupForm, nr_cnpj: applyCnpjMask(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_juridica', colaboradorPjLookupForm, applyColaboradorPjLookupFilter)} />
-                  <button
-                    type="button"
-                    onClick={clearColaboradorPjLookupFilter}
-                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyColaboradorPjLookupFilter}
-                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Filtrar
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
-                {!colaboradorPjLookupApplied || filteredColaboradorPjLookupPessoasJuridicas.length === 0 ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Nenhum registro encontrado.
-                  </div>
-                ) : (
-                  <PessoaJuridicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_juridica')}
-                    pessoasJuridicas={filteredColaboradorPjLookupPessoasJuridicas}
-                    onSelect={handleColaboradorPessoaJuridicaSelect}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <LookupModal
+          {...configLookup('pessoa_juridica')}
+          onAdicionar={adicionarNoLookupPessoaJuridica()}
+          onSelect={(registro) => handleColaboradorPessoaJuridicaSelect(registro as PessoaJuridica)}
+          onClose={closeColaboradorPessoaJuridicaLookup}
+        />
       )}
 
       {adminPessoaFisicaLookupOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
-          <div className="absolute inset-0 bg-black/40" onClick={closeAdminPessoaFisicaLookup} />
-          <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
-            <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
-                <div className="p-[15px] overflow-auto flex-1 min-h-0">
-                <div className="flex items-center justify-between gap-2 mb-4">
-                  <h2 className="text-base font-semibold" style={{ color: '#000' }}>Pessoa Física</h2>
-                  <button
-                    type="button"
-                    onClick={closeAdminPessoaFisicaLookup}
-                    className="inline-flex h-9 w-9 items-center justify-center rounded-[3px] text-slate-700 transition cursor-pointer p-0"
-                    aria-label="Fechar localizar pessoa física"
-                  >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <path d="M18 6 6 18" />
-                      <path d="M6 6l12 12" />
-                    </svg>
-                  </button>
-                </div>
-                <div className="space-y-4">
-                  <div>
-                    <RotuloCampo texto="Sequência" colecao="pessoa_fisica" campo="nr_sequencia" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={10}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={adminPessoaFisicaLookupForm.nr_sequencia}
-                      onChange={(e) => setAdminPessoaFisicaLookupForm({ ...adminPessoaFisicaLookupForm, nr_sequencia: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="Nome" colecao="pessoa_fisica" campo="ds_nome" />
-                    <input
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={adminPessoaFisicaLookupForm.ds_nome}
-                      onChange={(e) => setAdminPessoaFisicaLookupForm({ ...adminPessoaFisicaLookupForm, ds_nome: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <RotuloCampo texto="CPF" colecao="pessoa_fisica" campo="nr_cpf" />
-                    <input
-                      inputMode="numeric"
-                      maxLength={14}
-                      className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none"
-                      value={adminPessoaFisicaLookupForm.nr_cpf}
-                      onChange={(e) => setAdminPessoaFisicaLookupForm({ ...adminPessoaFisicaLookupForm, nr_cpf: applyCpfMask(e.target.value) })}
-                    />
-                  </div>
-                </div>
-                </div>
-                <div className="flex-shrink-0 flex items-center justify-end gap-2 p-[15px]">
-                  <BotaoSalvarFiltro onClick={() => salvarFiltroDoLookup('pessoa_fisica', adminPessoaFisicaLookupForm, applyAdminPessoaFisicaLookupFilter)} />
-                  <button
-                    type="button"
-                    onClick={clearAdminPessoaFisicaLookupFilter}
-                    className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#ddd', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Limpar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={applyAdminPessoaFisicaLookupFilter}
-                    className="px-4 py-2.5 text-sm text-white transition rounded-[3px] border-b button-save cursor-pointer min-w-[96px] justify-center"
-                    style={{ backgroundColor: '#003056', borderBottomColor: '#000' } as React.CSSProperties}
-                  >
-                    Filtrar
-                  </button>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0 overflow-hidden flex flex-col lookup-right">
-                {!adminPessoaFisicaLookupApplied || pessoasFisicas.filter((pessoa) => {
-                  if (adminPessoaFisicaLookupFilter.nr_sequencia) {
-                    if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
-                  }
-                  if (adminPessoaFisicaLookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(adminPessoaFisicaLookupFilter.ds_nome.toLowerCase())) return false;
-                  if (adminPessoaFisicaLookupFilter.nr_cpf) {
-                    const queryCpf = adminPessoaFisicaLookupFilter.nr_cpf.replace(/\D/g, '');
-                    const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
-                    if (!pessoaCpf.includes(queryCpf)) return false;
-                  }
-                  return true;
-                }).length === 0 ? (
-                  <div className="flex h-full items-center justify-center p-[15px] text-sm text-slate-600">
-                    Nenhum registro encontrado.
-                  </div>
-                ) : (
-                  <PessoaFisicaLookupTable {...colunasPorIndice('config_colunas_lookup_pessoa_fisica')} columnLookups={pfCgLookups}
-                    pessoasFisicas={pessoasFisicas.filter((pessoa) => {
-                      if (adminPessoaFisicaLookupFilter.nr_sequencia) {
-                        if (String(pessoa.nr_sequencia) !== adminPessoaFisicaLookupFilter.nr_sequencia.trim()) return false;
-                      }
-                      if (adminPessoaFisicaLookupFilter.ds_nome && !pessoa.ds_nome.toLowerCase().includes(adminPessoaFisicaLookupFilter.ds_nome.toLowerCase())) return false;
-                      if (adminPessoaFisicaLookupFilter.nr_cpf) {
-                        const queryCpf = adminPessoaFisicaLookupFilter.nr_cpf.replace(/\D/g, '');
-                        const pessoaCpf = pessoa.nr_cpf.replace(/\D/g, '');
-                        if (!pessoaCpf.includes(queryCpf)) return false;
-                      }
-                      return true;
-                    })}
-                    onSelect={handleAdminPessoaFisicaSelect}
-                  />
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
+        <LookupModal
+          {...configLookup('pessoa_fisica')}
+          onSelect={(registro) => handleAdminPessoaFisicaSelect(registro as PessoaFisica)}
+          onClose={closeAdminPessoaFisicaLookup}
+        />
       )}
 
       {naturalidadeLookupOpen && (
@@ -17687,7 +17590,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closeNaturalidadeLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
+              <div className="w-[480px] shrink-0 lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cidade</h2>
@@ -17776,7 +17679,7 @@ export default function Home() {
           <div className="absolute inset-0 bg-black/40" onClick={closePjCidadeLookup} />
           <div className="relative w-full max-w-[1200px] bg-white p-0 shadow-xl shadow-black/20 h-[720px] max-h-[90vh] overflow-hidden">
             <div className="flex h-full">
-              <div className="w-[360px] lookup-left flex flex-col min-h-0">
+              <div className="w-[480px] shrink-0 lookup-left flex flex-col min-h-0">
                 <div className="p-[15px] overflow-auto flex-1 min-h-0">
                 <div className="flex items-center justify-between gap-2 mb-4">
                   <h2 className="text-base font-semibold" style={{ color: '#000' }}>Cidade</h2>
@@ -17868,7 +17771,7 @@ export default function Home() {
         const isPj = auditDocumentType === 'pessoa_juridica';
         const isImagem = auditDocumentType === 'imagem';
         const isAviso = auditDocumentType === 'aviso';
-        const isRegra = auditDocumentType === 'regra';
+        const isRegra = auditDocumentType === 'regra_sistema';
         const isCampo = auditDocumentType === 'campo';
         const isUsuario = auditDocumentType === 'usuario';
         const isPerfil = auditDocumentType === 'perfil';
@@ -17876,13 +17779,13 @@ export default function Home() {
         const isColaborador = auditDocumentType === 'colaborador';
         const isPeriodoLetivo = auditDocumentType === 'periodo_letivo';
         const isFeriado = auditDocumentType === 'periodo_letivo_feriado';
-        const isAtivo = auditDocumentType === 'pat_ativo';
-        const isAtivoResponsavel = auditDocumentType === 'pat_ativo_responsavel';
+        const isAtivo = auditDocumentType === 'ativo';
+        const isAtivoResponsavel = auditDocumentType === 'ativo_responsavel';
         const isAlunoResponsavel = auditDocumentType === 'aluno_responsavel';
         const isPfEndereco = auditDocumentType === 'pessoa_fisica_residencial' || auditDocumentType === 'pessoa_fisica_comercial';
         const isPfSaude = auditDocumentType === 'pessoa_fisica_saude';
         const isParametros = auditDocumentType === 'parametro';
-        const isManutencao = auditDocumentType === 'pat_manutencao';
+        const isManutencao = auditDocumentType === 'manutencao';
         const isRelatorio = auditDocumentType === 'relatorio';
         const isBanda = isRelatorio && relatorioAuditTipo === 'relatorio_banda';
         const isElemento = isRelatorio && relatorioAuditTipo === 'relatorio_banda_elemento';
@@ -17925,7 +17828,7 @@ export default function Home() {
         };
         const relatorioFlatAfter = isRelatorio && !isBanda ? flattenRelatorio(after) : null;
         const relatorioFlatBefore = isRelatorio && !isBanda ? flattenRelatorio(before) : null;
-        const isCg = auditDocumentType === 'cg_sexo' || auditDocumentType === 'cg_estado_civil' || auditDocumentType === 'cg_cor_raca' || auditDocumentType === 'cg_profissao' || auditDocumentType === 'cg_orgao_emissor' || auditDocumentType === 'cg_logradouro' || auditDocumentType === 'cg_grau_parentesco' || auditDocumentType === 'cg_cargo' || auditDocumentType === 'cg_vinculo_contratual' || auditDocumentType === 'cg_localizacao' || auditDocumentType === 'cg_marca' || auditDocumentType === 'pat_categoria' || auditDocumentType === 'cg_sistema_operacional' || auditDocumentType === 'curso' || auditDocumentType === 'cg_combustivel' || auditDocumentType === 'cg_modalidade_ensino' || auditDocumentType === 'cg_formato_papel' || auditDocumentType === 'cg_tipo_papel';
+        const isCg = auditDocumentType === 'sexo' || auditDocumentType === 'estado_civil' || auditDocumentType === 'cor_raca' || auditDocumentType === 'profissao' || auditDocumentType === 'orgao_emissor' || auditDocumentType === 'logradouro' || auditDocumentType === 'grau_parentesco' || auditDocumentType === 'cargo' || auditDocumentType === 'vinculo_contratual' || auditDocumentType === 'localizacao' || auditDocumentType === 'marca' || auditDocumentType === 'categoria' || auditDocumentType === 'sistema_operacional' || auditDocumentType === 'curso' || auditDocumentType === 'combustivel' || auditDocumentType === 'modalidade_ensino' || auditDocumentType === 'formato_papel' || auditDocumentType === 'tipo_papel';
         const fieldsOrder = isPj
           ? [
               'nr_sequencia',
@@ -17996,7 +17899,7 @@ export default function Home() {
           : auditDocumentType === 'turma'
           ? ['nr_sequencia', 'ds_turma', 'nr_seq_curso', 'nr_seq_periodo_letivo', 'qt_max_alunos', 'nr_seq_localizacao', 'nr_seq_modalidade_ensino', 'dt_criacao', 'dt_alteracao']
           : isAtivoResponsavel
-          ? ['nr_sequencia', 'nr_seq_ativo', 'nr_seq_colaborador', 'dt_criacao', 'dt_alteracao']
+          ? ['nr_sequencia', 'nr_seq_ativo', 'nr_seq_colaborador', 'nr_seq_equipe', 'dt_criacao', 'dt_alteracao']
           : isPfEndereco
           ? ['nr_sequencia', 'nr_seq_pessoa_fisica', 'nr_cep', 'ds_endereco', 'nr_seq_logradouro', 'nr_endereco', 'ds_bairro', 'ds_complemento', 'dt_criacao', 'dt_alteracao']
           : isPfSaude
@@ -18110,9 +18013,9 @@ export default function Home() {
           : isCg
           ? [
               'nr_sequencia',
-              auditDocumentType === 'cg_estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cg_cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'cg_profissao' ? 'ds_profissao' : auditDocumentType === 'cg_orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'cg_logradouro' ? 'ds_logradouro' : auditDocumentType === 'cg_grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cg_cargo' ? 'ds_cargo' : auditDocumentType === 'cg_vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'cg_localizacao' ? 'ds_localizacao' : auditDocumentType === 'cg_marca' ? 'ds_marca' : auditDocumentType === 'pat_categoria' ? 'ds_categoria' : auditDocumentType === 'cg_sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'cg_combustivel' ? 'ds_combustivel' : auditDocumentType === 'cg_modalidade_ensino' ? 'ds_modalidade_ensino' : auditDocumentType === 'cg_formato_papel' ? 'ds_formato_papel' : auditDocumentType === 'cg_tipo_papel' ? 'ds_tipo_papel' : 'ds_sexo',
-              ...(auditDocumentType === 'cg_orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'cg_logradouro' ? ['sg_logradouro'] : []),
-              ...(auditDocumentType === 'cg_profissao' ? ['nr_cbo'] : auditDocumentType === 'pat_categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : auditDocumentType === 'cg_formato_papel' ? ['qt_largura', 'qt_altura'] : []),
+              auditDocumentType === 'estado_civil' ? 'ds_estado_civil' : auditDocumentType === 'cor_raca' ? 'ds_cor_raca' : auditDocumentType === 'profissao' ? 'ds_profissao' : auditDocumentType === 'orgao_emissor' ? 'ds_orgao_emissor' : auditDocumentType === 'logradouro' ? 'ds_logradouro' : auditDocumentType === 'grau_parentesco' ? 'ds_grau_parentesco' : auditDocumentType === 'cargo' ? 'ds_cargo' : auditDocumentType === 'vinculo_contratual' ? 'ds_vinculo_contratual' : auditDocumentType === 'localizacao' ? 'ds_localizacao' : auditDocumentType === 'marca' ? 'ds_marca' : auditDocumentType === 'categoria' ? 'ds_categoria' : auditDocumentType === 'sistema_operacional' ? 'ds_sistema_operacional' : auditDocumentType === 'curso' ? 'ds_curso' : auditDocumentType === 'combustivel' ? 'ds_combustivel' : auditDocumentType === 'modalidade_ensino' ? 'ds_modalidade_ensino' : auditDocumentType === 'formato_papel' ? 'ds_formato_papel' : auditDocumentType === 'tipo_papel' ? 'ds_tipo_papel' : 'ds_sexo',
+              ...(auditDocumentType === 'orgao_emissor' ? ['sg_orgao_emissor'] : auditDocumentType === 'logradouro' ? ['sg_logradouro'] : []),
+              ...(auditDocumentType === 'profissao' ? ['nr_cbo'] : auditDocumentType === 'categoria' || auditDocumentType === 'curso' ? ['ds_observacao'] : auditDocumentType === 'formato_papel' ? ['qt_largura', 'qt_altura'] : []),
               'ie_status',
               'dt_criacao',
               'dt_alteracao',
@@ -18296,6 +18199,7 @@ export default function Home() {
                       ie_badge_teste: 'Badge de teste',
                       nr_seq_ativo: 'Ativo',
                       nr_seq_colaborador: 'Colaborador',
+                      nr_seq_equipe: 'Equipe',
                       nr_seq_aluno: 'Aluno',
                       nr_seq_grau_parentesco: 'Grau de parentesco',
                       dt_envio: 'Data de envio',
@@ -18439,7 +18343,7 @@ export default function Home() {
                       // Segmento da regra de geração de código: nome da opção.
                       if (isParametros && /^ie_regra_\d+$/.test(field)) return OPCOES_SEGMENTO_REGRA.find((o) => o.value === normalized)?.label ?? String(normalized);
                       // Formato do papel: medidas como no formulário ("210", "215,9").
-                      if (auditDocumentType === 'cg_formato_papel' && (field === 'qt_largura' || field === 'qt_altura')) return formatarMedida(normalized);
+                      if (auditDocumentType === 'formato_papel' && (field === 'qt_largura' || field === 'qt_altura')) return formatarMedida(normalized);
                       // Referências (nr_seq_*) exibidas pela descrição do registro vinculado.
                       const seq = Number(normalized);
                       const descricaoPorSeq: Record<string, () => string | undefined> = {
@@ -18469,6 +18373,7 @@ export default function Home() {
                         nr_seq_tipo_papel: () => tiposPapel.find((t) => t.nr_sequencia === seq)?.ds_tipo_papel,
                         nr_seq_ativo: () => ativos.find((a) => a.nr_sequencia === seq)?.ds_ativo,
                         nr_seq_colaborador: () => nomeColaboradorPorSeq(seq),
+                        nr_seq_equipe: () => equipes.find((e) => e.nr_sequencia === seq)?.ds_equipe,
                         nr_seq_fornecedor: () => nomeColaboradorPorSeq(seq),
                         nr_seq_grau_parentesco: () => grausParentesco.find((g) => g.nr_sequencia === seq)?.ds_grau_parentesco,
                         nr_seq_aluno: () => {
@@ -18796,7 +18701,7 @@ export default function Home() {
                       || Object.values(CG_DEFS).some((d) => d.collection === colecaoDoFormulario);
                     if (temFormulario) {
                       const generico = !!FORMULARIOS_GENERICOS[colecaoDoFormulario];
-                      const comoExclusao = (dados: Record<string, unknown>) => ({ ds_colecao: colecaoDoFormulario, dados: dadosDoHistoricoParaFormulario(colecaoDoFormulario, dados), id_registro: relatorioAuditItemId ?? '' }) as unknown as Exclusao;
+                      const comoExclusao = (dados: Record<string, unknown>) => ({ ds_tabela: colecaoDoFormulario, dados: dadosDoHistoricoParaFormulario(colecaoDoFormulario, dados), id_registro: relatorioAuditItemId ?? '' }) as unknown as Exclusao;
                       const cidadeDe = (dados: Record<string, unknown> | null) => cidadesAuditoria[String(dados?.cd_ibge_naturalidade ?? dados?.cd_ibge_cidade ?? '').trim()] ?? '';
                       const dadosAntes = before ? comControle(before as Record<string, unknown>, auditLogs[selectedAuditIndex + 1]) : null;
                       const dadosDepois = comControle(after as Record<string, unknown>, auditLogs[selectedAuditIndex]) ?? {};
@@ -18880,59 +18785,59 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Identificação</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-1 group">
-                      <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
+                      <RotuloCampo texto="Sequência" colecao="ativo" campo="nr_sequencia" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={String(ativoView.nr_sequencia ?? '')} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Código externo" colecao="pat_ativo" campo="cd_externo" />
+                      <RotuloCampo texto="Código externo" colecao="ativo" campo="cd_externo" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_externo ?? ''} />
                     </div>
                     <div className="sm:col-span-7 group">
-                      <RotuloCampo texto="Descrição" colecao="pat_ativo" campo="ds_ativo" />
+                      <RotuloCampo texto="Descrição" colecao="ativo" campo="ds_ativo" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ativo ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Modelo" colecao="pat_ativo" campo="ds_modelo" />
+                      <RotuloCampo texto="Modelo" colecao="ativo" campo="ds_modelo" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_modelo ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Número de série" colecao="pat_ativo" campo="nr_serie" />
+                      <RotuloCampo texto="Número de série" colecao="ativo" campo="nr_serie" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_serie ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="QR Code" colecao="pat_ativo" campo="ds_qr_code" />
+                      <RotuloCampo texto="QR Code" colecao="ativo" campo="ds_qr_code" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_qr_code ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Código de barras" colecao="pat_ativo" campo="ds_codigo_barras" />
+                      <RotuloCampo texto="Código de barras" colecao="ativo" campo="ds_codigo_barras" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_codigo_barras ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Valor de aquisição" colecao="pat_ativo" campo="vl_aquisicao" />
+                      <RotuloCampo texto="Valor de aquisição" colecao="ativo" campo="vl_aquisicao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.vl_aquisicao ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Data de aquisição" colecao="pat_ativo" campo="dt_aquisicao" />
+                      <RotuloCampo texto="Data de aquisição" colecao="ativo" campo="dt_aquisicao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_aquisicao ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Data de garantia" colecao="pat_ativo" campo="dt_garantia" />
+                      <RotuloCampo texto="Data de garantia" colecao="ativo" campo="dt_garantia" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_garantia ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
+                      <RotuloCampo texto="Status" colecao="ativo" campo="ie_status" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ATIVO_STATUS_OPTIONS.find((s) => s.value === ativoView.ie_status)?.label ?? ativoView.ie_status ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Data do status" colecao="pat_ativo" campo="dt_status" />
+                      <RotuloCampo texto="Data do status" colecao="ativo" campo="dt_status" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.dt_status ?? ''} />
                     </div>
                     <div className="sm:col-span-6 group">
-                      <RotuloCampo texto="Última manutenção" colecao="pat_ativo" campo="nr_seq_ultima_manutencao" />
+                      <RotuloCampo texto="Última manutenção" colecao="ativo" campo="nr_seq_ultima_manutencao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_ultima_manutencao != null ? String(ativoView.nr_seq_ultima_manutencao) : ''} />
                     </div>
                     <div className="sm:col-span-12 group">
-                      <RotuloCampo texto="Motivo do status" colecao="pat_ativo" campo="ds_motivo_status" />
+                      <RotuloCampo texto="Motivo do status" colecao="ativo" campo="ds_motivo_status" />
                       <textarea disabled readOnly rows={2} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_motivo_status ?? ''} />
                     </div>
                   </div>
@@ -18942,26 +18847,26 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Classificação</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Categoria" colecao="pat_ativo" campo="nr_seq_categoria" />
+                      <RotuloCampo texto="Categoria" colecao="ativo" campo="nr_seq_categoria" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_categoria ? (categoriasAtivos.find((c) => c.nr_sequencia === ativoView.nr_seq_categoria)?.ds_categoria ?? String(ativoView.nr_seq_categoria)) : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Localização" colecao="pat_ativo" campo="nr_seq_localizacao" />
+                      <RotuloCampo texto="Localização" colecao="ativo" campo="nr_seq_localizacao" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_localizacao ? (localizacoes.find((l) => l.nr_sequencia === ativoView.nr_seq_localizacao)?.ds_localizacao ?? String(ativoView.nr_seq_localizacao)) : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Marca" colecao="pat_ativo" campo="nr_seq_marca" />
+                      <RotuloCampo texto="Marca" colecao="ativo" campo="nr_seq_marca" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_marca ? (marcas.find((m) => m.nr_sequencia === ativoView.nr_seq_marca)?.ds_marca ?? String(ativoView.nr_seq_marca)) : ''} />
                     </div>
                     <div className="sm:col-span-12 group">
-                      <RotuloCampo texto="Fornecedor" colecao="pat_ativo" campo="nr_seq_fornecedor" />
+                      <RotuloCampo texto="Fornecedor" colecao="ativo" campo="nr_seq_fornecedor" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_fornecedor ? (nomeColaboradorPorSeq(ativoView.nr_seq_fornecedor) || String(ativoView.nr_seq_fornecedor)) : ''} />
                     </div>
                     {responsaveisAtivos.some((r) => r.nr_seq_ativo === ativoView.nr_sequencia) && (
                       <div className="sm:col-span-12 group">
-                        <RotuloCampo texto="Responsável" colecao="pat_ativo_responsavel" campo="nr_seq_colaborador" />
+                        <RotuloCampo texto="Responsável" colecao="ativo_responsavel" campo="nr_seq_colaborador" />
                         {responsaveisAtivos.filter((r) => r.nr_seq_ativo === ativoView.nr_sequencia).sort((a, b) => b.nr_sequencia - a.nr_sequencia).map((resp) => (
-                          <input key={resp.id ?? resp.nr_sequencia} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={nomeColaboradorPorSeq(resp.nr_seq_colaborador) || (resp.nr_seq_colaborador ? String(resp.nr_seq_colaborador) : '')} />
+                          <input key={resp.id ?? resp.nr_sequencia} disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm mb-1 last:mb-0" value={resp.nr_seq_equipe ? `Equipe: ${equipes.find((e) => e.nr_sequencia === resp.nr_seq_equipe)?.ds_equipe ?? resp.nr_seq_equipe}` : nomeColaboradorPorSeq(resp.nr_seq_colaborador) || (resp.nr_seq_colaborador ? String(resp.nr_seq_colaborador) : '')} />
                         ))}
                       </div>
                     )}
@@ -18972,26 +18877,26 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dispositivo</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Processador" colecao="pat_ativo" campo="ds_processador" />
+                      <RotuloCampo texto="Processador" colecao="ativo" campo="ds_processador" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_processador ?? ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Memória RAM" colecao="pat_ativo" campo="qt_ram" />
+                      <RotuloCampo texto="Memória RAM" colecao="ativo" campo="qt_ram" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.qt_ram != null ? `${ativoView.qt_ram} ${ativoView.ie_ram ?? ''}` : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Armazenamento" colecao="pat_ativo" campo="qt_armazenamento" />
+                      <RotuloCampo texto="Armazenamento" colecao="ativo" campo="qt_armazenamento" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.qt_armazenamento != null ? `${ativoView.qt_armazenamento} ${ativoView.ie_armazenamento ?? ''}` : ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Endereço MAC" colecao="pat_ativo" campo="ds_endereco_mac" />
+                      <RotuloCampo texto="Endereço MAC" colecao="ativo" campo="ds_endereco_mac" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_endereco_mac ?? ''} />
                     </div>
-                    <div className="sm:col-span-4 group"><RotuloCampo texto="IPv4" colecao="pat_ativo" campo="ds_ip" />
+                    <div className="sm:col-span-4 group"><RotuloCampo texto="IPv4" colecao="ativo" campo="ds_ip" />
                        <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_ip ?? ''} />
                     </div>
                     <div className="sm:col-span-4 group">
-                      <RotuloCampo texto="Sistema operacional" colecao="pat_ativo" campo="nr_seq_sistema_operacional" />
+                      <RotuloCampo texto="Sistema operacional" colecao="ativo" campo="nr_seq_sistema_operacional" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_sistema_operacional ? (sistemasOperacionais.find((s) => s.nr_sequencia === ativoView.nr_seq_sistema_operacional)?.ds_sistema_operacional ?? String(ativoView.nr_seq_sistema_operacional)) : ''} />
                     </div>
                   </div>
@@ -19001,23 +18906,23 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Veículo</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Placa" colecao="pat_ativo" campo="cd_placa" />
+                      <RotuloCampo texto="Placa" colecao="ativo" campo="cd_placa" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_placa ?? ''} />
                     </div>
                     <div className="sm:col-span-3 group">
-                      <RotuloCampo texto="Renavam" colecao="pat_ativo" campo="cd_renavam" />
+                      <RotuloCampo texto="Renavam" colecao="ativo" campo="cd_renavam" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.cd_renavam ?? ''} />
                     </div>
                     <div className="sm:col-span-2 group">
-                      <RotuloCampo texto="Ano" colecao="pat_ativo" campo="nr_ano" />
+                      <RotuloCampo texto="Ano" colecao="ativo" campo="nr_ano" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_ano ?? ''} />
                     </div>
                     <div className="sm:col-span-2 group">
-                      <RotuloCampo texto="Cor" colecao="pat_ativo" campo="ds_cor" />
+                      <RotuloCampo texto="Cor" colecao="ativo" campo="ds_cor" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.ds_cor ?? ''} />
                     </div>
                     <div className="sm:col-span-2 group">
-                      <RotuloCampo texto="Combustível" colecao="pat_ativo" campo="nr_seq_combustivel" />
+                      <RotuloCampo texto="Combustível" colecao="ativo" campo="nr_seq_combustivel" />
                       <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={ativoView.nr_seq_combustivel ? (combustiveis.find((c) => c.nr_sequencia === ativoView.nr_seq_combustivel)?.ds_combustivel ?? String(ativoView.nr_seq_combustivel)) : ''} />
                     </div>
                   </div>
@@ -19027,7 +18932,7 @@ export default function Home() {
                   <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Observações</h2>
                   <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
                     <div className="sm:col-span-12 group">
-                      <RotuloCampo texto="Observação" colecao="pat_ativo" campo="ds_observacao" />
+                      <RotuloCampo texto="Observação" colecao="ativo" campo="ds_observacao" />
                       <textarea disabled readOnly rows={4} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={ativoView.ds_observacao ?? ''} />
                     </div>
                   </div>
@@ -19084,11 +18989,11 @@ export default function Home() {
             </div>
             <div className="grid gap-[15px] p-[15px]">
               <div>
-                <RotuloCampo texto="Data de término" colecao="pat_manutencao" campo="dt_termino" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino')} />
+                <RotuloCampo texto="Data de término" colecao="manutencao" campo="dt_termino" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino')} />
                 <input type="text" inputMode="numeric" maxLength={10} placeholder="DD/MM/AAAA" disabled={regraModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino') === 'D'} className={classeCampoModal(MODAL_CONCLUIR_MANUTENCAO, 'dt_termino', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa]")} value={concluirManutForm.dt_termino} onChange={(e) => setConcluirManutForm({ ...concluirManutForm, dt_termino: applyDateMask(e.target.value) })} />
               </div>
               <div>
-                <RotuloCampo texto="Status" colecao="pat_ativo" campo="ie_status" />
+                <RotuloCampo texto="Status" colecao="ativo" campo="ie_status" />
                 <Select
                   value={concluirManutForm.ie_status_ativo}
                   onChange={(v) => setConcluirManutForm({ ...concluirManutForm, ie_status_ativo: v })}
@@ -19099,7 +19004,7 @@ export default function Home() {
               {/* Isento à esquerda do Valor total, na mesma linha. */}
               <div className="flex items-start gap-[15px]">
               <div className="shrink-0">
-                <RotuloCampo texto="Isento" colecao="pat_manutencao" campo="ie_isento" />
+                <RotuloCampo texto="Isento" colecao="manutencao" campo="ie_isento" />
                 <label className="inline-flex h-[34px] items-center gap-2 text-sm cursor-pointer">
                   <input
                     type="checkbox"
@@ -19112,12 +19017,12 @@ export default function Home() {
                 </label>
               </div>
               <div className="flex-1 min-w-0">
-                <RotuloCampo texto="Valor total" colecao="pat_manutencao" campo="vl_total" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total')} />
+                <RotuloCampo texto="Valor total" colecao="manutencao" campo="vl_total" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total')} />
                 <input type="text" disabled={concluirManutForm.ie_isento || regraModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total') === 'D'} className={classeCampoModal(MODAL_CONCLUIR_MANUTENCAO, 'vl_total', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none disabled:bg-slate-100 disabled:text-slate-500 disabled:cursor-default")} value={concluirManutForm.vl_total} onChange={(e) => { const digits = e.target.value.replace(/\D/g, ''); if (!digits) { setConcluirManutForm({ ...concluirManutForm, vl_total: '' }); return; } const num = Number(digits) / 100; setConcluirManutForm({ ...concluirManutForm, vl_total: num.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }); }} />
               </div>
               </div>
               <div>
-                <RotuloCampo texto="Correções" colecao="pat_manutencao" campo="ds_correcoes" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes')} />
+                <RotuloCampo texto="Correções" colecao="manutencao" campo="ds_correcoes" prefixo={asteriscoModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes')} />
                 <textarea
                   disabled={regraModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes') === 'D'}
                   className={classeCampoModal(MODAL_CONCLUIR_MANUTENCAO, 'ds_correcoes', "w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none resize-none")}

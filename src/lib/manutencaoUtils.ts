@@ -31,19 +31,19 @@ export const MANUTENCAO_COLUMNS: ManutencaoColDef[] = [
 
 /** Metadados dos campos para infobutton / configuração em Admin > Campos. */
 export const FIELD_INFOS = {
-  nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "pat_manutencao" },
-  nr_seq_ativo: { type: "int64", field: "nr_seq_ativo", collection: "pat_manutencao" },
-  nr_seq_prestador_servico: { type: "int64", field: "nr_seq_prestador_servico", collection: "pat_manutencao" },
-  dt_envio: { type: "string", field: "dt_envio", collection: "pat_manutencao" },
-  dt_termino: { type: "string", field: "dt_termino", collection: "pat_manutencao" },
-  ie_status_manutencao: { type: "string", field: "ie_status_manutencao", collection: "pat_manutencao" },
-  vl_total: { type: "float64", field: "vl_total", collection: "pat_manutencao" },
-  ie_isento: { type: "string", field: "ie_isento", collection: "pat_manutencao" },
-  ds_observacao: { type: "string", field: "ds_observacao", collection: "pat_manutencao" },
-  ds_motivo_manutencao: { type: "string", field: "ds_motivo_manutencao", collection: "pat_manutencao" },
-  ds_correcoes: { type: "string", field: "ds_correcoes", collection: "pat_manutencao" },
-  dt_criacao: { type: "string", field: "dt_criacao", collection: "pat_manutencao" },
-  dt_alteracao: { type: "string", field: "dt_alteracao", collection: "pat_manutencao" },
+  nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "manutencao" },
+  nr_seq_ativo: { type: "int64", field: "nr_seq_ativo", collection: "manutencao" },
+  nr_seq_prestador_servico: { type: "int64", field: "nr_seq_prestador_servico", collection: "manutencao" },
+  dt_envio: { type: "string", field: "dt_envio", collection: "manutencao" },
+  dt_termino: { type: "string", field: "dt_termino", collection: "manutencao" },
+  ie_status_manutencao: { type: "string", field: "ie_status_manutencao", collection: "manutencao" },
+  vl_total: { type: "float64", field: "vl_total", collection: "manutencao" },
+  ie_isento: { type: "string", field: "ie_isento", collection: "manutencao" },
+  ds_observacao: { type: "string", field: "ds_observacao", collection: "manutencao" },
+  ds_motivo_manutencao: { type: "string", field: "ds_motivo_manutencao", collection: "manutencao" },
+  ds_correcoes: { type: "string", field: "ds_correcoes", collection: "manutencao" },
+  dt_criacao: { type: "string", field: "dt_criacao", collection: "manutencao" },
+  dt_alteracao: { type: "string", field: "dt_alteracao", collection: "manutencao" },
 } as const;
 
 /** Labels dos campos para exibição. */

@@ -64,7 +64,7 @@ export interface CamposRelatorioRow {
   ds_usuario_criacao?: string;
   /** Usuário que alterou o elemento. */
   ds_usuario_alteracao?: string;
-  /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
+  /** Coleção de onde o campo vem (ex.: 'ativo', 'marca'). */
   ie_colecao: string;
   ie_campo: string;
   label: string;
@@ -242,7 +242,7 @@ export default function CamposRelatorioTable({
     if (!dsPrincipal) return map;
     for (const fk of dsPrincipal.campos) {
       if (fk.isFK && fk.fkColecao) {
-        map[fk.fkColecao] = fk.key; // ex.: 'cg_marca' → 'nr_seq_marca'
+        map[fk.fkColecao] = fk.key; // ex.: 'marca' → 'nr_seq_marca'
       }
     }
     return map;

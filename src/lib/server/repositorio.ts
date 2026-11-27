@@ -14,7 +14,7 @@ import type { Sessao } from "@/lib/server/sessao";
  *   - criar/atualizar preenchem dt_criacao/dt_alteracao/ds_usuario_*;
  *   - atualizar sem mudança real não grava nada;
  *   - toda gravação registra auditoria, e toda exclusão guarda a cópia do
- *     registro em `exclusao` — agora na MESMA transação da gravação;
+ *     registro em `log_exclusao` — agora na MESMA transação da gravação;
  *   - o autor vem da sessão (nunca do navegador).
  */
 
@@ -61,7 +61,7 @@ function tratarSenha(tabela: string, valores: Map<string, unknown>) {
 async function alterarSenhaNoProximoLogin(db: Executor): Promise<boolean> {
   // Sem registro (nunca configurado) ou "---"/Não: equivale a Não.
   const { rows } = await db.query<Registro>(
-    "select ie_regra from as_param_redefinir_senha_primeiro_login where nr_sequencia = 1"
+    "select ie_regra from usuario_param_redefinir_senha_primeiro_login where nr_sequencia = 1"
   );
   return String(rows[0]?.ie_regra ?? "").toUpperCase() === "S";
 }
@@ -117,7 +117,7 @@ async function registrarAuditoria(
   agora: string, sessao: Sessao, detalhes: Registro, opcoes?: OpcoesAuditoria
 ) {
   await db.query(
-    `insert into auditoria (ds_colecao, nr_seq_registro, nr_seq_usuario, usuario_nome, acao, "timestamp", detalhes, campo, regra)
+    `insert into log_auditoria (ds_colecao, nr_seq_registro, nr_seq_usuario, usuario_nome, acao, "timestamp", detalhes, campo, regra)
      values ($1, $2, $3, $4, $5, $6, $7::jsonb, $8, $9)`,
     [
       tabela, nr, opcoes?.sistema ? null : sessao.nrUsuario, opcoes?.sistema ? "Sistema" : sessao.nomeUsuario,
@@ -263,7 +263,7 @@ export async function atualizar(
 /* ── Exclusão ── */
 
 /**
- * Exclui o registro, guardando antes a cópia em `exclusao` (Administração do
+ * Exclui o registro, guardando antes a cópia em `log_exclusao` (Administração do
  * Sistema > Exclusões). Se outro registro depender deste, o banco recusa
  * (chave estrangeira) e nada é gravado — nem a cópia.
  */
@@ -274,7 +274,7 @@ export async function excluir(tabela: string, nr: number, sessao: Sessao, perfil
     const atual = rows[0];
     if (!atual) return false;
     await db.query(
-      `insert into exclusao (ds_colecao, nr_seq_registro, dados, dt_exclusao, ds_usuario_exclusao, nr_seq_usuario, nr_seq_perfil_exclusao, ds_perfil_exclusao)
+      `insert into log_exclusao (ds_tabela, nr_seq_registro, dados, dt_exclusao, ds_usuario_exclusao, nr_seq_usuario, nr_seq_perfil_exclusao, ds_perfil_exclusao)
        values ($1, $2, $3::jsonb, $4, $5, $6, $7, $8)`,
       [
         tabela, nr, JSON.stringify(paraHistorico(tabela, colunas, atual)), new Date().toISOString(),
@@ -298,7 +298,7 @@ function semSenha(tabela: string, dados: unknown): unknown {
 
 export async function listarAuditoria(tabela: string, nr: number): Promise<Registro[]> {
   const { rows } = await query<Registro>(
-    `select * from auditoria where ds_colecao = $1 and nr_seq_registro = $2 order by "timestamp" desc, nr_sequencia desc`,
+    `select * from log_auditoria where ds_colecao = $1 and nr_seq_registro = $2 order by "timestamp" desc, nr_sequencia desc`,
     [tabela, nr]
   );
   return rows.map((r) => ({
@@ -314,10 +314,10 @@ export async function listarAuditoria(tabela: string, nr: number): Promise<Regis
 }
 
 export async function listarExclusoes(tabela: string): Promise<Registro[]> {
-  const { rows } = await query<Registro>(`select * from exclusao where ds_colecao = $1 order by dt_exclusao desc`, [tabela]);
+  const { rows } = await query<Registro>(`select * from log_exclusao where ds_tabela = $1 order by dt_exclusao desc`, [tabela]);
   return rows.map((r) => ({
     id: String(r.nr_sequencia),
-    ds_colecao: r.ds_colecao,
+    ds_tabela: r.ds_tabela,
     id_registro: r.nr_seq_registro != null ? String(r.nr_seq_registro) : "",
     ...(r.nr_seq_registro != null ? { nr_sequencia: r.nr_seq_registro } : {}),
     dados: semSenha(tabela, r.dados),

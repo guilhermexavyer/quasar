@@ -13,6 +13,7 @@ import Select from "@/components/ui/Select";
 import ResizableTable, { proximaOrdenacao, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import { elementoVisivel } from "@/lib/visibilidade";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
@@ -105,6 +106,8 @@ export default function PeriodoLetivoFeriadosView({
   const [erros, setErros] = useState<CampoFeriado[]>([]);
   const [salvando, setSalvando] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  /** "Salvar e adicionar": depois de gravar, abre um feriado novo. */
+  const novoAposSalvarRef = useRef(false);
 
   // Feriados do período em tempo real.
   useEffect(() => {
@@ -196,6 +199,9 @@ export default function PeriodoLetivoFeriadosView({
 
   async function salvar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Lido e zerado já no início: se a validação barrar, o próximo Salvar não abre um novo.
+    const novoAposSalvar = novoAposSalvarRef.current;
+    novoAposSalvarRef.current = false;
     if (!form || salvando) return;
     const faltando = (['dt_feriado', 'ds_feriado', 'ie_tipo_feriado'] as CampoFeriado[])
       .filter((c) => statusDe(c) === 'O' && !String(form[c] ?? '').trim());
@@ -220,7 +226,8 @@ export default function PeriodoLetivoFeriadosView({
         setSelecionadoId(id);
         onMessage('Registro criado com sucesso!');
       }
-      fecharFormulario();
+      if (novoAposSalvar) novoFeriado();
+      else fecharFormulario();
     } catch {
       onMessage('Erro ao salvar.');
     } finally {
@@ -358,6 +365,13 @@ export default function PeriodoLetivoFeriadosView({
                 </div>
               )}
               <div className="flex items-center justify-end gap-3 ml-auto">
+                <BotaoSalvarEAdicionar
+                  disabled={salvando}
+                  onClick={() => {
+                    novoAposSalvarRef.current = true;
+                    formRef.current?.requestSubmit();
+                  }}
+                />
                 <button
                   type="button"
                   onClick={fecharFormulario}

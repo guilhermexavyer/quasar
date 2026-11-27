@@ -45,7 +45,11 @@
  *     'I' (Importação), mesmo que no ambiente de origem fosse 'C' ou 'Q'.
  *   - Campos ausentes = vazios (null). Campo desconhecido = ignorar (formatos futuros).
  *   - Logs (criação/alteração) não vão: o registro importado é de quem importou.
+ *   - SQL com os nomes antigos das tabelas (cg_sexo, pat_ativo...; antes da migração 0046)
+ *     é trazido para os nomes novos ao importar.
  */
+
+import { atualizarNomesDeTabelas } from "@/lib/tabelasRenomeadas";
 
 export const FORMATO_EXPORTACAO_RELATORIO = "1";
 
@@ -232,7 +236,8 @@ export function lerRelatorioXml(texto: string): { dados: RelatorioImportado | nu
       if (opcoes && !opcoes.includes(valor)) problemas.push(`${rotulo}: valor "${valor}" inválido em ${campo}.`);
       else if (ehNumero(campo) && !(ehDecimal(campo) ? /^\d+(\.\d+)?$/ : /^\d+$/).test(valor)) problemas.push(`${rotulo}: ${campo} deve ser um número (veio "${valor}").`);
       else if (ehCor(campo) && !/^#[0-9a-fA-F]{6}$/.test(valor)) problemas.push(`${rotulo}: cor "${valor}" inválida em ${campo}.`);
-      saida[campo] = valor;
+      // Arquivo exportado antes da 0046: o SQL ainda usa os nomes antigos das tabelas (cg_sexo...).
+      saida[campo] = campo === "ds_sql" ? atualizarNomesDeTabelas(valor) : valor;
     }
     return saida;
   };

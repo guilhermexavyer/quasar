@@ -113,7 +113,7 @@ export async function aplicarLogoutAutomatico(forcar = false): Promise<void> {
   ultimaVerificacaoRegra = agora;
   try {
     const { rows } = await query<{ ie_logout_dia: string | null; hr_logout: string | null; dt_vigencia_logout: string | null; dt_alteracao: string | null }>(
-      "select ie_logout_dia, hr_logout, dt_vigencia_logout, dt_alteracao from regra limit 1"
+      "select ie_logout_dia, hr_logout, dt_vigencia_logout, dt_alteracao from regra_sistema limit 1"
     );
     const regra = rows[0];
     if (!regra) return;

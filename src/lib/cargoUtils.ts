@@ -18,9 +18,9 @@ export const CARGO_COLUMNS: ColDef[] = [
 ];
 
 export const CARGO_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_cargo' },
-  ds_cargo: { type: 'string', field: 'ds_cargo', collection: 'cg_cargo' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_cargo' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_cargo' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_cargo' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cargo' },
+  ds_cargo: { type: 'string', field: 'ds_cargo', collection: 'cargo' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'cargo' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cargo' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cargo' },
 } as const;

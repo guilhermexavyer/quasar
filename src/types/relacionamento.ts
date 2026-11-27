@@ -10,9 +10,6 @@ export interface Relacionamento {
   nr_seq_pessoa_juridica?: number;
   /** Status: 'A' (Ativo) / 'I' (Inativo). */
   ie_status?: string;
-  /** Data do status (DD/MM/AAAA): preenchida ao mudar o status. */
-  dt_status?: string;
-  ds_motivo_status?: string;
   ds_observacao?: string;
   dt_criacao: string;
   dt_alteracao: string;

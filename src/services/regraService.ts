@@ -1,7 +1,7 @@
 import { atualizarDado, criarDado, listarDados } from "@/lib/apiCliente";
 import type { AuditAutor } from "@/services/auditService";
 
-const COLECAO = "regra";
+const COLECAO = "regra_sistema";
 
 /** Regras do sistema (Administração do Sistema > Sistema). Um único documento guarda todas. */
 export interface Regra {

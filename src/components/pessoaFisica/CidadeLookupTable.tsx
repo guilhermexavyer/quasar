@@ -446,7 +446,7 @@ export default function CidadeLookupTable({ cidades, onSelect, initialColumns, o
                         key={logicalIdx}
                         scope="col"
                         className={`sticky top-0 z-30 bg-[#bbb] px-[10px] py-[3px] text-left text-sm font-semibold text-slate-900 min-w-0 align-middle border-r border-b last:border-r-0 border-[#666] select-none cursor-pointer ${isDragSource ? 'opacity-50' : ''}`}
-                        style={{ borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999', position: 'relative' }}
+                        style={{ borderRightColor: '#666', borderBottomColor: '#999', backgroundClip: 'padding-box', boxShadow: 'inset 0 -1px 0 #999' }}
                         onClick={(e) => handleHeaderClick(logicalIdx, e)}
                         onMouseDown={(e) => handleHeaderMouseDown(logicalIdx, e)}
                         onDragStart={(e) => e.preventDefault()}

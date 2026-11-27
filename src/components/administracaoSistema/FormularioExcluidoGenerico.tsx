@@ -83,11 +83,9 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
     titulo: "Identificação",
     campos: [
       { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
-      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 5 },
-      { campo: "nr_seq_pessoa_juridica", rotulo: "Pessoa jurídica", span: 6 },
+      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 4 },
+      { campo: "nr_seq_pessoa_juridica", rotulo: "Pessoa jurídica", span: 5 },
       { campo: "ie_status", rotulo: "Status", span: 2, tipo: "dropdown", formatar: (v) => rotuloStatusRelacionamento(texto(v) || "A") },
-      { campo: "dt_status", rotulo: "Data do status", span: 2 },
-      { campo: "ds_motivo_status", rotulo: "Motivo do status", span: 12 },
       { campo: "ds_observacao", rotulo: "Observação", span: 12 },
     ],
   }],
@@ -95,11 +93,9 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
     titulo: "Identificação",
     campos: [
       { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
-      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 5 },
-      { campo: "nr_seq_pessoa_juridica", rotulo: "Pessoa jurídica", span: 6 },
+      { campo: "nr_seq_pessoa_fisica", rotulo: "Pessoa física", span: 4 },
+      { campo: "nr_seq_pessoa_juridica", rotulo: "Pessoa jurídica", span: 5 },
       { campo: "ie_status", rotulo: "Status", span: 2, tipo: "dropdown", formatar: (v) => rotuloStatusRelacionamento(texto(v) || "A") },
-      { campo: "dt_status", rotulo: "Data do status", span: 2 },
-      { campo: "ds_motivo_status", rotulo: "Motivo do status", span: 12 },
       { campo: "ds_observacao", rotulo: "Observação", span: 12 },
     ],
   }],
@@ -120,10 +116,11 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       { campo: "nr_seq_prestador_servico", rotulo: "Prestador de serviço", span: 4 },
     ],
   }],
-  pat_ativo_responsavel: [{
+  ativo_responsavel: [{
     campos: [
       { campo: "nr_sequencia", rotulo: "Sequência", span: 1 },
-      { campo: "nr_seq_colaborador", rotulo: "Colaborador", span: 2 },
+      { campo: "nr_seq_colaborador", rotulo: "Colaborador", span: 5 },
+      { campo: "nr_seq_equipe", rotulo: "Equipe", span: 6 },
     ],
   }],
   periodo_letivo_feriado: [{

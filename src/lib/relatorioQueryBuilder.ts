@@ -328,7 +328,7 @@ export async function executarConsultaRelatorio(relatorio: Relatorio): Promise<R
 
   // Resolve campos computados
   const temComputado = campos.some((c) => c.ie_campo === 'ds_prestador_servico');
-  if (temComputado && colecao === 'pat_manutencao') {
+  if (temComputado && colecao === 'manutencao') {
     // O prestador da manutenção é um registro de Pessoas e Relacionamentos > Prestadores de Serviço.
     const colaboradoresDocs = await fetchColecao('prestador_servico');
     const pfDocs = await fetchColecao('pessoa_fisica');

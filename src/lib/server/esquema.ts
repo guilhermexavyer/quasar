@@ -17,24 +17,24 @@ import { formatCpf, formatPhone } from "@/lib/pessoaFisicaUtils";
 
 /** Tabelas com um único registro (nr_sequencia = 1). */
 export const TABELAS_REGISTRO_UNICO = new Set([
-  "aviso", "regra",
-  "pat_param_codigo_patrimonio", "pat_param_cor_ativo_descartado", "pat_param_cor_ativo_estoque",
-  "pat_param_cor_ativo_manutencao", "pat_param_cor_ativo_operacional", "pat_param_cor_manutencao_andamento",
-  "pat_param_cor_manutencao_concluida", "pat_param_cor_manutencao_cancelada", "pr_param_matricula_aluno",
-  "pr_param_matricula_colaborador", "ea_param_cor_periodo_letivo_andamento", "ea_param_cor_periodo_letivo_encerrado",
-  "ea_param_encerramento_automatico_periodo_letivo", "as_param_redefinir_senha_primeiro_login",
-  "cc_param_tipos_arquivo_copia", "cc_param_cor_copia_aguardando", "cc_param_cor_copia_cancelado",
-  "cc_param_cor_copia_entregue", "cc_param_cor_copia_impresso", "cc_param_data_recebimento_automatica",
-  "cc_param_formato_papel_padrao", "cc_param_tipo_papel_padrao",
+  "aviso", "regra_sistema",
+  "ativo_param_codigo_patrimonio", "ativo_param_cor_descartado", "ativo_param_cor_estoque",
+  "ativo_param_cor_manutencao", "ativo_param_cor_operacional", "manutencao_param_cor_andamento",
+  "manutencao_param_cor_concluida", "manutencao_param_cor_cancelada", "aluno_param_matricula",
+  "colaborador_param_matricula", "periodo_letivo_param_cor_andamento", "periodo_letivo_param_cor_encerrado",
+  "periodo_letivo_param_encerramento_automatico", "usuario_param_redefinir_senha_primeiro_login",
+  "copia_param_tipos_arquivo", "copia_param_cor_aguardando", "copia_param_cor_cancelado",
+  "copia_param_cor_entregue", "copia_param_cor_impresso", "copia_param_data_recebimento_automatica",
+  "copia_param_formato_papel_padrao", "copia_param_tipo_papel_padrao",
 ]);
 
 /** Tabelas acessíveis pelas rotas genéricas /api/dados/<colecao>. */
 export const TABELAS_DADOS = new Set([
-  "cg_sexo", "cg_estado_civil", "cg_cor_raca", "cg_profissao", "cg_orgao_emissor", "cg_logradouro",
-  "cg_grau_parentesco", "cg_cargo", "cg_vinculo_contratual", "cg_localizacao", "cg_marca",
-  "cg_sistema_operacional", "cg_combustivel", "cg_modalidade_ensino", "cg_formato_papel", "cg_tipo_papel", "pat_categoria", "curso", "disciplina", "turma", "turma_disciplina",
+  "sexo", "estado_civil", "cor_raca", "profissao", "orgao_emissor", "logradouro",
+  "grau_parentesco", "cargo", "vinculo_contratual", "localizacao", "marca",
+  "sistema_operacional", "combustivel", "modalidade_ensino", "formato_papel", "tipo_papel", "categoria", "curso", "disciplina", "turma", "turma_disciplina",
   "pessoa_fisica", "pessoa_fisica_residencial", "pessoa_fisica_comercial", "pessoa_fisica_saude", "pessoa_juridica", "aluno", "aluno_responsavel", "colaborador", "fornecedor", "prestador_servico", "equipe", "equipe_membro", "periodo_letivo", "periodo_letivo_feriado",
-  "pat_ativo", "pat_ativo_responsavel", "pat_manutencao",
+  "ativo", "ativo_responsavel", "manutencao",
   "copia",
   "perfil", "usuario", "imagem",
   "relatorio", "relatorio_banda", "relatorio_banda_elemento", "relatorio_parametro", "relatorio_importacao",

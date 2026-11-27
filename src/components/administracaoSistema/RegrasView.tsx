@@ -35,9 +35,9 @@ const OPCOES_SIM_NAO = [
 
 type CampoInfo = "ie_logout_dia" | "hr_logout" | "ie_badge_teste";
 const FIELD_INFOS: Record<CampoInfo, { type: string; field: string; collection: string }> = {
-  ie_logout_dia: { type: "string", field: "ie_logout_dia", collection: "regra" },
-  hr_logout: { type: "string", field: "hr_logout", collection: "regra" },
-  ie_badge_teste: { type: "string", field: "ie_badge_teste", collection: "regra" },
+  ie_logout_dia: { type: "string", field: "ie_logout_dia", collection: "regra_sistema" },
+  hr_logout: { type: "string", field: "hr_logout", collection: "regra_sistema" },
+  ie_badge_teste: { type: "string", field: "ie_badge_teste", collection: "regra_sistema" },
 };
 
 interface RegrasViewProps {
@@ -77,7 +77,7 @@ export default function RegrasView({
   const { ordenados: regrasOrdenadas, props: ordenacao } = useOrdenacaoTabela("regras", filtrarPesquisa(REGRAS, pesquisa, (x) => [x.regra]));
   const [selecionada, setSelecionada] = useState<IdRegra | null>(null);
   // Logs da regra selecionada (só aparecem depois que ela for salva pela primeira vez).
-  const logsRegra = useLogsDoItem("regra", regraDoc?.id, selecionada, filtrarAuditoriaDaRegra, regraDoc?.dt_alteracao);
+  const logsRegra = useLogsDoItem("regra_sistema", regraDoc?.id, selecionada, filtrarAuditoriaDaRegra, regraDoc?.dt_alteracao);
   const [rascunho, setRascunho] = useState<Partial<Regra> | null>(null);
   const [saving, setSaving] = useState(false);
   const [infoAberto, setInfoAberto] = useState<CampoInfo | null>(null);

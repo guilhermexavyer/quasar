@@ -17,7 +17,7 @@ export interface Relatorio {
   ie_status?: "A" | "I" | null;
 
   /* ── Fonte de dados ── */
-  /** Tabela principal (ex.: 'pat_ativo'). */
+  /** Tabela principal (ex.: 'ativo'). */
   colecao: string;
   /** Joins com outras coleções. */
   joins?: RelatorioJoin[];
@@ -119,7 +119,7 @@ export interface RelatorioJoin {
 export interface RelatorioCampo {
   /** Identificador único do campo. */
   id: string;
-  /** Coleção de onde o campo vem (ex.: 'pat_ativo', 'cg_marca'). */
+  /** Coleção de onde o campo vem (ex.: 'ativo', 'marca'). */
   ie_colecao?: string;
   /** Chave do campo na coleção (ex.: 'ds_ativo'). Se vier de join, usar 'alias.campo'. */
   ie_campo: string;

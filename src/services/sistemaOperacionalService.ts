@@ -2,8 +2,8 @@ import { createCadastroGeralService } from "@/services/cadastroGeralService";
 import type { SistemaOperacional } from "@/types/sistemaOperacional";
 
 const service = createCadastroGeralService<SistemaOperacional>(
-  "cg_sistema_operacional",
-  "cg_sistema_operacional_sequence"
+  "sistema_operacional",
+  "sistema_operacional_sequence"
 );
 
 export const obterSistemasOperacionais = service.obterTodos;

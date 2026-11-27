@@ -75,9 +75,28 @@ export function obterDado<T>(colecao: string, id: string): Promise<T | null> {
   return api.get<T | null>(rota(colecao, id));
 }
 
+/** Registro recém-criado, como a API devolve (id = String(nr_sequencia)). */
+export type RegistroCriado = { id?: string; nr_sequencia?: number | string };
+type OuvinteCriacao = (colecao: string, registro: RegistroCriado) => void;
+const ouvintesCriacao = new Set<OuvinteCriacao>();
+
+/**
+ * Avisa a cada registro criado (qualquer cadastro). Usado pelo "Adicionar" dos lookups:
+ * o registro cadastrado na função de destino volta selecionado no lookup de origem.
+ * Devolve a função que cancela o aviso.
+ */
+export function ouvirCriacoes(ouvinte: OuvinteCriacao): () => void {
+  ouvintesCriacao.add(ouvinte);
+  return () => {
+    ouvintesCriacao.delete(ouvinte);
+  };
+}
+
 /** Cria e devolve o registro completo (com id, nr_sequencia e campos de controle). */
-export function criarDado<T>(colecao: string, dados: object, auditoria?: AuditoriaExtra): Promise<T> {
-  return api.post<T>(rota(colecao), { dados, auditoria });
+export async function criarDado<T>(colecao: string, dados: object, auditoria?: AuditoriaExtra): Promise<T> {
+  const registro = await api.post<T>(rota(colecao), { dados, auditoria });
+  ouvintesCriacao.forEach((ouvinte) => ouvinte(colecao, (registro ?? {}) as RegistroCriado));
+  return registro;
 }
 
 /** Atualiza só os campos enviados. `registro` é null se o registro não existe mais. */

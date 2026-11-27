@@ -1,7 +1,7 @@
 import { createCadastroGeralService } from "@/services/cadastroGeralService";
 import type { FormatoPapel } from "@/types/formatoPapel";
 
-const service = createCadastroGeralService<FormatoPapel>("cg_formato_papel", "cg_formato_papel_sequence");
+const service = createCadastroGeralService<FormatoPapel>("formato_papel", "formato_papel_sequence");
 
 export const obterFormatosPapel = service.obterTodos;
 export const criarFormatoPapel = service.criar;

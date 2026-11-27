@@ -7,31 +7,31 @@ import { fetchAuditByDocumentId, type AuditAutor } from "@/services/auditService
  * ds_regra (texto, ex.: extensões), cd_cor (cor de status), ie_regra (opção Sim/Não) ou,
  * na regra de geração de código (matrículas), nos pares ie_regra_N / ds_regra_N (N = 1 a 10).
  */
-export const COLECAO_PARAM_COR_ATIVO_DESCARTADO = "pat_param_cor_ativo_descartado";
-export const COLECAO_PARAM_COR_ATIVO_ESTOQUE = "pat_param_cor_ativo_estoque";
-export const COLECAO_PARAM_COR_ATIVO_MANUTENCAO = "pat_param_cor_ativo_manutencao";
-export const COLECAO_PARAM_COR_ATIVO_OPERACIONAL = "pat_param_cor_ativo_operacional";
-export const COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO = "pat_param_cor_manutencao_andamento";
-export const COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA = "pat_param_cor_manutencao_concluida";
-export const COLECAO_PARAM_COR_MANUTENCAO_CANCELADA = "pat_param_cor_manutencao_cancelada";
-export const COLECAO_PARAM_MATRICULA_ALUNO = "pr_param_matricula_aluno";
-export const COLECAO_PARAM_MATRICULA_COLABORADOR = "pr_param_matricula_colaborador";
-export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "ea_param_cor_periodo_letivo_andamento";
-export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "ea_param_cor_periodo_letivo_encerrado";
-export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "ea_param_encerramento_automatico_periodo_letivo";
-export const COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN = "as_param_redefinir_senha_primeiro_login";
+export const COLECAO_PARAM_COR_ATIVO_DESCARTADO = "ativo_param_cor_descartado";
+export const COLECAO_PARAM_COR_ATIVO_ESTOQUE = "ativo_param_cor_estoque";
+export const COLECAO_PARAM_COR_ATIVO_MANUTENCAO = "ativo_param_cor_manutencao";
+export const COLECAO_PARAM_COR_ATIVO_OPERACIONAL = "ativo_param_cor_operacional";
+export const COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO = "manutencao_param_cor_andamento";
+export const COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA = "manutencao_param_cor_concluida";
+export const COLECAO_PARAM_COR_MANUTENCAO_CANCELADA = "manutencao_param_cor_cancelada";
+export const COLECAO_PARAM_MATRICULA_ALUNO = "aluno_param_matricula";
+export const COLECAO_PARAM_MATRICULA_COLABORADOR = "colaborador_param_matricula";
+export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "periodo_letivo_param_cor_andamento";
+export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "periodo_letivo_param_cor_encerrado";
+export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "periodo_letivo_param_encerramento_automatico";
+export const COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN = "usuario_param_redefinir_senha_primeiro_login";
 /** Extensões permitidas no anexo de Controle de Cópias > Cópias (ds_regra: "pdf,docx,..."). */
-export const COLECAO_PARAM_TIPOS_ARQUIVO_COPIA = "cc_param_tipos_arquivo_copia";
-export const COLECAO_PARAM_COR_COPIA_AGUARDANDO = "cc_param_cor_copia_aguardando";
+export const COLECAO_PARAM_TIPOS_ARQUIVO_COPIA = "copia_param_tipos_arquivo";
+export const COLECAO_PARAM_COR_COPIA_AGUARDANDO = "copia_param_cor_aguardando";
 /** Sim: a Data do recebimento de uma cópia nova já vem com a data atual. */
-export const COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA = "cc_param_data_recebimento_automatica";
-export const COLECAO_PARAM_COR_COPIA_CANCELADO = "cc_param_cor_copia_cancelado";
-export const COLECAO_PARAM_COR_COPIA_ENTREGUE = "cc_param_cor_copia_entregue";
-export const COLECAO_PARAM_COR_COPIA_IMPRESSO = "cc_param_cor_copia_impresso";
+export const COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA = "copia_param_data_recebimento_automatica";
+export const COLECAO_PARAM_COR_COPIA_CANCELADO = "copia_param_cor_cancelado";
+export const COLECAO_PARAM_COR_COPIA_ENTREGUE = "copia_param_cor_entregue";
+export const COLECAO_PARAM_COR_COPIA_IMPRESSO = "copia_param_cor_impresso";
 
 /** Valor padrão do Formato do papel / Tipo de papel de uma cópia nova (vazio = sem padrão). */
-export const COLECAO_PARAM_FORMATO_PAPEL_PADRAO = "cc_param_formato_papel_padrao";
-export const COLECAO_PARAM_TIPO_PAPEL_PADRAO = "cc_param_tipo_papel_padrao";
+export const COLECAO_PARAM_FORMATO_PAPEL_PADRAO = "copia_param_formato_papel_padrao";
+export const COLECAO_PARAM_TIPO_PAPEL_PADRAO = "copia_param_tipo_papel_padrao";
 
 /** Campo onde o valor do parâmetro é gravado. */
 export type CampoParametro = "ds_regra" | "cd_cor" | "ie_regra" | "nr_seq_formato_papel" | "nr_seq_tipo_papel" | CampoSegmentoRegra;

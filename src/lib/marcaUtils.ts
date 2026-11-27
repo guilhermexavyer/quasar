@@ -18,9 +18,9 @@ export const MARCA_COLUMNS: ColDef[] = [
 ];
 
 export const MARCA_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_marca' },
-  ds_marca: { type: 'string', field: 'ds_marca', collection: 'cg_marca' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_marca' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_marca' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_marca' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'marca' },
+  ds_marca: { type: 'string', field: 'ds_marca', collection: 'marca' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'marca' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'marca' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'marca' },
 } as const;

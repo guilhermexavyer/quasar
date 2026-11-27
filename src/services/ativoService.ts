@@ -3,11 +3,11 @@ import type { Ativo } from "@/types/ativo";
 import type { AuditAutor } from "@/services/auditService";
 
 /**
- * Coleção `pat_ativo`. Os dados ficam no PostgreSQL e são acessados pelas rotas
+ * Coleção `ativo`. Os dados ficam no PostgreSQL e são acessados pelas rotas
  * /api/dados. O servidor gera nr_sequencia, datas de controle e auditoria; o
  * autor vem da sessão (o parâmetro `autor` é mantido só pela assinatura).
  */
-const servico = criarServicoCrud<Ativo>("pat_ativo");
+const servico = criarServicoCrud<Ativo>("ativo");
 
 export async function obterAtivos(): Promise<Ativo[]> {
   return servico.obterTodos();

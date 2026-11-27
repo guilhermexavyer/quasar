@@ -106,6 +106,7 @@ export const PERMISSOES_POR_FUNCAO: Record<string, PermissaoDef[]> = {
 
     { key: "editar_equipe", label: "Permite editar" },
     { key: "membros_equipe", label: "Permite acessar membros da equipe" },
+    { key: "assumir_ativos_equipe", label: "Permite assumir ativos de outra equipe" },
     { key: "excluir_equipe", label: "Permite excluir" },
   ],
   estruturaAcademica: [
@@ -357,7 +358,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
       chaves: ['acessar_parametros'],
     },
     {
-      titulo: 'Sistema',
+      titulo: 'Regras do Sistema',
       chaves: ['acessar_regras'],
     },
     {
@@ -392,7 +393,7 @@ export const PERMISSOES_GRUPOS: Record<string, { titulo: string; chaves: string[
     },
     {
       titulo: 'Equipes',
-      chaves: ['acessar_equipe', 'adicionar_equipe', 'ver_equipe', 'editar_equipe', 'membros_equipe', 'excluir_equipe'],
+      chaves: ['acessar_equipe', 'adicionar_equipe', 'ver_equipe', 'editar_equipe', 'membros_equipe', 'assumir_ativos_equipe', 'excluir_equipe'],
     },
   ],
   estruturaAcademica: [
@@ -536,7 +537,7 @@ export const ADMIN_SUBMODULOS: { value: string; label: string; permissao: string
   { value: 'perfis', label: 'Perfis', permissao: 'acessar_perfis' },
   { value: 'usuarios', label: 'Usuários', permissao: 'acessar_usuarios' },
   { value: 'imagens', label: 'Imagens', permissao: 'acessar_imagens' },
-  { value: 'regras', label: 'Sistema', permissao: 'acessar_regras' },
+  { value: 'regras', label: 'Regras do Sistema', permissao: 'acessar_regras' },
   { value: 'parametros', label: 'Parâmetros', permissao: 'acessar_parametros' },
 ];
 
@@ -580,7 +581,7 @@ export type PermissoesConfig = Record<string, string[]>;
  * salvas antes da adição são migradas uma única vez (ver `migrarPermissoesConfig`),
  * concedendo as permissões novas por padrão.
  */
-export const PERMISSOES_CONFIG_VERSION = 31;
+export const PERMISSOES_CONFIG_VERSION = 32;
 
 /**
  * Permissões que mudaram de função (e de chave). Na migração, a nova só é
@@ -591,6 +592,7 @@ export const PERMISSOES_CONFIG_VERSION = 31;
  * Versão 24: Exclusões saiu de Administração do Sistema e foi para a nova função Logs.
  * Versão 31: Alunos e Colaboradores saíram de Estrutura Acadêmica e foram para Pessoas e
  * Relacionamentos (a migração 0045 já move nos perfis da versão 30).
+ * Versão 32: Equipes ganhou "Assumir ativos" (assumir_ativos_equipe, nova: concedida por padrão).
  */
 const PERMISSOES_MOVIDAS: { de: [string, string]; para: [string, string] }[] = [
   { de: ["cadastrosGerais", "acessar_categoria_ativo"], para: ["patrimonio", "acessar_categoria"] },

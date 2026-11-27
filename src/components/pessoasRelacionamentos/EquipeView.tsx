@@ -7,11 +7,12 @@ import EmptySelectionMessage from "@/components/ui/EmptySelectionMessage";
 import RotuloCampo from "@/components/ui/RotuloCampo";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
 import CampoLookupReferencia from "@/components/ui/CampoLookupReferencia";
-import ReferenciaLookupModal, { type ReferenciaLookupItem } from "@/components/ui/ReferenciaLookupModal";
+import LookupModal, { type ConfigLookup } from "@/components/ui/LookupModal";
 import ResizableTable, { proximaOrdenacao, compararValoresColuna, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import type { CampoStatus } from "@/lib/camposConfigUtils";
@@ -20,8 +21,14 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 import {
   COLECAO_EQUIPE,
+  COLUNAS_EQUIPE,
+  FILTRO_EQUIPE_VAZIO,
+  celulaEquipe,
+  passaFiltroEquipe,
+  type FiltroEquipe,
   COLECAO_EQUIPE_MEMBRO,
   STATUS_RELACIONAMENTO_OPTIONS,
+  mesclarFiltro,
   rotuloStatusRelacionamento,
 } from "@/lib/relacionamentoUtils";
 import {
@@ -170,6 +177,8 @@ export interface PermissoesEquipe {
   ver: boolean;
   editar: boolean;
   membros: boolean;
+  /** "Assumir ativos" (menu de contexto): a equipe assume os ativos de outra equipe. */
+  assumirAtivos?: boolean;
   excluir: boolean;
 }
 
@@ -201,17 +210,29 @@ interface EquipeViewProps {
   onSavingChange?: (salvando: boolean) => void;
   colunas?: ConfigColunasTabela;
   colunasMembros?: ConfigColunasTabela;
-  /** Filtro salvo dos lookups (Salvar filtro), por coleção. */
-  filtroDoLookup?: (colecao: string) => { filtroSalvo?: Record<string, string> | null; onSalvarFiltro?: (form: Record<string, string>, aplicar: () => void) => void };
+  /** Filtro salvo do usuário para a lista de Equipes: vira o filtro inicial. */
+  filtroSalvo?: Record<string, string> | null;
+  /** "Salvar filtro": grava o filtro para o usuário e o aplica (como o "Filtrar"). */
+  onSalvarFiltro?: (form: Record<string, string>, aplicar: () => void) => void;
+  /**
+   * "Adicionar" do lookup de membros: devolve o handler do botão (ou undefined, sem permissão).
+   * Ele abre o cadastro na função do registro; ao salvar, `aoCriar` recebe a sequência do novo.
+   */
+  adicionarPeloLookup?: (colecao: string, fecharLookup: () => void, aoCriar: (nr: number) => void) => (() => void) | undefined;
+  /** Lookup de membros: o filtro e as colunas da tela de registros (Colaboradores, Fornecedores, Prestadores). */
+  configLookup?: (colecao: string) => ConfigLookup<{ nr_sequencia: number }>;
+  /**
+   * "Adicionar" de um lookup de outra tela: preenchido, a tela já monta com o formulário de uma
+   * equipe nova aberto (a tela usa um key com este valor, para montar de novo a cada pedido).
+   */
+  novoAoAbrir?: number;
+  /** Chamado quando o formulário da equipe fecha (Salvar, Cancelar, Fechar): o lookup de origem retoma. */
+  onFormularioFechado?: () => void;
+  /** "Assumir ativos" do menu de contexto: abre o modal para a equipe assumir os ativos de outra. */
+  onAssumirAtivos?: (equipe: Equipe) => void;
 }
 
-interface FiltroEquipe {
-  nr_sequencia: string;
-  ds_equipe: string;
-  ie_status: string;
-}
-
-const FILTRO_VAZIO: FiltroEquipe = { nr_sequencia: "", ds_equipe: "", ie_status: "" };
+const FILTRO_VAZIO = FILTRO_EQUIPE_VAZIO;
 
 /**
  * Pessoas e Relacionamentos > Equipes. Capa (Sequência, Descrição, Status e Observação) e,
@@ -235,17 +256,22 @@ export default function EquipeView(props: EquipeViewProps) {
     confirmar,
     onSavingChange,
     colunas,
+    filtroSalvo,
+    onSalvarFiltro,
+    novoAoAbrir,
+    onFormularioFechado,
+    onAssumirAtivos,
   } = props;
 
   const [ordem, setOrdem] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>("equipe.lista", { coluna: null, asc: true });
-  const [filtro, setFiltro] = useOrdenacaoPersistida<FiltroEquipe>("equipe.filtro", FILTRO_VAZIO);
+  const [filtro, setFiltro] = useOrdenacaoPersistida<FiltroEquipe>("equipe.filtro", mesclarFiltro(FILTRO_VAZIO, filtroSalvo));
   /** Equipe com os membros abertos (duplo clique); null = lista ou formulário. */
   const [membrosDe, setMembrosDe] = useOrdenacaoPersistida<string | null>("equipe.membrosDe", null);
   const [filtroAberto, setFiltroAberto] = useState(false);
   const [rascunho, setRascunho] = useState<FiltroEquipe>(FILTRO_VAZIO);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number; noVer?: boolean } | null>(null);
-  const [aberto, setAberto] = useState<{ id?: string } | null>(null);
+  const [aberto, setAberto] = useState<{ id?: string } | null>(novoAoAbrir ? {} : null);
   const [form, setForm] = useState({ ds_equipe: "", ie_status: "A", ds_observacao: "" });
   const [erros, setErros] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
@@ -255,15 +281,7 @@ export default function EquipeView(props: EquipeViewProps) {
   useEffect(() => { onSavingChange?.(salvando); }, [salvando, onSavingChange]);
   useCtrlS(formRef, salvando);
 
-  const filtradas = useMemo(() => {
-    const desc = filtro.ds_equipe.trim().toLowerCase();
-    return registros.filter((e) => {
-      if (filtro.nr_sequencia && String(e.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
-      if (filtro.ie_status && (e.ie_status ?? "A") !== filtro.ie_status) return false;
-      if (desc && !String(e.ds_equipe ?? "").toLowerCase().includes(desc)) return false;
-      return true;
-    });
-  }, [registros, filtro]);
+  const filtradas = useMemo(() => registros.filter((e) => passaFiltroEquipe(e, filtro)), [registros, filtro]);
 
   const ordenadas = useMemo(
     () => ordenarPor(filtradas, ordem, (e, coluna) => {
@@ -276,15 +294,18 @@ export default function EquipeView(props: EquipeViewProps) {
 
   const paginacao = usePagination(ordenadas.length, "equipes");
 
-  const colunasTabela: ResizableTableColumn<Equipe>[] = useMemo(() => [
-    { key: "nr_sequencia", label: "#", cellClassName: "text-right", render: (e) => <span className="text-sm">{e.nr_sequencia}</span> },
-    { key: "ds_equipe", label: "Descrição", width: 280, render: (e) => <span className="text-sm text-black">{e.ds_equipe ?? ""}</span> },
-    { key: "ie_status", label: "Status", render: (e) => <span className="text-sm">{rotuloStatusRelacionamento(e.ie_status ?? "A")}</span> },
-    { key: "dt_criacao", label: "Criação", render: (e) => <span className="text-sm">{formatDate(String(e.dt_criacao ?? ""))}</span> },
-    { key: "dt_alteracao", label: "Alteração", render: (e) => <span className="text-sm">{formatDate(String(e.dt_alteracao ?? ""))}</span> },
-    { key: "ds_usuario_criacao", label: "Usuário criação", render: (e) => <span className="text-sm">{e.ds_usuario_criacao ?? ""}</span> },
-    { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (e) => <span className="text-sm">{e.ds_usuario_alteracao ?? ""}</span> },
-  ], []);
+  // As mesmas colunas do lookup de Equipes (COLUNAS_EQUIPE).
+  const colunasTabela: ResizableTableColumn<Equipe>[] = useMemo(() => COLUNAS_EQUIPE.map((c) => ({
+    key: c.key,
+    label: c.label,
+    ...(c.dataClass ? { cellClassName: c.dataClass } : {}),
+    ...(c.key === "ds_equipe" ? { width: 280 } : {}),
+    render: (e: Equipe) => (
+      <span className={`text-sm${c.key === "ds_equipe" ? " text-black" : ""}`}>
+        {celulaEquipe(e as unknown as Record<string, unknown> & { nr_sequencia: number }, c.key)}
+      </span>
+    ),
+  })), []);
 
   const filtroAtivo = Object.values(filtro).some((v) => v.trim() !== "");
   const filtrosAplicados: FiltroAplicado[] = ([
@@ -302,7 +323,8 @@ export default function EquipeView(props: EquipeViewProps) {
 
   const equipeAberta = aberto?.id ? registros.find((e) => e.id === aberto.id) : undefined;
   const indiceAberta = equipeAberta ? ordenadas.findIndex((e) => e.id === equipeAberta.id) : -1;
-  const equipeDosMembros = membrosDe ? registros.find((e) => e.id === membrosDe) : undefined;
+  // Formulário de uma equipe nova pedido por um lookup: aparece mesmo com os membros abertos.
+  const equipeDosMembros = membrosDe && !(novoAoAbrir && aberto) ? registros.find((e) => e.id === membrosDe) : undefined;
   const indiceMembros = equipeDosMembros ? ordenadas.findIndex((e) => e.id === equipeDosMembros.id) : -1;
 
   const statusDe = (campo: string): CampoStatus => campoRegras[campo] ?? "N";
@@ -339,6 +361,7 @@ export default function EquipeView(props: EquipeViewProps) {
   function fecharFormulario() {
     setErros([]);
     setAberto(null);
+    onFormularioFechado?.();
   }
 
   function pedirExclusao(e: Equipe) {
@@ -360,6 +383,9 @@ export default function EquipeView(props: EquipeViewProps) {
 
   async function salvar(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
+    // "Salvar e adicionar": lido e zerado já no início (se a validação barrar, o próximo Salvar não abre um novo).
+    const novoAposSalvar = novoAposSalvarRef.current;
+    novoAposSalvarRef.current = false;
     if (!aberto || salvando) return;
     if (aberto.id && !permissoes.editar) {
       onAviso("Você não tem permissão para editar este registro.");
@@ -382,12 +408,11 @@ export default function EquipeView(props: EquipeViewProps) {
         setSelecionadoId(criada.id ?? null);
         onMessage("Registro criado com sucesso!");
       }
-      if (novoAposSalvarRef.current) novaEquipe();
+      if (novoAposSalvar) novaEquipe();
       else fecharFormulario();
     } catch (err) {
       onMessage(err instanceof Error && err.message ? `Erro ao salvar: ${err.message}` : "Erro ao salvar.");
     } finally {
-      novoAposSalvarRef.current = false;
       setSalvando(false);
     }
   }
@@ -406,8 +431,9 @@ export default function EquipeView(props: EquipeViewProps) {
           {!menu.noVer && permissoes.ver && (
             <button type="button" className={CLASSE_ITEM_MENU} style={ESTILO_ITEM_MENU} onClick={() => { setMenu(null); abrirEquipe(alvo); }}>Ver</button>
           )}
-          {permissoes.membros && (
-            <button type="button" className={CLASSE_ITEM_MENU} style={ESTILO_ITEM_MENU} onClick={() => { setMenu(null); setAberto(null); abrirMembros(alvo); }}>Membros</button>
+          {/* Membros: só pelo duplo clique. Ativos (assumir ativos): só equipe ativa. */}
+          {permissoes.assumirAtivos && onAssumirAtivos && (alvo.ie_status ?? "A") !== "I" && (
+            <button type="button" className={CLASSE_ITEM_MENU} style={ESTILO_ITEM_MENU} onClick={() => { setMenu(null); onAssumirAtivos(alvo); }}>Ativos</button>
           )}
           {permissoes.excluir && (
             <button type="button" className={CLASSE_ITEM_MENU} style={ESTILO_ITEM_MENU} onClick={() => { setMenu(null); pedirExclusao(alvo); }}>Excluir</button>
@@ -633,6 +659,11 @@ export default function EquipeView(props: EquipeViewProps) {
               </div>
             </div>
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              {onSalvarFiltro && (
+                <BotaoSalvarFiltro
+                  onClick={() => onSalvarFiltro({ ...rascunho }, () => { setFiltro(rascunho); paginacao.setCurrentPage(1); setFiltroAberto(false); })}
+                />
+              )}
               <button
                 type="button"
                 onClick={() => { setRascunho(FILTRO_VAZIO); setFiltro(FILTRO_VAZIO); paginacao.setCurrentPage(1); setFiltroAberto(false); }}
@@ -674,7 +705,8 @@ function MembrosDaEquipe({
   confirmar,
   onSavingChange,
   colunasMembros,
-  filtroDoLookup,
+  configLookup,
+  adicionarPeloLookup,
   temAnterior,
   temProximo,
   anterior,
@@ -792,6 +824,9 @@ function MembrosDaEquipe({
 
   async function salvar(ev: React.FormEvent<HTMLFormElement>) {
     ev.preventDefault();
+    // "Salvar e adicionar": lido e zerado já no início (se a validação barrar, o próximo Salvar não abre um novo).
+    const novoAposSalvar = novoAposSalvarRef.current;
+    novoAposSalvarRef.current = false;
     if (!aberto || salvando) return;
     // Obrigatório só o que estiver configurado em Campos x Formulários.
     const faltando = TIPOS_MEMBRO.filter(({ campo }) => statusDe(campo) === "O" && !form[campo]).map(({ campo }) => campo);
@@ -825,20 +860,16 @@ function MembrosDaEquipe({
         setSelecionadoId(criado.id ?? null);
         onMessage("Registro criado com sucesso!");
       }
-      if (novoAposSalvarRef.current) novoMembro();
+      if (novoAposSalvar) novoMembro();
       else fecharFormulario();
     } catch (err) {
       onMessage(err instanceof Error && err.message ? `Erro ao salvar: ${err.message}` : "Erro ao salvar.");
     } finally {
-      novoAposSalvarRef.current = false;
       setSalvando(false);
     }
   }
 
   const tipoLookup = lookup ? TIPOS_MEMBRO.find((t) => t.campo === lookup) : undefined;
-  const registrosLookup: ReferenciaLookupItem[] = lookup
-    ? opcoesMembro[lookup].filter((o) => !o.inativo).map((o) => ({ nr_sequencia: o.nr_sequencia, descricao: o.descricao || `#${o.nr_sequencia}` }))
-    : [];
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -972,13 +1003,14 @@ function MembrosDaEquipe({
         );
       })()}
 
-      {lookup && tipoLookup && (
-        <ReferenciaLookupModal
-          titulo={tipoLookup.rotulo}
-          colecao={tipoLookup.colecao}
-          campoDescricao="nr_seq_pessoa_fisica"
-          registros={registrosLookup}
-          {...filtroDoLookup?.(tipoLookup.colecao)}
+      {lookup && tipoLookup && configLookup && (
+        <LookupModal
+          key={lookup}
+          {...configLookup(tipoLookup.colecao)}
+          onAdicionar={adicionarPeloLookup?.(tipoLookup.colecao, () => setLookup(null), (nr) => {
+            const campo = lookup;
+            setForm((f) => ({ ...f, [campo]: String(nr) }));
+          })}
           onClose={() => setLookup(null)}
           onSelect={(item) => {
             setForm((f) => ({ ...f, [lookup]: String(item.nr_sequencia) }));

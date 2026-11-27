@@ -18,10 +18,10 @@ export const ESTADO_CIVIL_COLUMNS: ColDef[] = [
 ];
 
 export const ESTADO_CIVIL_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_estado_civil' },
-  ds_estado_civil: { type: 'string', field: 'ds_estado_civil', collection: 'cg_estado_civil' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_estado_civil' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_estado_civil' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_estado_civil' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'estado_civil' },
+  ds_estado_civil: { type: 'string', field: 'ds_estado_civil', collection: 'estado_civil' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'estado_civil' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'estado_civil' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'estado_civil' },
 } as const;
 

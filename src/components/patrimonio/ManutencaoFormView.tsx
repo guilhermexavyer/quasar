@@ -134,7 +134,7 @@ export default function ManutencaoFormView({
   }
 
   const camposConfiguraveis = new Set(
-    CAMPOS_POR_FUNCAO.manutencoes?.map((c) => c.key.replace("pat_manutencao.", "")) ?? []
+    CAMPOS_POR_FUNCAO.manutencoes?.map((c) => c.key.replace("manutencao.", "")) ?? []
   );
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {

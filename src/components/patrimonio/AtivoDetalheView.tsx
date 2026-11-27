@@ -16,6 +16,7 @@ import Select from "@/components/ui/Select";
 import ResizableTable, { proximaOrdenacao, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
@@ -81,6 +82,8 @@ interface FormResponsavel {
   /** Documento em edição; ausente = novo responsável. */
   id?: string;
   nr_seq_colaborador: string;
+  /** Equipe responsável (ou o colaborador: preenchido um, o outro fica desabilitado). */
+  nr_seq_equipe: string;
 }
 
 interface AtivoDetalheViewProps {
@@ -100,7 +103,7 @@ interface AtivoDetalheViewProps {
   /** Volta para a lista de ativos (breadcrumb). */
   onVoltar: () => void;
   auditAutor?: AuditAutor;
-  /** Regras de campos do perfil ativo (coleção pat_ativo_responsavel). */
+  /** Regras de campos do perfil ativo (coleção ativo_responsavel). */
   campoRegras?: Record<string, CampoStatus>;
   /** Abre o histórico de auditoria de um responsável. */
   onOpenAudit?: (responsavelId: string) => void;
@@ -119,6 +122,11 @@ interface AtivoDetalheViewProps {
   /** Abre o lookup de Colaborador; chama aoSelecionar com a sequência escolhida. */
   onOpenColaboradorLookup: (aoSelecionar: (nrSequencia: number) => void) => void;
   onViewColaborador: (nrSequencia: number) => void;
+  /** Equipes (Pessoas e Relacionamentos): o responsável pode ser uma equipe em vez de um colaborador. */
+  equipes: { nr_sequencia: number; ie_status?: string }[];
+  nomeEquipe: (nrSequencia?: number) => string;
+  /** Abre o lookup de Equipe; a sequência escolhida volta pelo callback. */
+  onOpenEquipeLookup: (aoSelecionar: (nrSequencia: number) => void) => void;
   /** Manutenções do sistema (a tela mostra só as deste ativo). */
   manutencoes: Manutencao[];
   /** Nome do prestador de serviço de uma manutenção. */
@@ -171,6 +179,9 @@ export default function AtivoDetalheView({
   colaboradores,
   nomeColaborador,
   onOpenColaboradorLookup,
+  equipes,
+  nomeEquipe,
+  onOpenEquipeLookup,
   onViewColaborador,
   manutencoes,
   nomePrestador,
@@ -206,6 +217,8 @@ export default function AtivoDetalheView({
   const [erro, setErro] = useState(false);
   const [salvando, setSalvando] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  /** "Salvar e adicionar": depois de gravar, abre um responsável novo. */
+  const novoAposSalvarRef = useRef(false);
 
   // Responsáveis do ativo em tempo real.
   useEffect(() => {
@@ -223,7 +236,7 @@ export default function AtivoDetalheView({
   useEffect(() => {
     if (aba !== 'transferencias' || logsAtivo !== null || !ativo.id) return;
     let cancelado = false;
-    fetchAuditByDocumentId('pat_ativo', ativo.id)
+    fetchAuditByDocumentId('ativo', ativo.id)
       .then((logs) => { if (!cancelado) setLogsAtivo(logs); })
       .catch(() => {
         if (cancelado) return;
@@ -250,6 +263,9 @@ export default function AtivoDetalheView({
   }, [salvando]);
 
   const statusColaborador: CampoStatus = campoRegras['nr_seq_colaborador'] ?? 'N';
+  const statusEquipe: CampoStatus = campoRegras['nr_seq_equipe'] ?? 'N';
+  /** Nome do responsável: o colaborador ou a equipe. */
+  const nomeResponsavel = (r: AtivoResponsavel) => (r.nr_seq_equipe ? nomeEquipe(r.nr_seq_equipe) : nomeColaborador(r.nr_seq_colaborador));
   const responsavelAberto = form?.id ? responsaveis.find((r) => r.id === form.id) : undefined;
   const manutencoesDoAtivo = useMemo(
     () => manutencoes.filter((m) => m.nr_seq_ativo === ativo.nr_sequencia),
@@ -259,6 +275,7 @@ export default function AtivoDetalheView({
   /** Valor usado para ordenar um responsável pela coluna informada. */
   function valorResp(r: AtivoResponsavel, coluna: string): string | number {
     if (coluna === 'nr_seq_colaborador') return nomeColaborador(r.nr_seq_colaborador);
+    if (coluna === 'nr_seq_equipe') return nomeEquipe(r.nr_seq_equipe);
     if (coluna === 'nr_sequencia') return r.nr_sequencia ?? 0;
     const dados = r as unknown as Record<string, unknown>;
     return String(dados[coluna] ?? '');
@@ -287,7 +304,7 @@ export default function AtivoDetalheView({
       return asc ? cmp : -cmp;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [responsaveis, sortResp, nomeColaborador]);
+  }, [responsaveis, sortResp, nomeColaborador, nomeEquipe]);
 
   const manutencoesOrdenadas = useMemo(() => {
     const coluna = sortManut.coluna ?? 'nr_sequencia';
@@ -343,11 +360,12 @@ export default function AtivoDetalheView({
   const colunasResp: ResizableTableColumn<AtivoResponsavel>[] = useMemo(() => [
     { key: 'nr_sequencia', label: '#', cellClassName: 'text-right', render: (r) => <span className="text-sm">{r.nr_sequencia}</span> },
     { key: 'nr_seq_colaborador', label: 'Colaborador', width: 260, render: (r) => <span className="text-sm text-black">{nomeColaborador(r.nr_seq_colaborador)}</span> },
+    { key: 'nr_seq_equipe', label: 'Equipe', width: 220, render: (r) => <span className="text-sm text-black">{nomeEquipe(r.nr_seq_equipe)}</span> },
     { key: 'dt_criacao', label: 'Criação', render: (r) => <span className="text-sm">{formatDate(String(r.dt_criacao ?? ''))}</span> },
     { key: 'dt_alteracao', label: 'Alteração', render: (r) => <span className="text-sm">{formatDate(String(r.dt_alteracao ?? ''))}</span> },
     { key: 'ds_usuario_criacao', label: 'Usuário criação', render: (r) => <span className="text-sm">{r.ds_usuario_criacao ?? ''}</span> },
     { key: 'ds_usuario_alteracao', label: 'Usuário alteração', render: (r) => <span className="text-sm">{r.ds_usuario_alteracao ?? ''}</span> },
-  ], [nomeColaborador]);
+  ], [nomeColaborador, nomeEquipe]);
 
   const colunasManut: ResizableTableColumn<Manutencao>[] = useMemo(() => [
     {
@@ -399,12 +417,12 @@ export default function AtivoDetalheView({
   function abrirResponsavel(r: AtivoResponsavel) {
     setSelecionadoId(r.id ?? null);
     setErro(false);
-    setForm({ id: r.id, nr_seq_colaborador: r.nr_seq_colaborador ? String(r.nr_seq_colaborador) : '' });
+    setForm({ id: r.id, nr_seq_colaborador: r.nr_seq_colaborador ? String(r.nr_seq_colaborador) : '', nr_seq_equipe: r.nr_seq_equipe ? String(r.nr_seq_equipe) : '' });
   }
 
   function novoResponsavel() {
     setErro(false);
-    setForm({ nr_seq_colaborador: '' });
+    setForm({ nr_seq_colaborador: '', nr_seq_equipe: '' });
   }
 
   function fecharFormulario() {
@@ -427,35 +445,53 @@ export default function AtivoDetalheView({
 
   async function salvar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Lido e zerado já no início: se a validação barrar, o próximo Salvar não abre um novo.
+    const novoAposSalvar = novoAposSalvarRef.current;
+    novoAposSalvarRef.current = false;
     if (!form || salvando) return;
-    const nr = Number(form.nr_seq_colaborador);
-    if (!form.nr_seq_colaborador || !nr) {
+    // O responsável é um colaborador OU uma equipe (preenchido um, o outro fica desabilitado).
+    const nrColaborador = Number(form.nr_seq_colaborador) || 0;
+    const nrEquipe = Number(form.nr_seq_equipe) || 0;
+    if (!nrColaborador && !nrEquipe) {
       setErro(true);
       onMessage('Preencha os campos obrigatórios.');
       return;
     }
-    if (!colaboradores.some((c) => c.nr_sequencia === nr)) {
+    if (nrColaborador && !colaboradores.some((c) => c.nr_sequencia === nrColaborador)) {
       setErro(true);
       onMessage('Colaborador não encontrado.');
       return;
     }
-    if (responsaveis.some((r) => r.nr_seq_colaborador === nr && r.id !== form.id)) {
+    if (nrEquipe && !equipes.some((e) => e.nr_sequencia === nrEquipe)) {
+      setErro(true);
+      onMessage('Equipe não encontrada.');
+      return;
+    }
+    if (nrColaborador && responsaveis.some((r) => r.nr_seq_colaborador === nrColaborador && r.id !== form.id)) {
       setErro(true);
       onMessage('Este colaborador já é responsável pelo ativo.');
+      return;
+    }
+    if (nrEquipe && responsaveis.some((r) => r.nr_seq_equipe === nrEquipe && r.id !== form.id)) {
+      setErro(true);
+      onMessage('Esta equipe já é responsável pelo ativo.');
       return;
     }
     setErro(false);
     setSalvando(true);
     try {
+      // O que não foi escolhido vai vazio (undefined vira null na gravação).
+      const dados = { nr_seq_colaborador: nrColaborador || undefined, nr_seq_equipe: nrEquipe || undefined };
       if (form.id) {
-        await atualizarAtivoResponsavel(form.id, { nr_seq_colaborador: nr }, auditAutor);
+        await atualizarAtivoResponsavel(form.id, dados, auditAutor);
         onMessage('Registro alterado com sucesso!');
       } else {
-        const id = await criarAtivoResponsavel({ nr_seq_ativo: ativo.nr_sequencia, nr_seq_colaborador: nr }, auditAutor);
+        const id = await criarAtivoResponsavel({ nr_seq_ativo: ativo.nr_sequencia, ...dados }, auditAutor);
         setSelecionadoId(id);
         onMessage('Registro criado com sucesso!');
       }
-      fecharFormulario();
+      if (novoAposSalvar) novoResponsavel();
+      else fecharFormulario();
     } catch {
       onMessage('Erro ao salvar.');
     } finally {
@@ -466,6 +502,7 @@ export default function AtivoDetalheView({
   const classeSeta = (ativa: boolean) =>
     `inline-flex items-center justify-center rounded-[3px] border border-slate-300 bg-[#ddd] px-[5px] py-[5px] text-sm text-black cursor-pointer ${ativa ? 'hover:bg-slate-300' : 'opacity-40'}`;
   const nrForm = Number(form?.nr_seq_colaborador || 0);
+  const nrEquipeForm = Number(form?.nr_seq_equipe || 0);
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
@@ -498,7 +535,7 @@ export default function AtivoDetalheView({
               ...(form
                 ? [{
                     chave: 'responsavel',
-                    texto: responsavelAberto ? `Responsável: ${responsavelAberto.nr_sequencia ?? ''} ${nomeColaborador(responsavelAberto.nr_seq_colaborador)}` : 'Responsável',
+                    texto: responsavelAberto ? `Responsável: ${responsavelAberto.nr_sequencia ?? ''} ${nomeResponsavel(responsavelAberto)}` : 'Responsável',
                     onClick: fecharFormulario,
                   }]
                 : []),
@@ -540,17 +577,17 @@ export default function AtivoDetalheView({
               Origem e Destino dividem o resto da linha. */}
           <div className="grid gap-[15px] sm:grid-cols-24 pt-2">
             <div className="sm:col-span-2">
-              <RotuloCampo texto="Sequência" colecao="pat_ativo" campo="nr_sequencia" />
+              <RotuloCampo texto="Sequência" colecao="ativo" campo="nr_sequencia" />
               <input disabled value={String(transferenciaAberta.nr_sequencia)} className={classeLeitura} />
             </div>
             <div className="sm:col-span-4">
-              <RotuloCampo texto="Data" colecao="pat_ativo" campo="dt_alteracao" />
+              <RotuloCampo texto="Data" colecao="ativo" campo="dt_alteracao" />
               <input disabled value={formatDate(transferenciaAberta.dt_transferencia)} className={classeLeitura} />
             </div>
             {/* Origem e Destino na mesma linha de Sequência e Data. */}
             {([['Origem', transferenciaAberta.nr_seq_origem], ['Destino', transferenciaAberta.nr_seq_destino]] as const).map(([rotulo, nr]) => (
               <div key={rotulo} className="sm:col-span-9 min-w-0">
-                <RotuloCampo texto={rotulo} colecao="pat_ativo" campo="nr_seq_localizacao" />
+                <RotuloCampo texto={rotulo} colecao="ativo" campo="nr_seq_localizacao" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <input disabled value={nr ? String(nr) : ''} className={classeLeitura} />
@@ -562,7 +599,7 @@ export default function AtivoDetalheView({
               </div>
             ))}
             <div className="sm:col-span-24">
-              <RotuloCampo texto="Motivo" colecao="pat_ativo" campo="ds_motivo_transferencia" />
+              <RotuloCampo texto="Motivo" colecao="ativo" campo="ds_motivo_transferencia" />
               <textarea disabled rows={3} value={transferenciaAberta.ds_motivo} className={`${classeLeitura} resize-none`} />
             </div>
           </div>
@@ -612,14 +649,14 @@ export default function AtivoDetalheView({
               <RotuloCampo texto="Sequência" colecao={COLECAO_ATIVO_RESPONSAVEL} campo="nr_sequencia" />
               <input disabled value={String(responsavelAberto?.nr_sequencia ?? '')} className="w-full rounded-[3px] border border-slate-300 px-2 py-1.5 text-sm transition focus:outline-none" />
             </div>
-            <div className="sm:col-span-11">
+            <div className="sm:col-span-5">
               <RotuloCampo texto="Colaborador" colecao={COLECAO_ATIVO_RESPONSAVEL} campo="nr_seq_colaborador" prefixo={<RequiredAsterisk />} />
               <div className="flex items-center gap-2 flex-nowrap">
                 <div style={{ width: 110 }}>
                   <input
                     inputMode="numeric"
                     maxLength={10}
-                    disabled={statusColaborador === 'D'}
+                    disabled={statusColaborador === 'D' || !!form.nr_seq_equipe}
                     className={`w-full rounded-[3px] border ${erro ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
                     value={form.nr_seq_colaborador}
                     onChange={(e) => setForm({ ...form, nr_seq_colaborador: e.target.value.replace(/\D/g, '').slice(0, 10) })}
@@ -635,10 +672,39 @@ export default function AtivoDetalheView({
                     )}
                     <button
                       type="button"
-                      disabled={statusColaborador === 'D'}
+                      disabled={statusColaborador === 'D' || !!form.nr_seq_equipe}
                       onClick={() => onOpenColaboradorLookup((nr) => setForm((atual) => (atual ? { ...atual, nr_seq_colaborador: String(nr) } : atual)))}
                       className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
                       aria-label="Localizar colaborador"
+                    >
+                      <SearchIcon size={16} />
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div className="sm:col-span-6">
+              <RotuloCampo texto="Equipe" colecao={COLECAO_ATIVO_RESPONSAVEL} campo="nr_seq_equipe" prefixo={<RequiredAsterisk />} />
+              <div className="flex items-center gap-2 flex-nowrap">
+                <div style={{ width: 110 }}>
+                  <input
+                    inputMode="numeric"
+                    maxLength={10}
+                    disabled={statusEquipe === 'D' || !!form.nr_seq_colaborador}
+                    className={`w-full rounded-[3px] border ${erro ? 'border-red-500' : 'border-slate-300'} bg-white px-2 py-1.5 text-sm text-slate-900 transition focus:border-[#003056] focus:outline-none disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500`}
+                    value={form.nr_seq_equipe}
+                    onChange={(e) => setForm({ ...form, nr_seq_equipe: e.target.value.replace(/\D/g, '').slice(0, 10) })}
+                  />
+                </div>
+                <div className="relative flex-1 min-w-0">
+                  <input readOnly className={`w-full rounded-[3px] border ${erro ? 'border-red-500' : 'border-slate-300'} bg-slate-100 px-2 pr-[36px] py-1.5 text-sm text-slate-700 transition focus:border-[#003056] focus:outline-none`} value={nomeEquipe(nrEquipeForm)} />
+                  <div className="absolute right-1 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+                    <button
+                      type="button"
+                      disabled={statusEquipe === 'D' || !!form.nr_seq_colaborador}
+                      onClick={() => onOpenEquipeLookup((nr) => setForm((atual) => (atual ? { ...atual, nr_seq_equipe: String(nr) } : atual)))}
+                      className="inline-flex h-[30px] w-[28px] items-center justify-center rounded-[3px] cursor-pointer icon-lookup disabled:cursor-default disabled:opacity-40"
+                      aria-label="Localizar equipe"
                     >
                       <SearchIcon size={16} />
                     </button>
@@ -675,6 +741,13 @@ export default function AtivoDetalheView({
                 </div>
               )}
               <div className="flex items-center justify-end gap-3 ml-auto">
+                <BotaoSalvarEAdicionar
+                  disabled={salvando}
+                  onClick={() => {
+                    novoAposSalvarRef.current = true;
+                    formRef.current?.requestSubmit();
+                  }}
+                />
                 <button type="button" onClick={fecharFormulario} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>
                   Cancelar
                 </button>
@@ -713,8 +786,10 @@ export default function AtivoDetalheView({
                     setMenu({ id: r.id ?? '', x: e.clientX, y: e.clientY });
                   }}
                   rowClassName={(r) => {
-                    // Colaborador desligado: letra apagada e linha atravessando o registro.
-                    const desligado = colaboradores.find((c) => c.nr_sequencia === r.nr_seq_colaborador)?.ie_status === 'D';
+                    // Colaborador desligado ou equipe inativa: letra apagada e linha atravessando o registro.
+                    const desligado = r.nr_seq_equipe
+                      ? equipes.find((e) => e.nr_sequencia === r.nr_seq_equipe)?.ie_status === 'I'
+                      : colaboradores.find((c) => c.nr_sequencia === r.nr_seq_colaborador)?.ie_status === 'D';
                     return `${selecionadoId === r.id ? 'row-selected' : ''} ${desligado ? 'registro-desligado' : ''}`;
                   }}
                   {...colunasResponsaveis}

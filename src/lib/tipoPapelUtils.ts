@@ -18,9 +18,9 @@ export const TIPO_PAPEL_COLUMNS: ColDef[] = [
 ];
 
 export const TIPO_PAPEL_FIELD_INFOS = {
-  nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "cg_tipo_papel" },
-  ds_tipo_papel: { type: "string", field: "ds_tipo_papel", collection: "cg_tipo_papel" },
-  ie_status: { type: "string", field: "ie_status", collection: "cg_tipo_papel" },
-  dt_criacao: { type: "string", field: "dt_criacao", collection: "cg_tipo_papel" },
-  dt_alteracao: { type: "string", field: "dt_alteracao", collection: "cg_tipo_papel" },
+  nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "tipo_papel" },
+  ds_tipo_papel: { type: "string", field: "ds_tipo_papel", collection: "tipo_papel" },
+  ie_status: { type: "string", field: "ie_status", collection: "tipo_papel" },
+  dt_criacao: { type: "string", field: "dt_criacao", collection: "tipo_papel" },
+  dt_alteracao: { type: "string", field: "dt_alteracao", collection: "tipo_papel" },
 } as const;

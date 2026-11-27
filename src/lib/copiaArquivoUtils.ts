@@ -1,6 +1,6 @@
 /**
  * Tipos de arquivo que podem ser anexados em Controle de Cópias > Cópias.
- * O parâmetro "Tipos de arquivo para anexar em 'Cópias'" (cc_param_tipos_arquivo_copia)
+ * O parâmetro "Tipos de arquivo para anexar em 'Cópias'" (copia_param_tipos_arquivo)
  * guarda em ds_regra as extensões marcadas, separadas por vírgula (ex.: "pdf,docx").
  * Usado na tela (checkboxes do parâmetro e `accept` do input file) e no servidor (validação do envio).
  */

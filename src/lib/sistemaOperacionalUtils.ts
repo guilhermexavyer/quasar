@@ -21,26 +21,26 @@ export const SISTEMA_OPERACIONAL_FIELD_INFOS = {
   nr_sequencia: {
     type: "int64",
     field: "nr_sequencia",
-    collection: "cg_sistema_operacional",
+    collection: "sistema_operacional",
   },
   ds_sistema_operacional: {
     type: "string",
     field: "ds_sistema_operacional",
-    collection: "cg_sistema_operacional",
+    collection: "sistema_operacional",
   },
   ie_status: {
     type: "string",
     field: "ie_status",
-    collection: "cg_sistema_operacional",
+    collection: "sistema_operacional",
   },
   dt_criacao: {
     type: "string",
     field: "dt_criacao",
-    collection: "cg_sistema_operacional",
+    collection: "sistema_operacional",
   },
   dt_alteracao: {
     type: "string",
     field: "dt_alteracao",
-    collection: "cg_sistema_operacional",
+    collection: "sistema_operacional",
   },
 } as const;

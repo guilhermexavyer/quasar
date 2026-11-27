@@ -18,9 +18,9 @@ export const GRAU_PARENTESCO_COLUMNS: ColDef[] = [
 ];
 
 export const GRAU_PARENTESCO_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_grau_parentesco' },
-  ds_grau_parentesco: { type: 'string', field: 'ds_grau_parentesco', collection: 'cg_grau_parentesco' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_grau_parentesco' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_grau_parentesco' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_grau_parentesco' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'grau_parentesco' },
+  ds_grau_parentesco: { type: 'string', field: 'ds_grau_parentesco', collection: 'grau_parentesco' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'grau_parentesco' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'grau_parentesco' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'grau_parentesco' },
 } as const;

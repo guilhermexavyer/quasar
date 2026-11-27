@@ -19,10 +19,10 @@ export const LOGRADOURO_COLUMNS: ColDef[] = [
 ];
 
 export const LOGRADOURO_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_logradouro' },
-  sg_logradouro: { type: 'string', field: 'sg_logradouro', collection: 'cg_logradouro' },
-  ds_logradouro: { type: 'string', field: 'ds_logradouro', collection: 'cg_logradouro' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_logradouro' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_logradouro' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_logradouro' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'logradouro' },
+  sg_logradouro: { type: 'string', field: 'sg_logradouro', collection: 'logradouro' },
+  ds_logradouro: { type: 'string', field: 'ds_logradouro', collection: 'logradouro' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'logradouro' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'logradouro' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'logradouro' },
 } as const;

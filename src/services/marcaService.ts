@@ -1,7 +1,7 @@
 import { createCadastroGeralService } from "@/services/cadastroGeralService";
 import type { Marca } from "@/types/marca";
 
-const service = createCadastroGeralService<Marca>("cg_marca", "cg_marca_sequence");
+const service = createCadastroGeralService<Marca>("marca", "marca_sequence");
 
 export const obterMarcas = service.obterTodos;
 export const criarMarca = service.criar;

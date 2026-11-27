@@ -5,6 +5,7 @@ import type { KeyboardEvent as ReactKeyboardEvent, ReactNode } from "react";
 import CampoCorPaleta from "@/components/ui/CampoCorPaleta";
 import FormularioSomenteLeitura from "@/components/ui/FormularioSomenteLeitura";
 import Select from "@/components/ui/Select";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 import LoadingModal from "@/components/ui/LoadingModal";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
@@ -111,6 +112,8 @@ interface RelatorioBuilderProps {
   /** 'form' mostra o relatório; 'bandas' mostra as abas Bandas e Parâmetros. */
   viewMode?: "form" | "bandas";
   onSave: (dados: DadosRelatorioForm) => void;
+  /** "Salvar e adicionar" do formulário do relatório: grava e abre um relatório novo (sem ela, o botão não aparece no relatório). */
+  onSaveAndAdd?: (dados: DadosRelatorioForm) => void;
   onCancel: () => void;
   saving?: boolean;
   manageSelection?: string;
@@ -204,6 +207,7 @@ export default function RelatorioBuilder({
   relatorio,
   viewMode = "form",
   onSave,
+  onSaveAndAdd,
   onCancel,
   saving = false,
   manageSelection = "relatorio",
@@ -239,6 +243,8 @@ export default function RelatorioBuilder({
 }: RelatorioBuilderProps) {
   const ehBandas = viewMode === "bandas";
   const formRef = useRef<HTMLFormElement | null>(null);
+  /** "Salvar e adicionar": o próximo envio do formulário abre um registro novo depois de gravar. */
+  const novoAposSalvarRef = useRef(false);
   const nrRelatorio = relatorio?.nr_sequencia ?? null;
   const pdf = relatorio?.configPdf;
 
@@ -380,7 +386,7 @@ export default function RelatorioBuilder({
   /* ── Salvar ── */
   // Obrigatoriedade só pelas regras de Campos x Formulários (nenhum campo é obrigatório por padrão).
   // Os campos do PDF só contam (e só são gravados) com o Formato PDF.
-  function salvarRelatorio() {
+  function salvarRelatorio(novoAposSalvar = false) {
     if (somenteLeitura) return;
     const valores: Record<string, string> = {
       ds_relatorio: dsRelatorio,
@@ -397,7 +403,7 @@ export default function RelatorioBuilder({
     }
     setErrosDetalhe([]);
     const margem = (c: CampoMargem) => (ehPdf ? medidaParaBanco(margens[c]) : null);
-    onSave({
+    (novoAposSalvar && onSaveAndAdd ? onSaveAndAdd : onSave)({
       ds_relatorio: dsRelatorio.trim(),
       ie_formato: formato,
       ie_status: status,
@@ -497,7 +503,8 @@ export default function RelatorioBuilder({
     return { ...banda, nr_seq_relatorio: nrRelatorio ?? undefined };
   }
 
-  async function salvarDetalhe() {
+  /** Grava a banda, o elemento ou o parâmetro aberto; com `novoAposSalvar` ("Salvar e adicionar"), abre um novo do mesmo tipo. */
+  async function salvarDetalhe(novoAposSalvar = false) {
     if (!detalhe || nrRelatorio == null) return;
     if (detalhe.tipo === "banda" || detalhe.tipo === "elemento") {
       const problema = detalhe.tipo === "banda" ? problemaDaBanda(detalhe.banda) : problemaDoElemento(elementoNormalizado(detalhe.elemento));
@@ -550,7 +557,8 @@ export default function RelatorioBuilder({
         setSelecionadoId(salvo.id ?? null);
         onToast?.(detalhe.parametro.id ? "Parâmetro atualizado com sucesso!" : "Parâmetro cadastrado com sucesso!", "success");
       }
-      setDetalhe(null);
+      if (novoAposSalvar) adicionar();
+      else setDetalhe(null);
     } catch (e) {
       onToast?.(e instanceof Error && e.message ? e.message : "Erro ao salvar.", "error");
     } finally {
@@ -1263,8 +1271,11 @@ export default function RelatorioBuilder({
         ref={formRef}
         onSubmit={(e) => {
           e.preventDefault();
-          if (ehBandas) void salvarDetalhe();
-          else salvarRelatorio();
+          // "Salvar e adicionar": lido e zerado a cada envio (o Salvar e o Ctrl+S não abrem um novo).
+          const novoAposSalvar = novoAposSalvarRef.current;
+          novoAposSalvarRef.current = false;
+          if (ehBandas) void salvarDetalhe(novoAposSalvar);
+          else salvarRelatorio(novoAposSalvar);
         }}
         className="mt-6 flex-1 flex flex-col min-h-0"
       >
@@ -1851,6 +1862,15 @@ export default function RelatorioBuilder({
                 </div>
               )}
               <div className="flex items-center gap-3 ml-auto">
+                {!somenteLeitura && (ehBandas ? !!detalhe : !!onSaveAndAdd) && (
+                  <BotaoSalvarEAdicionar
+                    disabled={saving || gravando}
+                    onClick={() => {
+                      novoAposSalvarRef.current = true;
+                      formRef.current?.requestSubmit();
+                    }}
+                  />
+                )}
                 <button
                   type="button"
                   onClick={() => (ehBandas ? setDetalhe(null) : onCancel())}

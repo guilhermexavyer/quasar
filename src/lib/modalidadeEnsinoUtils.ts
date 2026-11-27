@@ -18,9 +18,9 @@ export const MODALIDADE_ENSINO_COLUMNS: ColDef[] = [
 ];
 
 export const MODALIDADE_ENSINO_FIELD_INFOS = {
-  nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "cg_modalidade_ensino" },
-  ds_modalidade_ensino: { type: "string", field: "ds_modalidade_ensino", collection: "cg_modalidade_ensino" },
-  ie_status: { type: "string", field: "ie_status", collection: "cg_modalidade_ensino" },
-  dt_criacao: { type: "string", field: "dt_criacao", collection: "cg_modalidade_ensino" },
-  dt_alteracao: { type: "string", field: "dt_alteracao", collection: "cg_modalidade_ensino" },
+  nr_sequencia: { type: "int64", field: "nr_sequencia", collection: "modalidade_ensino" },
+  ds_modalidade_ensino: { type: "string", field: "ds_modalidade_ensino", collection: "modalidade_ensino" },
+  ie_status: { type: "string", field: "ie_status", collection: "modalidade_ensino" },
+  dt_criacao: { type: "string", field: "dt_criacao", collection: "modalidade_ensino" },
+  dt_alteracao: { type: "string", field: "dt_alteracao", collection: "modalidade_ensino" },
 } as const;

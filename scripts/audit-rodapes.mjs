@@ -13,7 +13,7 @@
 import { conectar, encerrarComErro, tabelasEmOrdem, textoDoErro } from "./lib/conexao.mjs";
 
 /** Tabelas sem rodapé de registro. */
-const SEM_RODAPE = new Set(["auditoria", "exclusao", "usuario_coluna", "usuario_painel"]);
+const SEM_RODAPE = new Set(["log_auditoria", "log_exclusao", "usuario_coluna", "usuario_painel"]);
 const vazio = (v) => v === undefined || v === null || String(v).trim() === "";
 
 const db = await conectar();
@@ -23,9 +23,9 @@ try {
   for (const t of tabelas) {
     const { rows } = await db.query(
       `select r.nr_sequencia, r.dt_criacao, r.dt_alteracao, r.ds_usuario_criacao, r.ds_usuario_alteracao,
-              (select a.usuario_nome from auditoria a where a.ds_colecao = $1 and a.nr_seq_registro = r.nr_sequencia and a.acao = 'create'
+              (select a.usuario_nome from log_auditoria a where a.ds_colecao = $1 and a.nr_seq_registro = r.nr_sequencia and a.acao = 'create'
                 order by a."timestamp" asc limit 1) as aud_criacao,
-              (select a.usuario_nome from auditoria a where a.ds_colecao = $1 and a.nr_seq_registro = r.nr_sequencia and a.acao in ('update', 'password')
+              (select a.usuario_nome from log_auditoria a where a.ds_colecao = $1 and a.nr_seq_registro = r.nr_sequencia and a.acao in ('update', 'password')
                 order by a."timestamp" desc limit 1) as aud_alteracao
          from "${t}" r order by r.nr_sequencia`,
       [t]

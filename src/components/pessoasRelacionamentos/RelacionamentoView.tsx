@@ -9,6 +9,7 @@ import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
 import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
+import BotaoSalvarFiltro from "@/components/ui/BotaoSalvarFiltro";
 import FiltrosAplicados, { type FiltroAplicado } from "@/components/ui/FiltrosAplicados";
 import ResizableTable, { proximaOrdenacao, compararValoresColuna, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
@@ -17,7 +18,13 @@ import { elementoVisivel } from "@/lib/visibilidade";
 import { formatDate, parseDateInput } from "@/lib/pessoaFisicaUtils";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
 import {
+  COLUNAS_RELACIONAMENTO,
+  FILTRO_RELACIONAMENTO_VAZIO,
   NOMES_RELACIONAMENTO,
+  celulaRelacionamento,
+  mesclarFiltro,
+  passaFiltroRelacionamento,
+  type FiltroRelacionamento,
   STATUS_RELACIONAMENTO_OPTIONS,
   rotuloStatusRelacionamento,
   type TipoRelacionamento,
@@ -30,8 +37,6 @@ interface FormRelacionamento {
   nr_seq_pessoa_fisica: string;
   nr_seq_pessoa_juridica: string;
   ie_status: string;
-  dt_status: string;
-  ds_motivo_status: string;
   ds_observacao: string;
 }
 
@@ -39,20 +44,10 @@ const FORM_VAZIO: FormRelacionamento = {
   nr_seq_pessoa_fisica: "",
   nr_seq_pessoa_juridica: "",
   ie_status: "A",
-  dt_status: "",
-  ds_motivo_status: "",
   ds_observacao: "",
 };
 
-interface FiltroRelacionamento {
-  nr_sequencia: string;
-  ds_nome: string;
-  nr_seq_pessoa_fisica: string;
-  nr_seq_pessoa_juridica: string;
-  ie_status: string;
-}
-
-const FILTRO_VAZIO: FiltroRelacionamento = { nr_sequencia: "", ds_nome: "", nr_seq_pessoa_fisica: "", nr_seq_pessoa_juridica: "", ie_status: "" };
+const FILTRO_VAZIO = FILTRO_RELACIONAMENTO_VAZIO;
 
 export interface PermissoesRelacionamento {
   adicionar: boolean;
@@ -88,13 +83,18 @@ interface RelacionamentoViewProps {
   confirmar: (titulo: string, mensagem: string, acao: () => void) => void;
   onSavingChange?: (salvando: boolean) => void;
   colunas?: ConfigColunasTabela;
+  /** Filtro salvo do usuário para esta tela: vira o filtro inicial (ao abrir a função ou entrar). */
+  filtroSalvo?: Record<string, string> | null;
+  /** "Salvar filtro": grava o filtro para o usuário e o aplica (como o "Filtrar"). */
+  onSalvarFiltro?: (form: Record<string, string>, aplicar: () => void) => void;
+  /**
+   * "Adicionar" de um lookup de outra tela: preenchido, o componente já monta com o formulário de
+   * um registro novo aberto (a tela usa um key com este valor, para montar de novo a cada pedido).
+   */
+  novoAoAbrir?: number;
+  /** Chamado quando o formulário fecha (Salvar, Cancelar, Fechar): o lookup de origem retoma. */
+  onFormularioFechado?: () => void;
 }
-
-const hoje = () => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getDate())}/${pad(d.getMonth() + 1)}/${d.getFullYear()}`;
-};
 
 /** Data DD/MM/AAAA ou instante ISO → número para ordenar. */
 function chaveData(valor?: string): number {
@@ -110,8 +110,9 @@ const CLASSE_ITEM_MENU = "w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-
 
 /**
  * Pessoas e Relacionamentos > Fornecedores / Prestadores de Serviço: lista (filtro, ordenação
- * pelo título da coluna, paginação, menu de contexto) e formulário (pessoa física OU jurídica,
- * status com data e motivo, observação). O status Inativo usa o estilo do colaborador Desligado.
+ * pelo título da coluna, paginação, menu de contexto com Ativar/Inativar) e formulário (linha 1:
+ * Sequência, Pessoa física OU jurídica e Status; linha 2: Observação). O registro Inativo usa o
+ * estilo da banda inativa (o mesmo do colaborador Desligado).
  */
 export default function RelacionamentoView({
   colecao,
@@ -136,18 +137,21 @@ export default function RelacionamentoView({
   confirmar,
   onSavingChange,
   colunas,
+  filtroSalvo,
+  onSalvarFiltro,
+  novoAoAbrir,
+  onFormularioFechado,
 }: RelacionamentoViewProps) {
   const nomes = NOMES_RELACIONAMENTO[colecao];
   const [ordem, setOrdem] = useOrdenacaoPersistida<{ coluna: string | null; asc: boolean }>(`${colecao}.lista`, { coluna: null, asc: true });
-  const [filtro, setFiltro] = useOrdenacaoPersistida<FiltroRelacionamento>(`${colecao}.filtro`, FILTRO_VAZIO);
+  const [filtro, setFiltro] = useOrdenacaoPersistida<FiltroRelacionamento>(`${colecao}.filtro`, mesclarFiltro(FILTRO_VAZIO, filtroSalvo));
   const [filtroAberto, setFiltroAberto] = useState(false);
   const [rascunho, setRascunho] = useState<FiltroRelacionamento>(FILTRO_VAZIO);
   const [selecionadoId, setSelecionadoId] = useState<string | null>(null);
   const [menu, setMenu] = useState<{ id: string; x: number; y: number } | null>(null);
   /** Formulário aberto: `id` do registro em edição (ausente = novo). null = lista. */
-  const [aberto, setAberto] = useState<{ id?: string } | null>(null);
+  const [aberto, setAberto] = useState<{ id?: string } | null>(novoAoAbrir ? {} : null);
   const [form, setForm] = useState<FormRelacionamento>(FORM_VAZIO);
-  const [statusOriginal, setStatusOriginal] = useState("A");
   const [erros, setErros] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
@@ -173,19 +177,10 @@ export default function RelacionamentoView({
 
   /* ── Lista ── */
 
-  const filtrados = useMemo(() => {
-    const nome = filtro.ds_nome.trim().toLowerCase();
-    return registros.filter((r) => {
-      if (filtro.nr_sequencia && String(r.nr_sequencia) !== filtro.nr_sequencia.trim()) return false;
-      if (filtro.nr_seq_pessoa_fisica && String(r.nr_seq_pessoa_fisica ?? "") !== filtro.nr_seq_pessoa_fisica.trim()) return false;
-      if (filtro.nr_seq_pessoa_juridica && String(r.nr_seq_pessoa_juridica ?? "") !== filtro.nr_seq_pessoa_juridica.trim()) return false;
-      if (filtro.ie_status && (r.ie_status ?? "A") !== filtro.ie_status) return false;
-      if (nome && !nomeDoRegistro(r).toLowerCase().includes(nome)) return false;
-      return true;
-    });
+  const filtrados = useMemo(() => registros.filter((r) => passaFiltroRelacionamento(r, filtro, nomeDoRegistro(r))),
     // nomeDoRegistro depende só das funções de nome (estáveis o bastante entre as renderizações).
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [registros, filtro, nomePessoaFisica, nomePessoaJuridica]);
+    [registros, filtro, nomePessoaFisica, nomePessoaJuridica]);
 
   const ordenados = useMemo(() => {
     const coluna = ordem.coluna;
@@ -194,7 +189,7 @@ export default function RelacionamentoView({
       if (coluna === "nr_seq_pessoa_fisica") return nomePessoaFisica(r.nr_seq_pessoa_fisica);
       if (coluna === "nr_seq_pessoa_juridica") return nomePessoaJuridica(r.nr_seq_pessoa_juridica);
       if (coluna === "ie_status") return rotuloStatusRelacionamento(r.ie_status);
-      if (coluna === "dt_status" || coluna === "dt_criacao" || coluna === "dt_alteracao") return chaveData(r[coluna]) || null;
+      if (coluna === "dt_criacao" || coluna === "dt_alteracao") return chaveData(r[coluna]) || null;
       return r[coluna as keyof Relacionamento] ?? null;
     };
     const vazio = (v: unknown) => v === null || v === undefined || v === "";
@@ -209,17 +204,18 @@ export default function RelacionamentoView({
 
   const paginacao = usePagination(ordenados.length, colecao);
 
-  const colunasTabela: ResizableTableColumn<Relacionamento>[] = useMemo(() => [
-    { key: "nr_sequencia", label: "#", cellClassName: "text-right", render: (r) => <span className="text-sm">{r.nr_sequencia}</span> },
-    { key: "nr_seq_pessoa_fisica", label: "Pessoa física", width: 240, render: (r) => <span className="text-sm text-black">{nomePessoaFisica(r.nr_seq_pessoa_fisica)}</span> },
-    { key: "nr_seq_pessoa_juridica", label: "Pessoa jurídica", width: 240, render: (r) => <span className="text-sm text-black">{nomePessoaJuridica(r.nr_seq_pessoa_juridica)}</span> },
-    { key: "ie_status", label: "Status", render: (r) => <span className="text-sm">{rotuloStatusRelacionamento(r.ie_status ?? "A")}</span> },
-    { key: "dt_status", label: "Data do status", render: (r) => <span className="text-sm">{r.dt_status ?? ""}</span> },
-    { key: "dt_criacao", label: "Criação", render: (r) => <span className="text-sm">{formatDate(String(r.dt_criacao ?? ""))}</span> },
-    { key: "dt_alteracao", label: "Alteração", render: (r) => <span className="text-sm">{formatDate(String(r.dt_alteracao ?? ""))}</span> },
-    { key: "ds_usuario_criacao", label: "Usuário criação", render: (r) => <span className="text-sm">{r.ds_usuario_criacao ?? ""}</span> },
-    { key: "ds_usuario_alteracao", label: "Usuário alteração", render: (r) => <span className="text-sm">{r.ds_usuario_alteracao ?? ""}</span> },
-  ], [nomePessoaFisica, nomePessoaJuridica]);
+  // As mesmas colunas do lookup de Fornecedores / Prestadores (COLUNAS_RELACIONAMENTO).
+  const colunasTabela: ResizableTableColumn<Relacionamento>[] = useMemo(() => COLUNAS_RELACIONAMENTO.map((c) => ({
+    key: c.key,
+    label: c.label,
+    ...(c.dataClass ? { cellClassName: c.dataClass } : {}),
+    ...(c.key === "nr_seq_pessoa_fisica" || c.key === "nr_seq_pessoa_juridica" ? { width: 240 } : {}),
+    render: (r: Relacionamento) => (
+      <span className={`text-sm${c.key.startsWith("nr_seq_pessoa") ? " text-black" : ""}`}>
+        {celulaRelacionamento(r as unknown as Record<string, unknown> & { nr_sequencia: number }, c.key, nomePessoaFisica, nomePessoaJuridica)}
+      </span>
+    ),
+  })), [nomePessoaFisica, nomePessoaJuridica]);
 
   const filtroAtivo = Object.values(filtro).some((v) => v.trim() !== "");
   const rotulosFiltro: [keyof FiltroRelacionamento, string, ((v: string) => string)?][] = [
@@ -254,13 +250,10 @@ export default function RelacionamentoView({
     }
     setSelecionadoId(r.id ?? null);
     setErros([]);
-    setStatusOriginal(r.ie_status ?? "A");
     setForm({
       nr_seq_pessoa_fisica: r.nr_seq_pessoa_fisica ? String(r.nr_seq_pessoa_fisica) : "",
       nr_seq_pessoa_juridica: r.nr_seq_pessoa_juridica ? String(r.nr_seq_pessoa_juridica) : "",
       ie_status: r.ie_status ?? "A",
-      dt_status: r.dt_status ?? "",
-      ds_motivo_status: r.ds_motivo_status ?? "",
       ds_observacao: r.ds_observacao ?? "",
     });
     setAberto({ id: r.id });
@@ -268,7 +261,6 @@ export default function RelacionamentoView({
 
   function novoRegistro() {
     setErros([]);
-    setStatusOriginal("A");
     setForm({ ...FORM_VAZIO });
     setAberto({});
   }
@@ -276,6 +268,7 @@ export default function RelacionamentoView({
   function fecharFormulario() {
     setErros([]);
     setAberto(null);
+    onFormularioFechado?.();
   }
 
   function navegar(delta: number) {
@@ -300,14 +293,31 @@ export default function RelacionamentoView({
     });
   }
 
-  function mudarStatus(v: string) {
-    // Data do status: o dia em que o status mudou (voltando ao original, volta a data salva).
-    const salvo = registroAberto?.dt_status ?? "";
-    setForm((f) => ({ ...f, ie_status: v, dt_status: v === statusOriginal ? salvo : hoje() }));
+  /** Ativa ou inativa o registro (menu de contexto). Com o formulário dele aberto, o Status acompanha. */
+  async function alternarStatus(r: Relacionamento) {
+    if (!r.id) return;
+    if (!permissoes.editar) {
+      onAviso("Você não tem permissão para editar este registro.");
+      return;
+    }
+    const novo = r.ie_status === "I" ? "A" : "I";
+    setSalvando(true);
+    try {
+      await atualizarRelacionamento(colecao, r.id, { ie_status: novo });
+      if (aberto?.id === r.id) setForm((f) => ({ ...f, ie_status: novo }));
+      onMessage(`${nomes.singular} ${novo === "I" ? "inativad" : "ativad"}${nomes.artigo} com sucesso!`);
+    } catch (err) {
+      onMessage(err instanceof Error && err.message ? err.message : "Erro ao alterar o status.");
+    } finally {
+      setSalvando(false);
+    }
   }
 
   async function salvar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // "Salvar e adicionar": lido e zerado já no início (se a validação barrar, o próximo Salvar não abre um novo).
+    const novoAposSalvar = novoAposSalvarRef.current;
+    novoAposSalvarRef.current = false;
     if (!aberto || salvando) return;
     if (aberto.id && !permissoes.editar) {
       onAviso("Você não tem permissão para editar este registro.");
@@ -336,8 +346,6 @@ export default function RelacionamentoView({
         nr_seq_pessoa_fisica: pf,
         nr_seq_pessoa_juridica: pj,
         ie_status: form.ie_status || "A",
-        dt_status: form.dt_status || null,
-        ds_motivo_status: form.ds_motivo_status.trim() || null,
         ds_observacao: form.ds_observacao.trim() || null,
       } as unknown as Partial<Relacionamento>;
       if (aberto.id) {
@@ -348,12 +356,11 @@ export default function RelacionamentoView({
         setSelecionadoId(criado.id ?? null);
         onMessage("Registro criado com sucesso!");
       }
-      if (novoAposSalvarRef.current) novoRegistro();
+      if (novoAposSalvar) novoRegistro();
       else fecharFormulario();
     } catch (err) {
       onMessage(err instanceof Error && err.message ? `Erro ao salvar: ${err.message}` : "Erro ao salvar.");
     } finally {
-      novoAposSalvarRef.current = false;
       setSalvando(false);
     }
   }
@@ -370,7 +377,7 @@ export default function RelacionamentoView({
     const nome = valor ? (tipo === "pf" ? nomePessoaFisica(Number(valor)) : nomePessoaJuridica(Number(valor))) : "";
     const rotulo = tipo === "pf" ? "Pessoa física" : "Pessoa jurídica";
     return (
-      <div className={`${tipo === "pf" ? "sm:col-span-5" : "sm:col-span-6"} group`}>
+      <div className={`${tipo === "pf" ? "sm:col-span-4" : "sm:col-span-5"} group`}>
         <RotuloCampo texto={rotulo} colecao={colecao} campo={chave} prefixo={asterisco(chave)} />
         <div className="flex items-center gap-2 flex-nowrap">
           <div style={{ width: 110 }}>
@@ -475,23 +482,9 @@ export default function RelacionamentoView({
                     disabled={statusDe("ie_status") === "D"}
                     error={erros.includes("ie_status")}
                     value={form.ie_status || "A"}
-                    onChange={mudarStatus}
+                    onChange={(v) => setForm((f) => ({ ...f, ie_status: v }))}
                     options={STATUS_RELACIONAMENTO_OPTIONS}
                     showPlaceholder={false}
-                  />
-                </div>
-                <div className="sm:col-span-2 group">
-                  <RotuloCampo texto="Data do status" colecao={colecao} campo="dt_status" />
-                  <input disabled placeholder="DD/MM/AAAA" className={`${CLASSE_CAMPO} border-slate-300`} value={form.dt_status} />
-                </div>
-                <div className="sm:col-span-12 group">
-                  <RotuloCampo texto="Motivo do status" colecao={colecao} campo="ds_motivo_status" prefixo={asterisco("ds_motivo_status")} />
-                  <textarea
-                    rows={3}
-                    disabled={statusDe("ds_motivo_status") === "D"}
-                    className={classeCampo("ds_motivo_status", "resize-none")}
-                    value={form.ds_motivo_status}
-                    onChange={(e) => setForm({ ...form, ds_motivo_status: e.target.value })}
                   />
                 </div>
                 <div className="sm:col-span-12 group">
@@ -582,6 +575,11 @@ export default function RelacionamentoView({
         >
           {!noVer && permissoes.ver && (
             <button type="button" className={CLASSE_ITEM_MENU} style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setMenu(null); abrirRegistro(alvo); }}>Ver</button>
+          )}
+          {permissoes.editar && (
+            <button type="button" className={CLASSE_ITEM_MENU} style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setMenu(null); void alternarStatus(alvo); }}>
+              {alvo.ie_status === "I" ? "Ativar" : "Inativar"}
+            </button>
           )}
           {permissoes.excluir && (
             <button type="button" className={CLASSE_ITEM_MENU} style={{ padding: "0.2rem 0.4rem" }} onClick={() => { setMenu(null); pedirExclusao(alvo); }}>Excluir</button>
@@ -752,6 +750,11 @@ export default function RelacionamentoView({
               {campoPessoaFiltro("nr_seq_pessoa_juridica", "Pessoa jurídica")}
             </div>
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
+              {onSalvarFiltro && (
+                <BotaoSalvarFiltro
+                  onClick={() => onSalvarFiltro({ ...rascunho }, () => { setFiltro(rascunho); paginacao.setCurrentPage(1); setFiltroAberto(false); })}
+                />
+              )}
               <button
                 type="button"
                 onClick={() => { setRascunho(FILTRO_VAZIO); setFiltro(FILTRO_VAZIO); paginacao.setCurrentPage(1); setFiltroAberto(false); }}

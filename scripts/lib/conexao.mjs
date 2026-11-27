@@ -95,7 +95,7 @@ export async function ajustarSequencia(cliente, tabela) {
 /** Registra a auditoria de criação de um registro do seeder. */
 export async function auditarCriacao(cliente, tabela, nrSequencia, autor, momento, detalhes) {
   await cliente.query(
-    `insert into auditoria (ds_colecao, nr_seq_registro, nr_seq_usuario, usuario_nome, acao, "timestamp", detalhes)
+    `insert into log_auditoria (ds_colecao, nr_seq_registro, nr_seq_usuario, usuario_nome, acao, "timestamp", detalhes)
      values ($1, $2, null, $3, 'create', $4, $5::jsonb)`,
     [tabela, nrSequencia, autor, momento, JSON.stringify(detalhes)]
   );

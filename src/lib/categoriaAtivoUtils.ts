@@ -18,10 +18,10 @@ export const CATEGORIA_ATIVO_COLUMNS: ColDef[] = [
 ];
 
 export const CATEGORIA_ATIVO_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'pat_categoria' },
-  ds_categoria: { type: 'string', field: 'ds_categoria', collection: 'pat_categoria' },
-  ds_observacao: { type: 'string', field: 'ds_observacao', collection: 'pat_categoria' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'pat_categoria' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'pat_categoria' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'pat_categoria' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'categoria' },
+  ds_categoria: { type: 'string', field: 'ds_categoria', collection: 'categoria' },
+  ds_observacao: { type: 'string', field: 'ds_observacao', collection: 'categoria' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'categoria' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'categoria' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'categoria' },
 } as const;

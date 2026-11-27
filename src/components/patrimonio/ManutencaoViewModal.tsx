@@ -105,11 +105,11 @@ export default function ManutencaoViewModal({ manutencao, ativoName, prestadorNa
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Identificação</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
               <div className="sm:col-span-4 group">
-                <RotuloCampo texto="Sequência" colecao="pat_manutencao" campo="nr_sequencia" />
+                <RotuloCampo texto="Sequência" colecao="manutencao" campo="nr_sequencia" />
                 <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={manutencao.nr_sequencia} />
               </div>
               <div className="sm:col-span-8 group">
-                <RotuloCampo texto="Ativo" colecao="pat_manutencao" campo="nr_seq_ativo" />
+                <RotuloCampo texto="Ativo" colecao="manutencao" campo="nr_seq_ativo" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={manutencao.nr_seq_ativo ?? ""} />
@@ -127,7 +127,7 @@ export default function ManutencaoViewModal({ manutencao, ativoName, prestadorNa
                 </div>
               </div>
               <div className="sm:col-span-12 group">
-                <RotuloCampo texto="Prestador de serviço" colecao="pat_manutencao" campo="nr_seq_prestador_servico" />
+                <RotuloCampo texto="Prestador de serviço" colecao="manutencao" campo="nr_seq_prestador_servico" />
                 <div className="flex items-center gap-2 flex-nowrap">
                   <div style={{ width: 110 }}>
                     <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={prestadorSeq ?? ""} />
@@ -152,19 +152,19 @@ export default function ManutencaoViewModal({ manutencao, ativoName, prestadorNa
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Dados da manutenção</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
               <div className="sm:col-span-3 group">
-                <RotuloCampo texto="Data de envio" colecao="pat_manutencao" campo="dt_envio" />
+                <RotuloCampo texto="Data de envio" colecao="manutencao" campo="dt_envio" />
                 <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={formatCellValue("dt_envio", manutencao.dt_envio)} />
               </div>
               <div className="sm:col-span-3 group">
-                <RotuloCampo texto="Data de término" colecao="pat_manutencao" campo="dt_termino" />
+                <RotuloCampo texto="Data de término" colecao="manutencao" campo="dt_termino" />
                 <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={formatCellValue("dt_termino", manutencao.dt_termino)} />
               </div>
               <div className="sm:col-span-3 group">
-                <RotuloCampo texto="Status" colecao="pat_manutencao" campo="ie_status_manutencao" />
+                <RotuloCampo texto="Status" colecao="manutencao" campo="ie_status_manutencao" />
                 <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={formatCellValue("ie_status_manutencao", manutencao.ie_status_manutencao)} />
               </div>
               <div className="sm:col-span-3 group">
-                <RotuloCampo texto="Valor total" colecao="pat_manutencao" campo="vl_total" />
+                <RotuloCampo texto="Valor total" colecao="manutencao" campo="vl_total" />
                 <input disabled readOnly className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm" value={formatCellValue("vl_total", manutencao.vl_total)} />
               </div>
             </div>
@@ -175,15 +175,15 @@ export default function ManutencaoViewModal({ manutencao, ativoName, prestadorNa
             <h2 className="mb-3 border-b border-slate-200 pb-1 text-sm font-semibold text-slate-900">Observações</h2>
             <div className="grid gap-[15px] sm:grid-cols-12 pt-1">
               <div className="sm:col-span-12 group">
-                <RotuloCampo texto="Motivo da manutenção" colecao="pat_manutencao" campo="ds_motivo_manutencao" />
+                <RotuloCampo texto="Motivo da manutenção" colecao="manutencao" campo="ds_motivo_manutencao" />
                 <textarea disabled readOnly rows={3} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={manutencao.ds_motivo_manutencao ?? ""} />
               </div>
               <div className="sm:col-span-12 group">
-                <RotuloCampo texto="Correções" colecao="pat_manutencao" campo="ds_correcoes" />
+                <RotuloCampo texto="Correções" colecao="manutencao" campo="ds_correcoes" />
                 <textarea disabled readOnly rows={3} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={manutencao.ds_correcoes ?? ""} />
               </div>
               <div className="sm:col-span-12 group">
-                <RotuloCampo texto="Observação" colecao="pat_manutencao" campo="ds_observacao" />
+                <RotuloCampo texto="Observação" colecao="manutencao" campo="ds_observacao" />
                 <textarea disabled readOnly rows={4} className="w-full rounded-[3px] border border-slate-300 bg-white px-2 py-1.5 text-sm resize-none" value={manutencao.ds_observacao ?? ""} />
               </div>
             </div>

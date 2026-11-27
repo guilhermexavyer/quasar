@@ -2,13 +2,13 @@ import { api, definirPerfilEmUso } from "@/lib/apiCliente";
 import type { AuditAutor } from "@/services/auditService";
 
 /** Tabela com a cópia de cada registro excluído (Administração do Sistema > Exclusões). */
-export const COLECAO_EXCLUSAO = "exclusao";
+export const COLECAO_EXCLUSAO = "log_exclusao";
 
 /** Registro excluído: cópia do registro como estava no momento da exclusão. */
 export interface Exclusao {
   id: string;
-  /** Coleção de onde o registro foi excluído (ex.: aluno, pat_ativo). */
-  ds_colecao: string;
+  /** Tabela de onde o registro foi excluído (ex.: aluno, ativo). */
+  ds_tabela: string;
   /** Id do registro excluído (o nr_sequencia dele, em texto). */
   id_registro: string;
   nr_sequencia?: number;

@@ -568,14 +568,14 @@ export async function importarRelatorioXml(texto: string, nomeArquivo: string): 
     let nrFormatoPapel: number | null = null;
     if (dados.formatoPapel && dados.formatoPapel.ds_formato_papel) {
       const fp = dados.formatoPapel;
-      const formatos = await listarDados<{ id: string; nr_sequencia: number; ds_formato_papel?: string; qt_largura?: unknown; qt_altura?: unknown }>("cg_formato_papel");
+      const formatos = await listarDados<{ id: string; nr_sequencia: number; ds_formato_papel?: string; qt_largura?: unknown; qt_altura?: unknown }>("formato_papel");
       const mesmaMedida = (a: unknown, b?: string) => b !== undefined && b !== "" && Number(a) === Number(b);
       const existente = formatos.find((f) => (f.ds_formato_papel ?? "").trim().toLowerCase() === fp.ds_formato_papel.trim().toLowerCase())
         ?? formatos.find((f) => mesmaMedida(f.qt_largura, fp.qt_largura) && mesmaMedida(f.qt_altura, fp.qt_altura));
       if (existente) {
         nrFormatoPapel = existente.nr_sequencia;
       } else {
-        const novo = await criarDado<{ id: string; nr_sequencia: number }>("cg_formato_papel", {
+        const novo = await criarDado<{ id: string; nr_sequencia: number }>("formato_papel", {
           ds_formato_papel: fp.ds_formato_papel, qt_largura: numeroOuNulo(fp.qt_largura), qt_altura: numeroOuNulo(fp.qt_altura), ie_status: "A",
         });
         formatoCriado = novo.id;
@@ -658,7 +658,7 @@ export async function importarRelatorioXml(texto: string, nomeArquivo: string): 
       await atualizarDado("relatorio_banda", c.id, { nr_seq_banda_superior: null }).catch(() => undefined);
     }
     for (const c of [...criados].reverse()) await excluirDado(c.tabela, c.id).catch(() => undefined);
-    if (formatoCriado) await excluirDado("cg_formato_papel", formatoCriado).catch(() => undefined);
+    if (formatoCriado) await excluirDado("formato_papel", formatoCriado).catch(() => undefined);
     throw e;
   }
 }

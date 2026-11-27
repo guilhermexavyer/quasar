@@ -53,7 +53,7 @@ interface FormViewProps {
   onManageSelectionChange: (v: string) => void;
   /** Submódulos permitidos do dropdown PAI (Ativos/...) conforme permissões. */
   allowedSubmodulos?: string[];
-  /** Regras de campos por perfil (colecao pat_ativo): campo → status. */
+  /** Regras de campos por perfil (colecao ativo): campo → status. */
   campoRegras?: Record<string, CampoStatus>;
   /** Campos obrigatórios vazios no último submit (borda vermelha). */
   campoErros?: string[];
@@ -129,7 +129,7 @@ export default function AtivoFormView({
 
   /** Campos que são configuráveis em Admin > Campos (apenas esses podem ter o asterisco). */
   const camposConfiguraveis = new Set(
-    CAMPOS_POR_FUNCAO.patrimonio?.map((c) => c.key.replace('pat_ativo.', '')) ?? []
+    CAMPOS_POR_FUNCAO.patrimonio?.map((c) => c.key.replace('ativo.', '')) ?? []
   );
 
   function renderFieldLabel(fieldKey: keyof typeof FIELD_INFOS, label: string) {

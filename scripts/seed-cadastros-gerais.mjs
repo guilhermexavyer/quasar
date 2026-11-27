@@ -27,6 +27,12 @@ const DATA_IMPLANTACAO = new Date().toISOString();
 const ARQUIVO = "scripts/dados/cadastros-gerais.json";
 /** Colunas que o arquivo pode trazer (as demais são de controle e o seeder preenche). */
 const COLUNAS_PERMITIDAS = /^(nr_sequencia|ds_[a-z_]+|sg_[a-z_]+|nr_cbo|ie_status)$/;
+/** Tabelas que o arquivo pode trazer: os Cadastros Gerais, a Categoria do Patrimônio e Curso. */
+const TABELAS_PERMITIDAS = new Set([
+  "cargo", "combustivel", "cor_raca", "estado_civil", "formato_papel", "grau_parentesco", "localizacao",
+  "logradouro", "marca", "modalidade_ensino", "orgao_emissor", "profissao", "sexo", "sistema_operacional",
+  "tipo_papel", "vinculo_contratual", "categoria", "curso",
+]);
 
 async function semearTabela(db, tabela, itens) {
   const { rows } = await db.query(`select count(*)::int as n from ${tabela}`);
@@ -45,7 +51,7 @@ async function semearTabela(db, tabela, itens) {
   const tuplas = linhas.map((l) => `(${nomes.map((n) => { valores.push(l[n] ?? null); return "$" + valores.length; }).join(", ")})`);
   await db.query(`insert into ${tabela} (${nomes.join(", ")}) values ${tuplas.join(", ")}`, valores);
   await db.query(
-    `insert into auditoria (ds_colecao, nr_seq_registro, nr_seq_usuario, usuario_nome, acao, "timestamp", detalhes)
+    `insert into log_auditoria (ds_colecao, nr_seq_registro, nr_seq_usuario, usuario_nome, acao, "timestamp", detalhes)
      select $1, (d->>'nr_sequencia')::bigint, null, $2, 'create', $3, d from jsonb_array_elements($4::jsonb) as d`,
     [tabela, USUARIO_IMPLANTACAO, DATA_IMPLANTACAO, JSON.stringify(linhas)]
   );
@@ -61,7 +67,7 @@ try {
   await db.query("BEGIN");
   let total = 0;
   for (const [tabela, itens] of Object.entries(colecoes)) {
-    if (!/^(cg_[a-z_]+|pat_categoria|curso)$/.test(tabela)) throw new Error(`Tabela não permitida no arquivo: ${tabela}`);
+    if (!TABELAS_PERMITIDAS.has(tabela)) throw new Error(`Tabela não permitida no arquivo: ${tabela}`);
     total += await semearTabela(db, tabela, itens);
   }
   if (DRY_RUN) {

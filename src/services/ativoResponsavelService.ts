@@ -51,45 +51,35 @@ export async function excluirAtivoResponsavel(id: string): Promise<void> {
 }
 
 /**
- * "Assumir ativos de" (EA > Colaboradores): o colaborador destino assume os
- * ativos em que o colaborador origem é responsável.
- * - adicionar: o destino entra como mais um responsável de cada ativo;
- * - substituir: o destino entra no lugar do origem (o mesmo registro é
- *   alterado, mantendo a sequência e a auditoria). Se o destino já era
- *   responsável do ativo, o registro do origem só é excluído.
- * Ativos em que o destino já é responsável não ganham registro repetido.
- * Retorna quantos ativos o destino assumiu e quantos já eram dele.
+ * "Ativos" (Pessoas e Relacionamentos > Colaboradores e Equipes): deixa o colaborador (ou a
+ * equipe: `campo`) responsável exatamente pelos ativos marcados.
+ * - marcado e ainda não responsável: entra como mais um responsável (os demais continuam);
+ * - responsável e desmarcado: o registro é excluído pela exclusão padrão, que guarda a cópia em
+ *   Logs > Exclusões.
+ * Retorna quantos ativos ele passou a ter e quantos deixou de ter.
  */
-export async function assumirAtivosDoColaborador(
-  nrSeqOrigem: number,
-  nrSeqDestino: number,
-  modo: 'adicionar' | 'substituir',
+export async function definirAtivosDoResponsavel(
+  campo: 'nr_seq_colaborador' | 'nr_seq_equipe',
+  nrSeqResponsavel: number,
+  nrSeqAtivosMarcados: number[],
   autor?: AuditAutor
-): Promise<{ assumidos: number; jaResponsavel: number }> {
-  const [doOrigem, doDestino] = await Promise.all([
-    responsaveisPor({ nr_seq_colaborador: nrSeqOrigem }),
-    responsaveisPor({ nr_seq_colaborador: nrSeqDestino }),
-  ]);
-  const ativosDoDestino = new Set(doDestino.map((d) => Number(d.nr_seq_ativo)));
-  let assumidos = 0;
-  let jaResponsavel = 0;
-  for (const d of doOrigem) {
-    const nrSeqAtivo = Number(d.nr_seq_ativo);
-    const jaEra = ativosDoDestino.has(nrSeqAtivo);
-    if (modo === 'adicionar') {
-      if (jaEra) { jaResponsavel++; continue; }
-      await criarAtivoResponsavel({ nr_seq_ativo: nrSeqAtivo, nr_seq_colaborador: nrSeqDestino }, autor);
-    } else if (jaEra) {
-      jaResponsavel++;
-      await excluirAtivoResponsavel(String(d.id));
-      continue;
-    } else {
-      await atualizarAtivoResponsavel(String(d.id), { nr_seq_colaborador: nrSeqDestino }, autor);
-    }
-    ativosDoDestino.add(nrSeqAtivo);
-    assumidos++;
+): Promise<{ adicionados: number; removidos: number }> {
+  const atuais = await responsaveisPor({ [campo]: nrSeqResponsavel });
+  const marcados = new Set(nrSeqAtivosMarcados);
+  const jaEram = new Set(atuais.map((r) => Number(r.nr_seq_ativo)));
+  let adicionados = 0;
+  let removidos = 0;
+  for (const nrSeqAtivo of marcados) {
+    if (jaEram.has(nrSeqAtivo)) continue;
+    await criarAtivoResponsavel({ nr_seq_ativo: nrSeqAtivo, [campo]: nrSeqResponsavel }, autor);
+    adicionados++;
   }
-  return { assumidos, jaResponsavel };
+  for (const r of atuais) {
+    if (marcados.has(Number(r.nr_seq_ativo)) || !r.id) continue;
+    await excluirAtivoResponsavel(String(r.id));
+    removidos++;
+  }
+  return { adicionados, removidos };
 }
 
 /** Exclui todos os responsáveis de um ativo (usado ao excluir o ativo). */

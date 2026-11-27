@@ -67,7 +67,7 @@ function garantirBucket(): Promise<void> {
 
 /** Extensões permitidas pelo parâmetro "Tipos de arquivo para anexar em 'Cópias'". */
 export async function extensoesPermitidas(): Promise<string[]> {
-  const { rows } = await query<{ ds_regra: string | null }>("select ds_regra from cc_param_tipos_arquivo_copia where nr_sequencia = 1");
+  const { rows } = await query<{ ds_regra: string | null }>("select ds_regra from copia_param_tipos_arquivo where nr_sequencia = 1");
   return extensoesPermitidasCopia(rows.length === 0 ? null : rows[0].ds_regra ?? "");
 }
 

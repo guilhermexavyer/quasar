@@ -12,6 +12,7 @@ import Select from "@/components/ui/Select";
 import ResizableTable, { proximaOrdenacao, type ConfigColunasTabela, type ResizableTableColumn } from "@/components/ui/ResizableTable";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import RotuloCampo from "@/components/ui/RotuloCampo";
+import BotaoSalvarEAdicionar from "@/components/ui/BotaoSalvarEAdicionar";
 import RequiredAsterisk from "@/components/ui/RequiredAsterisk";
 import ViewIcon from "@/components/ui/ViewIcon";
 import SearchIcon from "@/components/ui/SearchIcon";
@@ -115,6 +116,8 @@ export default function AlunoDetalheView({
   const [erros, setErros] = useState<string[]>([]);
   const [salvando, setSalvando] = useState(false);
   const formRef = useRef<HTMLFormElement | null>(null);
+  /** "Salvar e adicionar": depois de gravar, abre um responsável novo. */
+  const novoAposSalvarRef = useRef(false);
 
   // Responsáveis do aluno em tempo real. (A tela é recriada a cada aluno — key —,
   // então "carregando" já começa verdadeiro.)
@@ -227,6 +230,9 @@ export default function AlunoDetalheView({
 
   async function salvar(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    // Lido e zerado já no início: se a validação barrar, o próximo Salvar não abre um novo.
+    const novoAposSalvar = novoAposSalvarRef.current;
+    novoAposSalvarRef.current = false;
     if (!form || salvando) return;
     const nrPessoa = Number(form.nr_seq_pessoa_fisica) || 0;
     const nrGrau = Number(form.nr_seq_grau_parentesco) || 0;
@@ -267,7 +273,8 @@ export default function AlunoDetalheView({
         setSelecionadoId(id);
         onMessage('Registro criado com sucesso!');
       }
-      fecharFormulario();
+      if (novoAposSalvar) novoResponsavel();
+      else fecharFormulario();
     } catch {
       onMessage('Erro ao salvar.');
     } finally {
@@ -428,6 +435,13 @@ export default function AlunoDetalheView({
                 </div>
               )}
               <div className="flex items-center justify-end gap-3 ml-auto">
+                <BotaoSalvarEAdicionar
+                  disabled={salvando}
+                  onClick={() => {
+                    novoAposSalvarRef.current = true;
+                    formRef.current?.requestSubmit();
+                  }}
+                />
                 <button type="button" onClick={fecharFormulario} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' }}>
                   Cancelar
                 </button>

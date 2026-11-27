@@ -18,9 +18,9 @@ export const LOCALIZACAO_COLUMNS: ColDef[] = [
 ];
 
 export const LOCALIZACAO_FIELD_INFOS = {
-  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'cg_localizacao' },
-  ds_localizacao: { type: 'string', field: 'ds_localizacao', collection: 'cg_localizacao' },
-  ie_status: { type: 'string', field: 'ie_status', collection: 'cg_localizacao' },
-  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'cg_localizacao' },
-  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'cg_localizacao' },
+  nr_sequencia: { type: 'int64', field: 'nr_sequencia', collection: 'localizacao' },
+  ds_localizacao: { type: 'string', field: 'ds_localizacao', collection: 'localizacao' },
+  ie_status: { type: 'string', field: 'ie_status', collection: 'localizacao' },
+  dt_criacao: { type: 'string', field: 'dt_criacao', collection: 'localizacao' },
+  dt_alteracao: { type: 'string', field: 'dt_alteracao', collection: 'localizacao' },
 } as const;

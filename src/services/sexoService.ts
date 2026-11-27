@@ -1,7 +1,7 @@
 import { createCadastroGeralService } from "@/services/cadastroGeralService";
 import type { Sexo } from "@/types/sexo";
 
-const service = createCadastroGeralService<Sexo>("cg_sexo", "cg_sexo_sequence");
+const service = createCadastroGeralService<Sexo>("sexo", "sexo_sequence");
 
 export const obterSexos = service.obterTodos;
 export const criarSexo = service.criar;

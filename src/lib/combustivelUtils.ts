@@ -21,26 +21,26 @@ export const COMBUSTIVEL_FIELD_INFOS = {
   nr_sequencia: {
     type: "int64",
     field: "nr_sequencia",
-    collection: "cg_combustivel",
+    collection: "combustivel",
   },
   ds_combustivel: {
     type: "string",
     field: "ds_combustivel",
-    collection: "cg_combustivel",
+    collection: "combustivel",
   },
   ie_status: {
     type: "string",
     field: "ie_status",
-    collection: "cg_combustivel",
+    collection: "combustivel",
   },
   dt_criacao: {
     type: "string",
     field: "dt_criacao",
-    collection: "cg_combustivel",
+    collection: "combustivel",
   },
   dt_alteracao: {
     type: "string",
     field: "dt_alteracao",
-    collection: "cg_combustivel",
+    collection: "combustivel",
   },
 } as const;

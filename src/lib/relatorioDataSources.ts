@@ -9,15 +9,15 @@ export const DATA_SOURCES: DataSourceDef[] = [
   //  Patrimônio
   // ════════════════════════════════════════════════════════════
   {
-    value: 'pat_ativo',
+    value: 'ativo',
     label: 'Ativos (Patrimônio)',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'cd_externo', label: 'Código externo', tipo: 'string' },
       { key: 'ds_ativo', label: 'Descrição', tipo: 'string' },
-      { key: 'nr_seq_categoria', label: 'Categoria', tipo: 'number', isFK: true, fkColecao: 'pat_categoria', fkLabel: 'ds_categoria' },
-      { key: 'nr_seq_localizacao', label: 'Localização', tipo: 'number', isFK: true, fkColecao: 'cg_localizacao', fkLabel: 'ds_localizacao' },
-      { key: 'nr_seq_marca', label: 'Marca', tipo: 'number', isFK: true, fkColecao: 'cg_marca', fkLabel: 'ds_marca' },
+      { key: 'nr_seq_categoria', label: 'Categoria', tipo: 'number', isFK: true, fkColecao: 'categoria', fkLabel: 'ds_categoria' },
+      { key: 'nr_seq_localizacao', label: 'Localização', tipo: 'number', isFK: true, fkColecao: 'localizacao', fkLabel: 'ds_localizacao' },
+      { key: 'nr_seq_marca', label: 'Marca', tipo: 'number', isFK: true, fkColecao: 'marca', fkLabel: 'ds_marca' },
       { key: 'nr_seq_fornecedor', label: 'Fornecedor', tipo: 'number', isFK: true, fkColecao: 'fornecedor', fkLabel: 'nr_sequencia' },
       { key: 'ds_modelo', label: 'Modelo', tipo: 'string' },
       { key: 'nr_serie', label: 'Número de série', tipo: 'string' },
@@ -38,23 +38,23 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'ie_armazenamento', label: 'Unidade armazenamento', tipo: 'string' },
       { key: 'ds_endereco_mac', label: 'Endereço MAC', tipo: 'string' },
       { key: 'ds_ip', label: 'IPv4', tipo: 'string' },
-      { key: 'nr_seq_sistema_operacional', label: 'Sistema operacional', tipo: 'number', isFK: true, fkColecao: 'cg_sistema_operacional', fkLabel: 'ds_sistema_operacional' },
+      { key: 'nr_seq_sistema_operacional', label: 'Sistema operacional', tipo: 'number', isFK: true, fkColecao: 'sistema_operacional', fkLabel: 'ds_sistema_operacional' },
       { key: 'cd_placa', label: 'Placa', tipo: 'string' },
       { key: 'cd_renavam', label: 'Renavam', tipo: 'string' },
       { key: 'nr_ano', label: 'Ano', tipo: 'number' },
       { key: 'ds_cor', label: 'Cor', tipo: 'string' },
-      { key: 'nr_seq_combustivel', label: 'Combustível', tipo: 'number', isFK: true, fkColecao: 'cg_combustivel', fkLabel: 'ds_combustivel' },
+      { key: 'nr_seq_combustivel', label: 'Combustível', tipo: 'number', isFK: true, fkColecao: 'combustivel', fkLabel: 'ds_combustivel' },
       { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
   },
   {
-    value: 'pat_manutencao',
+    value: 'manutencao',
     label: 'Manutenções',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
-      { key: 'nr_seq_ativo', label: 'Ativo', tipo: 'number', isFK: true, fkColecao: 'pat_ativo', fkLabel: 'ds_ativo' },
+      { key: 'nr_seq_ativo', label: 'Ativo', tipo: 'number', isFK: true, fkColecao: 'ativo', fkLabel: 'ds_ativo' },
       { key: 'nr_seq_prestador_servico', label: 'Prestador de serviço', tipo: 'number', isFK: true, fkColecao: 'prestador_servico', fkLabel: 'nr_sequencia' },
       { key: 'ds_prestador_servico', label: 'Prestador de serviço (nome)', tipo: 'string', computed: true },
       { key: 'dt_envio', label: 'Data de envio', tipo: 'date' },
@@ -81,13 +81,13 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'dt_nascimento', label: 'Nascimento', tipo: 'date' },
       { key: 'ds_email', label: 'E-mail', tipo: 'string' },
       { key: 'nr_telefone', label: 'Telefone', tipo: 'string' },
-      { key: 'nr_seq_sexo', label: 'Sexo', tipo: 'number', isFK: true, fkColecao: 'cg_sexo', fkLabel: 'ds_sexo' },
-      { key: 'nr_seq_estado_civil', label: 'Estado civil', tipo: 'number', isFK: true, fkColecao: 'cg_estado_civil', fkLabel: 'ds_estado_civil' },
-      { key: 'nr_seq_cor_raca', label: 'Cor/Raça', tipo: 'number', isFK: true, fkColecao: 'cg_cor_raca', fkLabel: 'ds_cor_raca' },
-      { key: 'nr_seq_profissao', label: 'Profissão', tipo: 'number', isFK: true, fkColecao: 'cg_profissao', fkLabel: 'ds_profissao' },
+      { key: 'nr_seq_sexo', label: 'Sexo', tipo: 'number', isFK: true, fkColecao: 'sexo', fkLabel: 'ds_sexo' },
+      { key: 'nr_seq_estado_civil', label: 'Estado civil', tipo: 'number', isFK: true, fkColecao: 'estado_civil', fkLabel: 'ds_estado_civil' },
+      { key: 'nr_seq_cor_raca', label: 'Cor/Raça', tipo: 'number', isFK: true, fkColecao: 'cor_raca', fkLabel: 'ds_cor_raca' },
+      { key: 'nr_seq_profissao', label: 'Profissão', tipo: 'number', isFK: true, fkColecao: 'profissao', fkLabel: 'ds_profissao' },
       { key: 'nr_rg', label: 'RG', tipo: 'string' },
       { key: 'dt_emissao', label: 'Data de emissão RG', tipo: 'date' },
-      { key: 'nr_seq_orgao_emissor', label: 'Órgão emissor', tipo: 'number', isFK: true, fkColecao: 'cg_orgao_emissor', fkLabel: 'ds_orgao_emissor' },
+      { key: 'nr_seq_orgao_emissor', label: 'Órgão emissor', tipo: 'number', isFK: true, fkColecao: 'orgao_emissor', fkLabel: 'ds_orgao_emissor' },
       { key: 'sg_estado', label: 'UF', tipo: 'string' },
       { key: 'cd_ibge_naturalidade', label: 'Naturalidade (IBGE)', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
@@ -103,7 +103,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'nr_cep', label: 'CEP', tipo: 'string' },
       { key: 'ds_endereco', label: 'Rua', tipo: 'string' },
-      { key: 'nr_seq_logradouro', label: 'Logradouro', tipo: 'number', isFK: true, fkColecao: 'cg_logradouro', fkLabel: 'ds_logradouro' },
+      { key: 'nr_seq_logradouro', label: 'Logradouro', tipo: 'number', isFK: true, fkColecao: 'logradouro', fkLabel: 'ds_logradouro' },
       { key: 'nr_endereco', label: 'Número', tipo: 'string' },
       { key: 'ds_bairro', label: 'Bairro', tipo: 'string' },
       { key: 'ds_complemento', label: 'Complemento', tipo: 'string' },
@@ -119,7 +119,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'nr_cep', label: 'CEP', tipo: 'string' },
       { key: 'ds_endereco', label: 'Rua', tipo: 'string' },
-      { key: 'nr_seq_logradouro', label: 'Logradouro', tipo: 'number', isFK: true, fkColecao: 'cg_logradouro', fkLabel: 'ds_logradouro' },
+      { key: 'nr_seq_logradouro', label: 'Logradouro', tipo: 'number', isFK: true, fkColecao: 'logradouro', fkLabel: 'ds_logradouro' },
       { key: 'nr_endereco', label: 'Número', tipo: 'string' },
       { key: 'ds_bairro', label: 'Bairro', tipo: 'string' },
       { key: 'ds_complemento', label: 'Complemento', tipo: 'string' },
@@ -182,8 +182,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
       { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'nr_seq_pessoa_juridica', label: 'Pessoa jurídica', tipo: 'number', isFK: true, fkColecao: 'pessoa_juridica', fkLabel: 'ds_razao_social' },
-      { key: 'nr_seq_vinculo_contratual', label: 'Vínculo contratual', tipo: 'number', isFK: true, fkColecao: 'cg_vinculo_contratual', fkLabel: 'ds_vinculo_contratual' },
-      { key: 'nr_seq_cargo', label: 'Cargo', tipo: 'number', isFK: true, fkColecao: 'cg_cargo', fkLabel: 'ds_cargo' },
+      { key: 'nr_seq_vinculo_contratual', label: 'Vínculo contratual', tipo: 'number', isFK: true, fkColecao: 'vinculo_contratual', fkLabel: 'ds_vinculo_contratual' },
+      { key: 'nr_seq_cargo', label: 'Cargo', tipo: 'number', isFK: true, fkColecao: 'cargo', fkLabel: 'ds_cargo' },
       { key: 'nr_matricula', label: 'Matrícula', tipo: 'string' },
       { key: 'dt_admissao', label: 'Data de admissão', tipo: 'date' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
@@ -203,8 +203,6 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'nr_seq_pessoa_juridica', label: 'Pessoa jurídica', tipo: 'number', isFK: true, fkColecao: 'pessoa_juridica', fkLabel: 'ds_razao_social' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
-      { key: 'dt_status', label: 'Data do status', tipo: 'date' },
-      { key: 'ds_motivo_status', label: 'Motivo do status', tipo: 'string' },
       { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
@@ -218,8 +216,6 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_seq_pessoa_fisica', label: 'Pessoa física', tipo: 'number', isFK: true, fkColecao: 'pessoa_fisica', fkLabel: 'ds_nome' },
       { key: 'nr_seq_pessoa_juridica', label: 'Pessoa jurídica', tipo: 'number', isFK: true, fkColecao: 'pessoa_juridica', fkLabel: 'ds_razao_social' },
       { key: 'ie_status', label: 'Status', tipo: 'string' },
-      { key: 'dt_status', label: 'Data do status', tipo: 'date' },
-      { key: 'ds_motivo_status', label: 'Motivo do status', tipo: 'string' },
       { key: 'ds_observacao', label: 'Observação', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
@@ -276,8 +272,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'nr_seq_curso', label: 'Curso', tipo: 'number', isFK: true, fkColecao: 'curso', fkLabel: 'ds_curso' },
       { key: 'nr_seq_periodo_letivo', label: 'Período letivo', tipo: 'number', isFK: true, fkColecao: 'periodo_letivo', fkLabel: 'ds_periodo_letivo' },
       { key: 'qt_max_alunos', label: 'Máximo de alunos', tipo: 'number' },
-      { key: 'nr_seq_localizacao', label: 'Localização', tipo: 'number', isFK: true, fkColecao: 'cg_localizacao', fkLabel: 'ds_localizacao' },
-      { key: 'nr_seq_modalidade_ensino', label: 'Modalidade de ensino', tipo: 'number', isFK: true, fkColecao: 'cg_modalidade_ensino', fkLabel: 'ds_modalidade_ensino' },
+      { key: 'nr_seq_localizacao', label: 'Localização', tipo: 'number', isFK: true, fkColecao: 'localizacao', fkLabel: 'ds_localizacao' },
+      { key: 'nr_seq_modalidade_ensino', label: 'Modalidade de ensino', tipo: 'number', isFK: true, fkColecao: 'modalidade_ensino', fkLabel: 'ds_modalidade_ensino' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
     ],
@@ -326,8 +322,8 @@ export const DATA_SOURCES: DataSourceDef[] = [
       { key: 'ie_frente_verso', label: 'Frente e verso', tipo: 'string' },
       { key: 'ie_grampear', label: 'Grampear', tipo: 'string' },
       { key: 'ie_guilhotinar', label: 'Guilhotinar', tipo: 'string' },
-      { key: 'nr_seq_formato_papel', label: 'Formato do papel', tipo: 'number', isFK: true, fkColecao: 'cg_formato_papel', fkLabel: 'ds_formato_papel' },
-      { key: 'nr_seq_tipo_papel', label: 'Tipo de papel', tipo: 'number', isFK: true, fkColecao: 'cg_tipo_papel', fkLabel: 'ds_tipo_papel' },
+      { key: 'nr_seq_formato_papel', label: 'Formato do papel', tipo: 'number', isFK: true, fkColecao: 'formato_papel', fkLabel: 'ds_formato_papel' },
+      { key: 'nr_seq_tipo_papel', label: 'Tipo de papel', tipo: 'number', isFK: true, fkColecao: 'tipo_papel', fkLabel: 'ds_tipo_papel' },
       { key: 'ie_arquivo', label: 'Arquivo', tipo: 'string' },
       { key: 'dt_criacao', label: 'Data de criação', tipo: 'date' },
       { key: 'dt_alteracao', label: 'Data de alteração', tipo: 'date' },
@@ -380,7 +376,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
   //  Cadastros Gerais — Sexo
   // ════════════════════════════════════════════════════════════
   {
-    value: 'cg_sexo',
+    value: 'sexo',
     label: 'Sexo',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -391,7 +387,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_estado_civil',
+    value: 'estado_civil',
     label: 'Estado Civil',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -402,7 +398,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_cor_raca',
+    value: 'cor_raca',
     label: 'Cor/Raça',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -413,7 +409,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_profissao',
+    value: 'profissao',
     label: 'Profissões',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -425,7 +421,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_vinculo_contratual',
+    value: 'vinculo_contratual',
     label: 'Vínculos Contratuais',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -436,7 +432,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_orgao_emissor',
+    value: 'orgao_emissor',
     label: 'Órgãos Emissores',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -448,7 +444,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_grau_parentesco',
+    value: 'grau_parentesco',
     label: 'Graus de Parentesco',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -459,7 +455,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_logradouro',
+    value: 'logradouro',
     label: 'Logradouros',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -471,7 +467,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'pat_categoria',
+    value: 'categoria',
     label: 'Categorias (Patrimônio)',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -482,7 +478,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_localizacao',
+    value: 'localizacao',
     label: 'Localizações',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -493,7 +489,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_marca',
+    value: 'marca',
     label: 'Marcas',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -504,7 +500,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_cargo',
+    value: 'cargo',
     label: 'Cargos',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -515,7 +511,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_combustivel',
+    value: 'combustivel',
     label: 'Combustíveis',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -526,7 +522,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_modalidade_ensino',
+    value: 'modalidade_ensino',
     label: 'Modalidades de ensino',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -537,7 +533,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_formato_papel',
+    value: 'formato_papel',
     label: 'Formatos do papel',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -550,7 +546,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_tipo_papel',
+    value: 'tipo_papel',
     label: 'Tipos de papel',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -561,7 +557,7 @@ export const DATA_SOURCES: DataSourceDef[] = [
     ],
   },
   {
-    value: 'cg_sistema_operacional',
+    value: 'sistema_operacional',
     label: 'Sistemas Operacionais',
     campos: [
       { key: 'nr_sequencia', label: 'Sequência', tipo: 'number' },
@@ -595,8 +591,8 @@ import type { DataSourceCampo } from "@/types/relatorio";
  * Chave: coleção. Valor: mapa de abreviação → label.
  */
 export const STATUS_LABEL_MAP: Record<string, Record<string, string>> = {
-  pat_ativo: { D: 'Descartado', E: 'Estoque', M: 'Manutenção', O: 'Operacional' },
-  pat_manutencao: { E: 'Em andamento', CO: 'Concluída', CA: 'Cancelada' },
+  ativo: { D: 'Descartado', E: 'Estoque', M: 'Manutenção', O: 'Operacional' },
+  manutencao: { E: 'Em andamento', CO: 'Concluída', CA: 'Cancelada' },
   aluno: { P: 'Pré-matriculado', A: 'Matriculado', I: 'Inativo', C: 'Cancelado', T: 'Transferido' },
   colaborador: { A: 'Ativo', AF: 'Afastado', F: 'Férias', L: 'Licença', D: 'Desligado' },
   fornecedor: { A: 'Ativo', I: 'Inativo' },
@@ -605,24 +601,24 @@ export const STATUS_LABEL_MAP: Record<string, Record<string, string>> = {
   periodo_letivo: { A: 'Em andamento', E: 'Encerrado' },
   usuario: { A: 'Ativo', I: 'Inativo' },
   perfil: { A: 'Ativo', I: 'Inativo' },
-  cg_sexo: { A: 'Ativo', I: 'Inativo' },
-  cg_estado_civil: { A: 'Ativo', I: 'Inativo' },
-  cg_cor_raca: { A: 'Ativo', I: 'Inativo' },
-  cg_profissao: { A: 'Ativo', I: 'Inativo' },
-  cg_vinculo_contratual: { A: 'Ativo', I: 'Inativo' },
-  cg_orgao_emissor: { A: 'Ativo', I: 'Inativo' },
-  cg_grau_parentesco: { A: 'Ativo', I: 'Inativo' },
-  cg_logradouro: { A: 'Ativo', I: 'Inativo' },
-  pat_categoria: { A: 'Ativo', I: 'Inativo' },
-  cg_localizacao: { A: 'Ativo', I: 'Inativo' },
-  cg_marca: { A: 'Ativo', I: 'Inativo' },
-  cg_cargo: { A: 'Ativo', I: 'Inativo' },
-  cg_sistema_operacional: { A: 'Ativo', I: 'Inativo' },
-  cg_combustivel: { A: 'Ativo', I: 'Inativo' },
-  cg_modalidade_ensino: { A: 'Ativo', I: 'Inativo' },
-  cg_formato_papel: { A: 'Ativo', I: 'Inativo' },
+  sexo: { A: 'Ativo', I: 'Inativo' },
+  estado_civil: { A: 'Ativo', I: 'Inativo' },
+  cor_raca: { A: 'Ativo', I: 'Inativo' },
+  profissao: { A: 'Ativo', I: 'Inativo' },
+  vinculo_contratual: { A: 'Ativo', I: 'Inativo' },
+  orgao_emissor: { A: 'Ativo', I: 'Inativo' },
+  grau_parentesco: { A: 'Ativo', I: 'Inativo' },
+  logradouro: { A: 'Ativo', I: 'Inativo' },
+  categoria: { A: 'Ativo', I: 'Inativo' },
+  localizacao: { A: 'Ativo', I: 'Inativo' },
+  marca: { A: 'Ativo', I: 'Inativo' },
+  cargo: { A: 'Ativo', I: 'Inativo' },
+  sistema_operacional: { A: 'Ativo', I: 'Inativo' },
+  combustivel: { A: 'Ativo', I: 'Inativo' },
+  modalidade_ensino: { A: 'Ativo', I: 'Inativo' },
+  formato_papel: { A: 'Ativo', I: 'Inativo' },
   copia: { A: 'Aguardando', C: 'Cancelado', E: 'Entregue', I: 'Impresso' },
-  cg_tipo_papel: { A: 'Ativo', I: 'Inativo' },
+  tipo_papel: { A: 'Ativo', I: 'Inativo' },
 };
 
 /**

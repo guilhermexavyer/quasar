@@ -1,7 +1,7 @@
 {
   "descricao": "Cadastros Gerais iniciais (scripts/seed-cadastros-gerais.mjs). nr_sequencia segue a ordem de cada lista.",
   "colecoes": {
-    "cg_sexo": [
+    "sexo": [
       {
         "nr_sequencia": 1,
         "ds_sexo": "Feminino",
@@ -13,7 +13,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_cor_raca": [
+    "cor_raca": [
       {
         "nr_sequencia": 1,
         "ds_cor_raca": "Amarela",
@@ -45,7 +45,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_estado_civil": [
+    "estado_civil": [
       {
         "nr_sequencia": 1,
         "ds_estado_civil": "Casado(a)",
@@ -77,7 +77,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_grau_parentesco": [
+    "grau_parentesco": [
       {
         "nr_sequencia": 1,
         "ds_grau_parentesco": "Avó",
@@ -299,7 +299,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_cargo": [
+    "cargo": [
       {
         "nr_sequencia": 1,
         "ds_cargo": "Agente de Organização Escolar",
@@ -861,7 +861,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_vinculo_contratual": [
+    "vinculo_contratual": [
       {
         "nr_sequencia": 1,
         "ds_vinculo_contratual": "Autônomo",
@@ -933,7 +933,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_marca": [
+    "marca": [
       {
         "nr_sequencia": 1,
         "ds_marca": "3M",
@@ -1455,7 +1455,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_sistema_operacional": [
+    "sistema_operacional": [
       {
         "nr_sequencia": 1,
         "ds_sistema_operacional": "AlmaLinux",
@@ -1717,7 +1717,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_logradouro": [
+    "logradouro": [
       {
         "nr_sequencia": 1,
         "ds_logradouro": "Alameda",
@@ -1989,7 +1989,7 @@
         "ie_status": "A"
       }
     ],
-    "cg_profissao": [
+    "profissao": [
       {
         "nr_sequencia": 1,
         "ds_profissao": "Açougueiro",
