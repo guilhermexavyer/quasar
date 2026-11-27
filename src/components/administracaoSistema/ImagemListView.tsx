@@ -68,12 +68,15 @@ export default function ImagemListView({
   }, [currentPageSafe]);
 
   const [previewImg, setPreviewImg] = useState<Imagem | null>(null);
+  // Enquanto o Storage não entrega a imagem, só o modal "Carregando..." aparece (a pré-visualização fica montada, mas oculta).
+  const [previewCarregada, setPreviewCarregada] = useState(false);
+  const abrirPreview = (img: Imagem) => { setPreviewCarregada(false); setPreviewImg(img); };
 
   const IMAGEM_COLUMNS: ResizableTableColumn<Imagem>[] = useMemo(() => [
     // Sem largura fixa: a coluna fixa é medida pelo ícone (ResizableTable).
     { key: "preview", label: "", fixed: true, render: (row) => (
       row.ie_arquivo ? (
-        <button type="button" onClick={(e) => { e.stopPropagation(); setPreviewImg(row); }} className="cursor-pointer p-0 bg-transparent border-none flex items-center justify-center" title="Pré-visualizar imagem">
+        <button type="button" onClick={(e) => { e.stopPropagation(); abrirPreview(row); }} className="cursor-pointer p-0 bg-transparent border-none flex items-center justify-center" title="Pré-visualizar imagem">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#555" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
         </button>
       ) : null
@@ -249,8 +252,9 @@ export default function ImagemListView({
       </div>
 
       {/* Modal de pré-visualização da imagem */}
+      {previewImg && previewImg.ie_arquivo && !previewCarregada && <LoadingModal open message="Carregando..." />}
       {previewImg && previewImg.ie_arquivo && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 px-4 py-6" style={previewCarregada ? undefined : { visibility: 'hidden' }}>
           <div className="absolute inset-0 bg-black/40" onClick={() => setPreviewImg(null)} />
           <div className="relative w-full bg-white modal-dark p-0 shadow-xl shadow-black/20 flex flex-col" style={{ maxWidth: '90vw', maxHeight: '90vh' }}>
             <div className="flex items-center justify-between bg-[#ccc] px-[15px]">
@@ -260,7 +264,12 @@ export default function ImagemListView({
               </button>
             </div>
             <div style={{ flex: '1 1 0%', minHeight: 0, overflow: 'hidden', padding: '15px', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src={previewImg.ie_arquivo} alt={previewImg.ds_imagem} style={{ maxWidth: 'min(87vw, 87vh)', maxHeight: 'min(75vh, 75vw)', objectFit: 'contain', display: 'block' }} />
+              <img
+                key={previewImg.ie_arquivo}
+                ref={(el) => { if (el?.complete) setPreviewCarregada(true); }}
+                onLoad={() => setPreviewCarregada(true)}
+                onError={() => setPreviewCarregada(true)}
+                src={previewImg.ie_arquivo} alt={previewImg.ds_imagem} style={{ maxWidth: 'min(87vw, 87vh)', maxHeight: 'min(75vh, 75vw)', objectFit: 'contain', display: 'block' }} />
             </div>
             <div className="flex justify-end gap-2 px-[15px] pb-[15px]">
               <button type="button" onClick={() => setPreviewImg(null)} className="px-4 py-2.5 text-sm text-black transition rounded-[3px] border-b button-cancel cursor-pointer min-w-[96px] justify-center" style={{ backgroundColor: '#bdbdbd', borderBottomColor: '#000' } as React.CSSProperties}>
