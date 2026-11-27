@@ -1,144 +1,123 @@
 # Quasar
 
-O Quasar é uma plataforma web de gestão empresarial/acadêmica. A ideia central do projeto é oferecer um sistema modular e orientado a dados: cada área do sistema é representada por tabelas independentes no banco de dados, que se conectam entre si para compor a operação como um todo.
+Sistema web de gestão empresarial/acadêmica, modular e orientada a dados. Configurável pelo usuário, permissões por perfil, trilha de auditoria e gerador de relatórios.
 
-O sistema é pensado para ser altamente configurável pelo próprio usuário:
+**Arquitetura**
 
-- **Configuração por perfil** — cada perfil de acesso define quais campos de cada formulário ficam habilitados, desabilitados ou obrigatórios, com permissões granulares por módulo e funcionalidade.
-- **Trilha de auditoria** — criação e alteração de registros são registradas com data, hora e usuário, com histórico consultável.
-- **Geração de relatórios** — o sistema inclui um construtor de relatórios que monta documentos a partir das tabelas do banco, com estrutura definida por bandas, elementos e parâmetros, exportados em PDF.
+- **Framework:** Next.js 16 (React 19), com telas e API no mesmo projeto
+- **Linguagens:** TypeScript, SQL e CSS (Tailwind)
+- **Banco de dados:** PostgreSQL (Supabase)
+- **Storage:** Supabase Storage
+- **Hospedagem:** Vercel
 
-## Arquitetura
+**Ambientes**
 
-- **Next.js** (tela e rotas `/api`). O navegador nunca acessa o banco: tudo passa pelas rotas `/api`, que exigem login.
-- **PostgreSQL na Supabase**, acessado só pelo servidor com o driver `pg` (Transaction Pooler, SSL verificado com `db/supabase-ca.crt`). O Data API da Supabase fica sem acesso às tabelas.
-- **Supabase Storage** (bucket privado `imagens`) para as imagens, entregues pela rota `/api/imagens/arquivo/...`.
-- Cada ambiente é um projeto Supabase: **homologação** (`quasar-homologacao`) e **produção**.
-- Esquema em `db/migrations/*.sql`, aplicado em ordem pelo `db:migrar`.
+| Branch | Publicação | Banco | Arquivo `.env` |
+|---|---|---|---|
+| `homologacao` | quasar-cbc-homol.vercel.app (Preview) | homologação | `.env.local` |
+| `producao` | quasar-cbc.vercel.app (Production) | produção | `.env.producao` |
 
-## Como instalar
+---
 
-Rode na raiz do projeto, logo depois do `git clone`:
+## 1. Instalação
 
-```bash
-git checkout desenvolvimento          # o clone abre na branch producao; o trabalho é feito em desenvolvimento
-npm.cmd install                       # instala as dependências
-npm.cmd run credenciais:restaurar     # pede a frase-senha e cria .env.local e .env.producao
-npm.cmd run db:testar                 # confere a conexão com o banco
-npm.cmd run dev                       # inicia o servidor em http://localhost:3000
-```
-
-**Credenciais (`credenciais.enc`).** As senhas e as chaves secretas dos dois ambientes vêm com o repositório no arquivo `credenciais.enc`, **criptografado** (AES-256-GCM, chave derivada da frase-senha). O repositório é público: sem a frase-senha o arquivo não serve para nada, e a frase-senha **nunca** vai para o Git. Guarde-a num gerenciador de senhas; se ela se perder, o arquivo também se perde (refaça pelo Supabase, veja abaixo).
-
-- `npm.cmd run credenciais:restaurar` recria `.env.local` (homologação) e `.env.producao` (produção). Não sobrescreve `.env` existentes; para isso, `npm.cmd run credenciais:restaurar -- --forcar`.
-- Mudou alguma credencial? Edite `db-homologacao.txt` e `db-producao.txt` na raiz (ou, se eles não existirem, os próprios `.env.local` e `.env.producao`), rode `npm.cmd run credenciais:salvar` (pede a frase-senha duas vezes) e faça commit do `credenciais.enc`. O comando recusa arquivos que ainda tenham os marcadores `SENHA` ou `CHAVE`.
-- Os `db*.txt` e os `.env*` continuam fora do Git (o `.gitignore` os bloqueia): só o `credenciais.enc` é versionado.
-
-Se perder a frase-senha (ou ainda não houver `credenciais.enc`): copie os modelos (`copy .env.local.example .env.local` e `copy .env.producao.example .env.producao`) e preencha pelo Supabase. As strings do banco ficam em **Connect** (no topo do projeto), aba de connection string, opções **Transaction pooler** e **Session pooler**; a chave fica em **Project Settings → API Keys** (Secret key, `sb_secret_...`). A senha do banco **não aparece** no Supabase: se ninguém a tiver guardado, é preciso redefini-la em **Project Settings → Database → Reset database password** e atualizar também a `DATABASE_URL` da Vercel (Production para a produção, Preview para a homologação).
-
-Variáveis (Supabase → projeto → **Connect** e **Project Settings → API Keys**):
-
-| Variável | Uso |
-|---|---|
-| `DATABASE_URL` | Transaction Pooler (porta 6543), terminando em `?sslmode=require`. Usada pelo sistema. |
-| `DATABASE_URL_MIGRACAO` | Session Pooler (porta 5432), terminando em `?sslmode=require`. Só para os scripts. |
-| `SUPABASE_URL` | URL do projeto. |
-| `SUPABASE_SERVICE_ROLE_KEY` | Chave `service_role` (só servidor; acesso ao Storage). |
-
-Nenhuma delas pode ter o prefixo `NEXT_PUBLIC_`. Os arquivos `.env*` e `db*.txt` nunca vão para o Git (só os modelos `.env.local.example` e `.env.producao.example`, sempre sem valores, e o `credenciais.enc` criptografado).
-
-| Arquivo | Projeto Supabase | Usado por |
-|---|---|---|
-| `.env.local` | homologação (`quasar-homologacao`) | o sistema local e os comandos sem `:producao` |
-| `.env.producao` | produção | os comandos `:producao` e `db:copiar-producao` (é a origem da cópia) |
-
-Sem o `.env.producao` preenchido, os comandos de produção e a cópia produção → homologação não encontram a conexão.
-
-## Banco de dados
+Após o `git clone`:
 
 ```bash
-npm.cmd run db:migrar                       # mostra as migrações pendentes
-npm.cmd run db:migrar -- --simular          # executa e desfaz (valida o SQL no banco)
-npm.cmd run db:migrar -- --confirmar        # aplica as migrações pendentes
-npm.cmd run db:auditar-rodapes              # confere rodapés x auditoria (só leitura)
+git checkout desenvolvimento          # alternar para a branch desenvolvimento
+npm.cmd install                       # dependências
+npm.cmd run credenciais:restaurar     # pede a frase-senha e para conectar ao banco de dados
+npm.cmd run db:testar                 # testa a conexão 
+npm.cmd run dev                       # http://localhost:3000  
 ```
 
-- Mudança de esquema = novo arquivo `db/migrations/000N_descricao.sql`. Nunca altere uma migração já aplicada.
-- Aplique a migração **antes** de publicar o código que depende dela.
-- Use `:producao` no fim do comando para rodar na produção (ex.: `db:migrar:producao`).
+## 2. Credenciais
 
-## Como publicar
-
-Branches: `desenvolvimento` → `homologacao` → `producao`. Trabalhe só em `desenvolvimento`; as outras duas recebem as mudanças apenas por merge.
-
-| Branch | Publica em |
-|---|---|
-| `desenvolvimento` | nada fixo (só um deploy de teste da Vercel) |
-| `homologacao` | **quasar-cbc-homol.vercel.app** (Vercel, ambiente Preview) |
-| `producao` | **quasar-cbc.vercel.app** (Production) |
-
-O desenvolvimento local (`.env.local`) usa o **mesmo banco da homologação**.
-
-Antes de publicar, deixe `git status` limpo (tudo commitado em `desenvolvimento`).
-
-**1. Homologação**
+As chaves dos dois ambientes ficam em `credenciais.enc`. Sem a frase-senha o arquivo é inútil.
 
 ```bash
-npm.cmd run db:migrar -- --confirmar            # migrações pendentes na homologação (se houver)
-git checkout homologacao                        # vai para a branch de homologação
-git pull                                        # atualiza com o GitHub
-git merge desenvolvimento                       # traz as mudanças do desenvolvimento
-git push                                        # envia e dispara o deploy
-git checkout desenvolvimento                    # volta para a branch de trabalho
+npm.cmd run credenciais:restaurar               # recria os .env
+npm.cmd run credenciais:restaurar -- --forcar   # sobrescreve os .env
+npm.cmd run credenciais:salvar                  # regrava credenciais.enc
 ```
 
-**2. Produção** (depois de testar na homologação)
+## 3. Banco de dados (migrações)
+
+**Homologação**
 
 ```bash
-npm.cmd run db:migrar:producao -- --confirmar   # migrações pendentes na produção (se houver)
-git checkout producao                           # vai para a branch de produção
-git pull                                        # atualiza com o GitHub
-git merge homologacao                           # traz as mudanças da homologação
-git push                                        # envia e dispara o deploy
-git checkout desenvolvimento                    # volta para a branch de trabalho
+npm.cmd run db:migrar                          # lista as migrações pendentes
+npm.cmd run db:migrar -- --simular             # executa e desfaz (valida o SQL)
+npm.cmd run db:migrar -- --confirmar           # aplica
+npm.cmd run db:auditar-rodapes                 # confere rodapés x auditoria
 ```
 
-Em caso de conflito no merge: resolva os arquivos, rode `git add <arquivo>` e `git commit` antes do `git push`.
-
-O merge publica só o código. Os dados e as imagens de cada base não são copiados.
-
-**Primeira publicação em produção** (uma vez): criar o projeto Supabase de produção; criar o bucket privado `imagens`; preencher `.env.producao`; rodar `db:migrar:producao -- --confirmar`, `seed:producao` e `seed:cg:producao`; cadastrar no Vercel, ambiente **Production**, as variáveis `DATABASE_URL`, `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` da produção (as de homologação ficam só em **Preview**).
-
-## Copiar produção para homologação
-
-Deixa a homologação idêntica à produção (banco e imagens). **Apaga tudo da homologação antes de copiar**; a produção só é lida. Requer `.env.producao` e `.env.local` preenchidos.
+**Produção**
 
 ```bash
-npm.cmd run db:copiar-producao                                 # simula: mostra o que seria copiado
-npm.cmd run db:copiar-producao -- --confirmar                  # copia de verdade
-npm.cmd run db:copiar-producao -- --confirmar --sem-imagens    # copia só o banco
+npm.cmd run db:migrar:producao                 # lista as migrações pendentes
+npm.cmd run db:migrar:producao -- --simular    # executa e desfaz (valida o SQL)
+npm.cmd run db:migrar:producao -- --confirmar  # aplica
 ```
 
-- A cópia das imagens usa a `SUPABASE_SERVICE_ROLE_KEY` dos dois arquivos (chave secreta: `sb_secret_...` ou `service_role`). O comando confere as chaves antes de começar; com `--sem-imagens` elas não são usadas.
-- Antes de apagar, grava um backup da homologação em `backups/` (fora do Git).
-- Copia tabela por tabela numa transação e confere as contagens; qualquer diferença desfaz a cópia.
-- As sessões de login da homologação são encerradas (é preciso entrar de novo).
+## 4. Publicação
 
-## Começar do zero (apagar a base e recriar o básico)
-
-**Apaga todos os registros** da base escolhida (o esquema fica) e recria o mínimo para usar o sistema: o perfil `Administrador`, o usuário `administrador` (senha definida em `scripts/seed.mjs`; troque no primeiro acesso) e os Cadastros Gerais de `scripts/dados/cadastros-gerais.json`. Rode na ordem.
-
-Homologação (`.env.local`):
+**Homologação**
 
 ```bash
-npm.cmd run db:limpar                     # simula: mostra o que seria apagado
-npm.cmd run db:limpar -- --confirmar      # faz backup em backups/ e APAGA tudo
-npm.cmd run seed                          # cria o perfil e o usuário administrador
-npm.cmd run seed:cg                       # recria os Cadastros Gerais
+npm.cmd run db:migrar -- --confirmar   # se houver migração
+git checkout homologacao
+git pull
+git merge desenvolvimento
+git push                               # dispara o deploy
+git checkout desenvolvimento
 ```
 
-Produção (`.env.producao`): os mesmos comandos com `:producao` (`db:limpar:producao`, `seed:producao`, `seed:cg:producao`).
+**Produção**
 
-- Os seeders aceitam `-- --dry-run` para simular. São idempotentes: não duplicam o administrador e pulam a tabela de Cadastros Gerais que já tiver registros.
-- As imagens do Storage só são apagadas com `db:limpar -- --confirmar --com-imagens`.
-- O usuário `administrador` e o perfil `Administrador` são o acesso padrão: ninguém pode alterá-los nem excluí-los pela tela (só "Ver"). O administrador troca a própria senha pelo menu do usuário.
+```bash
+npm.cmd run db:migrar:producao -- --confirmar   # se houver migração
+git checkout producao
+git pull
+git merge homologacao
+git push                                        # dispara o deploy
+git checkout desenvolvimento
+```
+
+## 5. Dump produção → homologação
+
+```bash
+npm.cmd run db:copiar-producao                                # simula
+npm.cmd run db:copiar-producao -- --confirmar                 # copia banco e imagens
+npm.cmd run db:copiar-producao -- --confirmar --sem-imagens   # só o banco
+```
+
+## 6. Começar do zero
+
+Apaga todos os registros** e recria o mínimo..
+
+**Homologação**
+
+```bash
+npm.cmd run db:limpar                     # simula
+npm.cmd run db:limpar -- --confirmar      # backup em backups/ e APAGA tudo (--com-imagens apaga também o Storage)
+npm.cmd run seed                          # perfil e usuário administrador
+npm.cmd run seed:cg                       # Cadastros Gerais
+```
+
+**Produção**
+
+```bash
+npm.cmd run db:limpar:producao                     # simula
+npm.cmd run db:limpar:producao -- --confirmar      # backup em backups/ e APAGA tudo (--com-imagens apaga também o Storage)
+npm.cmd run seed:producao                          # perfil e usuário administrador
+npm.cmd run seed:cg:producao                       # Cadastros Gerais
+```
+
+## 7. Outros comandos
+
+```bash
+npm.cmd run build    # build de produção (o mesmo que a Vercel roda)
+npm.cmd run start    # serve o build localmente
+npm.cmd run lint     # ESLint
+```
