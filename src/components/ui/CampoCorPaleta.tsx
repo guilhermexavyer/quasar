@@ -2,19 +2,21 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { createPortal } from "react-dom";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 /**
- * Cores da paleta (40), 8 por linha: a 1ª linha com os cinzas (do branco ao preto); nas
- * demais, cada coluna é uma cor — vermelho, laranja, amarelo, verde, turquesa, azul, roxo
- * e rosa — e cada linha um tom, do mais claro ao mais escuro. A opção sem cor
- * (Transparente) fica à parte, acima dos quadradinhos.
+ * Cores da paleta (60), 10 por linha: a 1ª linha com os cinzas (do branco ao preto); nas
+ * demais, cada coluna é uma cor — vermelho, laranja, amarelo, lima, verde, turquesa, ciano,
+ * azul, roxo e rosa — e cada linha um tom, do mais claro ao mais escuro, priorizando os
+ * tons vivos (saturados). A opção sem cor (Transparente) fica à parte, acima dos quadradinhos.
  */
 export const CORES_PALETA = [
-  "#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#a6a6a6", "#7f7f7f", "#404040", "#000000",
-  "#ffcdd2", "#ffe0b2", "#fff9c4", "#c8e6c9", "#b2ebf2", "#bbdefb", "#e1bee7", "#f8bbd0",
-  "#ef9a9a", "#ffb74d", "#fff176", "#81c784", "#4dd0e1", "#64b5f6", "#ba68c8", "#f06292",
-  "#e53935", "#fb8c00", "#fdd835", "#43a047", "#00acc1", "#1e88e5", "#8e24aa", "#d81b60",
-  "#b71c1c", "#e65100", "#f9a825", "#1b5e20", "#006064", "#003056", "#4a148c", "#880e4f",
+  "#ffffff", "#f2f2f2", "#d9d9d9", "#bfbfbf", "#a6a6a6", "#8c8c8c", "#737373", "#595959", "#333333", "#000000",
+  "#ff8a80", "#ffab40", "#ffff8d", "#ccff90", "#69f0ae", "#64ffda", "#84ffff", "#82b1ff", "#ea80fc", "#ff80ab",
+  "#ff5252", "#ff9100", "#ffea00", "#b2ff59", "#00e676", "#1de9b6", "#18ffff", "#448aff", "#e040fb", "#ff4081",
+  "#ff1744", "#ff6d00", "#ffd600", "#76ff03", "#00c853", "#00bfa5", "#00e5ff", "#2979ff", "#d500f9", "#f50057",
+  "#d50000", "#e65100", "#ffab00", "#64dd17", "#009e3c", "#00897b", "#00b8d4", "#2962ff", "#aa00ff", "#c51162",
+  "#9b0000", "#a33a00", "#b38f00", "#3b8a00", "#00692a", "#005b4f", "#00838f", "#003056", "#6a00b3", "#880e4f",
 ];
 
 /** Fundo da amostra de cor; sem cor = branco com um traço vermelho na diagonal. */
@@ -27,7 +29,7 @@ export function fundoDaAmostra(cor: string | null | undefined): CSSProperties {
 /** Tamanho (px) de cada quadradinho da paleta e o espaço entre eles. */
 const AMOSTRA = 20;
 const ESPACO = 4;
-const COLUNAS = 8;
+const COLUNAS = 10;
 /** Altura da linha da opção sem cor (Transparente), acima dos quadradinhos. */
 const LINHA_VAZIO = AMOSTRA + ESPACO + 4;
 
@@ -49,7 +51,7 @@ interface CampoCorPaletaProps {
 /**
  * Campo de cor do sistema: um quadrado com as bordas e a altura dos demais campos (34px),
  * preenchido com a cor escolhida. O clique abre uma pop-up com as cores pré-definidas
- * (CORES_PALETA, 40 cores) e a opção sem cor acima delas, sem o seletor de cores do navegador. A pop-up segue o visual da pop-up
+ * (CORES_PALETA, 60 cores) e a opção sem cor acima delas, sem o seletor de cores do navegador. A pop-up segue o visual da pop-up
  * dos infobuttons (FieldInfoPopup): fundo branco, borda #ccc, sombra e padding de 10px; no
  * modo escuro, #27272a com borda #3f3f46. Fica num portal em document.body (posição fixa,
  * abaixo do campo; sem espaço, acima) para não ser cortada pela área de rolagem; fecha ao
@@ -114,7 +116,7 @@ export default function CampoCorPaleta({ valor, onChange, disabled, erro, rotulo
       />
       {aberto && pos && createPortal(
         <div
-          ref={popupRef}
+          ref={(el) => { popupRef.current = el; manterNaTela(el); }}
           role="dialog"
           aria-label={rotuloAcessivel}
           className={`fixed z-[9999] border p-[10px] shadow-[0_4px_10px_rgba(0,0,0,0.18)] ${pos.dark ? "bg-[#27272a] border-[#3f3f46]" : "bg-white border-[#ccc]"}`}

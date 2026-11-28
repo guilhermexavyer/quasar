@@ -229,9 +229,9 @@ export default function ImagemListView({
                       value={String(pageSize)}
                       onChange={(v) => setPageSize(v === 'all' ? 'all' : Number(v))}
                       options={[
-                        { value: '30', label: '30 por página' },
                         { value: '50', label: '50 por página' },
                         { value: '100', label: '100 por página' },
+                        { value: '200', label: '200 por página' },
                         { value: 'all', label: 'Todos' },
                       ]}
                       showPlaceholder={false}

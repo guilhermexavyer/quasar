@@ -11,6 +11,7 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import { elementoVisivel } from "@/lib/visibilidade";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 interface CamposRelatorioTableProps {
   campos: CamposRelatorioRow[];
@@ -325,7 +326,7 @@ export default function CamposRelatorioTable({
   const idsOrdenados = sortedCampos.map((r) => r.id).join("|");
   useEffect(() => { onOrdemChange?.(idsOrdenados ? idsOrdenados.split("|") : []); }, [idsOrdenados]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const pagination = usePagination(sortedCampos.length);
+  const pagination = usePagination(sortedCampos.length, "camposRelatorio");
   const paginatedCampos = pagination.slice(sortedCampos);
 
   // Rastrear a coluna que está sendo editada (para manter o foco ao avançar)
@@ -930,7 +931,7 @@ export default function CamposRelatorioTable({
       {contextMenu && (
         <>
           <div
-            className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+            ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
           >
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { const row = campos.find((c) => c.id === contextMenu.id); if (row && onViewCampo) onViewCampo(row); setContextMenu(null); }}>Ver</button>

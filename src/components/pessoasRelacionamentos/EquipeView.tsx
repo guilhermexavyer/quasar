@@ -41,6 +41,7 @@ import {
   observarMembrosDaEquipe,
 } from "@/services/relacionamentoService";
 import type { Equipe, EquipeMembro } from "@/types/relacionamento";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 const CLASSE_CAMPO = "w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none placeholder:text-[#aaa] disabled:cursor-default disabled:bg-slate-100 disabled:text-slate-500";
 const CLASSE_LINK = "inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2";
@@ -425,7 +426,7 @@ export default function EquipeView(props: EquipeViewProps) {
       <>
         <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
         <div
-          className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+          ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
           style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
         >
           {!menu.noVer && permissoes.ver && (
@@ -991,7 +992,7 @@ function MembrosDaEquipe({
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
             <div
-              className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+              ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
               style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
             >
               {!menu.noVer && (

@@ -39,6 +39,7 @@ import {
   salvarBandaSql,
   salvarParametroSql,
   TIPOS_BANDA,
+  TIPOS_PARAMETRO,
   CAMPOS_BORDA,
   OPCOES_DETALHE,
   bandaEhDetalhe,
@@ -50,6 +51,7 @@ import {
 import type { Relatorio } from "@/types/relatorio";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 /**
  * Gerenciador de Relatórios > Relatórios (relatórios por SQL, no modelo do Tasy).
@@ -304,9 +306,17 @@ export default function RelatorioBuilder({
   const focoLinhaRef = useRef<string | null>(null);
   const gravandoLinhaRef = useRef(false);
   /** Paginação das listas (rodapé igual ao das demais telas de registros). */
-  const paginacaoBandas = usePagination(bandas.length);
-  const paginacaoElementos = usePagination(elementos.length);
-  const paginacaoParametros = usePagination(parametros.length);
+  const paginacaoBandas = usePagination(bandas.length, "builder.bandas");
+  const paginacaoElementos = usePagination(elementos.length, "builder.elementos");
+  const paginacaoParametros = usePagination(parametros.length, "builder.parametros");
+  // Os elementos de outra banda começam na página 1 (a quantidade por página continua).
+  const bandaElementosAnteriorRef = useRef(bandaElementos?.nr_sequencia);
+  const { setCurrentPage: irParaPaginaElementos } = paginacaoElementos;
+  useEffect(() => {
+    if (bandaElementosAnteriorRef.current === bandaElementos?.nr_sequencia) return;
+    bandaElementosAnteriorRef.current = bandaElementos?.nr_sequencia;
+    irParaPaginaElementos(1);
+  }, [bandaElementos?.nr_sequencia, irParaPaginaElementos]);
   // Clique no cabeçalho das listas: ordena pela coluna (o valor que a célula mostra).
   const { ordenados: bandasOrdenadas, props: ordenacaoBandas } = useOrdenacaoTabela("builder.bandas", bandas, (b, coluna) => {
     if (coluna === "ie_tipo") return TIPOS_BANDA.find((t) => t.value === b.ie_tipo)?.label ?? "";
@@ -515,9 +525,10 @@ export default function RelatorioBuilder({
       }
     } else {
       const p = detalhe.parametro;
-      const faltantes = ["ds_parametro", "cd_atributo", "ds_label", "nr_ordem", "vl_padrao"].filter((c) => {
+      const faltantes = ["ds_parametro", "cd_atributo", "ds_label", "nr_ordem", "vl_padrao", "ie_tipo", ...(p.ie_tipo === "D" ? ["ds_sql"] : [])].filter((c) => {
         const vazio = String(p[c as keyof ParametroSql] ?? "").trim() === "";
-        return vazio && statusDe(parametroCampoRegras, c) === "O";
+        // Dropdown: o SQL das opções é sempre obrigatório.
+        return vazio && (statusDe(parametroCampoRegras, c) === "O" || (c === "ds_sql" && p.ie_tipo === "D"));
       });
       if (faltantes.length > 0) {
         setErrosDetalhe(faltantes);
@@ -783,11 +794,12 @@ export default function RelatorioBuilder({
   ];
   const colunasDeParametro: ResizableTableColumn<ParametroSql>[] = [
     { key: "nr_sequencia", label: "#", render: (p) => String(p.nr_sequencia ?? "") },
-    { key: "ds_parametro", label: "Descrição do parâmetro", render: (p) => p.ds_parametro ?? "" },
+    { key: "ds_parametro", label: "Descrição", render: (p) => p.ds_parametro ?? "" },
     { key: "cd_atributo", label: "Atributo", render: (p) => p.cd_atributo ?? "" },
     { key: "ds_label", label: "Label", render: (p) => p.ds_label ?? "" },
     { key: "nr_ordem", label: "Ordem", render: (p) => (p.nr_ordem ?? "") === "" ? "" : String(p.nr_ordem ?? "") },
     { key: "vl_padrao", label: "Valor padrão", render: (p) => p.vl_padrao ?? "" },
+    { key: "ie_tipo", label: "Tipo", render: (p) => TIPOS_PARAMETRO.find((t) => t.value === (p.ie_tipo || "I"))?.label ?? "" },
     { key: "ie_perguntar", label: "Perguntar", render: (p) => simNao(p.ie_perguntar) },
     { key: "ie_obrigatorio", label: "Obrigatório", render: (p) => simNao(p.ie_obrigatorio) },
     ...colunasAuditoria<ParametroSql>(),
@@ -841,7 +853,7 @@ export default function RelatorioBuilder({
     if (aba === "bandas") {
       setDetalhe({ tipo: "banda", banda: { ds_banda: "", ds_sql: "", ie_tipo: relatorioPdf ? "detalhe" : null, qt_altura: null } });
     } else {
-      setDetalhe({ tipo: "parametro", parametro: { ds_parametro: "", cd_atributo: "", ds_label: "", nr_ordem: null, vl_padrao: "", ie_perguntar: "N", ie_obrigatorio: "N" } });
+      setDetalhe({ tipo: "parametro", parametro: { ds_parametro: "", cd_atributo: "", ds_label: "", nr_ordem: null, vl_padrao: "", ie_perguntar: "N", ie_obrigatorio: "N", ie_tipo: "I", ds_sql: "" } });
     }
   }
   /** Ativa ou inativa a banda, o elemento ou o parâmetro (menu de contexto). */
@@ -1169,7 +1181,7 @@ export default function RelatorioBuilder({
     >
       {menu && menu.acoes.length > 0 && (
         <div
-          className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+          ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
           style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
         >
           {menu.acoes.map((item) => (
@@ -1788,7 +1800,7 @@ export default function RelatorioBuilder({
                       <input disabled value={String(p.nr_sequencia ?? "")} className={INPUT} />
                     </div>
                     <div className="sm:col-span-4">
-                      {r("Descrição do parâmetro", "ds_parametro")}
+                      {r("Descrição", "ds_parametro")}
                       <input value={p.ds_parametro ?? ""} onChange={(e) => setP({ ds_parametro: e.target.value })} disabled={des("ds_parametro")} className={comErro(errosDetalhe, "ds_parametro")} />
                     </div>
                     <div className="sm:col-span-3">
@@ -1807,7 +1819,7 @@ export default function RelatorioBuilder({
                       />
                     </div>
                   </div>
-                  {/* Linha 2: Ordem, Valor padrão, Status, Perguntar e Obrigatório. */}
+                  {/* Linha 2: Ordem, Valor padrão, Status, Tipo, Perguntar e Obrigatório. */}
                   <div className="grid gap-[15px] sm:grid-cols-12">
                     <div className="sm:col-span-2">
                       {r("Ordem", "nr_ordem")}
@@ -1830,10 +1842,28 @@ export default function RelatorioBuilder({
                       {rotulo("Status", "relatorio_parametro", "ie_status", parametroCampoRegras)}
                       <Select value={p.ie_status === "I" ? "I" : "A"} onChange={(v) => setP({ ie_status: v === "I" ? "I" : "A" })} options={STATUS_OPTIONS} showPlaceholder={false} disabled={statusDe(parametroCampoRegras, "ie_status") === "D"} />
                     </div>
-                    <div className="sm:col-span-6 flex gap-8">
+                    <div className="sm:col-span-2">
+                      {r("Tipo", "ie_tipo")}
+                      <Select value={p.ie_tipo === "D" ? "D" : "I"} onChange={(v) => setP({ ie_tipo: v === "D" ? "D" : "I" })} options={TIPOS_PARAMETRO} showPlaceholder={false} disabled={des("ie_tipo")} />
+                    </div>
+                    <div className="sm:col-span-4 flex gap-8">
                       {campoCheck("Perguntar", "relatorio_parametro", "ie_perguntar", parametroCampoRegras, p.ie_perguntar === "S", (m) => setP({ ie_perguntar: m ? "S" : "N" }))}
                       {campoCheck("Obrigatório", "relatorio_parametro", "ie_obrigatorio", parametroCampoRegras, p.ie_obrigatorio === "S", (m) => setP({ ie_obrigatorio: m ? "S" : "N" }))}
                     </div>
+                  </div>
+                  {/* Linha 3: SQL das opções — só no Dropdown (coluna cd = valor passado ao relatório; ds = texto exibido). */}
+                  <div>
+                    {/* No Dropdown o SQL é sempre obrigatório. */}
+                    <RotuloCampo texto="SQL" colecao="relatorio_parametro" campo="ds_sql" prefixo={p.ie_tipo === "D" || statusDe(parametroCampoRegras, "ds_sql") === "O" ? <RequiredAsterisk /> : undefined} />
+                    <textarea
+                      value={p.ie_tipo === "D" ? (p.ds_sql ?? "") : ""}
+                      onChange={(e) => setP({ ds_sql: e.target.value })}
+                      disabled={p.ie_tipo !== "D" || des("ds_sql")}
+                      rows={LINHAS_SQL}
+                      spellCheck={false}
+                      placeholder={p.ie_tipo === "D" ? "select nr_sequencia cd, ds_sexo ds from sexo" : undefined}
+                      className={`${comErro(errosDetalhe, "ds_sql")} resize-none`}
+                    />
                   </div>
                 </div>
               </section>

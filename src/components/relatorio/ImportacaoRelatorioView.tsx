@@ -16,6 +16,7 @@ import {
   type ImportacaoRelatorio,
 } from "@/services/relatorioSqlService";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 /**
  * Gerenciador de Relatórios > Importar relatório.
@@ -203,7 +204,7 @@ export default function ImportacaoRelatorioView({
   return (
     <div className="flex-1 flex flex-col min-h-0">
       {menu && (
-        <div className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}>
+        <div ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}>
           {[
             ...(menu.noVer ? [] : [{ label: "Ver", onClick: () => ver(menu.item) }]),
             ...(podeExcluir ? [{ label: "Excluir", onClick: () => excluir(menu.item) }] : []),

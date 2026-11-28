@@ -19,7 +19,15 @@ export const COLECAO_PARAM_MATRICULA_COLABORADOR = "colaborador_param_matricula"
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO = "periodo_letivo_param_cor_andamento";
 export const COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO = "periodo_letivo_param_cor_encerrado";
 export const COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO = "periodo_letivo_param_encerramento_automatico";
-export const COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN = "usuario_param_redefinir_senha_primeiro_login";
+/** Sim: os feriados de um período letivo encerrado podem ser adicionados, alterados e excluídos. */
+export const COLECAO_PARAM_FERIADO_PERIODO_ENCERRADO = "periodo_letivo_param_feriado_encerrado";
+/** Sim: a turma pode ter um período letivo encerrado. */
+export const COLECAO_PARAM_TURMA_PERIODO_ENCERRADO = "turma_param_periodo_letivo_encerrado";
+/** Sim: a turma x disciplina pode ter uma turma de período letivo encerrado. */
+export const COLECAO_PARAM_TURMA_DISCIPLINA_PERIODO_ENCERRADO = "turma_disciplina_param_periodo_encerrado";
+/** Sim: a cópia pode ter uma turma x disciplina de período letivo encerrado. */
+export const COLECAO_PARAM_COPIA_PERIODO_ENCERRADO = "copia_param_periodo_letivo_encerrado";
+export const COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN ="usuario_param_redefinir_senha_primeiro_login";
 /** Extensões permitidas no anexo de Controle de Cópias > Cópias (ds_regra: "pdf,docx,..."). */
 export const COLECAO_PARAM_TIPOS_ARQUIVO_COPIA = "copia_param_tipos_arquivo";
 export const COLECAO_PARAM_COR_COPIA_AGUARDANDO = "copia_param_cor_aguardando";

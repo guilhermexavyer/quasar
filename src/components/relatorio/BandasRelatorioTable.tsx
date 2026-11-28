@@ -9,6 +9,7 @@ import { formatDate } from "@/lib/pessoaFisicaUtils";
 import PaginationFooter, { usePagination } from "@/components/ui/PaginationFooter";
 import { elementoVisivel } from "@/lib/visibilidade";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 export interface Banda {
   id: string;
@@ -411,7 +412,7 @@ export default function BandasRelatorioTable({
     },
   ], [editingId, bandas]);
 
-  const pagination = usePagination(sortedBandas.length);
+  const pagination = usePagination(sortedBandas.length, "bandas");
   const paginatedBandas = pagination.slice(sortedBandas);
 
   return (
@@ -447,7 +448,7 @@ export default function BandasRelatorioTable({
       {contextMenu && (
         <>
           <div
-            className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+            ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
             style={{ left: contextMenu.x, top: contextMenu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
           >
             <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: "0.2rem 0.4rem" }} onClick={() => { const b = bandas.find((x) => x.id === contextMenu.id); if (b && onViewBanda) onViewBanda(b); setContextMenu(null); }}>Ver</button>

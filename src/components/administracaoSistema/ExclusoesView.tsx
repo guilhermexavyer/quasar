@@ -21,6 +21,7 @@ import { getDataSource } from "@/lib/relatorioDataSources";
 import { obterExclusoes, type Exclusao } from "@/services/exclusaoService";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 /** Navegação por duplo clique: registros abertos (do mais externo ao atual) e a aba escolhida. */
 export interface NavegacaoExclusoes {
@@ -421,7 +422,7 @@ export default function ExclusoesView({
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
             <div
-              className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+              ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
               style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
             >
               <button

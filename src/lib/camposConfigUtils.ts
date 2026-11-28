@@ -437,11 +437,13 @@ export const CAMPOS_POR_FUNCAO: Record<string, CampoDef[]> = {
 
     // ── Formulário de Parâmetros (:nome do SQL) ──
     { key: "relatorio_parametro.nr_sequencia", label: "Sequência", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
-    { key: "relatorio_parametro.ds_parametro", label: "Descrição do parâmetro", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
+    { key: "relatorio_parametro.ds_parametro", label: "Descrição", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.cd_atributo", label: "Atributo", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ds_label", label: "Label", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.nr_ordem", label: "Ordem", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.vl_padrao", label: "Valor padrão", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
+    { key: "relatorio_parametro.ie_tipo", label: "Tipo", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
+    { key: "relatorio_parametro.ds_sql", label: "SQL", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ie_status", label: "Status", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ie_perguntar", label: "Perguntar", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },
     { key: "relatorio_parametro.ie_obrigatorio", label: "Obrigatório", tipo: "Relatórios > Parâmetros", colecao: "relatorio_parametro" },

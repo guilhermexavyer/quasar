@@ -143,6 +143,10 @@ import {
   COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO,
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
+  COLECAO_PARAM_FERIADO_PERIODO_ENCERRADO,
+  COLECAO_PARAM_TURMA_PERIODO_ENCERRADO,
+  COLECAO_PARAM_TURMA_DISCIPLINA_PERIODO_ENCERRADO,
+  COLECAO_PARAM_COPIA_PERIODO_ENCERRADO,
   COLECAO_PARAM_MATRICULA_ALUNO,
   COLECAO_PARAM_MATRICULA_COLABORADOR,
   COLECAO_PARAM_TIPOS_ARQUIVO_COPIA,
@@ -221,7 +225,7 @@ import { FUNCOES_EXCLUSAO } from "@/lib/exclusoesUtils";
 import { definirAutorExclusoes, type Exclusao } from "@/services/exclusaoService";
 import { excluirFeriadosDoPeriodo } from "@/services/periodoLetivoFeriadoService";
 import { rotuloTipoFeriado } from "@/lib/periodoLetivoFeriadoUtils";
-import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
+import { CORES_STATUS_PERIODO_LETIVO_PADRAO, PERIODO_LETIVO_COLUMNS, STATUS_PERIODO_LETIVO_OPTIONS, deveEncerrarPorPrevisao, formatCellValue as formatPeriodoLetivoCellValue } from "@/lib/periodoLetivoUtils";
 import AtivoListView from "@/components/patrimonio/AtivoListView";
 import AtivoFormView, { type AtivoFormData } from "@/components/patrimonio/AtivoFormView";
 import AtivoDetalheView, { type AtivoDetalheAba } from "@/components/patrimonio/AtivoDetalheView";
@@ -250,7 +254,7 @@ import ImportacaoRelatorioView from "@/components/relatorio/ImportacaoRelatorioV
 import type { Relatorio } from "@/types/relatorio";
 import { obterRelatorios, criarRelatorio, atualizarRelatorio, excluirRelatorio, duplicarRelatorio } from "@/services/relatorioService";
 
-import { alterarStatusItem, exportarRelatorioXml, baixarPlanilha, obterDadosRelatorio, obterParametrosSql, type ParametroSql } from "@/services/relatorioSqlService";
+import { alterarStatusItem, exportarRelatorioXml, baixarPlanilha, obterDadosRelatorio, obterOpcoesParametro, obterParametrosSql, type OpcaoParametro, type ParametroSql } from "@/services/relatorioSqlService";
 import { gerarPdfRelatorio } from "@/lib/relatorioPdfFolha";
 import { nomeDoParametro } from "@/lib/relatorioSql";
 import AvisosView from "@/components/administracaoSistema/AvisosView";
@@ -431,7 +435,7 @@ const SESSION_NAV_KEY = "quasar_session_nav";
 const DARK_MODE_KEY = "quasar_dark_mode";
 
 /* Versão do sistema exibida na pop-up do usuário (sincronizada com package.json) */
-const SYSTEM_VERSION = "0.99.0";
+const SYSTEM_VERSION = "0.100.0";
 
 /* Siglas das UFs para o filtro de Estado do lookup de cidades (IBGE) */
 const UF_OPTIONS = [
@@ -1785,6 +1789,8 @@ export default function Home() {
   const [relatorioGerando, setRelatorioGerando] = useState(false);
   const [relatorioParamModal, setRelatorioParamModal] = useState<{ relatorio: Relatorio; parametros: ParametroSql[] } | null>(null);
   const [relatorioParamValues, setRelatorioParamValues] = useState<Record<string, string>>({});
+  /** Opções dos parâmetros do tipo Dropdown (pelo :nome), vindas do SQL de cada parâmetro. */
+  const [relatorioParamOpcoes, setRelatorioParamOpcoes] = useState<Record<string, OpcaoParametro[]>>({});
   // Parâmetros obrigatórios vazios após tentar gerar (borda vermelha no modal).
   const [paramGerarFaltantes, setParamGerarFaltantes] = useState<string[]>([]);
   const [relatorioManageSelection, setRelatorioManageSelection] = useState('');
@@ -2917,6 +2923,22 @@ export default function Home() {
     }
   }, []);
 
+  // Parâmetros "Permitir ... período letivo encerrado" (Feriados, Turmas, Turmas x Disciplinas e Cópias; Sim = 'S').
+  const [permitePeriodoEncerrado, setPermitePeriodoEncerrado] = useState({ feriado: false, turma: false, turmaDisciplina: false, copia: false });
+  const loadPermitePeriodoEncerrado = useCallback(async () => {
+    try {
+      const [feriado, turma, turmaDisciplina, copia] = await Promise.all([
+        obterParametro(COLECAO_PARAM_FERIADO_PERIODO_ENCERRADO),
+        obterParametro(COLECAO_PARAM_TURMA_PERIODO_ENCERRADO),
+        obterParametro(COLECAO_PARAM_TURMA_DISCIPLINA_PERIODO_ENCERRADO),
+        obterParametro(COLECAO_PARAM_COPIA_PERIODO_ENCERRADO),
+      ]);
+      setPermitePeriodoEncerrado({ feriado: feriado?.ie_regra === 'S', turma: turma?.ie_regra === 'S', turmaDisciplina: turmaDisciplina?.ie_regra === 'S', copia: copia?.ie_regra === 'S' });
+    } catch {
+      // mantém o valor atual em caso de falha
+    }
+  }, []);
+
   const loadCoresStatusPeriodoLetivo = useCallback(async () => {
     try {
       const [andamento, encerrado] = await Promise.all([
@@ -3257,11 +3279,12 @@ export default function Home() {
     if ([COLECAO_PARAM_COR_MANUTENCAO_ANDAMENTO, COLECAO_PARAM_COR_MANUTENCAO_CONCLUIDA, COLECAO_PARAM_COR_MANUTENCAO_CANCELADA].includes(colecao)) loadCoresStatusManutencao();
     if (colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ANDAMENTO || colecao === COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO) loadCoresStatusPeriodoLetivo();
     if (colecao === COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO) loadEncerramentoAutomaticoPeriodoLetivo();
+    if (colecao === COLECAO_PARAM_FERIADO_PERIODO_ENCERRADO || colecao === COLECAO_PARAM_TURMA_PERIODO_ENCERRADO || colecao === COLECAO_PARAM_TURMA_DISCIPLINA_PERIODO_ENCERRADO || colecao === COLECAO_PARAM_COPIA_PERIODO_ENCERRADO) loadPermitePeriodoEncerrado();
     if (colecao === COLECAO_PARAM_TIPOS_ARQUIVO_COPIA) loadExtensoesCopia();
     if ([COLECAO_PARAM_COR_COPIA_AGUARDANDO, COLECAO_PARAM_COR_COPIA_CANCELADO, COLECAO_PARAM_COR_COPIA_ENTREGUE, COLECAO_PARAM_COR_COPIA_IMPRESSO].includes(colecao)) loadCoresStatusCopia();
     if (colecao === COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA) loadRecebimentoAutomaticoCopia();
     if (colecao === COLECAO_PARAM_FORMATO_PAPEL_PADRAO || colecao === COLECAO_PARAM_TIPO_PAPEL_PADRAO) loadPapelPadraoCopia();
-  }, [loadCoresStatusAtivo, loadCoresStatusManutencao, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadPapelPadraoCopia]);
+  }, [loadCoresStatusAtivo, loadCoresStatusManutencao, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadPermitePeriodoEncerrado, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadPapelPadraoCopia]);
 
   const loadDisciplinas = useCallback(async () => {
     setLoading(true);
@@ -3463,9 +3486,10 @@ export default function Home() {
     loadPeriodosLetivos();
     loadCoresStatusPeriodoLetivo();
     loadEncerramentoAutomaticoPeriodoLetivo();
+    loadPermitePeriodoEncerrado();
     loadCoresStatusAtivo();
     loadCoresStatusManutencao();
-  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel, loadCopias, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadPapelPadraoCopia, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadCoresStatusAtivo, loadCoresStatusManutencao]);
+  }, [isAuthenticated, loadPessoasFisicas, loadUsuarios, loadPerfis, loadSexos, loadEstadoCivis, loadCoresRacas, loadProfissoes, loadOrgaosEmissores, loadLogradouros, loadGrausParentesco, loadCargos, loadVinculosContratuais, loadLocalizacoes, loadMarcas, loadCategoriasAtivos, loadCursos, loadDisciplinas, loadTurmas, loadTurmasDisciplinas, loadModalidadesEnsino, loadFormatosPapel, loadTiposPapel, loadCopias, loadExtensoesCopia, loadCoresStatusCopia, loadRecebimentoAutomaticoCopia, loadPapelPadraoCopia, loadSistemasOperacionais, loadCombustiveis, loadAtivos, loadManutencoes, loadPessoasJuridicas, loadAlunos, loadColaboradores, loadPeriodosLetivos, loadCoresStatusPeriodoLetivo, loadEncerramentoAutomaticoPeriodoLetivo, loadPermitePeriodoEncerrado, loadCoresStatusAtivo, loadCoresStatusManutencao]);
 
   // Período letivo em tempo real: a lista acompanha qualquer alteração no banco
   // (ex.: encerramento automático feito por este ou por outro usuário).
@@ -3484,9 +3508,9 @@ export default function Home() {
       const hoje = new Date();
       const hojeNum = hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate();
       for (const periodo of periodosLetivos) {
-        if (!periodo.id || periodo.ie_status === 'E' || encerrandoPeriodosRef.current.has(periodo.id)) continue;
-        const previsao = parseDateInput(periodo.dt_previsao_termino ?? '');
-        if (previsao === null || previsao > hojeNum) continue;
+        if (!periodo.id || encerrandoPeriodosRef.current.has(periodo.id)) continue;
+        // Reativado na data da previsão ou depois dela: o "Reativar" prevalece.
+        if (!deveEncerrarPorPrevisao(periodo, hojeNum)) continue;
         const id = periodo.id;
         encerrandoPeriodosRef.current.add(id);
         encerrarPeriodoLetivoPorPrevisao(id, { usuarioId: null, usuarioNome: 'Sistema' })
@@ -4148,6 +4172,22 @@ export default function Home() {
     try {
       const perguntar = (await obterParametrosSql(relatorio.nr_sequencia)).filter((p) => p.ie_perguntar === 'S' && p.ie_status !== 'I');
       if (perguntar.length > 0) {
+        // Dropdown: as opções vêm do SQL do parâmetro (cd = valor passado ao relatório; ds = texto exibido).
+        const dropdowns = perguntar.filter((p) => p.ie_tipo === 'D' && p.nr_sequencia != null);
+        let opcoes: Record<string, OpcaoParametro[]> = {};
+        if (dropdowns.length > 0) {
+          setRelatorioGerando(true);
+          try {
+            const nrRelatorio = relatorio.nr_sequencia;
+            opcoes = Object.fromEntries(await Promise.all(dropdowns.map(async (p) => [nomeDoParametro(p.cd_atributo), await obterOpcoesParametro(nrRelatorio, Number(p.nr_sequencia))] as const)));
+          } catch (err) {
+            setMessage(err instanceof Error && err.message ? err.message : 'Erro ao carregar as opções dos parâmetros.');
+            return;
+          } finally {
+            setRelatorioGerando(false);
+          }
+        }
+        setRelatorioParamOpcoes(opcoes);
         setRelatorioParamValues(Object.fromEntries(perguntar.map((p) => [nomeDoParametro(p.cd_atributo), p.vl_padrao ?? ''])));
         setParamGerarFaltantes([]);
         setRelatorioParamModal({ relatorio, parametros: perguntar });
@@ -7305,6 +7345,13 @@ export default function Home() {
       setMessage("Preencha os campos obrigatórios.");
       return;
     }
+    // Período letivo encerrado só pode ser escolhido com o parâmetro de Turmas = Sim (mantido se a turma já era dele).
+    const periodoAnterior = turmaEditingId ? turmas.find((t) => t.id === turmaEditingId)?.nr_seq_periodo_letivo : undefined;
+    if (String(periodoAnterior ?? '') !== String(payload.nr_seq_periodo_letivo ?? '') && !permitePeriodoEncerrado.turma && periodoLetivoEncerrado(payload.nr_seq_periodo_letivo)) {
+      setTurmaCampoErros(['nr_seq_periodo_letivo']);
+      setMessage("O período letivo está encerrado.");
+      return;
+    }
     setTurmaCampoErros([]);
     setTurmaSubmitting(true);
     try {
@@ -7358,6 +7405,17 @@ export default function Home() {
   }
 
   /** Período letivo, Curso e Modalidade de ensino da turma informada (só exibição; não são de turma_disciplina). */
+  /** Período letivo encerrado (parado até ser reativado). */
+  function periodoLetivoEncerrado(nrSeqPeriodo: unknown): boolean {
+    if (nrSeqPeriodo === null || nrSeqPeriodo === undefined || nrSeqPeriodo === '') return false;
+    return periodosLetivos.some((p) => p.nr_sequencia === Number(nrSeqPeriodo) && p.ie_status === 'E');
+  }
+  /** Turma cujo período letivo está encerrado. */
+  function turmaDePeriodoEncerrado(nrSeqTurma: unknown): boolean {
+    if (nrSeqTurma === null || nrSeqTurma === undefined || nrSeqTurma === '') return false;
+    return periodoLetivoEncerrado(turmas.find((t) => t.nr_sequencia === Number(nrSeqTurma))?.nr_seq_periodo_letivo);
+  }
+
   function camposDaTurmaDisciplina(nrSeqTurma: unknown): Pick<TurmaDisciplina, 'nr_seq_periodo_letivo' | 'nr_seq_curso' | 'nr_seq_modalidade_ensino'> {
     const seq = nrSeqTurma === null || nrSeqTurma === undefined || nrSeqTurma === '' ? NaN : Number(nrSeqTurma);
     const turma = Number.isNaN(seq) ? undefined : turmas.find((t) => t.nr_sequencia === seq);
@@ -7558,6 +7616,13 @@ export default function Home() {
     if (invalidos.length > 0) {
       setTurmaDisciplinaCampoErros(invalidos);
       setMessage(invalidos.includes('nr_seq_turma') ? "Turma não encontrada." : "Disciplina não encontrada.");
+      return;
+    }
+    // Turma de período letivo encerrado só com o parâmetro de Turmas x Disciplinas = Sim (mantida se já era a do registro).
+    const turmaAnterior = turmaDisciplinaEditingId ? turmasDisciplinas.find((td) => td.id === turmaDisciplinaEditingId)?.nr_seq_turma : undefined;
+    if (String(turmaAnterior ?? '') !== String(payload.nr_seq_turma ?? '') && !permitePeriodoEncerrado.turmaDisciplina && turmaDePeriodoEncerrado(payload.nr_seq_turma)) {
+      setTurmaDisciplinaCampoErros(['nr_seq_turma']);
+      setMessage("O período letivo da turma está encerrado.");
       return;
     }
     setTurmaDisciplinaCampoErros([]);
@@ -7869,6 +7934,14 @@ export default function Home() {
     if (invalidos.length > 0) {
       setCopiaCampoErros(invalidos);
       setMessage(invalidos.includes('nr_seq_solicitante') ? "Solicitante não encontrado." : "Turma x Disciplina não encontrada.");
+      return;
+    }
+    // Turma x Disciplina de período letivo encerrado só com o parâmetro de Cópias = Sim (mantida se já era a da cópia).
+    const tdAnterior = copiaEditingId ? copias.find((c) => c.id === copiaEditingId)?.nr_seq_turma_disciplina : undefined;
+    const tdEscolhida = turmasDisciplinas.find((td) => td.nr_sequencia === payload.nr_seq_turma_disciplina);
+    if (String(tdAnterior ?? '') !== String(payload.nr_seq_turma_disciplina ?? '') && !permitePeriodoEncerrado.copia && tdEscolhida && turmaDePeriodoEncerrado(tdEscolhida.nr_seq_turma)) {
+      setCopiaCampoErros(['nr_seq_turma_disciplina']);
+      setMessage("O período letivo da turma está encerrado.");
       return;
     }
     setCopiaCampoErros([]);
@@ -12066,8 +12139,15 @@ export default function Home() {
    * Configuração do lookup de um tipo de registro. `apenasAtivos`: só os registros que podem
    * ser escolhidos (ex.: a Turma x Disciplina da cópia), como já era no lookup.
    */
-  function configLookup(entidade: EntidadeLookup, apenasAtivos = false): ConfigLookup<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
+  function configLookup(entidade: EntidadeLookup, apenasAtivos = false, semPeriodoEncerrado = apenasAtivos): ConfigLookup<any> { // eslint-disable-line @typescript-eslint/no-explicit-any
     const soAtivos = <T extends { ie_status?: string | null }>(lista: T[]) => (apenasAtivos ? lista.filter((r) => (r.ie_status ?? 'A') !== 'I') : lista);
+    // semPeriodoEncerrado (parâmetros "Permitir ... período letivo encerrado" = Não): o período
+    // encerrado, suas turmas e as turmas x disciplinas delas não aparecem (até ser reativado).
+    const periodosEncerrados = new Set(periodosLetivos.filter((p) => p.ie_status === 'E').map((p) => p.nr_sequencia));
+    const turmaComPeriodoAberto = (nrSeqTurma: unknown) => {
+      const turma = turmas.find((t) => t.nr_sequencia === Number(nrSeqTurma));
+      return !turma || turma.nr_seq_periodo_letivo == null || !periodosEncerrados.has(Number(turma.nr_seq_periodo_letivo));
+    };
     switch (entidade) {
       case 'pessoa_fisica': {
         const vazio = vazioDe(['nr_sequencia', 'ds_nome', 'nr_cpf', 'dt_nascimento_inicio', 'dt_nascimento_fim', 'ds_email', 'nr_telefone', 'nr_seq_sexo', 'nr_seq_estado_civil', 'nr_seq_cor_raca', 'nr_seq_profissao']);
@@ -12251,7 +12331,7 @@ export default function Home() {
             { nr_sequencia: f.nr_sequencia ?? '', descricao: f.descricao ?? '', ie_status: 'T' } as typeof appliedTurmaFilterForm,
             { nr_seq_curso: f.nr_seq_curso ?? '', nr_seq_periodo_letivo: f.nr_seq_periodo_letivo ?? '' } as typeof turmaFiltroExtraAplicado,
           ),
-          registros: turmas,
+          registros: semPeriodoEncerrado ? turmas.filter((t) => turmaComPeriodoAberto(t.nr_sequencia)) : turmas,
           colunas: colunasDaLista(TURMA_COLUMNS),
           linha: linhaDaLista<Turma>(TURMA_COLUMNS, formatTurmaCellValue),
           ...colunasPorIndice('config_colunas_lookup_turma'),
@@ -12273,7 +12353,7 @@ export default function Home() {
             { nr_seq_turma: f.nr_seq_turma ?? '', nr_seq_disciplina: f.nr_seq_disciplina ?? '', nr_seq_periodo_letivo: f.nr_seq_periodo_letivo ?? '' } as typeof turmaDisciplinaFiltroExtraAplicado,
           ),
           // Período letivo, Curso e Modalidade de ensino vêm da turma (como na lista).
-          registros: soAtivos(turmasDisciplinas).map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) })),
+          registros: soAtivos(turmasDisciplinas).filter((td) => !semPeriodoEncerrado || turmaComPeriodoAberto(td.nr_seq_turma)).map((td) => ({ ...td, ...camposDaTurmaDisciplina(td.nr_seq_turma) })),
           colunas: colunasDaLista(TURMA_DISCIPLINA_COLUMNS),
           linha: linhaDaLista<TurmaDisciplina>(TURMA_DISCIPLINA_COLUMNS, formatTurmaDisciplinaCellValue),
           ...colunasPorIndice('config_colunas_lookup_turma_disciplina'),
@@ -12281,15 +12361,15 @@ export default function Home() {
         };
       case 'periodo_letivo':
         return {
-          titulo: 'Período Letivo', colecao: 'periodo_letivo', vazio: { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '' },
+          titulo: 'Período Letivo', colecao: 'periodo_letivo', vazio: { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '' },
+          // Sem filtro de Status; com semPeriodoEncerrado, só os períodos em andamento.
           campos: [
             { key: 'nr_sequencia', rotulo: 'Sequência', campo: 'nr_sequencia', tipo: 'numero', meia: true },
             { key: 'nr_ano', rotulo: 'Ano', campo: 'nr_ano', tipo: 'numero', maxLength: 4, meia: true },
             { key: 'ds_periodo_letivo', rotulo: 'Descrição', campo: 'ds_periodo_letivo' },
-            { key: 'ie_status', rotulo: 'Status', campo: 'ie_status', tipo: 'opcoes', opcoes: STATUS_PERIODO_LETIVO_OPTIONS },
           ],
-          filtrar: (p: PeriodoLetivo, f) => passaFiltroPeriodoLetivo(p, { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ie_status: '', ...f } as typeof appliedPeriodoLetivoFilterForm),
-          registros: soAtivos(periodosLetivos),
+          filtrar: (p: PeriodoLetivo, f) => passaFiltroPeriodoLetivo(p, { nr_sequencia: '', nr_ano: '', ds_periodo_letivo: '', ...f, ie_status: '' } as typeof appliedPeriodoLetivoFilterForm),
+          registros: semPeriodoEncerrado ? periodosLetivos.filter((p) => p.ie_status !== 'E') : periodosLetivos,
           colunas: colunasDaLista(PERIODO_LETIVO_COLUMNS),
           linha: linhaDaLista<PeriodoLetivo>(PERIODO_LETIVO_COLUMNS, (k, v) => formatPeriodoLetivoCellValue(k as keyof PeriodoLetivo, v)),
           ...colunasPorIndice('config_colunas_lookup_periodo_letivo'),
@@ -12776,6 +12856,7 @@ export default function Home() {
                     onSavingChange={setPeriodoLetivoFeriadoSaving}
                     confirmar={(titulo, mensagem, acao) => setConfirmAcao({ titulo, mensagem, acao })}
                     colunas={colunasPorChave('config_colunas_periodo_letivo_feriado')}
+                    bloqueado={periodoLetivoFeriados.ie_status === 'E' && !permitePeriodoEncerrado.feriado}
                     darkMode={darkMode}
                   />
                 ) : (
@@ -17489,7 +17570,7 @@ export default function Home() {
       {turmaLookupCampo && (
         <LookupModal
           key={turmaLookupCampo}
-          {...configLookup(turmaLookupCampo === 'nr_seq_curso' ? 'curso' : turmaLookupCampo === 'nr_seq_periodo_letivo' ? 'periodo_letivo' : 'localizacao', true)}
+          {...configLookup(turmaLookupCampo === 'nr_seq_curso' ? 'curso' : turmaLookupCampo === 'nr_seq_periodo_letivo' ? 'periodo_letivo' : 'localizacao', true, !permitePeriodoEncerrado.turma)}
           onAdicionar={botaoAdicionarDoLookup(
             turmaLookupCampo === 'nr_seq_curso' ? 'curso' : turmaLookupCampo === 'nr_seq_periodo_letivo' ? 'periodo_letivo' : 'localizacao',
             () => setTurmaLookupCampo(null),
@@ -17507,7 +17588,7 @@ export default function Home() {
       {turmaDisciplinaLookupCampo && (
         <LookupModal
           key={turmaDisciplinaLookupCampo}
-          {...configLookup(turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina')}
+          {...configLookup(turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina', false, !permitePeriodoEncerrado.turmaDisciplina)}
           onAdicionar={botaoAdicionarDoLookup(
             turmaDisciplinaLookupCampo === 'nr_seq_turma' ? 'turma' : 'disciplina',
             () => setTurmaDisciplinaLookupCampo(null),
@@ -17524,7 +17605,7 @@ export default function Home() {
       {/* ── Lookup: Turma x Disciplina (formulário e filtro de Cópias) ── */}
       {copiaTurmaDisciplinaLookup && (
         <LookupModal
-          {...configLookup('turma_disciplina', true)}
+          {...configLookup('turma_disciplina', true, copiaTurmaDisciplinaLookup === 'form' && !permitePeriodoEncerrado.copia)}
           onAdicionar={copiaTurmaDisciplinaLookup === 'form'
             ? botaoAdicionarDoLookup('turma_disciplina', () => setCopiaTurmaDisciplinaLookup(null), (nr) => setCopiaExtra((c) => ({ ...c, nr_seq_turma_disciplina: String(nr) })))
             : undefined}
@@ -19129,17 +19210,30 @@ export default function Home() {
                       colecao="relatorio_parametro"
                       campo="vl_padrao"
                     />
-                    <input
-                      type="text"
-                      aria-label={texto}
-                      autoFocus={i === 0}
-                      value={relatorioParamValues[nome] ?? ''}
-                      onChange={(e) => {
-                        setParamGerarFaltantes((prev) => prev.filter((n) => n !== nome));
-                        setRelatorioParamValues((prev) => ({ ...prev, [nome]: e.target.value }));
-                      }}
-                      className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${paramGerarFaltantes.includes(nome) ? 'border-red-500' : 'border-slate-300'}`}
-                    />
+                    {parametro.ie_tipo === 'D' ? (
+                      // Dropdown: mostra o ds de cada opção e passa o cd ao relatório.
+                      <Select
+                        value={relatorioParamValues[nome] ?? ''}
+                        onChange={(v) => {
+                          setParamGerarFaltantes((prev) => prev.filter((n) => n !== nome));
+                          setRelatorioParamValues((prev) => ({ ...prev, [nome]: v }));
+                        }}
+                        options={(relatorioParamOpcoes[nome] ?? []).map((o) => ({ value: o.cd, label: o.ds }))}
+                        error={paramGerarFaltantes.includes(nome)}
+                      />
+                    ) : (
+                      <input
+                        type="text"
+                        aria-label={texto}
+                        autoFocus={i === 0}
+                        value={relatorioParamValues[nome] ?? ''}
+                        onChange={(e) => {
+                          setParamGerarFaltantes((prev) => prev.filter((n) => n !== nome));
+                          setRelatorioParamValues((prev) => ({ ...prev, [nome]: e.target.value }));
+                        }}
+                        className={`w-full rounded-[3px] border bg-white px-2 py-1.5 text-sm transition focus:border-[#003056] focus:outline-none ${paramGerarFaltantes.includes(nome) ? 'border-red-500' : 'border-slate-300'}`}
+                      />
+                    )}
                   </div>
                 );
               })}

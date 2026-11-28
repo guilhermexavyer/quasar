@@ -175,7 +175,7 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
     titulo: "Parâmetro",
     campos: [
       { campo: "nr_sequencia", rotulo: "Sequência", span: 2 },
-      { campo: "ds_parametro", rotulo: "Descrição do parâmetro", span: 4 },
+      { campo: "ds_parametro", rotulo: "Descrição", span: 4 },
       { campo: "ds_label", rotulo: "Label", span: 3 },
       { campo: "cd_atributo", rotulo: "Atributo", span: 3 },
       { campo: "nr_ordem", rotulo: "Ordem", span: 2 },
@@ -183,6 +183,8 @@ export const FORMULARIOS_GENERICOS: Record<string, SecaoGenerica[]> = {
       { campo: "ie_status", rotulo: "Status", span: 2, tipo: "dropdown", formatar: status },
       { campo: "ie_perguntar", rotulo: "Perguntar", span: 2, tipo: "check" },
       { campo: "ie_obrigatorio", rotulo: "Obrigatório", span: 2, tipo: "check" },
+      { campo: "ie_tipo", rotulo: "Tipo", span: 2, tipo: "dropdown", formatar: (v) => (v === "D" ? "Dropdown" : v === "I" ? "Input" : "") },
+      { campo: "ds_sql", rotulo: "SQL", span: 12, tipo: "textoLongo" },
     ],
   }],
   relatorio_banda: [

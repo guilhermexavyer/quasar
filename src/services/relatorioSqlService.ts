@@ -94,11 +94,22 @@ export interface ParametroSql {
   ie_obrigatorio?: "S" | "N";
   /** A = ativo; I = inativo (não é perguntado; o :nome fica vazio). */
   ie_status?: "A" | "I" | null;
+  /** Tipo do campo no modal ao gerar: I = Input; D = Dropdown (opções do ds_sql). */
+  ie_tipo?: TipoParametro | null;
+  /** Dropdown: SQL das opções (coluna cd = valor passado ao relatório; ds = texto exibido). */
+  ds_sql?: string | null;
   dt_criacao?: string;
   dt_alteracao?: string;
   ds_usuario_criacao?: string;
   ds_usuario_alteracao?: string;
 }
+
+/** Tipo do parâmetro: Input (campo de texto) ou Dropdown (opções do SQL do parâmetro). */
+export type TipoParametro = "I" | "D";
+export const TIPOS_PARAMETRO: { value: TipoParametro; label: string }[] = [
+  { value: "I", label: "Input" },
+  { value: "D", label: "Dropdown" },
+];
 
 /* ── Banda ── */
 
@@ -382,6 +393,9 @@ export async function salvarParametroSql(parametro: ParametroSql): Promise<Param
     ie_perguntar: parametro.ie_perguntar === "S" ? "S" : "N",
     ie_obrigatorio: parametro.ie_obrigatorio === "S" ? "S" : "N",
     ie_status: parametro.ie_status === "I" ? "I" : "A",
+    ie_tipo: parametro.ie_tipo === "D" ? "D" : "I",
+    // SQL só no Dropdown.
+    ds_sql: parametro.ie_tipo === "D" ? (parametro.ds_sql ?? "") : null,
   };
   if (parametro.id) {
     const { registro } = await atualizarDado<ParametroSql>("relatorio_parametro", parametro.id, dados);
@@ -395,6 +409,15 @@ export async function excluirParametroSql(id: string): Promise<void> {
 }
 
 /* ── Geração ── */
+
+/** Opção de um parâmetro Dropdown: cd = valor passado ao relatório; ds = texto exibido. */
+export interface OpcaoParametro { cd: string; ds: string }
+
+/** Opções de um parâmetro Dropdown (executa no servidor o SQL do parâmetro). */
+export async function obterOpcoesParametro(nrRelatorio: number, nrParametro: number): Promise<OpcaoParametro[]> {
+  const { opcoes } = await api.post<{ opcoes: OpcaoParametro[] }>(`/api/relatorios/${nrRelatorio}/parametros/${nrParametro}/opcoes`, {});
+  return opcoes;
+}
 
 export interface DadosRelatorio {
   colunas: { nome: string; tipo: "numero" | "data" | "datahora" | "booleano" | "texto" }[];

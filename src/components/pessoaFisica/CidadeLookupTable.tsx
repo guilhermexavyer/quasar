@@ -2,7 +2,7 @@
 
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { MouseEvent as ReactMouseEvent } from "react";
-import { isValidOrder, prepararColunasSalvas, type ColunasConfig } from "@/lib/colunasUtils";
+import { isValidOrder, prepararColunasSalvas, type ColunasConfig, medirCabecalhoColuna, medirCelula } from "@/lib/colunasUtils";
 import type { Cidade } from "@/services/cidadeService";
 
 interface CidadeLookupTableProps {
@@ -45,36 +45,7 @@ export default function CidadeLookupTable({ cidades, onSelect, initialColumns, o
   const dropLineRef = useRef<HTMLDivElement | null>(null);
 
   function measureHeaderMinWidth(th: HTMLElement): number {
-    const clone = th.cloneNode(true) as HTMLElement;
-    clone.querySelector(".resizer-handle")?.remove();
-
-    const style = window.getComputedStyle(th);
-    clone.style.position = "absolute";
-    clone.style.left = "0";
-    clone.style.top = "0";
-    clone.style.visibility = "hidden";
-    clone.style.pointerEvents = "none";
-    clone.style.display = "inline-block";
-    clone.style.width = "auto";
-    clone.style.minWidth = "0";
-    clone.style.maxWidth = "none";
-    clone.style.whiteSpace = "nowrap";
-    clone.style.boxSizing = "border-box";
-    clone.style.paddingLeft = style.paddingLeft;
-    clone.style.paddingRight = style.paddingRight;
-    clone.style.borderLeftWidth = style.borderLeftWidth;
-    clone.style.borderRightWidth = style.borderRightWidth;
-    clone.style.marginLeft = style.marginLeft;
-    clone.style.marginRight = style.marginRight;
-
-    document.body.appendChild(clone);
-    const width = Math.ceil(
-      clone.getBoundingClientRect().width +
-        parseFloat(style.marginLeft || "0") +
-        parseFloat(style.marginRight || "0")
-    );
-    document.body.removeChild(clone);
-    return width;
+    return medirCabecalhoColuna(th);
   }
 
   function measureAllMinWidths() {
@@ -236,34 +207,13 @@ export default function CidadeLookupTable({ cidades, onSelect, initialColumns, o
     if (minWidthsRef.current.length === 0) measureAllMinWidths();
 
     const ths = freezeTableColumns(table);
-    const cells = table.querySelectorAll<HTMLElement>(
-      `tbody tr td:nth-child(${domIdx + 1})`
-    );
+    // Mesma medição do ajuste automático: clone medido dentro da própria linha da tabela.
+    const maxWidth = measureColumnContentWidth(table, domIdx);
 
-    let maxWidth = 0;
-    cells.forEach((cell) => {
-      const clone = cell.cloneNode(true) as HTMLElement;
-      clone.style.position = "absolute";
-      clone.style.left = "0";
-      clone.style.top = "0";
-      clone.style.visibility = "hidden";
-      clone.style.pointerEvents = "none";
-      clone.style.display = "inline-block";
-      clone.style.whiteSpace = "nowrap";
-      clone.style.width = "auto";
-      clone.style.maxWidth = "none";
-      clone.style.minWidth = "0";
-      clone.style.overflow = "visible";
-      clone.style.textOverflow = "clip";
-
-      document.body.appendChild(clone);
-      const width = clone.getBoundingClientRect().width;
-      document.body.removeChild(clone);
-
-      if (width > maxWidth) maxWidth = width;
-    });
-
-    const minW = minWidthsRef.current[logicalIdx] || 0;
+    // Cabeçalho medido na hora (nome + ícones de ordenação): o valor guardado pode ter sido
+    // medido antes de a fonte carregar e sair menor, cortando o nome com "...".
+    const minW = medirCabecalhoColuna(ths[domIdx]);
+    minWidthsRef.current[logicalIdx] = minW;
     const finalWidth = Math.max(minW, Math.ceil(maxWidth));
     const totalWidth = applyColumnWidth(table, ths, domIdx, finalWidth);
     setFrozenWidth(`${totalWidth}px`);
@@ -364,34 +314,11 @@ export default function CidadeLookupTable({ cidades, onSelect, initialColumns, o
   }
 
   function measureColumnContentWidth(table: HTMLTableElement, domIdx: number): number {
-    const cells = table.querySelectorAll<HTMLElement>(
-      `tbody tr td:nth-child(${domIdx + 1})`
-    );
-    let maxWidth = 0;
-
-    cells.forEach((cell) => {
-      const clone = cell.cloneNode(true) as HTMLElement;
-      clone.style.position = "absolute";
-      clone.style.left = "0";
-      clone.style.top = "0";
-      clone.style.visibility = "hidden";
-      clone.style.pointerEvents = "none";
-      clone.style.display = "inline-block";
-      clone.style.whiteSpace = "nowrap";
-      clone.style.width = "auto";
-      clone.style.maxWidth = "none";
-      clone.style.minWidth = "0";
-      clone.style.overflow = "visible";
-      clone.style.textOverflow = "clip";
-
-      document.body.appendChild(clone);
-      const width = clone.getBoundingClientRect().width;
-      document.body.removeChild(clone);
-
-      if (width > maxWidth) maxWidth = width;
+    let maior = 0;
+    table.querySelectorAll<HTMLElement>(`tbody tr td:nth-child(${domIdx + 1})`).forEach((td) => {
+      maior = Math.max(maior, medirCelula(td));
     });
-
-    return Math.ceil(maxWidth);
+    return maior;
   }
 
   function SortIcon({ column }: { column: number }) {

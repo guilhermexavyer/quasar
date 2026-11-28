@@ -21,7 +21,7 @@ interface PaginationState {
  */
 export function usePagination(totalRecords: number, idPersistencia?: string): PaginationState {
   const [localPage, setLocalPage] = useState(1);
-  const [localPageSize, setLocalPageSize] = useState<PageSize>(30);
+  const [localPageSize, setLocalPageSize] = useState<PageSize>(50);
   const persistida = usePaginacaoPersistida(idPersistencia ?? "");
   const persistir = idPersistencia !== undefined;
 
@@ -134,9 +134,9 @@ export default function PaginationFooter({
               value={String(pageSize)}
               onChange={(v) => onPageSizeChange(v === "all" ? "all" : Number(v))}
               options={[
-                { value: "30", label: "30 por página" },
                 { value: "50", label: "50 por página" },
                 { value: "100", label: "100 por página" },
+                { value: "200", label: "200 por página" },
                 { value: "all", label: "Todos" },
               ]}
               showPlaceholder={false}

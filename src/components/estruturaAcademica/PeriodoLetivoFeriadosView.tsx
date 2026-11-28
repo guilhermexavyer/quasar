@@ -19,6 +19,7 @@ import { elementoVisivel } from "@/lib/visibilidade";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 /** Campos editáveis do feriado (os demais são preenchidos pelo sistema). */
 type CampoFeriado = 'dt_feriado' | 'ds_feriado' | 'ie_tipo_feriado';
@@ -58,6 +59,11 @@ interface PeriodoLetivoFeriadosViewProps {
   /** Confirmação antes de excluir (modal padrão do sistema). */
   confirmar: (titulo: string, mensagem: string, acao: () => void) => void;
   colunas?: ConfigColunasTabela;
+  /**
+   * Período encerrado e parâmetro "Permitir feriados em período letivo encerrado" = Não:
+   * os feriados só podem ser consultados (Adicionar desabilitado; sem salvar ou excluir).
+   */
+  bloqueado?: boolean;
   /** Mantido pela assinatura (as abas seguem o tema pelo CSS). */
   darkMode?: boolean;
 }
@@ -92,6 +98,7 @@ export default function PeriodoLetivoFeriadosView({
   onSavingChange,
   confirmar,
   colunas,
+  bloqueado = false,
 }: PeriodoLetivoFeriadosViewProps) {
   const [feriados, setFeriados] = useState<PeriodoLetivoFeriado[]>([]);
   const [carregando, setCarregando] = useState(true);
@@ -185,6 +192,7 @@ export default function PeriodoLetivoFeriadosView({
   }
 
   function pedirExclusao(f: PeriodoLetivoFeriado) {
+    if (bloqueado) { onMessage('O período letivo está encerrado.'); return; }
     confirmar('Excluir registro', `Deseja mesmo excluir o feriado ${f.nr_sequencia ?? ''}?`, async () => {
       if (!f.id) return;
       try {
@@ -203,6 +211,7 @@ export default function PeriodoLetivoFeriadosView({
     const novoAposSalvar = novoAposSalvarRef.current;
     novoAposSalvarRef.current = false;
     if (!form || salvando) return;
+    if (bloqueado) { onMessage('O período letivo está encerrado.'); return; }
     const faltando = (['dt_feriado', 'ds_feriado', 'ie_tipo_feriado'] as CampoFeriado[])
       .filter((c) => statusDe(c) === 'O' && !String(form[c] ?? '').trim());
     setErros(faltando);
@@ -277,7 +286,8 @@ export default function PeriodoLetivoFeriadosView({
           <button
             type="button"
             onClick={novoFeriado}
-            className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2"
+            disabled={bloqueado}
+            className="inline-flex items-center rounded-[3px] border border-transparent bg-transparent px-4 py-2.5 text-sm font-normal text-[#066fc5] transition cursor-pointer focus-visible:outline focus-visible:outline-1 focus-visible:outline-[#066fc5] focus-visible:outline-offset-2 active:outline active:outline-1 active:outline-[#066fc5] active:outline-offset-2 disabled:cursor-default disabled:opacity-40 disabled:active:outline-none"
           >
             Adicionar
           </button>
@@ -445,7 +455,7 @@ export default function PeriodoLetivoFeriadosView({
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
             <div
-              className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+              ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
               style={{ left: menu.x, top: menu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}
             >
               <button type="button" className="w-full text-[0.8rem] text-[#222] hover:bg-[#eee] text-left bg-transparent cursor-pointer" style={{ padding: '0.2rem 0.4rem' }} onClick={() => { abrirFeriado(alvo); setMenu(null); }} hidden={menu.noVer}>Ver</button>

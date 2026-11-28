@@ -9,7 +9,10 @@ interface EstadoPaginacao {
   currentPage: number;
 }
 
-const PADRAO: EstadoPaginacao = { pageSize: 30, currentPage: 1 };
+/** Opções do dropdown do rodapé; um valor salvo fora delas (ex.: o antigo 30) volta ao padrão. */
+export const TAMANHOS_PAGINA: readonly TamanhoPagina[] = [50, 100, 200, "all"];
+
+const PADRAO: EstadoPaginacao = { pageSize: 50, currentPage: 1 };
 
 /** Chave do estado de paginação no sessionStorage (por aba) e no localStorage (ponto de partida de abas novas). */
 const STORAGE_KEY = "quasar_paginacao";
@@ -27,7 +30,7 @@ let store: Map<string, EstadoPaginacao> | null = null;
 function estadoValido(v: unknown): v is EstadoPaginacao {
   if (!v || typeof v !== "object") return false;
   const { pageSize, currentPage } = v as Partial<EstadoPaginacao>;
-  const tamanhoOk = pageSize === "all" || (typeof pageSize === "number" && Number.isInteger(pageSize) && pageSize > 0);
+  const tamanhoOk = pageSize !== undefined && TAMANHOS_PAGINA.includes(pageSize);
   return tamanhoOk && typeof currentPage === "number" && Number.isInteger(currentPage) && currentPage >= 1;
 }
 

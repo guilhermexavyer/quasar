@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import type { ContextMenuState } from "@/types/contextMenu";
+import { manterNaTela, manterSubmenuNaTela } from "@/lib/posicaoNaTela";
 
 interface ContextMenuItem {
   label: string;
@@ -64,6 +65,7 @@ function MenuButton({ item, onAction }: { item: ContextMenuItem; onAction: () =>
       </button>
       {hasChildren && open && (
         <div
+          ref={(el) => manterSubmenuNaTela(el)}
           className="absolute left-full top-0 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px] z-10"
           style={{ boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
         >
@@ -102,7 +104,7 @@ export default function ContextMenu({
 
   return (
     <div
-      className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+      ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
       style={{ left: x, top: y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
       onClick={(e) => e.stopPropagation()}
     >

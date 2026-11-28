@@ -2,8 +2,10 @@
  * SQL dos relatórios (Gerenciador de Relatórios > banda do relatório XLS).
  *
  * Parâmetros são escritos no SQL como `:nome` (ex.: `where nr_sequencia = :teste`).
- * Antes de executar, cada `:nome` vira um placeholder do PostgreSQL ($1, $2...; o mesmo
- * nome usa o mesmo número), e os valores vão separados do texto — nunca concatenados.
+ * Antes de executar, cada `:nome` vira um placeholder ($1, $2...; o mesmo nome usa o
+ * mesmo número) e, ao executar, o valor entra no lugar dele como texto literal escapado
+ * (sqlComValores), como o DBeaver faz: assim `:p is null or col = :p` funciona sem cast
+ * (com o valor separado do texto, o PostgreSQL recusa por não saber o tipo do parâmetro).
  *
  * A leitura ignora o que não é código: textos ('...', E'...', $tag$...$tag$), nomes entre
  * aspas duplas, comentários (-- e /* *\/) e conversões de tipo (::text).
@@ -16,6 +18,8 @@ export interface SqlPreparado {
   nomes: string[];
   /** Só o código (sem textos e comentários), para as verificações de segurança. */
   codigo: string;
+  /** Onde cada placeholder está em `texto` (início, fim e o número dele). */
+  posicoes: { inicio: number; fim: number; numero: number }[];
 }
 
 const INICIO_NOME = /[A-Za-z_]/;
@@ -31,6 +35,7 @@ export function prepararSql(sql: string): SqlPreparado {
   let codigo = "";
   const nomes: string[] = [];
   const indice = new Map<string, number>();
+  const posicoes: SqlPreparado["posicoes"] = [];
   let i = 0;
   const n = sql.length;
 
@@ -127,6 +132,7 @@ export function prepararSql(sql: string): SqlPreparado {
         pos = nomes.length;
         indice.set(nome, pos);
       }
+      posicoes.push({ inicio: texto.length, fim: texto.length + `$${pos}`.length, numero: pos });
       texto += `$${pos}`;
       codigo += `$${pos}`;
       i = j;
@@ -139,7 +145,39 @@ export function prepararSql(sql: string): SqlPreparado {
 
   // Sem ponto e vírgula no fim (uma consulta só).
   texto = texto.replace(/[\s;]+$/, "");
-  return { texto, nomes, codigo };
+  return { texto, nomes, codigo, posicoes };
+}
+
+/**
+ * Valor como literal SQL sem tipo definido (o PostgreSQL deduz o tipo pelo contexto, como
+ * no DBeaver): nulo vira NULL; o resto vira texto entre aspas, com aspas e barras
+ * escapadas do mesmo jeito que o escapeLiteral do driver pg. O caractere nulo, que o
+ * PostgreSQL não aceita em texto, é removido.
+ */
+export function literalSql(valor: unknown): string {
+  if (valor === null || valor === undefined) return "NULL";
+  let texto: string;
+  if (valor instanceof Date) texto = valor.toISOString();
+  else if (typeof valor === "object") texto = JSON.stringify(valor);
+  else texto = String(valor);
+  texto = texto.split(String.fromCharCode(0)).join("");
+  const barra = "\\";
+  const escapado = texto.split("'").join("''").split(barra).join(barra + barra);
+  return texto.includes(barra) ? `E'${escapado}'` : `'${escapado}'`;
+}
+
+/**
+ * SQL pronto para executar: cada placeholder ($n) recebe o valor do parâmetro como
+ * literal (literalSql). `valores[n - 1]` é o valor de $n.
+ */
+export function sqlComValores(preparado: SqlPreparado, valores: unknown[]): string {
+  let saida = "";
+  let ultimo = 0;
+  for (const { inicio, fim, numero } of preparado.posicoes) {
+    saida += preparado.texto.slice(ultimo, inicio) + literalSql(valores[numero - 1]);
+    ultimo = fim;
+  }
+  return saida + preparado.texto.slice(ultimo);
 }
 
 /** Nomes dos parâmetros (:nome) usados no SQL, na ordem em que aparecem. */

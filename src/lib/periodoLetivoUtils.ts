@@ -89,3 +89,26 @@ export function formatCellValue(key: keyof PeriodoLetivo, value: unknown): strin
       return stringValue;
   }
 }
+
+/** DD/MM/AAAA → AAAAMMDD (número), ou null se a data não for válida. */
+function dataNumero(valor: string | undefined): number | null {
+  const m = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec((valor ?? '').trim());
+  return m ? Number(m[3]) * 10000 + Number(m[2]) * 100 + Number(m[1]) : null;
+}
+
+/**
+ * Encerramento automático pela previsão de término (datas em DD/MM/AAAA).
+ * O "Reativar" prevalece sobre a previsão: um período reativado na data da
+ * previsão ou depois dela não é encerrado de novo automaticamente. Só volta a
+ * ser se a previsão for alterada para depois da reativação e essa data chegar.
+ */
+export function deveEncerrarPorPrevisao(
+  periodo: { ie_status?: unknown; dt_previsao_termino?: unknown; dt_reativacao?: unknown },
+  hojeNum: number
+): boolean {
+  if (periodo.ie_status === 'E') return false;
+  const previsao = dataNumero(String(periodo.dt_previsao_termino ?? ''));
+  if (previsao === null || previsao > hojeNum) return false;
+  const reativacao = dataNumero(String(periodo.dt_reativacao ?? ''));
+  return reativacao === null || reativacao < previsao;
+}

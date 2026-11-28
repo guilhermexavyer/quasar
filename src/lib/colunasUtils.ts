@@ -91,6 +91,46 @@ export const CSS_CABECALHO_SEQUENCIA =
   'th.th-seq { padding-right: 4px; } th.th-seq .header-content, th.th-seq .rt-header-content { padding-right: 0; }';
 
 /**
+ * Largura natural (px) de uma célula da tabela: um clone invisível, sem quebra de
+ * linha e sem limite de largura, é medido logo ao lado da original, dentro da
+ * própria linha. Assim herda a fonte da tabela (ex.: text-sm) e os demais estilos
+ * do contexto — medido solto no <body>, saía com a fonte da página (maior) e a
+ * coluna ficava mais larga que o texto. `ajustar` altera o clone antes de medir.
+ */
+export function medirCelula(celula: HTMLElement, ajustar?: (clone: HTMLElement) => void): number {
+  const clone = celula.cloneNode(true) as HTMLElement;
+  ajustar?.(clone);
+  Object.assign(clone.style, {
+    position: "absolute", left: "0", top: "0", visibility: "hidden", pointerEvents: "none",
+    display: "inline-block", whiteSpace: "nowrap", width: "max-content", minWidth: "0", maxWidth: "none",
+    overflow: "visible", textOverflow: "clip", boxSizing: "border-box",
+  });
+  celula.parentNode?.insertBefore(clone, celula.nextSibling);
+  const largura = clone.getBoundingClientRect().width;
+  clone.remove();
+  return Math.ceil(largura);
+}
+
+/**
+ * Largura mínima do cabeçalho: nome da coluna + ícones de ordenação (sem ficarem
+ * por cima do nome) + padding e borda; a alça de redimensionar não conta.
+ */
+export function medirCabecalhoColuna(th: HTMLElement): number {
+  return medirCelula(th, (clone) => {
+    clone.querySelectorAll(".resizer-handle, .rt-resizer-handle").forEach((el) => el.remove());
+  });
+}
+
+/** Maior largura natural entre as células da coluna (registros da página atual). */
+export function medirConteudoColuna(table: HTMLTableElement, domIdx: number): number {
+  let maior = 0;
+  table.querySelectorAll<HTMLElement>(`tbody tr td:nth-child(${domIdx + 1})`).forEach((td) => {
+    maior = Math.max(maior, medirCelula(td));
+  });
+  return maior;
+}
+
+/**
  * Largura do maior número da coluna # (th-seq) entre todos os registros (não
  * só os da página atual), medida com o estilo das células. A largura padrão do
  * # é a maior entre esta e a do cabeçalho. Retorna 0 para as demais colunas ou
@@ -109,25 +149,9 @@ export function larguraColunaSequencia(table: HTMLTableElement, domIdx: number, 
   }
   if (!maior) return 0;
 
-  const clone = td.cloneNode(true) as HTMLElement;
-  (clone.querySelector<HTMLElement>(".cell-content") ?? clone).textContent = maior;
-  clone.style.position = "absolute";
-  clone.style.left = "0";
-  clone.style.top = "0";
-  clone.style.visibility = "hidden";
-  clone.style.pointerEvents = "none";
-  clone.style.display = "inline-block";
-  clone.style.whiteSpace = "nowrap";
-  clone.style.width = "auto";
-  clone.style.maxWidth = "none";
-  clone.style.minWidth = "0";
-  clone.style.overflow = "visible";
-  clone.style.textOverflow = "clip";
-
-  document.body.appendChild(clone);
-  const width = clone.getBoundingClientRect().width;
-  document.body.removeChild(clone);
-  return Math.ceil(width);
+  return medirCelula(td, (clone) => {
+    (clone.querySelector<HTMLElement>(".cell-content, .rt-cell-content") ?? clone).textContent = maior;
+  });
 }
 
 /* ── String-key helpers (para ResizableTable com chaves de coluna) ── */

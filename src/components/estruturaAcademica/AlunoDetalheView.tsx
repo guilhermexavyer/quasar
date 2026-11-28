@@ -20,6 +20,7 @@ import { elementoVisivel } from "@/lib/visibilidade";
 import NavegacaoRegistros from "@/components/ui/NavegacaoRegistros";
 import AbasRegistros from "@/components/ui/AbasRegistros";
 import { useOrdenacaoPersistida } from "@/lib/ordenacaoPersistida";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 export type AlunoDetalheAba = 'responsaveis';
 type Aba = AlunoDetalheAba;
@@ -503,7 +504,7 @@ export default function AlunoDetalheView({
         return (
           <>
             <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
-            <div className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
+            <div ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[120px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]" style={{ left: menu.x, top: menu.y, boxShadow: '0 4px 10px rgba(0,0,0,0.18)' }}>
               {!menu.noVer && <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { abrirResponsavel(resp); setMenu(null); }}>Ver</button>}
               <button type="button" className={itemClasse} style={itemEstilo} onClick={() => { setMenu(null); pedirExclusao(resp); }}>Excluir</button>
             </div>

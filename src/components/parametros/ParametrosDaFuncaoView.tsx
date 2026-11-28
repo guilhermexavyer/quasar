@@ -22,6 +22,10 @@ import {
   COLECAO_PARAM_COR_PERIODO_LETIVO_ENCERRADO,
   COLECAO_PARAM_REDEFINIR_SENHA_PRIMEIRO_LOGIN,
   COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
+  COLECAO_PARAM_FERIADO_PERIODO_ENCERRADO,
+  COLECAO_PARAM_TURMA_PERIODO_ENCERRADO,
+  COLECAO_PARAM_TURMA_DISCIPLINA_PERIODO_ENCERRADO,
+  COLECAO_PARAM_COPIA_PERIODO_ENCERRADO,
   COLECAO_PARAM_MATRICULA_ALUNO,
   COLECAO_PARAM_MATRICULA_COLABORADOR,
   COLECAO_PARAM_TIPOS_ARQUIVO_COPIA,
@@ -175,6 +179,27 @@ export const PARAMETROS_ESTRUTURA_ACADEMICA: ParametroDef[] = [
     colecao: COLECAO_PARAM_ENCERRAMENTO_AUTOMATICO_PERIODO_LETIVO,
     tipo: "simNao",
   },
+  {
+    id: "feriado_periodo_letivo_encerrado",
+    dropdown: "Período letivo",
+    parametro: "Permitir feriados em período letivo encerrado",
+    colecao: COLECAO_PARAM_FERIADO_PERIODO_ENCERRADO,
+    tipo: "simNao",
+  },
+  {
+    id: "turma_periodo_letivo_encerrado",
+    dropdown: "Turmas",
+    parametro: "Permitir período letivo encerrado na turma",
+    colecao: COLECAO_PARAM_TURMA_PERIODO_ENCERRADO,
+    tipo: "simNao",
+  },
+  {
+    id: "turma_disciplina_periodo_letivo_encerrado",
+    dropdown: "Turmas x Disciplinas",
+    parametro: "Permitir turma com período letivo encerrado",
+    colecao: COLECAO_PARAM_TURMA_DISCIPLINA_PERIODO_ENCERRADO,
+    tipo: "simNao",
+  },
 ];
 
 /** Parâmetros de configuração da função Administração do Sistema. */
@@ -227,6 +252,13 @@ export const PARAMETROS_CONTROLE_COPIAS: ParametroDef[] = [
     dropdown: "Cópias",
     parametro: "'Data de recebimento' é automaticamente preenchido com a data atual",
     colecao: COLECAO_PARAM_DATA_RECEBIMENTO_AUTOMATICA,
+    tipo: "simNao",
+  },
+  {
+    id: "copia_periodo_letivo_encerrado",
+    dropdown: "Cópias",
+    parametro: "Permitir turma x disciplina com período letivo encerrado",
+    colecao: COLECAO_PARAM_COPIA_PERIODO_ENCERRADO,
     tipo: "simNao",
   },
   {

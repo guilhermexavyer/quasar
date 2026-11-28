@@ -44,6 +44,9 @@ import {
  *   - Linha: linha reta no meio da caixa (horizontal se Tamanho >= Altura; senão vertical);
  *   - Máscara (SQL e Parâmetro): Data, Data e hora, Hora, Número, Moeda, Porcentagem;
  *   - Quebrar linha: o texto quebra em linhas no Tamanho (largura), a partir do topo da caixa;
+ *     o Enter no texto (ex.: um campo de várias linhas) sempre quebra;
+ *   - Altura vazia: a caixa cresce até caber todas as linhas do texto; com Altura, o texto fica
+ *     dentro da caixa e o que passar dela é cortado (não invade outros elementos);
  *   - Padding (superior, inferior, esquerda, direita, em px): distância entre a borda da caixa
  *     e o texto (o Background e as bordas continuam na caixa inteira);
  *   - Detalhe com Exibir labels: Estilo, Cor e Background valem só para o label; os registros
@@ -296,42 +299,82 @@ const semEstilo = (elemento: ElementoBanda): ElementoBanda => ({ ...elemento, ie
  * com fonte, estilo, cor e alinhamento dentro da caixa menos o padding de cada lado.
  */
 function desenharElemento(doc: jsPDF, elemento: ElementoBanda, xBase: number, yBase: number, texto: string): void {
-  doc.setFont(FONTES_PDF[elemento.ie_fonte ?? ""] ?? "helvetica", estiloDaFonte(elemento.ie_estilo).fontStyle);
-  doc.setFontSize(tamanhoDaFonte(elemento));
-  const linhaMm = tamanhoDaFonte(elemento) * PT_PARA_MM * 1.4;
-  const padding = paddingDe(elemento);
+  const { padding, largura, altura, linhas } = medidasDoElemento(doc, elemento, texto);
   const x = xBase + pxParaMm(numero(elemento.qt_esquerda) ?? 0);
   const y = yBase + pxParaMm(numero(elemento.qt_topo) ?? 0);
-  const larguraPx = numero(elemento.qt_largura);
-  const largura = larguraPx ? pxParaMm(larguraPx) : doc.getTextWidth(texto) + padding.esquerda + padding.direita;
-  const alturaPx = numero(elemento.qt_altura);
-  const altura = alturaPx ? pxParaMm(alturaPx) : linhaMm + padding.superior + padding.inferior;
 
   if (elemento.cd_background) {
     doc.setFillColor(elemento.cd_background);
     doc.rect(x, y, largura, altura, "F");
   }
-  if (texto) {
-    desenharTexto(
-      doc, elemento, texto,
+  if (linhas.length > 0) {
+    const desenhar = () => desenharTexto(
+      doc, elemento, linhas,
       x + padding.esquerda, Math.max(0, largura - padding.esquerda - padding.direita),
       y + padding.superior, Math.max(0, altura - padding.superior - padding.inferior),
     );
+    if (numero(elemento.qt_altura)) {
+      // Com Altura, o texto fica na caixa do elemento: o que passar é cortado.
+      doc.saveGraphicsState();
+      doc.rect(x, y, largura, altura, null);
+      doc.clip();
+      doc.discardPath();
+      try {
+        desenhar();
+      } finally {
+        doc.restoreGraphicsState();
+      }
+    } else {
+      desenhar();
+    }
   }
   desenharBordas(doc, elemento, x, y, largura, altura);
 }
 
+/** Fonte, estilo e tamanho do elemento (antes de medir ou desenhar o texto). */
+function aplicarFonte(doc: jsPDF, elemento: ElementoBanda): void {
+  doc.setFont(FONTES_PDF[elemento.ie_fonte ?? ""] ?? "helvetica", estiloDaFonte(elemento.ie_estilo).fontStyle);
+  doc.setFontSize(tamanhoDaFonte(elemento));
+}
+
 /**
- * Texto do elemento na caixa. Uma linha: centralizada na Altura. Quebrar linha (ou texto com
- * várias linhas): as linhas que cabem no Tamanho (largura), a partir do topo da caixa.
+ * Caixa (mm) e linhas do texto do elemento. Linhas: Quebrar linha quebra no Tamanho (largura);
+ * o Enter sempre quebra. Sem Tamanho, a largura da maior linha; sem Altura, a altura de todas
+ * as linhas (vazio = uma linha), mais o padding.
  */
-function desenharTexto(doc: jsPDF, elemento: ElementoBanda, texto: string, x: number, largura: number, y: number, altura: number): void {
+function medidasDoElemento(doc: jsPDF, elemento: ElementoBanda, texto: string) {
+  aplicarFonte(doc, elemento);
+  const linhaMm = tamanhoDaFonte(elemento) * PT_PARA_MM * 1.4;
+  const padding = paddingDe(elemento);
+  const larguraPx = numero(elemento.qt_largura);
+  const largura = larguraPx
+    ? pxParaMm(larguraPx)
+    : Math.max(0, ...texto.split(/\r?\n/).map((l) => doc.getTextWidth(l))) + padding.esquerda + padding.direita;
+  const larguraTexto = Math.max(0, largura - padding.esquerda - padding.direita);
+  const linhas: string[] = !texto
+    ? []
+    : elemento.ie_quebrar_linha === "S" && larguraTexto > 0
+      ? doc.splitTextToSize(texto.replace(/\r\n?/g, "\n"), larguraTexto)
+      : texto.split(/\r?\n/);
+  const alturaPx = numero(elemento.qt_altura);
+  const altura = alturaPx ? pxParaMm(alturaPx) : Math.max(1, linhas.length) * linhaMm + padding.superior + padding.inferior;
+  return { padding, largura, altura, linhas };
+}
+
+/** Até onde (mm, a partir do topo da banda) o elemento desce com o texto dado: Topo + altura da caixa. */
+function fundoDoElementoMm(doc: jsPDF, elemento: ElementoBanda, texto: string): number {
+  if (elemento.ie_tipo === "imagem" || elemento.ie_tipo === "linha") return pxParaMm(alturaDosElementosPx([elemento]));
+  return pxParaMm(numero(elemento.qt_topo) ?? 0) + medidasDoElemento(doc, elemento, texto).altura;
+}
+
+/**
+ * Linhas do texto na caixa. Uma linha: centralizada na Altura. Várias linhas: uma embaixo da
+ * outra, a partir do topo da caixa.
+ */
+function desenharTexto(doc: jsPDF, elemento: ElementoBanda, linhas: string[], x: number, largura: number, y: number, altura: number): void {
   const alinhamento = elemento.ie_alinhamento === "centro" ? "center" : elemento.ie_alinhamento === "direita" ? "right" : "left";
   const xTexto = alinhamento === "center" ? x + largura / 2 : alinhamento === "right" ? x + largura : x;
   const linhaMm = tamanhoDaFonte(elemento) * PT_PARA_MM * 1.4;
-  const linhas: string[] = elemento.ie_quebrar_linha === "S" && largura > 0
-    ? doc.splitTextToSize(texto, largura)
-    : texto.split(/\r?\n/);
   const cor = elemento.cd_cor || "#000000";
   doc.setTextColor(cor);
   linhas.forEach((linha, i) => {
@@ -595,7 +638,8 @@ export function montarPdf(
    *     seguintes ficam coladas. Dentro do registro vale a diferença entre os Topos (ex.:
    *     nome no Topo 0 e CPF no Topo 20 = CPF 20 px abaixo do nome);
    *   - altura de cada linha: a Altura da banda; sem ela, o espaço que os elementos ocupam
-   *     (do menor Topo até o maior Topo + Altura);
+   *     naquela linha (do menor Topo até o maior Topo + Altura; elemento sem Altura cresce
+   *     com as linhas do texto, então cada registro pode ter uma altura);
    *   - Exibir labels: antes dos registros (e no topo de cada página nova da banda), uma
    *     linha com o Label de cada elemento;
    *   - Quebrar página por registro: cada registro começa numa página nova;
@@ -604,8 +648,17 @@ export function montarPdf(
   const desenharDetalhe = (b: BandaCompleta, dadosBanda: DadosRelatorio | undefined, nivel: number) => {
     const menorTopoPx = b.elementos.length === 0 ? 0 : Math.max(0, Math.min(...b.elementos.map((e) => numero(e.qt_topo) ?? 0)));
     const deslocamento = pxParaMm(menorTopoPx);
-    const altura = pxParaMm(numero(b.banda.qt_altura) ?? alturaDosElementosPx(b.elementos) - menorTopoPx);
-    if (altura <= 0) return;
+    const alturaFixaPx = numero(b.banda.qt_altura);
+    if (alturaFixaPx !== null && alturaFixaPx <= 0) return;
+    /** Altura (mm) de uma linha da banda: a Altura dela ou o espaço que os elementos ocupam com esses textos. */
+    const alturaDaLinha = (textoDe: (el: ElementoBanda) => string, estiloPadrao = false) => {
+      if (alturaFixaPx !== null) return pxParaMm(alturaFixaPx);
+      const fundo = b.elementos.reduce((max, original) => {
+        const el = estiloPadrao ? semEstilo(original) : original;
+        return Math.max(max, fundoDoElementoMm(doc, el, textoDe(original)));
+      }, 0);
+      return Math.max(0, fundo - deslocamento);
+    };
     /** Página em que a banda já recebeu o espaço do Topo. */
     let paginaComTopo = -1;
     const precisaTopo = () => doc.getCurrentPageInfo().pageNumber !== paginaComTopo;
@@ -625,7 +678,11 @@ export function montarPdf(
     const fundoDosLabels = b.banda.cd_background_label || undefined;
     // Registros (cor da banda): todos com a cor; sem ela, o Alternar background.
     const fundoDosRegistros = b.banda.cd_background_registro || undefined;
+    const alturaDosLabels = alturaDaLinha((el) => (el.ie_tipo === "imagem" || el.ie_tipo === "linha" ? "" : el.ds_label ?? ""));
+    const alturaDoRegistro = (linha: unknown[] | undefined) =>
+      alturaDaLinha((el) => (el.ie_tipo === "pagina" ? "Página 0 de 0" : textoDoElemento(el, dadosBanda, linha)), comLabels);
     const desenharLabels = () => {
+      const altura = alturaDosLabels;
       aplicarTopo();
       dentroDaBanda(y, altura, () => {
         if (fundoDosLabels) preencherLinha(y, altura, fundoDosLabels);
@@ -638,7 +695,7 @@ export function montarPdf(
       y += altura;
     };
     /** Quebra a página (se preciso) antes de um registro; na página nova, repete os labels. */
-    const quebrar = (forcar: boolean) => {
+    const quebrar = (forcar: boolean, altura: number) => {
       const naoCabe = y + altura + (precisaTopo() ? deslocamento : 0) > fimDoConteudo + 0.01 && y > layout.conteudo.y + 0.01;
       if (!forcar && !naoCabe) return;
       if (y > layout.conteudo.y + 0.01) novaPagina();
@@ -647,11 +704,12 @@ export function montarPdf(
 
     // A banda começa numa página nova quando cada registro tem a sua.
     if (novaPaginaPorRegistro && y > layout.conteudo.y + 0.01) novaPagina();
-    if (comLabels) { garantirEspaco(deslocamento + altura * 2); desenharLabels(); }
+    if (comLabels) { garantirEspaco(deslocamento + alturaDosLabels + alturaDoRegistro(linhas[0])); desenharLabels(); }
     const dependentes = nivel < 10 ? dependentesDe(b) : [];
     const total = semRegistros ? 1 : linhas.length;
     for (let i = 0; i < total; i++) {
-      quebrar(novaPaginaPorRegistro && i > 0);
+      const altura = alturaDoRegistro(linhas[i]);
+      quebrar(novaPaginaPorRegistro && i > 0, altura);
       aplicarTopo();
       desenharBandaFixa(b, y, altura, dadosBanda, linhas[i], deslocamento, {
         // Com labels, Estilo, Cor e Background são só do label; os registros ficam no padrão.

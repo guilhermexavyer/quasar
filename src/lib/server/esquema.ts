@@ -26,6 +26,8 @@ export const TABELAS_REGISTRO_UNICO = new Set([
   "copia_param_tipos_arquivo", "copia_param_cor_aguardando", "copia_param_cor_cancelado",
   "copia_param_cor_entregue", "copia_param_cor_impresso", "copia_param_data_recebimento_automatica",
   "copia_param_formato_papel_padrao", "copia_param_tipo_papel_padrao",
+  "periodo_letivo_param_feriado_encerrado", "turma_param_periodo_letivo_encerrado", "turma_disciplina_param_periodo_encerrado",
+  "copia_param_periodo_letivo_encerrado",
 ]);
 
 /** Tabelas acessíveis pelas rotas genéricas /api/dados/<colecao>. */

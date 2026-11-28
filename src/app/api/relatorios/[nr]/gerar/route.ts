@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
-import type { FieldDef, PoolClient } from "pg";
+import type { FieldDef, PoolClient, QueryArrayConfig } from "pg";
 import { pool, query } from "@/lib/db";
-import { bandasQueSaem, compararOrdemBanda, itemAtivo, nomeDoParametro, prepararSql, problemaDoSql, type SqlPreparado } from "@/lib/relatorioSql";
+import { bandasQueSaem, compararOrdemBanda, itemAtivo, nomeDoParametro, prepararSql, problemaDoSql, sqlComValores, type SqlPreparado } from "@/lib/relatorioSql";
 import { exigirPermissaoDaFuncao } from "@/lib/server/acesso";
 import { ErroValidacao, type Registro } from "@/lib/server/esquema";
 import { corpo, numeroDaUrl, rota } from "@/lib/server/http";
@@ -32,13 +32,15 @@ import { corpo, numeroDaUrl, rota } from "@/lib/server/http";
  *   - transação SOMENTE LEITURA desde o primeiro comando, sempre desfeita no fim;
  *   - papel quasar_relatorio (só SELECT; sem sessao nem usuario.ds_senha);
  *   - tempo máximo por consulta, limite de linhas (somando todas as bandas) e de execuções.
- * Parâmetros (:nome) viram $1, $2... com os valores separados do SQL.
+ * Parâmetros (:nome): o valor entra no lugar do :nome como texto literal escapado
+ * (relatorioSql.sqlComValores), como no DBeaver — o tipo é deduzido pelo contexto, então
+ * `:p is null or col = :p` funciona sem cast. A consulta vai pelo protocolo estendido
+ * (queryMode "extended"), que aceita um comando só.
  *
- * Relatório gerado mesmo sem SQL ou com SQL inválido (para testes): sem SQL, SQL barrado
- * pelas travas (que então nem é executado), erro de sintaxe, tabela ou coluna desconhecida
- * etc. deixam a banda vazia, sem aviso (cada consulta roda num savepoint, então o erro de
- * uma não derruba as outras). Parâmetro do SQL que não está cadastrado vai como nulo. Só o
- * tempo máximo, os limites e os parâmetros obrigatórios sem valor dão erro.
+ * Banda sem SQL (e sem SQL do relatório) sai vazia. SQL barrado pelas travas ou com erro
+ * (sintaxe, tabela ou coluna desconhecida, tipo de dado...) não gera o relatório: a
+ * mensagem diz a banda e o erro do PostgreSQL. Parâmetro do SQL que não está cadastrado
+ * vai como nulo.
  */
 
 const TEMPO_MAXIMO = "60s";
@@ -57,7 +59,8 @@ interface Dados {
   filhas?: Record<string, Dados>[];
 }
 
-interface Banda { nr: number; tipo: string | null; sql: string; superior: number | null }
+/** `origem`: como a banda aparece na mensagem de erro do SQL. */
+interface Banda { nr: number; tipo: string | null; sql: string; superior: number | null; origem: string }
 
 /** Tipo da coluna para a tela (pelo OID do tipo no PostgreSQL). */
 function tipoDaColuna(campo: FieldDef): TipoColuna {
@@ -110,7 +113,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     if (!itemAtivo(relatorios[0])) throw new ErroValidacao("O relatório está inativo.");
     const sqlCapa = String(relatorios[0].ds_sql ?? "");
     const { rows: linhasBanda } = await query<Registro>(
-      "select nr_sequencia, nr_ordem, ie_tipo, ds_sql, nr_seq_banda_superior, ie_status from relatorio_banda where nr_seq_relatorio = $1",
+      "select nr_sequencia, nr_ordem, ie_tipo, ds_banda, ds_sql, nr_seq_banda_superior, ie_status from relatorio_banda where nr_seq_relatorio = $1",
       [nrRelatorio]
     );
     // Ordem das bandas: a de menor Ordem primeiro; empate ou sem Ordem, pela Sequência.
@@ -122,6 +125,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       // Banda sem SQL próprio usa o SQL do relatório.
       sql: String(b.ds_sql ?? "").trim() ? String(b.ds_sql) : sqlCapa,
       superior: b.nr_seq_banda_superior == null ? null : Number(b.nr_seq_banda_superior),
+      origem: String(b.ds_sql ?? "").trim()
+        ? `da banda ${b.nr_sequencia}${String(b.ds_banda ?? "").trim() ? ` (${String(b.ds_banda).trim()})` : ""}`
+        : `do relatório (usado pela banda ${b.nr_sequencia})`,
     }));
     const { rows: parametros } = await query<Registro>(
       "select cd_atributo, ds_parametro, ds_label, vl_padrao, ie_perguntar, ie_obrigatorio from relatorio_parametro where nr_seq_relatorio = $1 and coalesce(ie_status, 'A') = 'A'",
@@ -143,12 +149,14 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       return valor === "" ? null : valor;
     }
 
-    /** SQL preparado de cada texto (null = vazio ou barrado pelas travas: não é executado). */
+    /** SQL preparado de cada texto (null = vazio: a banda sai vazia). Barrado pelas travas: erro. */
     const preparados = new Map<string, SqlPreparado | null>();
-    function preparar(sql: string): SqlPreparado | null {
+    function preparar(sql: string, origem: string): SqlPreparado | null {
       if (!preparados.has(sql)) {
         const preparado = sql.trim() ? prepararSql(sql) : null;
-        preparados.set(sql, preparado && !problemaDoSql(preparado) ? preparado : null);
+        const problema = preparado ? problemaDoSql(preparado) : null;
+        if (problema) throw new ErroValidacao(`SQL ${origem}: ${problema.replace("O SQL da banda", "O SQL")}`);
+        preparados.set(sql, preparado);
       }
       return preparados.get(sql) ?? null;
     }
@@ -156,9 +164,9 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
     let totalLinhas = 0;
     let execucoes = 0;
 
-    /** Executa o SQL (num savepoint: o erro de uma consulta deixa só ela vazia). */
-    async function executar(db: PoolClient, sql: string, contextos: Contexto[]): Promise<{ dados: Dados; brutas: unknown[][]; nomes: string[] }> {
-      const preparado = preparar(sql);
+    /** Executa o SQL. Erro do PostgreSQL: o relatório não é gerado e a mensagem diz a banda e o erro. */
+    async function executar(db: PoolClient, sql: string, contextos: Contexto[], origem: string): Promise<{ dados: Dados; brutas: unknown[][]; nomes: string[] }> {
+      const preparado = preparar(sql, origem);
       if (!preparado) return { dados: vazio(), brutas: [], nomes: [] };
       // Parâmetros: coluna da banda superior mais próxima com o nome; senão, o do relatório.
       const valores = preparado.nomes.map((nome) => {
@@ -169,18 +177,16 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (++execucoes > MAXIMO_EXECUCOES) {
         throw new ErroValidacao(`O relatório passou de ${MAXIMO_EXECUCOES.toLocaleString("pt-BR")} consultas (bandas dependentes rodam uma vez por registro da banda superior). Use parâmetros para filtrar.`);
       }
-      await db.query("savepoint banda");
       let resultado;
       try {
-        resultado = await db.query({ text: preparado.texto, values: valores, rowMode: "array" });
-        await db.query("release savepoint banda");
+        // Valores no lugar dos :nome (literais escapados); protocolo estendido = um comando só.
+        resultado = await db.query({ text: sqlComValores(preparado, valores), rowMode: "array", queryMode: "extended" } as QueryArrayConfig);
       } catch (e) {
         const codigo = erroDoSql(e);
         if (!codigo) throw e;
         if (codigo === "57014") throw new ErroValidacao("A consulta demorou demais e foi cancelada.");
-        // Sintaxe, tabela/coluna desconhecida, permissão, tipo de dado...: banda vazia.
-        await db.query("rollback to savepoint banda");
-        return { dados: vazio(), brutas: [], nomes: [] };
+        // Sintaxe, tabela/coluna desconhecida, permissão, tipo de dado...: mostra o erro.
+        throw new ErroValidacao(`O SQL ${origem} tem um erro: ${(e as Error).message}`);
       }
       totalLinhas += resultado.rows.length;
       if (totalLinhas > MAXIMO_LINHAS) {
@@ -208,7 +214,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
 
     /** Dados de uma banda Detalhe e, linha a linha, das dependentes dela. */
     async function gerarDetalhe(db: PoolClient, banda: Banda, contextos: Contexto[], nivel: number): Promise<Dados> {
-      const { dados: resultado, brutas, nomes } = await executar(db, banda.sql, contextos);
+      const { dados: resultado, brutas, nomes } = await executar(db, banda.sql, contextos, banda.origem);
       const filhas = dependentes.get(banda.nr) ?? [];
       if (filhas.length === 0 || nivel >= MAXIMO_NIVEIS) return resultado;
       resultado.filhas = [];
@@ -231,7 +237,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
       if (!modoPdf) {
         // XLS: a primeira banda Detalhe (menor Ordem; empate ou sem Ordem, menor Sequência). Sem banda, o SQL do relatório.
         const banda = detalhes[0];
-        const { dados: resultado } = await executar(db, banda ? banda.sql : sqlCapa, []);
+        const { dados: resultado } = await executar(db, banda ? banda.sql : sqlCapa, [], banda ? banda.origem : "do relatório");
         return NextResponse.json(resultado);
       }
 
@@ -242,7 +248,7 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
           if (banda.superior !== null && nrsDetalhe.has(banda.superior)) continue;
           saida[banda.nr] = await gerarDetalhe(db, banda, [], 0);
         } else {
-          saida[banda.nr] = (await executar(db, banda.sql, [])).dados;
+          saida[banda.nr] = (await executar(db, banda.sql, [], banda.origem)).dados;
         }
       }
       return NextResponse.json({ bandas: saida });

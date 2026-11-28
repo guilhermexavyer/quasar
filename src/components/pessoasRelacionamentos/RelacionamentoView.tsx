@@ -31,6 +31,7 @@ import {
 } from "@/lib/relacionamentoUtils";
 import { atualizarRelacionamento, criarRelacionamento, excluirRelacionamento } from "@/services/relacionamentoService";
 import type { Relacionamento } from "@/types/relacionamento";
+import { manterNaTela } from "@/lib/posicaoNaTela";
 
 /** Campos do formulário (os de controle são preenchidos pelo servidor). */
 interface FormRelacionamento {
@@ -570,7 +571,7 @@ export default function RelacionamentoView({
       <>
         <div className="fixed inset-0 z-40" onClick={() => setMenu(null)} onContextMenu={(e) => { e.preventDefault(); setMenu(null); }} />
         <div
-          className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
+          ref={(el) => manterNaTela(el)} className="fixed z-50 min-w-[160px] border border-slate-200 bg-white p-[3px] flex flex-col gap-[3px]"
           style={{ left: menu.x, top: menu.y, boxShadow: "0 4px 10px rgba(0,0,0,0.18)" }}
         >
           {!noVer && permissoes.ver && (
