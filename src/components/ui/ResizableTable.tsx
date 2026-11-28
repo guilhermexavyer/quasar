@@ -103,7 +103,8 @@ interface ResizableTableProps<T> {
   rowClassName?: (row: T) => string;
   /**
    * Linhas cujo duplo clique abre itens relacionados (ex.: bandas do relatório):
-   * ficam com cursor de mãozinha. Padrão: cursor de menu de contexto.
+   * ficam com cursor de mãozinha. Sem esta função, toda linha com duplo clique
+   * (onRowDoubleClick) tem a mãozinha; as demais, o cursor de menu de contexto.
    */
   rowPointer?: (row: T) => boolean;
   /**
@@ -518,7 +519,7 @@ export default function ResizableTable<T>({
               return (
                 <tr
                   key={rk}
-                  className={`group/linha ${rowPointer?.(row) ? "cursor-pointer" : "cursor-[context-menu]"} hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
+                  className={`group/linha ${(rowPointer ? rowPointer(row) : !!onRowDoubleClick) ? "cursor-pointer" : "cursor-[context-menu]"} hover:bg-[#eee] ${rowClassName ? rowClassName(row) : ""}`}
                   onClick={() => onRowClick?.(row)}
                   onDoubleClick={() => onRowDoubleClick?.(row)}
                   onContextMenu={(e) => {
